@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -307,15 +307,61 @@
               "max": 15,
               "step": 1,
               "access": "read"
+            },
+            {
+              "key": "chord_timescale",
+              "name": "Chord Timescale",
+              "type": "enum",
+              "options": [
+                "Free",
+                "1/16",
+                "1/8",
+                "1/4",
+                "1/2",
+                "1 Bar"
+              ],
+              "options_as_string": true
+            },
+            {
+              "key": "stability",
+              "name": "Stability",
+              "type": "enum",
+              "options": [
+                "Responsive",
+                "Balanced",
+                "Stable"
+              ],
+              "options_as_string": true
+            },
+            {
+              "key": "accidentals",
+              "name": "Accidentals",
+              "type": "enum",
+              "options": [
+                "Auto",
+                "Flats",
+                "Sharps"
+              ],
+              "options_as_string": true
+            },
+            {
+              "key": "map_target",
+              "name": "Map Target",
+              "type": "enum",
+              "options": [
+                "Chord",
+                "Scale"
+              ],
+              "options_as_string": true
             }
           ],
           "knobs": [
             "role",
-            "raw_event_count",
-            "raw_note_count",
-            "raw_last_note",
-            "raw_last_channel",
-            "raw_last_cable",
+            "mode",
+            "map_target",
+            "chord_timescale",
+            "stability",
+            "accidentals",
             "harmony",
             "confidence"
           ]
@@ -612,6 +658,52 @@
         "max": 15,
         "step": 1,
         "access": "read"
+      },
+      {
+        "key": "chord_timescale",
+        "name": "Chord Timescale",
+        "type": "enum",
+        "options": [
+          "Free",
+          "1/16",
+          "1/8",
+          "1/4",
+          "1/2",
+          "1 Bar"
+        ],
+        "options_as_string": true
+      },
+      {
+        "key": "stability",
+        "name": "Stability",
+        "type": "enum",
+        "options": [
+          "Responsive",
+          "Balanced",
+          "Stable"
+        ],
+        "options_as_string": true
+      },
+      {
+        "key": "accidentals",
+        "name": "Accidentals",
+        "type": "enum",
+        "options": [
+          "Auto",
+          "Flats",
+          "Sharps"
+        ],
+        "options_as_string": true
+      },
+      {
+        "key": "map_target",
+        "name": "Map Target",
+        "type": "enum",
+        "options": [
+          "Chord",
+          "Scale"
+        ],
+        "options_as_string": true
       }
     ]
   },
