@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -55,13 +55,140 @@
             "root_policy",
             "explicit_root",
             "transpose",
-            "window_ms",
-            "harmony",
-            "confidence"
+            "window_ms"
           ]
         }
       }
-    }
+    },
+    "chain_params": [
+      {
+        "key": "role",
+        "name": "Role",
+        "type": "enum",
+        "options": [
+          "Conductor",
+          "Follower",
+          "Off"
+        ],
+        "options_as_string": true
+      },
+      {
+        "key": "mode",
+        "name": "Follow Mode",
+        "type": "enum",
+        "options": [
+          "Transpose",
+          "Chord",
+          "Nearest"
+        ],
+        "options_as_string": true
+      },
+      {
+        "key": "root_policy",
+        "name": "Root Policy",
+        "type": "enum",
+        "options": [
+          "Explicit",
+          "Current Input Root",
+          "Auto-Infer"
+        ],
+        "options_as_string": true
+      },
+      {
+        "key": "explicit_root",
+        "name": "Explicit Root",
+        "type": "enum",
+        "options": [
+          "C",
+          "C#",
+          "D",
+          "Eb",
+          "E",
+          "F",
+          "F#",
+          "G",
+          "Ab",
+          "A",
+          "Bb",
+          "B"
+        ],
+        "options_as_string": true
+      },
+      {
+        "key": "transpose",
+        "name": "Transpose",
+        "type": "int",
+        "min": -24,
+        "max": 24,
+        "step": 1,
+        "default": 0
+      },
+      {
+        "key": "window_ms",
+        "name": "Inference Window",
+        "type": "int",
+        "min": 10,
+        "max": 500,
+        "step": 5,
+        "default": 70
+      },
+      {
+        "key": "harmony",
+        "name": "Harmony",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "detected_root",
+        "name": "Root",
+        "type": "enum",
+        "options": [
+          "C",
+          "C#",
+          "D",
+          "Eb",
+          "E",
+          "F",
+          "F#",
+          "G",
+          "Ab",
+          "A",
+          "Bb",
+          "B"
+        ],
+        "options_as_string": true,
+        "access": "read"
+      },
+      {
+        "key": "detected_bass",
+        "name": "Bass",
+        "type": "enum",
+        "options": [
+          "C",
+          "C#",
+          "D",
+          "Eb",
+          "E",
+          "F",
+          "F#",
+          "G",
+          "Ab",
+          "A",
+          "Bb",
+          "B"
+        ],
+        "options_as_string": true,
+        "access": "read"
+      },
+      {
+        "key": "confidence",
+        "name": "Confidence",
+        "type": "int",
+        "min": 0,
+        "max": 100,
+        "access": "read"
+      }
+    ]
   },
   "min_host_version": "1.2.0"
 }
