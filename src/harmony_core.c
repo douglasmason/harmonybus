@@ -20,14 +20,14 @@ const char *hb_pc_name(int pitch_class) {
 typedef struct { const char *suffix; uint16_t mask; int complexity; } chord_template_t;
 #define BIT(n) ((uint16_t)(1u << (n)))
 static const chord_template_t templates[] = {
-    {"",BIT(0)|BIT(4)|BIT(7),3},{"m",BIT(0)|BIT(3)|BIT(7),3},{"5",BIT(0)|BIT(7),2},
+    {"",BIT(0)|BIT(4)|BIT(7),3},{"min",BIT(0)|BIT(3)|BIT(7),3},{"5",BIT(0)|BIT(7),2},
     {"sus2",BIT(0)|BIT(2)|BIT(7),3},{"sus4",BIT(0)|BIT(5)|BIT(7),3},{"dim",BIT(0)|BIT(3)|BIT(6),3},
-    {"aug",BIT(0)|BIT(4)|BIT(8),3},{"6",BIT(0)|BIT(4)|BIT(7)|BIT(9),4},{"m6",BIT(0)|BIT(3)|BIT(7)|BIT(9),4},
-    {"maj7",BIT(0)|BIT(4)|BIT(7)|BIT(11),4},{"7",BIT(0)|BIT(4)|BIT(7)|BIT(10),4},{"m7",BIT(0)|BIT(3)|BIT(7)|BIT(10),4},
-    {"mMaj7",BIT(0)|BIT(3)|BIT(7)|BIT(11),4},{"m7b5",BIT(0)|BIT(3)|BIT(6)|BIT(10),4},{"dim7",BIT(0)|BIT(3)|BIT(6)|BIT(9),4},
-    {"add9",BIT(0)|BIT(2)|BIT(4)|BIT(7),4},{"madd9",BIT(0)|BIT(2)|BIT(3)|BIT(7),4},{"maj9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(11),5},
-    {"9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(10),5},{"m9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(10),5},
-    {"11",BIT(0)|BIT(2)|BIT(4)|BIT(5)|BIT(7)|BIT(10),6},{"m11",BIT(0)|BIT(2)|BIT(3)|BIT(5)|BIT(7)|BIT(10),6},
+    {"aug",BIT(0)|BIT(4)|BIT(8),3},{"6",BIT(0)|BIT(4)|BIT(7)|BIT(9),4},{"min6",BIT(0)|BIT(3)|BIT(7)|BIT(9),4},
+    {"maj7",BIT(0)|BIT(4)|BIT(7)|BIT(11),4},{"7",BIT(0)|BIT(4)|BIT(7)|BIT(10),4},{"min7",BIT(0)|BIT(3)|BIT(7)|BIT(10),4},
+    {"minMaj7",BIT(0)|BIT(3)|BIT(7)|BIT(11),4},{"min7b5",BIT(0)|BIT(3)|BIT(6)|BIT(10),4},{"dim7",BIT(0)|BIT(3)|BIT(6)|BIT(9),4},
+    {"add9",BIT(0)|BIT(2)|BIT(4)|BIT(7),4},{"minAdd9",BIT(0)|BIT(2)|BIT(3)|BIT(7),4},{"maj9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(11),5},
+    {"9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(10),5},{"min9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(10),5},
+    {"11",BIT(0)|BIT(2)|BIT(4)|BIT(5)|BIT(7)|BIT(10),6},{"min11",BIT(0)|BIT(2)|BIT(3)|BIT(5)|BIT(7)|BIT(10),6},
     {"13",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(9)|BIT(10),6}
 };
 static const int template_count=(int)(sizeof(templates)/sizeof(templates[0]));
