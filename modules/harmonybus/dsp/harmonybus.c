@@ -40,13 +40,13 @@ static const host_api_v1_t *g_host = 0;
 #define HB_MIDI_OUT_BYTES 80
 
 #define HB_MAX_INSTANCES 16
-typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int chord_timescale; int stability; int accidentals; } SharedBus;
+typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int chord_timescale; int stability; int accidentals; int auto_spell_sharps; int auto_spell_locked; } SharedBus;
 static SharedBus g_bus={0}; static int g_init=0;
 typedef struct { int used,role,mode,window_ms,dirty,frames_since_change; uint8_t active[128]; int mapped[128]; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; } Inst;
 static Inst g_pool[HB_MAX_INSTANCES];
 static int mod12(int value){value%=12;return value<0?value+12:value;}
 static int parse_i(const char *value,int fallback){char *end;long parsed;if(!value||!*value)return fallback;end=0;parsed=strtol(value,&end,10);return end==value?fallback:(int)parsed;}
-static void ensure_init(void){if(g_init)return;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;g_bus.chord_timescale=3;g_bus.stability=1;g_bus.accidentals=0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
+static void ensure_init(void){if(g_init)return;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;g_bus.chord_timescale=3;g_bus.stability=1;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
 static void bus_write(hb_harmony_t harmony){unsigned sequence=__atomic_load_n(&g_bus.seq,__ATOMIC_RELAXED);__atomic_store_n(&g_bus.seq,sequence+1,__ATOMIC_RELEASE);g_bus.harmony=harmony;__atomic_store_n(&g_bus.seq,sequence+2,__ATOMIC_RELEASE);}
 static hb_harmony_t bus_read(void){hb_harmony_t harmony;memset(&harmony,0,sizeof(harmony));for(int tries=0;tries<3;tries++){unsigned before=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE),after;if(before&1u)continue;harmony=g_bus.harmony;after=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);if(before==after&&!(after&1u))return harmony;}return harmony;}
 
@@ -160,6 +160,11 @@ static int hb_auto_prefers_flats(hb_harmony_t harmony){
     static const unsigned flat_minor=(1u<<2)|(1u<<7)|(1u<<0)|(1u<<5)|(1u<<10)|(1u<<3)|(1u<<8);
     unsigned bit=1u<<harmony.root_pc;return hb_harmony_is_minor(harmony)?((flat_minor&bit)!=0):((flat_major&bit)!=0);
 }
+static void hb_update_auto_spelling(hb_harmony_t harmony){
+    if(g_bus.accidentals!=0||g_bus.auto_spell_locked||!harmony.valid)return;
+    g_bus.auto_spell_sharps=hb_auto_prefers_flats(harmony)?0:1;
+    g_bus.auto_spell_locked=1;
+}
 static unsigned hb_accidental_sharp_mask(hb_harmony_t context){
     /* bits are pitch classes; only black keys matter */
     static const unsigned all_sharp=(1u<<1)|(1u<<3)|(1u<<6)|(1u<<8)|(1u<<10);
@@ -172,10 +177,7 @@ static unsigned hb_accidental_sharp_mask(hb_harmony_t context){
     if(g_bus.accidentals==3)return mode3;
     if(g_bus.accidentals==4)return mode4;
     if(g_bus.accidentals==5)return mode5;
-    if(g_bus.accidentals==6)return 0;
-    /* Auto: preserve the spelling family of the committed key instead of
-       re-deciding from every new chord. Flat-key contexts stay flat. */
-    return hb_auto_prefers_flats(context)?0:all_sharp;
+    if(g_bus.accidentals==6)return 0;\n    /* Auto is locked from the first committed harmonic context so later\n       chords inherit the same key-signature family. */\n    (void)context;return g_bus.auto_spell_sharps?all_sharp:0;
 }
 static const char *hb_pc_display(int pc,hb_harmony_t context){
     static const char *sharp[12]={"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
@@ -298,7 +300,7 @@ static const char CHAIN_PARAMS[]="["
 "{\\\"key\\\":\\\"detected_bass\\\",\\\"name\\\":\\\"Bass\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"C\\\",\\\"C#\\\",\\\"D\\\",\\\"Eb\\\",\\\"E\\\",\\\"F\\\",\\\"F#\\\",\\\"G\\\",\\\"Ab\\\",\\\"A\\\",\\\"Bb\\\",\\\"B\\\"],\\\"options_as_string\\\":true,\\\"access\\\":\\\"read\\\"},"
 "{\\\"key\\\":\\\"confidence\\\",\\\"name\\\":\\\"Confidence\\\",\\\"type\\\":\\\"int\\\",\\\"min\\\":0,\\\"max\\\":100,\\\"access\\\":\\\"read\\\"}"
 "]";
-static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;if(!strcmp(key,"role"))instance->role=enum_index(parameter,ROLE_OPTS,3,instance->role);else if(!strcmp(key,"mode"))instance->mode=enum_index(parameter,MODE_OPTS,3,instance->mode);else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals"))g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,instance->window_ms);if(parsed<10)parsed=10;if(parsed>500)parsed=500;instance->window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
+static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;if(!strcmp(key,"role"))instance->role=enum_index(parameter,ROLE_OPTS,3,instance->role);else if(!strcmp(key,"mode"))instance->mode=enum_index(parameter,MODE_OPTS,3,instance->mode);else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,instance->window_ms);if(parsed<10)parsed=10;if(parsed>500)parsed=500;instance->window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
 static void hb_restore_state(Inst *instance,const char *state){
     if(!instance||!state)return;
     int values[11];for(int i=0;i<11;i++)values[i]=-999;
