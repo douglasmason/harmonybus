@@ -131,12 +131,15 @@ static void hb_scan_raw_midi_out(Inst *instance) {
         if (is_on) instance->raw_note_on_count++;
         if (is_off) instance->raw_note_off_count++;
 
-        if (instance->role == 0) {
+        if (cable == 2 && instance->role == 0) {
             if (is_on) instance->active[data1] = 1;
             else instance->active[data1] = 0;
             instance->candidate_frames = 0;
             instance->dirty = 1;
             instance->frames_since_change = 0;
+        }
+        if (cable == 2 && instance->role == 1) {
+            hb_render_follower_event(instance,data1,data2,is_on,is_off,recv_channel);
         }
     }
 }
@@ -333,10 +336,16 @@ static const char CHAIN_PARAMS[]="["
 static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;if(!strcmp(key,"role"))instance->role=enum_index(parameter,ROLE_OPTS,3,instance->role);else if(!strcmp(key,"mode"))instance->mode=enum_index(parameter,MODE_OPTS,3,instance->mode);else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"render_channel")){int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,instance->window_ms);if(parsed<10)parsed=10;if(parsed>500)parsed=500;instance->window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
 static void hb_restore_state(Inst *instance,const char *state){
     if(!instance||!state)return;
-    int values[11];for(int i=0;i<11;i++)values[i]=-999;
-    if(sscanf(state,"hb1,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    int values[12];for(int i=0;i<12;i++)values[i]=-999;
+    int parsed=sscanf(state,"hb2,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
-        &values[6],&values[7],&values[8],&values[9],&values[10])!=11)return;
+        &values[6],&values[7],&values[8],&values[9],&values[10],&values[11]);
+    if(parsed!=12){
+        parsed=sscanf(state,"hb1,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+            &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
+            &values[6],&values[7],&values[8],&values[9],&values[10]);
+        if(parsed!=11)return;
+    }
     if(values[0]>=0&&values[0]<=2)instance->role=values[0];
     if(values[1]>=0&&values[1]<=2)instance->mode=values[1];
     if(values[2]>=0&&values[2]<=1)instance->map_target=values[2];
@@ -347,7 +356,8 @@ static void hb_restore_state(Inst *instance,const char *state){
     if(values[7]>=-24&&values[7]<=24)g_bus.global_transpose=values[7];
     if(values[8]>=0&&values[8]<=5)g_bus.chord_timescale=values[8];
     if(values[9]>=0&&values[9]<=2)g_bus.stability=values[9];
-    if(values[10]>=0&&values[10]<=6)g_bus.accidentals=values[10];if(parsed>=12&&values[11]>=-1&&values[11]<16)instance->render_channel=values[11];
+    if(values[10]>=0&&values[10]<=6)g_bus.accidentals=values[10];
+    if(parsed==12&&values[11]>=-1&&values[11]<16)instance->render_channel=values[11];
 }
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();if(!strcmp(key,"state"))return snprintf(buffer,(size_t)length,"hb2,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",instance->role,instance->mode,instance->map_target,instance->window_ms,g_bus.global_root_policy,g_bus.global_explicit_root,g_bus.global_input_root,g_bus.global_transpose,g_bus.chord_timescale,g_bus.stability,g_bus.accidentals,instance->render_channel);if(!strcmp(key,"role"))return snprintf(buffer,(size_t)length,"%s",ROLE_OPTS[instance->role]);if(!strcmp(key,"mode"))return snprintf(buffer,(size_t)length,"%s",MODE_OPTS[instance->mode]);if(!strcmp(key,"map_target"))return snprintf(buffer,(size_t)length,"%s",MAP_TARGET_OPTS[instance->map_target]);if(!strcmp(key,"render_channel"))return snprintf(buffer,(size_t)length,"%s",RENDER_CH_OPTS[instance->render_channel+1]);if(!strcmp(key,"chord_timescale"))return snprintf(buffer,(size_t)length,"%s",TIMESCALE_OPTS[g_bus.chord_timescale]);if(!strcmp(key,"stability"))return snprintf(buffer,(size_t)length,"%s",STABILITY_OPTS[g_bus.stability]);if(!strcmp(key,"accidentals"))return snprintf(buffer,(size_t)length,"%s",ACCIDENTAL_OPTS[g_bus.accidentals]);if(!strcmp(key,"root_policy"))return snprintf(buffer,(size_t)length,"%s",POLICY_OPTS[g_bus.global_root_policy]);if(!strcmp(key,"explicit_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_explicit_root]);if(!strcmp(key,"input_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_input_root]);if(!strcmp(key,"transpose"))return snprintf(buffer,(size_t)length,"%d",g_bus.global_transpose);if(!strcmp(key,"window_ms"))return snprintf(buffer,(size_t)length,"%d",instance->window_ms);if(!strcmp(key,"detected_root"))return snprintf(buffer,(size_t)length,"%s",harmony.valid?hb_pc_display(harmony.root_pc,harmony):"--");if(!strcmp(key,"detected_bass"))return snprintf(buffer,(size_t)length,"%s",harmony.valid?hb_pc_display(harmony.bass_pc,harmony):"--");if(!strcmp(key,"detected_quality"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.chord_index+1:0);if(!strcmp(key,"confidence"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.confidence:0);if(!strcmp(key,"resolved_root"))return snprintf(buffer,(size_t)length,"%d",reference_root(instance));if(!strcmp(key,"harmony"))return hb_format_harmony(buffer,length,harmony);if(!strcmp(key,"pitch_mask"))return snprintf(buffer,(size_t)length,"%u",(unsigned)harmony.pitch_mask);if(!strcmp(key,"rx_count"))return snprintf(buffer,(size_t)length,"%u",instance->rx_count);if(!strcmp(key,"note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_off_count);if(!strcmp(key,"last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"last_status"))return snprintf(buffer,(size_t)length,"%d",instance->last_status);if(!strcmp(key,"last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->last_velocity);if(!strcmp(key,"active_count"))return snprintf(buffer,(size_t)length,"%d",instance->active_count);if(!strcmp(key,"infer_note_count"))return snprintf(buffer,(size_t)length,"%d",instance->last_inferred_count);if(!strcmp(key,"bus_seq"))return snprintf(buffer,(size_t)length,"%u",__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE));if(!strcmp(key,"raw_event_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_event_count);if(!strcmp(key,"raw_note_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_count);if(!strcmp(key,"raw_note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_on_count);if(!strcmp(key,"raw_note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_off_count);if(!strcmp(key,"raw_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_note);if(!strcmp(key,"raw_last_status"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_status);if(!strcmp(key,"raw_last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_velocity);if(!strcmp(key,"raw_last_channel"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_channel);if(!strcmp(key,"raw_last_cable"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_cable);if(!strcmp(key,"render_count"))return snprintf(buffer,(size_t)length,"%u",instance->render_count);if(!strcmp(key,"render_fail_count"))return snprintf(buffer,(size_t)length,"%u",instance->render_fail_count);if(!strcmp(key,"render_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->render_last_note);if(!strcmp(key,"chain_params")){int size=(int)strlen(CHAIN_PARAMS);if(size>=length)return -1;memcpy(buffer,CHAIN_PARAMS,(size_t)size+1);return size;}return -1;}
 static midi_fx_api_v1_t API={MIDI_FX_API_VERSION,create_inst,destroy_inst,process,tick,set_param,get_param};
