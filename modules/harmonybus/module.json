@@ -1,0 +1,49 @@
+{
+  "id": "harmonybus",
+  "name": "Harmony Bus",
+  "abbrev": "HBus",
+  "version": "0.1.0",
+  "api_version": 2,
+  "description": "Conductor/follower harmonic transformation bus for Move clips",
+  "author": "Douglas Mason / OpenAI prototype",
+  "license": "MIT",
+  "dsp": "dsp.so",
+  "capabilities": {
+    "chainable": true,
+    "component_type": "midi_fx",
+    "midi_in": true,
+    "midi_out": true,
+    "ui_hierarchy": {
+      "levels": {
+        "root": {
+          "name": "Harmony Bus",
+          "params": [
+            {"key": "role"},
+            {"key": "mode"},
+            {"key": "root_policy"},
+            {"key": "explicit_root"},
+            {"key": "input_root"},
+            {"key": "transpose"},
+            {"key": "window_ms"},
+            {"key": "detected_root"},
+            {"key": "detected_quality"},
+            {"key": "detected_bass"},
+            {"key": "confidence"},
+            {"key": "resolved_root"}
+          ],
+          "knobs": [
+            "role",
+            "mode",
+            "root_policy",
+            "explicit_root",
+            "transpose",
+            "window_ms",
+            "detected_root",
+            "detected_quality"
+          ]
+        }
+      }
+    }
+  },
+  "min_host_version": "1.2.0"
+}
