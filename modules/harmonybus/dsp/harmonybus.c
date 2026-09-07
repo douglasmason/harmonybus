@@ -3,7 +3,8 @@
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
 typedef unsigned int uint32_t;
-extern int snprintf(char *, size_t, const char *, ...);\nextern int sscanf(const char *, const char *, ...);
+extern int snprintf(char *, size_t, const char *, ...);
+extern int sscanf(const char *, const char *, ...);
 extern void *memset(void *, int, size_t);
 extern void *memcpy(void *, const void *, size_t);
 extern size_t strlen(const char *);
@@ -43,7 +44,9 @@ static const host_api_v1_t *g_host = 0;
 typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int chord_timescale; int stability; int accidentals; int auto_spell_sharps; int auto_spell_locked; } SharedBus;
 static SharedBus g_bus={0}; static int g_init=0;
 typedef struct { int used,role,mode,window_ms,dirty,frames_since_change; uint8_t active[128]; int mapped[128]; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; unsigned render_count; unsigned render_fail_count; int render_last_note; } Inst;
-static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);\nstatic int reference_root(Inst *instance);\nstatic Inst g_pool[HB_MAX_INSTANCES];
+static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
+static int reference_root(Inst *instance);
+static Inst g_pool[HB_MAX_INSTANCES];
 static int mod12(int value){value%=12;return value<0?value+12:value;}
 static int parse_i(const char *value,int fallback){char *end;long parsed;if(!value||!*value)return fallback;end=0;parsed=strtol(value,&end,10);return end==value?fallback:(int)parsed;}
 static void ensure_init(void){if(g_init)return;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;g_bus.chord_timescale=3;g_bus.stability=1;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
@@ -200,7 +203,10 @@ static unsigned hb_accidental_sharp_mask(hb_harmony_t context){
     if(g_bus.accidentals==3)return mode3;
     if(g_bus.accidentals==4)return mode4;
     if(g_bus.accidentals==5)return mode5;
-    if(g_bus.accidentals==6)return 0;\n    /* Auto is locked from the first committed harmonic context so later\n       chords inherit the same key-signature family. */\n    (void)context;return g_bus.auto_spell_sharps?all_sharp:0;
+    if(g_bus.accidentals==6)return 0;
+    /* Auto is locked from the first committed harmonic context so later
+       chords inherit the same key-signature family. */
+    (void)context;return g_bus.auto_spell_sharps?all_sharp:0;
 }
 static const char *hb_pc_display(int pc,hb_harmony_t context){
     static const char *sharp[12]={"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
@@ -309,7 +315,8 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
     return 0;
 }
 
-static void hb_restore_state(Inst *instance,const char *state);\nstatic int enum_index(const char *value,const char *const *options,int count,int fallback){int parsed=parse_i(value,-999);if(parsed>=0&&parsed<count)return parsed;if(value)for(int index=0;index<count;index++)if(!strcmp(value,options[index]))return index;return fallback;}
+static void hb_restore_state(Inst *instance,const char *state);
+static int enum_index(const char *value,const char *const *options,int count,int fallback){int parsed=parse_i(value,-999);if(parsed>=0&&parsed<count)return parsed;if(value)for(int index=0;index<count;index++)if(!strcmp(value,options[index]))return index;return fallback;}
 static const char *ROLE_OPTS[]={"Conductor","Follower","Off"};static const char *RENDER_CH_OPTS[]={"Off","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *MODE_OPTS[]={"Transpose","Chord","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *MAP_TARGET_OPTS[]={"Chord","Scale"};static const char *TIMESCALE_OPTS[]={"Free","1/16","1/8","1/4","1/2","1 Bar"};static const char *STABILITY_OPTS[]={"Responsive","Balanced","Stable"};static const char *ACCIDENTAL_OPTS[]={"Auto","Sharps","C#D#F#G#Bb","C#EbF#G#Bb","C#EbF#AbBb","DbEbF#AbBb","Flats"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
 static const char CHAIN_PARAMS[]="["
 "{\\\"key\\\":\\\"role\\\",\\\"name\\\":\\\"Role\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Conductor\\\",\\\"Follower\\\",\\\"Off\\\"],\\\"options_as_string\\\":true},"
