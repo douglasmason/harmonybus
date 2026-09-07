@@ -1,0 +1,31 @@
+name: Build and publish Schwung module
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y clang lld file
+      - name: Build ARM64 module
+        run: bash scripts/build_harmonybus_move.sh
+      - name: Verify archive
+        run: |
+          gzip -t dist/harmonybus-module.tar.gz
+          tar -tzf dist/harmonybus-module.tar.gz
+          tar -tzf dist/harmonybus-module.tar.gz | grep -q '^harmonybus/module.json$'
+          tar -tzf dist/harmonybus-module.tar.gz | grep -q '^harmonybus/dsp.so$'
+      - name: Publish v0.1.0 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.0 >/dev/null 2>&1; then
+            gh release upload v0.1.0 dist/harmonybus-module.tar.gz --clobber
+          else
+            gh release create v0.1.0 dist/harmonybus-module.tar.gz --title "Harmony Bus v0.1.0" --notes "Experimental Schwung MIDI FX build for Ableton Move."
+          fi
