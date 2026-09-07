@@ -108,6 +108,7 @@ static void hb_scan_raw_midi_out(Inst *instance) {
         if (instance->role == 0) {
             if (is_on) instance->active[data1] = 1;
             else instance->active[data1] = 0;
+            instance->candidate_frames = 0;
             instance->dirty = 1;
             instance->frames_since_change = 0;
         }
@@ -181,32 +182,90 @@ static int reference_root(Inst *instance){if(g_bus.global_root_policy==0)return 
 static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];memset(instance,0,sizeof(*instance));instance->used=1;instance->role=1;instance->mode=HB_MAP_CHORD;instance->map_target=0;instance->window_ms=70;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;for(int note=0;note<128;note++)instance->mapped[note]=-1;return instance;}return 0;}
 static void destroy_inst(void *value){Inst *instance=(Inst*)value;if(instance)instance->used=0;}
 static int pass(const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){if(!input||length<1||length>3||max_output<1)return 0;memcpy(output[0],input,(size_t)length);lengths[0]=length;return 1;}
-static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;instance->rx_count++;instance->last_status=input[0];if(length>=2)instance->last_note=input[1]&0x7F;if(length>=3)instance->last_velocity=input[2];int status=input[0]&0xF0,is_on=(status==0x90&&length>=3&&input[2]>0),is_off=(status==0x80&&length>=3)||(status==0x90&&length>=3&&input[2]==0);if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note=input[1]&0x7F,mapped;if(is_on){instance->note_on_count++;instance->active_count++;}else if(is_off){instance->note_off_count++;if(instance->active_count>0)instance->active_count--;}if(instance->role==2)return pass(input,length,output,lengths,max_output);if(instance->role==0){if(is_on){instance->active[note]=1;mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=mapped;}else{instance->active[note]=0;mapped=instance->mapped[note];if(mapped<0)mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=-1;}instance->dirty=1;instance->frames_since_change=0;if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}if(is_on){instance->source_seen[note%12]=1;hb_harmony_t harmony=hb_mapping_target(bus_read(),instance->map_target);mapped=hb_map_note(note,reference_root(instance),harmony,(hb_map_mode_t)instance->mode);instance->mapped[note]=mapped;}else{mapped=instance->mapped[note];if(mapped<0)mapped=note;instance->mapped[note]=-1;}if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}
-static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int max_output){(void)output;(void)lengths;(void)max_output;Inst *instance=(Inst*)value;if(!instance)return 0;hb_scan_raw_midi_out(instance);if(instance->role!=0||!instance->dirty)return 0;instance->frames_since_change+=frames;int needed=(instance->window_ms*sample_rate)/1000;if(instance->frames_since_change<needed)return 0;uint8_t notes[128];int count=active_notes(instance,notes);instance->last_inferred_count=count;instance->committed_frames+=frames;
-if(count>0){
+static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;instance->rx_count++;instance->last_status=input[0];if(length>=2)instance->last_note=input[1]&0x7F;if(length>=3)instance->last_velocity=input[2];int status=input[0]&0xF0,is_on=(status==0x90&&length>=3&&input[2]>0),is_off=(status==0x80&&length>=3)||(status==0x90&&length>=3&&input[2]==0);if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note=input[1]&0x7F,mapped;if(is_on){instance->note_on_count++;instance->active_count++;}else if(is_off){instance->note_off_count++;if(instance->active_count>0)instance->active_count--;}if(instance->role==2)return pass(input,length,output,lengths,max_output);if(instance->role==0){if(is_on){instance->active[note]=1;mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=mapped;}else{instance->active[note]=0;mapped=instance->mapped[note];if(mapped<0)mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=-1;}instance->candidate_frames=0;instance->dirty=1;instance->frames_since_change=0;if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}if(is_on){instance->source_seen[note%12]=1;hb_harmony_t harmony=hb_mapping_target(bus_read(),instance->map_target);mapped=hb_map_note(note,reference_root(instance),harmony,(hb_map_mode_t)instance->mode);instance->mapped[note]=mapped;}else{mapped=instance->mapped[note];if(mapped<0)mapped=note;instance->mapped[note]=-1;}if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}
+static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int max_output){
+    (void)output;(void)lengths;(void)max_output;
+    Inst *instance=(Inst*)value;
+    if(!instance)return 0;
+    hb_scan_raw_midi_out(instance);
+    if(instance->role!=0)return 0;
+
+    /* Dwell time must advance continuously, not only on MIDI changes. */
+    instance->committed_frames+=frames;
+
+    /* A stable pending candidate keeps accumulating confirmation time even
+     * after the note-set has stopped changing. */
+    if(!instance->dirty && instance->candidate_frames>0 && instance->candidate_harmony.valid){
+        instance->candidate_frames+=frames;
+        int min_dwell=hb_timescale_frames(sample_rate);
+        int confirm=hb_confirm_frames(sample_rate);
+        if(instance->candidate_frames>=confirm && instance->committed_frames>=min_dwell){
+            bus_write(instance->candidate_harmony);
+            instance->committed_frames=0;
+            instance->candidate_frames=0;
+        }
+        return 0;
+    }
+
+    if(!instance->dirty)return 0;
+
+    instance->frames_since_change+=frames;
+    int needed=(instance->window_ms*sample_rate)/1000;
+    if(instance->frames_since_change<needed)return 0;
+
+    uint8_t notes[128];
+    int count=active_notes(instance,notes);
+    instance->last_inferred_count=count;
+    instance->dirty=0;
+
+    if(count<=0)return 0;
+
     hb_harmony_t candidate=hb_infer_harmony(notes,count);
     candidate=hb_transpose_harmony(candidate,g_bus.global_transpose);
     hb_harmony_t committed=bus_read();
     uint16_t current_mask=hb_active_mask(instance);
     int compatible_subset=committed.valid&&((current_mask&~committed.pitch_mask)==0);
+
     if(!committed.valid){
-        if(candidate.valid){bus_write(candidate);instance->committed_frames=0;instance->candidate_frames=0;instance->candidate_harmony=candidate;}
-    }else if(hb_same_harmony(candidate,committed)){
-        instance->candidate_frames=0;instance->candidate_harmony=candidate;
-    }else if(compatible_subset&&count<3){
+        if(candidate.valid){
+            bus_write(candidate);
+            instance->committed_frames=0;
+            instance->candidate_frames=0;
+            instance->candidate_harmony=candidate;
+        }
+        return 0;
+    }
+
+    if(hb_same_harmony(candidate,committed)){
         instance->candidate_frames=0;
-    }else if(candidate.valid){
-        if(hb_same_harmony(candidate,instance->candidate_harmony))instance->candidate_frames+=frames;
-        else{instance->candidate_harmony=candidate;instance->candidate_frames=frames;}
+        instance->candidate_harmony=candidate;
+        return 0;
+    }
+
+    /* Note releases are weak evidence. If what remains still fits inside the
+     * committed chord, hold it rather than reclassifying a partial voicing. */
+    if(compatible_subset&&count<3){
+        instance->candidate_frames=0;
+        return 0;
+    }
+
+    if(candidate.valid){
         int min_dwell=hb_timescale_frames(sample_rate);
-        int confirm=hb_confirm_frames(sample_rate);
         int overwhelming=(candidate.confidence>=90&&count>=3);
-        if(instance->candidate_frames>=confirm&&(instance->committed_frames>=min_dwell||overwhelming)){
-            bus_write(candidate);instance->committed_frames=0;instance->candidate_frames=0;
+        instance->candidate_harmony=candidate;
+        if(overwhelming && instance->committed_frames>=min_dwell/2){
+            bus_write(candidate);
+            instance->committed_frames=0;
+            instance->candidate_frames=0;
+        }else{
+            /* Confirmation continues on subsequent audio ticks while the
+             * observed note-set remains unchanged. */
+            instance->candidate_frames=frames;
         }
     }
+    return 0;
 }
-instance->dirty=0;return 0;}
+
 static int enum_index(const char *value,const char *const *options,int count,int fallback){int parsed=parse_i(value,-999);if(parsed>=0&&parsed<count)return parsed;if(value)for(int index=0;index<count;index++)if(!strcmp(value,options[index]))return index;return fallback;}
 static const char *ROLE_OPTS[]={"Conductor","Follower","Off"};static const char *MODE_OPTS[]={"Transpose","Chord","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *MAP_TARGET_OPTS[]={"Chord","Scale"};static const char *TIMESCALE_OPTS[]={"Free","1/16","1/8","1/4","1/2","1 Bar"};static const char *STABILITY_OPTS[]={"Responsive","Balanced","Stable"};static const char *ACCIDENTAL_OPTS[]={"Auto","Flats","Sharps"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
 static const char CHAIN_PARAMS[]="["
