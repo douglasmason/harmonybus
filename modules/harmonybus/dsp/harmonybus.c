@@ -45,7 +45,6 @@ typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpo
 static SharedBus g_bus={0}; static int g_init=0;
 typedef struct { int used,role,mode,window_ms,dirty,frames_since_change; uint8_t active[128]; int mapped[128]; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; unsigned render_count; unsigned render_fail_count; int render_last_note; } Inst;
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
-static int reference_root(Inst *instance);
 static Inst g_pool[HB_MAX_INSTANCES];
 static int mod12(int value){value%=12;return value<0?value+12:value;}
 static int parse_i(const char *value,int fallback){char *end;long parsed;if(!value||!*value)return fallback;end=0;parsed=strtol(value,&end,10);return end==value?fallback:(int)parsed;}
@@ -59,7 +58,8 @@ static void hb_render_follower_event(Inst *instance,int source_note,int velocity
     int mapped=source_note;
     if(is_on){
         hb_harmony_t harmony=hb_mapping_target(bus_read(),instance->map_target);
-        mapped=hb_map_note(source_note,reference_root(instance),harmony,(hb_map_mode_t)instance->mode);
+        int render_root=g_bus.global_root_policy==0?g_bus.global_explicit_root:(g_bus.global_root_policy==1?g_bus.global_input_root:source_note%12);
+        mapped=hb_map_note(source_note,render_root,harmony,(hb_map_mode_t)instance->mode);
         instance->mapped[source_note]=mapped;
     }else if(is_off){
         mapped=instance->mapped[source_note];
