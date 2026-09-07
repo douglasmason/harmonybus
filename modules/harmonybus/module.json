@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -226,17 +226,98 @@
               "max": 2147483647,
               "step": 1,
               "access": "read"
+            },
+            {
+              "key": "raw_event_count",
+              "name": "Raw Events",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_note_count",
+              "name": "Raw Notes",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_note_on_count",
+              "name": "Raw Note On",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_note_off_count",
+              "name": "Raw Note Off",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_last_note",
+              "name": "Raw Last Note",
+              "type": "int",
+              "min": -1,
+              "max": 127,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_last_status",
+              "name": "Raw Status",
+              "type": "int",
+              "min": -1,
+              "max": 255,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_last_velocity",
+              "name": "Raw Velocity",
+              "type": "int",
+              "min": -1,
+              "max": 127,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_last_channel",
+              "name": "Raw Channel",
+              "type": "int",
+              "min": -1,
+              "max": 15,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_last_cable",
+              "name": "Raw Cable",
+              "type": "int",
+              "min": -1,
+              "max": 15,
+              "step": 1,
+              "access": "read"
             }
           ],
           "knobs": [
             "role",
-            "mode",
-            "root_policy",
-            "explicit_root",
-            "rx_count",
-            "last_note",
-            "active_count",
-            "harmony"
+            "raw_event_count",
+            "raw_note_count",
+            "raw_last_note",
+            "raw_last_channel",
+            "raw_last_cable",
+            "harmony",
+            "confidence"
           ]
         }
       }
@@ -448,6 +529,87 @@
         "type": "int",
         "min": 0,
         "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_event_count",
+        "name": "Raw Events",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_note_count",
+        "name": "Raw Notes",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_note_on_count",
+        "name": "Raw Note On",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_note_off_count",
+        "name": "Raw Note Off",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_last_note",
+        "name": "Raw Last Note",
+        "type": "int",
+        "min": -1,
+        "max": 127,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_last_status",
+        "name": "Raw Status",
+        "type": "int",
+        "min": -1,
+        "max": 255,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_last_velocity",
+        "name": "Raw Velocity",
+        "type": "int",
+        "min": -1,
+        "max": 127,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_last_channel",
+        "name": "Raw Channel",
+        "type": "int",
+        "min": -1,
+        "max": 15,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_last_cable",
+        "name": "Raw Cable",
+        "type": "int",
+        "min": -1,
+        "max": 15,
         "step": 1,
         "access": "read"
       }
