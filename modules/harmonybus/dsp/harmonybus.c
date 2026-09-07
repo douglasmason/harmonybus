@@ -17,24 +17,111 @@ extern long strtol(const char *, char **, int);
 #endif
 #include "schwung_midi_api.h"
 #include "../../../src/harmony_core.h"
+
+struct host_api_v1 {
+    uint32_t api_version;
+    int sample_rate;
+    int frames_per_block;
+    uint8_t *mapped_memory;
+    int audio_out_offset;
+    int audio_in_offset;
+    void (*log)(const char *msg);
+    int (*midi_send_internal)(const uint8_t *msg, int len);
+    int (*midi_send_external)(const uint8_t *msg, int len);
+    int (*get_clock_status)(void);
+    void *mod_emit_value;
+    void *mod_clear_source;
+    void *mod_host_ctx;
+    float (*get_bpm)(void);
+    int (*midi_inject_to_move)(const uint8_t *msg, int len);
+    int (*slot_recv_channel)(void *instance);
+};
+static const host_api_v1_t *g_host = 0;
+#define HB_MIDI_OUT_BYTES 80
+
 #define HB_MAX_INSTANCES 16
 typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; } SharedBus;
 static SharedBus g_bus={0}; static int g_init=0;
-typedef struct { int used,role,mode,window_ms,dirty,frames_since_change; uint8_t active[128]; int mapped[128]; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; } Inst;
+typedef struct { int used,role,mode,window_ms,dirty,frames_since_change; uint8_t active[128]; int mapped[128]; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; } Inst;
 static Inst g_pool[HB_MAX_INSTANCES];
 static int mod12(int value){value%=12;return value<0?value+12:value;}
 static int parse_i(const char *value,int fallback){char *end;long parsed;if(!value||!*value)return fallback;end=0;parsed=strtol(value,&end,10);return end==value?fallback:(int)parsed;}
 static void ensure_init(void){if(g_init)return;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
 static void bus_write(hb_harmony_t harmony){unsigned sequence=__atomic_load_n(&g_bus.seq,__ATOMIC_RELAXED);__atomic_store_n(&g_bus.seq,sequence+1,__ATOMIC_RELEASE);g_bus.harmony=harmony;__atomic_store_n(&g_bus.seq,sequence+2,__ATOMIC_RELEASE);}
 static hb_harmony_t bus_read(void){hb_harmony_t harmony;memset(&harmony,0,sizeof(harmony));for(int tries=0;tries<3;tries++){unsigned before=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE),after;if(before&1u)continue;harmony=g_bus.harmony;after=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);if(before==after&&!(after&1u))return harmony;}return harmony;}
+
+static void hb_scan_raw_midi_out(Inst *instance) {
+    if (!instance || !g_host || !g_host->mapped_memory) return;
+    const uint8_t *raw = g_host->mapped_memory;
+    int recv_channel = -1;
+    if (g_host->slot_recv_channel) recv_channel = g_host->slot_recv_channel(instance);
+
+    for (int offset = 0; offset + 3 < HB_MIDI_OUT_BYTES; offset += 4) {
+        const uint8_t header = raw[offset];
+        const uint8_t status = raw[offset + 1];
+        const uint8_t data1 = raw[offset + 2];
+        const uint8_t data2 = raw[offset + 3];
+
+        if (header == 0 && status == 0 && data1 == 0 && data2 == 0) {
+            memset(instance->raw_prev + offset, 0, 4);
+            continue;
+        }
+
+        if (instance->raw_prev[offset] == header &&
+            instance->raw_prev[offset + 1] == status &&
+            instance->raw_prev[offset + 2] == data1 &&
+            instance->raw_prev[offset + 3] == data2) {
+            continue;
+        }
+
+        instance->raw_prev[offset] = header;
+        instance->raw_prev[offset + 1] = status;
+        instance->raw_prev[offset + 2] = data1;
+        instance->raw_prev[offset + 3] = data2;
+
+        const int cin = header & 0x0F;
+        const int cable = (header >> 4) & 0x0F;
+        const int type = status & 0xF0;
+        const int channel = status & 0x0F;
+
+        if (cin < 0x08 || cin > 0x0E) continue;
+        if (type < 0x80 || type > 0xE0) continue;
+
+        instance->raw_event_count++;
+        instance->raw_last_status = status;
+        instance->raw_last_channel = channel;
+        instance->raw_last_cable = cable;
+        instance->raw_last_velocity = data2;
+
+        if (type != 0x80 && type != 0x90) continue;
+        if (recv_channel >= 0 && channel != recv_channel) continue;
+
+        const int is_on = (type == 0x90 && data2 > 0);
+        const int is_off = (type == 0x80 || (type == 0x90 && data2 == 0));
+        if (!(is_on || is_off) || data1 > 127) continue;
+
+        instance->raw_note_count++;
+        instance->raw_last_note = data1;
+        if (is_on) instance->raw_note_on_count++;
+        if (is_off) instance->raw_note_off_count++;
+
+        if (instance->role == 0) {
+            if (is_on) instance->active[data1] = 1;
+            else instance->active[data1] = 0;
+            instance->dirty = 1;
+            instance->frames_since_change = 0;
+        }
+    }
+}
+
 static int active_notes(const Inst *instance,uint8_t *output){int count=0;for(int note=0;note<128;note++)if(instance->active[note])output[count++]=(uint8_t)note;return count;}
 static int infer_reference_root(Inst *instance){static const int major[7]={0,2,4,5,7,9,11};static const int minor[7]={0,2,3,5,7,8,10};int pitch_classes=0,best=-999,best_root=instance->resolved_root;for(int index=0;index<12;index++)pitch_classes+=instance->source_seen[index]?1:0;if(!pitch_classes)return instance->resolved_root;for(int root=0;root<12;root++)for(int scale=0;scale<2;scale++){int score=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(instance->source_seen[pitch_class]){int relative=mod12(pitch_class-root),inside=0;for(int degree=0;degree<7;degree++)if(relative==(scale?minor[degree]:major[degree])){inside=1;break;}score+=inside?5:-4;}if(instance->source_seen[root])score+=3;if(score>best){best=score;best_root=root;}}instance->resolved_confidence=pitch_classes>=4?80:(pitch_classes>=3?65:45);return best_root;}
 static int reference_root(Inst *instance){if(g_bus.global_root_policy==0)return mod12(g_bus.global_explicit_root);if(g_bus.global_root_policy==1)return mod12(g_bus.global_input_root);instance->resolved_root=infer_reference_root(instance);return mod12(instance->resolved_root);}
-static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];memset(instance,0,sizeof(*instance));instance->used=1;instance->role=1;instance->mode=HB_MAP_CHORD;instance->window_ms=70;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;for(int note=0;note<128;note++)instance->mapped[note]=-1;return instance;}return 0;}
+static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];memset(instance,0,sizeof(*instance));instance->used=1;instance->role=1;instance->mode=HB_MAP_CHORD;instance->window_ms=70;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;for(int note=0;note<128;note++)instance->mapped[note]=-1;return instance;}return 0;}
 static void destroy_inst(void *value){Inst *instance=(Inst*)value;if(instance)instance->used=0;}
 static int pass(const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){if(!input||length<1||length>3||max_output<1)return 0;memcpy(output[0],input,(size_t)length);lengths[0]=length;return 1;}
 static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;instance->rx_count++;instance->last_status=input[0];if(length>=2)instance->last_note=input[1]&0x7F;if(length>=3)instance->last_velocity=input[2];int status=input[0]&0xF0,is_on=(status==0x90&&length>=3&&input[2]>0),is_off=(status==0x80&&length>=3)||(status==0x90&&length>=3&&input[2]==0);if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note=input[1]&0x7F,mapped;if(is_on){instance->note_on_count++;instance->active_count++;}else if(is_off){instance->note_off_count++;if(instance->active_count>0)instance->active_count--;}if(instance->role==2)return pass(input,length,output,lengths,max_output);if(instance->role==0){if(is_on){instance->active[note]=1;mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=mapped;}else{instance->active[note]=0;mapped=instance->mapped[note];if(mapped<0)mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=-1;}instance->dirty=1;instance->frames_since_change=0;if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}if(is_on){instance->source_seen[note%12]=1;hb_harmony_t harmony=bus_read();mapped=hb_map_note(note,reference_root(instance),harmony,(hb_map_mode_t)instance->mode);instance->mapped[note]=mapped;}else{mapped=instance->mapped[note];if(mapped<0)mapped=note;instance->mapped[note]=-1;}if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}
-static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int max_output){(void)output;(void)lengths;(void)max_output;Inst *instance=(Inst*)value;if(!instance||instance->role!=0||!instance->dirty)return 0;instance->frames_since_change+=frames;int needed=(instance->window_ms*sample_rate)/1000;if(instance->frames_since_change<needed)return 0;uint8_t notes[128];int count=active_notes(instance,notes);instance->last_inferred_count=count;if(count>0){hb_harmony_t harmony=hb_infer_harmony(notes,count);harmony=hb_transpose_harmony(harmony,g_bus.global_transpose);bus_write(harmony);}instance->dirty=0;return 0;}
+static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int max_output){(void)output;(void)lengths;(void)max_output;Inst *instance=(Inst*)value;if(!instance)return 0;hb_scan_raw_midi_out(instance);if(instance->role!=0||!instance->dirty)return 0;instance->frames_since_change+=frames;int needed=(instance->window_ms*sample_rate)/1000;if(instance->frames_since_change<needed)return 0;uint8_t notes[128];int count=active_notes(instance,notes);instance->last_inferred_count=count;if(count>0){hb_harmony_t harmony=hb_infer_harmony(notes,count);harmony=hb_transpose_harmony(harmony,g_bus.global_transpose);bus_write(harmony);}instance->dirty=0;return 0;}
 static int enum_index(const char *value,const char *const *options,int count,int fallback){int parsed=parse_i(value,-999);if(parsed>=0&&parsed<count)return parsed;if(value)for(int index=0;index<count;index++)if(!strcmp(value,options[index]))return index;return fallback;}
 static const char *ROLE_OPTS[]={"Conductor","Follower","Off"};static const char *MODE_OPTS[]={"Transpose","Chord","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
 static const char CHAIN_PARAMS[]="["
@@ -50,6 +137,6 @@ static const char CHAIN_PARAMS[]="["
 "{\\\"key\\\":\\\"confidence\\\",\\\"name\\\":\\\"Confidence\\\",\\\"type\\\":\\\"int\\\",\\\"min\\\":0,\\\"max\\\":100,\\\"access\\\":\\\"read\\\"}"
 "]";
 static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;if(!strcmp(key,"role"))instance->role=enum_index(parameter,ROLE_OPTS,3,instance->role);else if(!strcmp(key,"mode"))instance->mode=enum_index(parameter,MODE_OPTS,3,instance->mode);else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,instance->window_ms);if(parsed<10)parsed=10;if(parsed>500)parsed=500;instance->window_ms=parsed;}}
-static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();if(!strcmp(key,"role"))return snprintf(buffer,(size_t)length,"%s",ROLE_OPTS[instance->role]);if(!strcmp(key,"mode"))return snprintf(buffer,(size_t)length,"%s",MODE_OPTS[instance->mode]);if(!strcmp(key,"root_policy"))return snprintf(buffer,(size_t)length,"%s",POLICY_OPTS[g_bus.global_root_policy]);if(!strcmp(key,"explicit_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_explicit_root]);if(!strcmp(key,"input_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_input_root]);if(!strcmp(key,"transpose"))return snprintf(buffer,(size_t)length,"%d",g_bus.global_transpose);if(!strcmp(key,"window_ms"))return snprintf(buffer,(size_t)length,"%d",instance->window_ms);if(!strcmp(key,"detected_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[harmony.valid?harmony.root_pc:0]);if(!strcmp(key,"detected_bass"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[harmony.valid?harmony.bass_pc:0]);if(!strcmp(key,"detected_quality"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.chord_index+1:0);if(!strcmp(key,"confidence"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.confidence:0);if(!strcmp(key,"resolved_root"))return snprintf(buffer,(size_t)length,"%d",reference_root(instance));if(!strcmp(key,"harmony"))return snprintf(buffer,(size_t)length,"%s",harmony.valid?harmony.name:"--");if(!strcmp(key,"pitch_mask"))return snprintf(buffer,(size_t)length,"%u",(unsigned)harmony.pitch_mask);if(!strcmp(key,"rx_count"))return snprintf(buffer,(size_t)length,"%u",instance->rx_count);if(!strcmp(key,"note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_off_count);if(!strcmp(key,"last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"last_status"))return snprintf(buffer,(size_t)length,"%d",instance->last_status);if(!strcmp(key,"last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->last_velocity);if(!strcmp(key,"active_count"))return snprintf(buffer,(size_t)length,"%d",instance->active_count);if(!strcmp(key,"infer_note_count"))return snprintf(buffer,(size_t)length,"%d",instance->last_inferred_count);if(!strcmp(key,"bus_seq"))return snprintf(buffer,(size_t)length,"%u",__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE));if(!strcmp(key,"chain_params")){int size=(int)strlen(CHAIN_PARAMS);if(size>=length)return -1;memcpy(buffer,CHAIN_PARAMS,(size_t)size+1);return size;}return -1;}
+static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();if(!strcmp(key,"role"))return snprintf(buffer,(size_t)length,"%s",ROLE_OPTS[instance->role]);if(!strcmp(key,"mode"))return snprintf(buffer,(size_t)length,"%s",MODE_OPTS[instance->mode]);if(!strcmp(key,"root_policy"))return snprintf(buffer,(size_t)length,"%s",POLICY_OPTS[g_bus.global_root_policy]);if(!strcmp(key,"explicit_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_explicit_root]);if(!strcmp(key,"input_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_input_root]);if(!strcmp(key,"transpose"))return snprintf(buffer,(size_t)length,"%d",g_bus.global_transpose);if(!strcmp(key,"window_ms"))return snprintf(buffer,(size_t)length,"%d",instance->window_ms);if(!strcmp(key,"detected_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[harmony.valid?harmony.root_pc:0]);if(!strcmp(key,"detected_bass"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[harmony.valid?harmony.bass_pc:0]);if(!strcmp(key,"detected_quality"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.chord_index+1:0);if(!strcmp(key,"confidence"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.confidence:0);if(!strcmp(key,"resolved_root"))return snprintf(buffer,(size_t)length,"%d",reference_root(instance));if(!strcmp(key,"harmony"))return snprintf(buffer,(size_t)length,"%s",harmony.valid?harmony.name:"--");if(!strcmp(key,"pitch_mask"))return snprintf(buffer,(size_t)length,"%u",(unsigned)harmony.pitch_mask);if(!strcmp(key,"rx_count"))return snprintf(buffer,(size_t)length,"%u",instance->rx_count);if(!strcmp(key,"note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_off_count);if(!strcmp(key,"last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"last_status"))return snprintf(buffer,(size_t)length,"%d",instance->last_status);if(!strcmp(key,"last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->last_velocity);if(!strcmp(key,"active_count"))return snprintf(buffer,(size_t)length,"%d",instance->active_count);if(!strcmp(key,"infer_note_count"))return snprintf(buffer,(size_t)length,"%d",instance->last_inferred_count);if(!strcmp(key,"bus_seq"))return snprintf(buffer,(size_t)length,"%u",__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE));if(!strcmp(key,"raw_event_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_event_count);if(!strcmp(key,"raw_note_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_count);if(!strcmp(key,"raw_note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_on_count);if(!strcmp(key,"raw_note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_off_count);if(!strcmp(key,"raw_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_note);if(!strcmp(key,"raw_last_status"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_status);if(!strcmp(key,"raw_last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_velocity);if(!strcmp(key,"raw_last_channel"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_channel);if(!strcmp(key,"raw_last_cable"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_cable);if(!strcmp(key,"chain_params")){int size=(int)strlen(CHAIN_PARAMS);if(size>=length)return -1;memcpy(buffer,CHAIN_PARAMS,(size_t)size+1);return size;}return -1;}
 static midi_fx_api_v1_t API={MIDI_FX_API_VERSION,create_inst,destroy_inst,process,tick,set_param,get_param};
-midi_fx_api_v1_t *move_midi_fx_init(const host_api_v1_t *host){(void)host;ensure_init();return &API;}
+midi_fx_api_v1_t *move_midi_fx_init(const host_api_v1_t *host){g_host=host;ensure_init();return &API;}
