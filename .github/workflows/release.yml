@@ -20,12 +20,12 @@ jobs:
           tar -tzf dist/harmonybus-module.tar.gz
           tar -tzf dist/harmonybus-module.tar.gz | grep -q '^harmonybus/module.json$'
           tar -tzf dist/harmonybus-module.tar.gz | grep -q '^harmonybus/dsp.so$'
-      - name: Publish v0.1.9 release
+      - name: Publish v0.1.10 release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.1.9 >/dev/null 2>&1; then
-            gh release upload v0.1.9 dist/harmonybus-module.tar.gz --clobber
+          if gh release view v0.1.10 >/dev/null 2>&1; then
+            gh release upload v0.1.10 dist/harmonybus-module.tar.gz --clobber
           else
-            gh release create v0.1.9 dist/harmonybus-module.tar.gz --title "Harmony Bus v0.1.9" --notes "Experimental Schwung MIDI FX build for Ableton Move."
+            gh release create v0.1.10 dist/harmonybus-module.tar.gz --title "Harmony Bus v0.1.10" --notes "Experimental Schwung MIDI FX build for Ableton Move."
           fi
