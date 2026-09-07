@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -145,6 +145,87 @@
               "max": 100,
               "step": 1,
               "access": "read"
+            },
+            {
+              "key": "rx_count",
+              "name": "RX Count",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "note_on_count",
+              "name": "Note On Count",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "note_off_count",
+              "name": "Note Off Count",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "last_note",
+              "name": "Last Note",
+              "type": "int",
+              "min": -1,
+              "max": 127,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "last_status",
+              "name": "Last Status",
+              "type": "int",
+              "min": -1,
+              "max": 255,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "last_velocity",
+              "name": "Last Velocity",
+              "type": "int",
+              "min": -1,
+              "max": 127,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "active_count",
+              "name": "Active Notes",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "infer_note_count",
+              "name": "Inference Notes",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "bus_seq",
+              "name": "Bus Seq",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
             }
           ],
           "knobs": [
@@ -152,8 +233,10 @@
             "mode",
             "root_policy",
             "explicit_root",
-            "transpose",
-            "window_ms"
+            "rx_count",
+            "last_note",
+            "active_count",
+            "harmony"
           ]
         }
       }
@@ -284,6 +367,87 @@
         "type": "int",
         "min": 0,
         "max": 100,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "rx_count",
+        "name": "RX Count",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "note_on_count",
+        "name": "Note On Count",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "note_off_count",
+        "name": "Note Off Count",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "last_note",
+        "name": "Last Note",
+        "type": "int",
+        "min": -1,
+        "max": 127,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "last_status",
+        "name": "Last Status",
+        "type": "int",
+        "min": -1,
+        "max": 255,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "last_velocity",
+        "name": "Last Velocity",
+        "type": "int",
+        "min": -1,
+        "max": 127,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "active_count",
+        "name": "Active Notes",
+        "type": "int",
+        "min": 0,
+        "max": 128,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "infer_note_count",
+        "name": "Inference Notes",
+        "type": "int",
+        "min": 0,
+        "max": 128,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "bus_seq",
+        "name": "Bus Seq",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
         "step": 1,
         "access": "read"
       }
