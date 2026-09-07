@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -339,8 +339,12 @@
               "type": "enum",
               "options": [
                 "Auto",
-                "Flats",
-                "Sharps"
+                "Sharps",
+                "C#D#F#G#Bb",
+                "C#EbF#G#Bb",
+                "C#EbF#AbBb",
+                "DbEbF#AbBb",
+                "Flats"
               ],
               "options_as_string": true
             },
@@ -690,8 +694,12 @@
         "type": "enum",
         "options": [
           "Auto",
-          "Flats",
-          "Sharps"
+          "Sharps",
+          "C#D#F#G#Bb",
+          "C#EbF#G#Bb",
+          "C#EbF#AbBb",
+          "DbEbF#AbBb",
+          "Flats"
         ],
         "options_as_string": true
       },
