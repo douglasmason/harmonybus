@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.97",
-  "abbrev": "HB197",
-  "version": "0.1.97",
+  "name": "Harmony Bus 0.1.98",
+  "abbrev": "HB198",
+  "version": "0.1.98",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.97 — true global follower root and track-local candidate",
+  "description": "Harmony Bus v0.1.98 — correct per-track note ownership and global follower root",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.97",
+          "name": "Harmony Bus 0.1.98",
           "params": [
             {
               "key": "role",
@@ -120,7 +120,7 @@
             },
             {
               "level": "conductor_this",
-              "label": "Cond Track"
+              "label": "Cond Trk"
             },
             {
               "level": "conductor_all",
@@ -128,7 +128,7 @@
             },
             {
               "level": "follower_this",
-              "label": "Foll Track"
+              "label": "Foll Trk"
             },
             {
               "level": "follower_all",
@@ -829,7 +829,7 @@
           ]
         },
         "conductor_this": {
-          "name": "Cond Track",
+          "name": "Cond Trk",
           "params": [
             {
               "key": "conductor_this_1",
@@ -933,7 +933,7 @@
           ]
         },
         "follower_this": {
-          "name": "Foll Track",
+          "name": "Foll Trk",
           "params": [
             {
               "key": "follower_this_1",
