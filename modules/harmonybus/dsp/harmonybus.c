@@ -1,5 +1,5 @@
-/* Harmony Bus v0.1.87 — Schwung MIDI FX. */
-#define HB_VERSION "0.1.87"
+/* Harmony Bus v0.1.88 — Schwung MIDI FX. */
+#define HB_VERSION "0.1.88"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1278,5 +1278,21 @@ if(!strcmp(key,"diag_global_last_note"))return snprintf(buffer,(size_t)length,"%
 if(!strcmp(key,"diag_global_last_ch"))return snprintf(buffer,(size_t)length,"%d",g_bus.global_last_channel>=0?g_bus.global_last_channel+1:-1);
 if(!strcmp(key,"diag_global_last_inst"))return snprintf(buffer,(size_t)length,"%d",g_bus.global_last_instance>=0?g_bus.global_last_instance+1:-1);
 if(!strcmp(key,"trace_1"))return hb_format_trace_event(instance,0,buffer,length);if(!strcmp(key,"trace_2"))return hb_format_trace_event(instance,1,buffer,length);if(!strcmp(key,"trace_3"))return hb_format_trace_event(instance,2,buffer,length);if(!strcmp(key,"trace_4"))return hb_format_trace_event(instance,3,buffer,length);if(!strcmp(key,"trace_5"))return hb_format_trace_event(instance,4,buffer,length);if(!strcmp(key,"trace_6"))return hb_format_trace_event(instance,5,buffer,length);if(!strcmp(key,"trace_7"))return hb_format_trace_event(instance,6,buffer,length);if(!strcmp(key,"trace_8"))return hb_format_trace_event(instance,7,buffer,length);if(!strcmp(key,"trace_note_ons"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"trace_note_offs"))return snprintf(buffer,(size_t)length,"%u",instance->note_off_count);if(!strcmp(key,"chain_params")){int size=(int)strlen(CHAIN_PARAMS);if(size>=length)return -1;memcpy(buffer,CHAIN_PARAMS,(size_t)size+1);return size;}return -1;}
+__attribute__((visibility("default")))
+int move_midi_fx_process_with_source(void *value,
+                                     const uint8_t *input,int length,int source,
+                                     uint8_t output[][3],int lengths[],int max_output){
+    /* Schwung source IDs: 0=INTERNAL surface/control stream, 2=EXTERNAL
+       MIDI_OUT cable-2 feed carrying the notes Move actually plays,
+       3=HOST-generated events. Only cable-2 note events are musical sensing
+       input. Realtime transport is still allowed through so Stop can panic-clear. */
+    if(!value||!input||length<1)return 0;
+    int status=input[0]&0xF0;
+    int is_note=(length>=3&&(status==0x80||status==0x90));
+    if(is_note&&source!=2){
+        return pass(input,length,output,lengths,max_output);
+    }
+    return process(value,input,length,output,lengths,max_output);
+}
 static midi_fx_api_v1_t API={MIDI_FX_API_VERSION,create_inst,destroy_inst,process,tick,set_param,get_param};
 midi_fx_api_v1_t *move_midi_fx_init(const host_api_v1_t *host){g_host=host;ensure_init();return &API;}
