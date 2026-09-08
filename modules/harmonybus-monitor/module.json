@@ -1,0 +1,21 @@
+{
+  "id": "harmonybus-monitor",
+  "name": "HarmonyBus Monitor",
+  "abbrev": "HBMon",
+  "version": "0.1.89",
+  "description": "Source-aware cable-2 note monitor companion for HarmonyBus.",
+  "author": "Douglas Mason",
+  "license": "MIT",
+  "ui": "ui.js",
+  "api_version": 2,
+  "component_type": "tool",
+  "capabilities": {
+    "component_type": "tool",
+    "midi_in": true,
+    "suspend_keeps_js": true
+  },
+  "tool_config": {
+    "interactive": true,
+    "skip_file_browser": true
+  }
+}
