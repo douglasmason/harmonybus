@@ -49,9 +49,19 @@ diff --git a/src/modules/chain/dsp/chain_midi.c b/src/modules/chain/dsp/chain_mi
 -                                              room);
 +            int out_count;
 +            if (inst->midi_fx_process_with_source[fx]) {
++                /* Keep the Schwung source ID in the low byte and tag the
++                 * parent Chain recv channel in bits 8..12. This gives the
++                 * MIDI-FX stable per-track identity without changing ABI. */
++                int source_with_track = source & 0xFF;
++                if (inst->host && inst->host->slot_recv_channel) {
++                    int recv_channel = inst->host->slot_recv_channel((void *)inst);
++                    if (recv_channel >= 0 && recv_channel < 16) {
++                        source_with_track |= (recv_channel + 1) << 8;
++                    }
++                }
 +                out_count = inst->midi_fx_process_with_source[fx](
 +                    fx_inst,
-+                    current[m], current_lens[m], source,
++                    current[m], current_lens[m], source_with_track,
 +                    &next[next_count], &next_lens[next_count],
 +                    room);
 +            } else {
