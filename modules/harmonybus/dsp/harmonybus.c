@@ -1,5 +1,5 @@
-/* Harmony Bus v0.1.78 — Schwung MIDI FX. */
-#define HB_VERSION "0.1.78"
+/* Harmony Bus v0.1.79 — Schwung MIDI FX. */
+#define HB_VERSION "0.1.79"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -63,7 +63,7 @@ typedef struct {
 } hb_clip_note_t;
 typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int sensor_sources; int chord_timescale; int stability; int chord_timing; int context; int accidentals; int auto_spell_sharps; int auto_spell_locked; int clip_track; int clip_slot; int clip_valid; int clip_note_count; int clip_stage; int clip_context; int last_clock_status; double clip_loop_start; double clip_loop_end; unsigned long clip_clock_ticks; unsigned clip_refresh_counter; double last_clip_playhead; int have_last_clip_playhead; unsigned cache_rev; unsigned sense_rev; int last_sense_count; uint8_t last_sense_notes[64]; hb_clip_note_t clip_notes[HB_MAX_CLIP_NOTES]; } SharedBus;
 static SharedBus g_bus={0}; static int g_init=0;
-typedef struct { int used,role,mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; hb_harmony_t follower_source_harmony; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; } Inst;
+typedef struct { int used,role,mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; hb_harmony_t follower_source_harmony; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; } Inst;
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
 static int reference_root(Inst *instance);
 static int hb_nth_held_note(const Inst *instance,int ordinal);
@@ -910,6 +910,16 @@ if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;outp
 static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int max_output){
     Inst *instance=(Inst*)value;
     if(!instance)return 0;
+    if(g_host&&g_host->get_clock_status){
+        int clock_status=g_host->get_clock_status();
+        int is_playing=(clock_status==1);
+        if(instance->last_transport_playing&&!is_playing){
+            /* Pause/stop is a safe one-way boundary: bias toward extra note-offs
+               by clearing all held state rather than allowing stuck notes. */
+            hb_clear_instance_note_state(instance);
+        }
+        instance->last_transport_playing=is_playing;
+    }
     if(instance->role==1){
         return hb_reharmonize_held_follower(instance,output,lengths,max_output);
     }
