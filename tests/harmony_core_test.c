@@ -39,7 +39,118 @@ static void expect_pitch_class_in_mask(const char *label, uint16_t mask, int pit
     }
 }
 
+static void transpose_notes(const uint8_t *source, int count, int semitones, uint8_t *output) {
+    for (int index = 0; index < count; ++index) {
+        int note = (int)source[index] + semitones;
+        if (note < 0 || note > 127) fail("transpose_notes", "out of MIDI range");
+        output[index] = (uint8_t)note;
+    }
+}
+
+static void expect_transposed_harmony_family(
+    const char *label,
+    const uint8_t *base_notes,
+    int note_count,
+    int base_root,
+    int base_bass,
+    int chord_index
+) {
+    for (int semitones = 0; semitones < 12; ++semitones) {
+        uint8_t notes[8];
+        transpose_notes(base_notes, note_count, semitones, notes);
+        hb_harmony_t harmony = hb_infer_harmony(notes, note_count);
+        int expected_root = (base_root + semitones) % 12;
+        int expected_bass = (base_bass + semitones) % 12;
+        if (!harmony.valid || harmony.root_pc != expected_root ||
+            harmony.bass_pc != expected_bass || harmony.chord_index != chord_index) {
+            fprintf(stderr,
+                    "FAIL %s +%d: got root=%d bass=%d idx=%d name=%s expected root=%d bass=%d idx=%d\n",
+                    label, semitones, harmony.root_pc, harmony.bass_pc,
+                    harmony.chord_index, harmony.name, expected_root,
+                    expected_bass, chord_index);
+            exit(1);
+        }
+    }
+}
+
+static void expect_contextual_transposed_family(
+    const char *label,
+    const uint8_t *base_committed_notes,
+    int committed_count,
+    const uint8_t *base_active_notes,
+    int active_count,
+    int base_root,
+    int expected_chord_index
+) {
+    for (int semitones = 0; semitones < 12; ++semitones) {
+        uint8_t committed_notes[8];
+        uint8_t active_notes[8];
+        transpose_notes(base_committed_notes, committed_count, semitones, committed_notes);
+        transpose_notes(base_active_notes, active_count, semitones, active_notes);
+        hb_harmony_t committed = hb_infer_harmony(committed_notes, committed_count);
+        hb_harmony_t result = hb_infer_harmony_contextual(active_notes, active_count, committed);
+        int expected_root = (base_root + semitones) % 12;
+        if (!result.valid || result.root_pc != expected_root ||
+            result.chord_index != expected_chord_index) {
+            fprintf(stderr,
+                    "FAIL %s +%d: got root=%d idx=%d name=%s expected root=%d idx=%d\n",
+                    label, semitones, result.root_pc, result.chord_index,
+                    result.name, expected_root, expected_chord_index);
+            exit(1);
+        }
+    }
+}
+
 int main(void) {
+    /* Generalized classifier properties across every chromatic root.
+       These guard whole families of cases instead of one hand-picked key. */
+    const uint8_t prop_major_root[] = {48, 52, 55};
+    const uint8_t prop_major_first[] = {52, 55, 60};
+    const uint8_t prop_major_second[] = {55, 60, 64};
+    const uint8_t prop_minor_root[] = {48, 51, 55};
+    const uint8_t prop_minor_first[] = {51, 55, 60};
+    const uint8_t prop_minor_second[] = {55, 60, 63};
+    const uint8_t prop_dom7_shell[] = {48, 52, 58};
+    const uint8_t prop_min7_shell[] = {48, 51, 58};
+    const uint8_t prop_major_third[] = {48, 52};
+    const uint8_t prop_minor_third[] = {48, 51};
+
+    expect_transposed_harmony_family("major root family", prop_major_root, 3, 0, 0, 0);
+    expect_transposed_harmony_family("major first inversion family", prop_major_first, 3, 0, 4, 0);
+    expect_transposed_harmony_family("major second inversion family", prop_major_second, 3, 0, 7, 0);
+    expect_transposed_harmony_family("minor root family", prop_minor_root, 3, 0, 0, 1);
+    expect_transposed_harmony_family("minor first inversion family", prop_minor_first, 3, 0, 3, 1);
+    expect_transposed_harmony_family("minor second inversion family", prop_minor_second, 3, 0, 7, 1);
+    expect_transposed_harmony_family("dominant shell family", prop_dom7_shell, 3, 0, 0, 10);
+    expect_transposed_harmony_family("minor7 shell family", prop_min7_shell, 3, 0, 0, 11);
+    expect_transposed_harmony_family("major-third dyad family", prop_major_third, 2, 0, 0, 0);
+    expect_transposed_harmony_family("minor-third dyad family", prop_minor_third, 2, 0, 0, 1);
+
+    /* Octave duplication must not change pitch-class harmony. This directly
+       covers cases like F-Ab-high-F behaving differently from F-Ab. */
+    const uint8_t prop_minor_third_octave_root[] = {48, 51, 60};
+    expect_transposed_harmony_family("minor third plus octave root", prop_minor_third_octave_root, 3, 0, 0, 1);
+
+    /* Contextual families: committed minor quality survives transient subsets,
+       but extensions and contradictory thirds update deterministically. */
+    const uint8_t prop_committed_minor[] = {48, 51, 55};
+    const uint8_t prop_subset_root_third[] = {48, 51};
+    const uint8_t prop_subset_root_third_octave[] = {48, 51, 60};
+    const uint8_t prop_minor7_shell_context[] = {48, 51, 58};
+    const uint8_t prop_minor6_context[] = {48, 51, 57};
+    const uint8_t prop_major_contradiction[] = {48, 52};
+
+    expect_contextual_transposed_family("context minor root+third", prop_committed_minor, 3,
+                                        prop_subset_root_third, 2, 0, 1);
+    expect_contextual_transposed_family("context minor root+third+octave", prop_committed_minor, 3,
+                                        prop_subset_root_third_octave, 3, 0, 1);
+    expect_contextual_transposed_family("context minor7 shell", prop_committed_minor, 3,
+                                        prop_minor7_shell_context, 3, 0, 11);
+    expect_contextual_transposed_family("context minor6 shell", prop_committed_minor, 3,
+                                        prop_minor6_context, 3, 0, 8);
+    expect_contextual_transposed_family("context contradictory major third", prop_committed_minor, 3,
+                                        prop_major_contradiction, 2, 0, 0);
+
     /* Exact inversions must beat partial bass-root interpretations. */
     const uint8_t gsharp_major_over_dsharp[] = {51, 56, 60}; /* D#3 G#3 C4(B#) */
     expect_harmony("G# major / D#", gsharp_major_over_dsharp, 3, 8, 3, 0);
