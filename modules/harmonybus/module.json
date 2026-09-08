@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.45",
+  "version": "0.1.46",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -249,6 +249,42 @@
               "access": "read"
             },
             {
+              "key": "rt_note_ons",
+              "name": "RT Note Ons",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "rt_note_offs",
+              "name": "RT Note Offs",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "rt_last_note",
+              "name": "RT Last Note",
+              "type": "int",
+              "min": -1,
+              "max": 127,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "rt_last_channel",
+              "name": "RT Last Ch",
+              "type": "int",
+              "min": -1,
+              "max": 15,
+              "step": 1,
+              "access": "read"
+            },
+            {
               "key": "clip_active_count",
               "name": "Clip Active",
               "type": "int",
@@ -308,6 +344,10 @@
           ],
           "knobs": [
             "rt_note_count",
+            "rt_note_ons",
+            "rt_note_offs",
+            "rt_last_note",
+            "rt_last_channel",
             "clip_active_count",
             "cache_rev",
             "sense_rev",
@@ -733,6 +773,42 @@
         "type": "int",
         "min": 0,
         "max": 128,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "rt_note_ons",
+        "name": "RT Note Ons",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "rt_note_offs",
+        "name": "RT Note Offs",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "rt_last_note",
+        "name": "RT Last Note",
+        "type": "int",
+        "min": -1,
+        "max": 127,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "rt_last_channel",
+        "name": "RT Last Ch",
+        "type": "int",
+        "min": -1,
+        "max": 15,
         "step": 1,
         "access": "read"
       }
