@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.88",
-  "abbrev": "HB188",
-  "version": "0.1.88",
+  "name": "Harmony Bus 0.1.89",
+  "abbrev": "HB189",
+  "version": "0.1.89",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.88 — source-aware sensing hook for Move MIDI_OUT cable-2",
+  "description": "Harmony Bus v0.1.89 — companion cable-2 monitor sensing",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.88",
+          "name": "Harmony Bus 0.1.89",
           "params": [
             {
               "key": "role",
@@ -156,6 +156,10 @@
             {
               "level": "v87_live_state",
               "label": "V87 Live State"
+            },
+            {
+              "level": "monitor_bridge",
+              "label": "Monitor"
             }
           ],
           "knobs": [
@@ -964,6 +968,40 @@
             "v87_follower_count",
             "v87_process",
             "v87_raw_notes"
+          ]
+        },
+        "monitor_bridge": {
+          "name": "Monitor",
+          "params": [
+            {
+              "key": "monitor_status",
+              "name": "Status",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "monitor_generation",
+              "name": "Generation",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "monitor_events",
+              "name": "Events",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "monitor_status",
+            "monitor_generation",
+            "monitor_events"
           ]
         }
       },
@@ -1812,6 +1850,30 @@
       {
         "key": "v87_raw_notes",
         "name": "Raw Notes",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "monitor_status",
+        "name": "Status",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "monitor_generation",
+        "name": "Generation",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "monitor_events",
+        "name": "Events",
         "type": "int",
         "min": 0,
         "max": 2147483647,
