@@ -68,6 +68,9 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
             uint16_t relative=rotate_to_root(input,root);
             for(int index=0;index<template_count;index++){
                 if(!templates[index].infer_enabled)continue;
+                /* min6 is useful only as a complete voicing. As a partial-template
+                   hypothesis it is too ambiguous with ordinary seventh shells. */
+                if(index==8)continue;
                 uint16_t mask=templates[index].mask;
                 int matched=popcount12(relative&mask),missing=popcount12(mask&~relative),extras=popcount12(relative&~mask);
                 int score=matched*16-missing*12-extras*22;
