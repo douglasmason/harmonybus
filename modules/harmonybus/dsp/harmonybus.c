@@ -408,18 +408,27 @@ static void hb_reharmonize_held_follower(Inst *instance){
     hb_harmony_t harmony=hb_mapping_target(bus_read(),instance->map_target);
     if(!harmony.valid)return;
     int render_root=reference_root(instance);
+    uint8_t source_notes[128]; int previous_outputs[128]; int new_outputs[128]; int voice_count=0;
     for(int source_note=0;source_note<128;source_note++){
         if(!instance->follower_held[source_note])continue;
-        int old_mapped=instance->mapped[source_note];
-        if(old_mapped<0)continue;
-        int new_mapped=hb_map_note(source_note,render_root,harmony,(hb_map_mode_t)instance->mode);
-        if(new_mapped==old_mapped)continue;
-        /* Switch the sounding voice atomically from the follower's perspective:
-           release the old mapped pitch, start the new one, then remember the
-           replacement so the eventual physical Note Off releases the right note. */
-        hb_inject_follower_note(instance,old_mapped,0,0);
-        hb_inject_follower_note(instance,new_mapped,instance->follower_velocity[source_note],1);
-        instance->mapped[source_note]=new_mapped;
+        source_notes[voice_count]=(uint8_t)source_note;
+        previous_outputs[voice_count]=instance->mapped[source_note];
+        new_outputs[voice_count]=previous_outputs[voice_count];
+        voice_count++;
+    }
+    hb_map_held_voices(source_notes,voice_count,render_root,harmony,(hb_map_mode_t)instance->mode,previous_outputs,new_outputs);
+    /* Release changed old voices first, then start replacements. This avoids
+       transient duplicate/crossed voices while a whole held chord is moved. */
+    for(int voice=0;voice<voice_count;voice++){
+        if(previous_outputs[voice]>=0&&previous_outputs[voice]!=new_outputs[voice])
+            hb_inject_follower_note(instance,previous_outputs[voice],0,0);
+    }
+    for(int voice=0;voice<voice_count;voice++){
+        int source_note=source_notes[voice];
+        if(previous_outputs[voice]!=new_outputs[voice]){
+            hb_inject_follower_note(instance,new_outputs[voice],instance->follower_velocity[source_note],1);
+            instance->mapped[source_note]=new_outputs[voice];
+        }
     }
 }
 
