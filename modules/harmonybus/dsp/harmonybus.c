@@ -634,6 +634,7 @@ static const char *hb_quality_suffix(int chord_index){
 }
 static int hb_format_harmony(char *buffer,int length,hb_harmony_t harmony){
     if(!harmony.valid)return snprintf(buffer,(size_t)length,"--");
+    if(harmony.chord_index<0)return snprintf(buffer,(size_t)length,"%s?",hb_pc_display(harmony.root_pc,harmony));
     if(harmony.bass_pc!=harmony.root_pc)return snprintf(buffer,(size_t)length,"%s%s/%s",hb_pc_display(harmony.root_pc,harmony),hb_quality_suffix(harmony.chord_index),hb_pc_display(harmony.bass_pc,harmony));
     return snprintf(buffer,(size_t)length,"%s%s",hb_pc_display(harmony.root_pc,harmony),hb_quality_suffix(harmony.chord_index));
 }
@@ -867,18 +868,26 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
 
     if(count<=0)return 0;
 
-    hb_harmony_t candidate=hb_infer_harmony(notes,count);
     hb_harmony_t committed=bus_read();
-    /* Conservative inference owns root discovery. Once that inference agrees
-       with the committed root, allow exact 6/11/13 colors to refine the chord
-       without giving those ambiguous extensions any power to choose a root. */
-    if(committed.valid&&candidate.valid&&candidate.root_pc==committed.root_pc)
-        candidate=hb_refine_harmony_with_root(notes,count,committed);
+    hb_harmony_t committed_sensor=hb_transpose_harmony(committed,-g_bus.global_transpose);
+    hb_harmony_t candidate=hb_infer_harmony_contextual(notes,count,committed_sensor);
     candidate=hb_transpose_harmony(candidate,g_bus.global_transpose);
 
-    /* Candidate is a transparent statement of what the sensor currently
-       implies. Never suppress candidate formation merely because the previous
-       committed chord contains the new notes. */
+    /* Candidate display distinguishes a lone pitch from a major triad: F?
+       means "only F is currently evidenced", while committed Harmony remains
+       stable until enough structural evidence arrives. */
+    if(count==1){
+        hb_harmony_t unresolved;memset(&unresolved,0,sizeof(unresolved));
+        unresolved.valid=1;
+        unresolved.root_pc=mod12(notes[0]+g_bus.global_transpose);
+        unresolved.bass_pc=unresolved.root_pc;
+        unresolved.pitch_mask=(uint16_t)(1u<<unresolved.root_pc);
+        unresolved.chord_index=-1;
+        unresolved.confidence=25;
+        instance->candidate_harmony=unresolved;
+        return 0;
+    }
+
     instance->candidate_harmony=candidate;
 
     if(!candidate.valid)return 0;
