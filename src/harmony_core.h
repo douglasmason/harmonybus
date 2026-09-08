@@ -40,12 +40,13 @@ void hb_map_held_voices(const uint8_t *source_notes, int voice_count,
                         int reference_root_pc, hb_harmony_t target,
                         hb_map_mode_t mode, const int *previous_outputs,
                         int *mapped_outputs);
-int hb_map_note_from_harmony(int midi_note, hb_harmony_t source_harmony,
-                             hb_harmony_t target_harmony);
-void hb_map_held_voices_from_harmony(const uint8_t *source_notes, int voice_count,
-                                     hb_harmony_t source_harmony,
-                                     hb_harmony_t target_harmony,
-                                     int *mapped_outputs);
+int hb_map_note_by_role(int midi_note, hb_harmony_t source_harmony,
+                        hb_harmony_t target_harmony, int smooth);
+void hb_map_held_voices_by_role(const uint8_t *source_notes, int voice_count,
+                                hb_harmony_t source_harmony,
+                                hb_harmony_t target_harmony, int smooth,
+                                const int *previous_outputs,
+                                int *mapped_outputs);
 const char *hb_pc_name(int pc);
 
 #ifdef __cplusplus
