@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.99",
-  "abbrev": "HB199",
-  "version": "0.1.99",
+  "name": "Harmony Bus 0.2.00",
+  "abbrev": "HB200",
+  "version": "0.2.00",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.99 — restored monitor-backed track note ownership",
+  "description": "Harmony Bus v0.2.00 — conductor notes strictly track-local",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.99",
+          "name": "Harmony Bus 0.2.00",
           "params": [
             {
               "key": "version",
