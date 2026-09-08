@@ -47,11 +47,12 @@
               "name": "Follow Mode",
               "type": "enum",
               "options": [
-                "Transpose",
-                "Chord",
+                "Relative",
+                "Smooth",
                 "Nearest"
               ],
-              "options_as_string": true
+              "options_as_string": true,
+              "default": "Relative"
             },
             {
               "key": "render_channel",
@@ -400,11 +401,12 @@
         "name": "Follow Mode",
         "type": "enum",
         "options": [
-          "Transpose",
-          "Chord",
+          "Relative",
+          "Smooth",
           "Nearest"
         ],
-        "options_as_string": true
+        "options_as_string": true,
+        "default": "Relative"
       },
       {
         "key": "root_policy",
