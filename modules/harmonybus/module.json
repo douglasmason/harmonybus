@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.05",
-  "abbrev": "HB205",
-  "version": "0.2.05",
+  "name": "Harmony Bus 0.2.06",
+  "abbrev": "HB206",
+  "version": "0.2.06",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.05 — conductor track isolation",
+  "description": "Harmony Bus v0.2.06 — hb8 conductor track fallback",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.05",
+          "name": "Harmony Bus 0.2.06",
           "params": [
             {
               "key": "version",
