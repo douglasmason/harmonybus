@@ -19,16 +19,6 @@
           "name": "Harmony Bus 0.1.70",
           "params": [
             {
-              "key": "version",
-              "name": "Version",
-              "type": "enum",
-              "options": [
-                "0.1.70"
-              ],
-              "options_as_string": true,
-              "default": "0.1.70"
-            },
-            {
               "key": "role",
               "name": "Role",
               "type": "enum",
@@ -149,7 +139,6 @@
             }
           ],
           "knobs": [
-            "version",
             "role",
             "mode",
             "retrigger_held",
@@ -471,16 +460,6 @@
       "focus_press_param": "live_press"
     },
     "chain_params": [
-      {
-        "key": "version",
-        "name": "Version",
-        "type": "enum",
-        "options": [
-          "0.1.70"
-        ],
-        "options_as_string": true,
-        "default": "0.1.70"
-      },
       {
         "key": "role",
         "name": "Role",
