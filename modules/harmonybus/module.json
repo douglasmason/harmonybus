@@ -506,8 +506,8 @@
               "access": "read"
             },
             {
-              "key": "role_reference_harmony",
-              "name": "Role Reference Harmony",
+              "key": "role_reference_root",
+              "name": "Role Reference Root",
               "type": "string",
               "access": "read"
             }
@@ -521,7 +521,7 @@
             "follower_role_2",
             "follower_role_3",
             "follower_role_4",
-            "role_reference_harmony"
+            "role_reference_root"
           ]
         },
         "midi_trace": {
@@ -1888,8 +1888,8 @@
         "access": "read"
       },
       {
-        "key": "role_reference_harmony",
-        "name": "Role Reference Harmony",
+        "key": "role_reference_root",
+        "name": "Role Reference Root",
         "type": "string",
         "access": "read"
       }
