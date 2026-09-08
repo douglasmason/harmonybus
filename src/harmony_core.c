@@ -182,6 +182,53 @@ hb_harmony_t hb_refine_harmony_with_root(const uint8_t *notes,int note_count,hb_
     if(result.bass_pc!=result.root_pc){size_t used=strlen(result.name);snprintf(result.name+used,sizeof(result.name)-used,"/%s",hb_pc_name(result.bass_pc));}
     return result;
 }
+hb_harmony_t hb_infer_harmony_contextual(const uint8_t *notes,int note_count,
+                                         hb_harmony_t committed) {
+    hb_harmony_t raw=hb_infer_harmony(notes,note_count);
+    if(!committed.valid||!notes||note_count<=0)return raw;
+
+    uint16_t input=0;
+    for(int index=0;index<note_count;index++)input|=BIT(mod12(notes[index]));
+    int root=committed.root_pc;
+    int has_root=(input&BIT(root))!=0;
+
+    /* A lone retained root is not evidence of major/minor quality. Preserve
+       the committed harmony instead of collapsing to a fresh one-note guess. */
+    if(note_count==1&&has_root)return committed;
+
+    if(!has_root)return raw;
+
+    uint16_t committed_relative=rotate_to_root(hb_harmony_chord_mask(committed),root);
+    int has_m3=(input&BIT(mod12(root+3)))!=0;
+    int has_M3=(input&BIT(mod12(root+4)))!=0;
+    int committed_minor=(committed_relative&BIT(3))!=0;
+    int committed_major=(committed_relative&BIT(4))!=0;
+
+    /* A sounded third that explicitly contradicts the committed quality is
+       structural new evidence and is allowed to change quality immediately. */
+    if((committed_minor&&has_M3&&!has_m3)||(committed_major&&has_m3&&!has_M3))
+        return raw;
+
+    /* If the retained root and its established third are still present, keep
+       that root and interpret 6/7/9/11/13 as color before considering any
+       competing inversion/re-rooting. */
+    if((committed_minor&&has_m3)||(committed_major&&has_M3)){
+        hb_harmony_t refined=hb_refine_harmony_with_root(notes,note_count,committed);
+        refined.pitch_mask=input;
+        return refined;
+    }
+
+    /* Root + newly sounded major/minor third can establish quality even when
+       the previous chord had no third (power/sus/unresolved context). */
+    if(has_m3||has_M3){
+        if(raw.valid&&raw.root_pc==root)return raw;
+        hb_harmony_t refined=hb_refine_harmony_with_root(notes,note_count,committed);
+        refined.pitch_mask=input;
+        return refined;
+    }
+
+    return raw;
+}
 uint16_t hb_harmony_chord_mask(hb_harmony_t harmony) {
     if(!harmony.valid||harmony.chord_index<0||harmony.chord_index>=template_count)return harmony.pitch_mask;
     uint16_t relative=templates[harmony.chord_index].mask;
