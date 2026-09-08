@@ -1,5 +1,5 @@
-/* Harmony Bus v0.1.85 — Schwung MIDI FX. */
-#define HB_VERSION "0.1.85"
+/* Harmony Bus v0.1.86 — Schwung MIDI FX. */
+#define HB_VERSION "0.1.86"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -980,6 +980,7 @@ if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;outp
 static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int max_output){
     Inst *instance=(Inst*)value;
     if(!instance)return 0;
+    hb_scan_raw_midi_out(instance);
     if(g_host&&g_host->get_clock_status){
         int clock_status=g_host->get_clock_status();
         int is_playing=(clock_status==1);
