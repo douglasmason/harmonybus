@@ -25,8 +25,8 @@ jobs:
       - name: Build ARM64 artifacts
         run: |
           bash scripts/build_harmonybus_move.sh
-          mv dist/harmonybus-v0.1.90-module.tar.gz dist/harmonybus-v0.1.90-module.tar.gz
-          mv dist/harmonybus-monitor-v0.1.90-tool.tar.gz dist/harmonybus-monitor-v0.1.90-tool.tar.gz
+          mv dist/harmonybus-v0.1.89-module.tar.gz dist/harmonybus-v0.1.90-module.tar.gz
+          mv dist/harmonybus-monitor-v0.1.89-tool.tar.gz dist/harmonybus-monitor-v0.1.90-tool.tar.gz
 
       - name: Verify archives and embedded versions
         run: |
