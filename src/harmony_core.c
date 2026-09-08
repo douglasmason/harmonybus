@@ -102,6 +102,15 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
     if(result.bass_pc!=result.root_pc){size_t used=strlen(result.name);snprintf(result.name+used,sizeof(result.name)-used,"/%s",hb_pc_name(result.bass_pc));}
     return result;
 }
+uint16_t hb_harmony_chord_mask(hb_harmony_t harmony) {
+    if(!harmony.valid||harmony.chord_index<0||harmony.chord_index>=template_count)return harmony.pitch_mask;
+    uint16_t relative=templates[harmony.chord_index].mask;
+    uint16_t absolute=0;
+    for(int interval=0;interval<12;interval++){
+        if(relative&BIT(interval))absolute|=BIT(mod12(harmony.root_pc+interval));
+    }
+    return absolute;
+}
 hb_harmony_t hb_transpose_harmony(hb_harmony_t harmony,int semitones) {
     if(!harmony.valid||semitones==0)return harmony;harmony.root_pc=mod12(harmony.root_pc+semitones);harmony.bass_pc=mod12(harmony.bass_pc+semitones);
     uint16_t mask=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(harmony.pitch_mask&BIT(pitch_class))mask|=BIT(mod12(pitch_class+semitones));harmony.pitch_mask=mask;
