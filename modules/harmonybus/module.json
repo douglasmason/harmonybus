@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.81",
-  "abbrev": "HB181",
-  "version": "0.1.81",
+  "name": "Harmony Bus 0.1.82",
+  "abbrev": "HB182",
+  "version": "0.1.82",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.81 — overlap-safe authoritative conductor note state",
+  "description": "Harmony Bus v0.1.82 — conductor source diagnostics and true follower source harmony",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.81",
+          "name": "Harmony Bus 0.1.82",
           "params": [
             {
               "key": "role",
@@ -121,6 +121,10 @@
             {
               "level": "diagnostics",
               "label": "Conductor Analysis"
+            },
+            {
+              "level": "conductor_sources",
+              "label": "Conductor Sources"
             },
             {
               "level": "follower_analysis",
@@ -411,6 +415,56 @@
           "name": "Follower Analysis",
           "params": [
             {
+              "key": "follower_source_harmony",
+              "name": "Source Harmony",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_source_policy",
+              "name": "Source Policy",
+              "type": "enum",
+              "options": [
+                "Input Key",
+                "Infer Follower",
+                "Explicit"
+              ],
+              "options_as_string": true,
+              "default": "Input Key"
+            },
+            {
+              "key": "follower_source_root",
+              "name": "Source Root",
+              "type": "enum",
+              "options": [
+                "C",
+                "C#",
+                "D",
+                "Eb",
+                "E",
+                "F",
+                "F#",
+                "G",
+                "Ab",
+                "A",
+                "Bb",
+                "B"
+              ],
+              "options_as_string": true,
+              "default": "C"
+            },
+            {
+              "key": "follower_source_quality",
+              "name": "Source Quality",
+              "type": "enum",
+              "options": [
+                "Major",
+                "Minor"
+              ],
+              "options_as_string": true,
+              "default": "Major"
+            },
+            {
               "key": "follower_note_1_name",
               "name": "Follower Note 1",
               "type": "string",
@@ -487,6 +541,10 @@
             }
           ],
           "knobs": [
+            "follower_source_harmony",
+            "follower_source_policy",
+            "follower_source_root",
+            "follower_source_quality",
             "follower_note_1_name",
             "follower_note_2_name",
             "follower_note_3_name",
@@ -581,6 +639,69 @@
             "trace_8",
             "trace_note_ons",
             "trace_note_offs"
+          ]
+        },
+        "conductor_sources": {
+          "name": "Conductor Sources",
+          "params": [
+            {
+              "key": "source_note_1",
+              "name": "Note 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "source_note_2",
+              "name": "Note 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "source_note_3",
+              "name": "Note 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "source_note_4",
+              "name": "Note 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "source_of_1",
+              "name": "Source 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "source_of_2",
+              "name": "Source 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "source_of_3",
+              "name": "Source 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "source_of_4",
+              "name": "Source 4",
+              "type": "string",
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "source_note_1",
+            "source_note_2",
+            "source_note_3",
+            "source_note_4",
+            "source_of_1",
+            "source_of_2",
+            "source_of_3",
+            "source_of_4"
           ]
         }
       },
@@ -1156,6 +1277,104 @@
         "max": 2147483647,
         "step": 1,
         "access": "read"
+      },
+      {
+        "key": "source_note_1",
+        "name": "Note 1",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "source_note_2",
+        "name": "Note 2",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "source_note_3",
+        "name": "Note 3",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "source_note_4",
+        "name": "Note 4",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "source_of_1",
+        "name": "Source 1",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "source_of_2",
+        "name": "Source 2",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "source_of_3",
+        "name": "Source 3",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "source_of_4",
+        "name": "Source 4",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "follower_source_harmony",
+        "name": "Source Harmony",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "follower_source_policy",
+        "name": "Source Policy",
+        "type": "enum",
+        "options": [
+          "Input Key",
+          "Infer Follower",
+          "Explicit"
+        ],
+        "options_as_string": true,
+        "default": "Input Key"
+      },
+      {
+        "key": "follower_source_root",
+        "name": "Source Root",
+        "type": "enum",
+        "options": [
+          "C",
+          "C#",
+          "D",
+          "Eb",
+          "E",
+          "F",
+          "F#",
+          "G",
+          "Ab",
+          "A",
+          "Bb",
+          "B"
+        ],
+        "options_as_string": true,
+        "default": "C"
+      },
+      {
+        "key": "follower_source_quality",
+        "name": "Source Quality",
+        "type": "enum",
+        "options": [
+          "Major",
+          "Minor"
+        ],
+        "options_as_string": true,
+        "default": "Major"
       }
     ],
     "pre_capable": 1
