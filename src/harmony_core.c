@@ -89,6 +89,13 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
         /* Exact pitch-class/template identity is decisive. */
         if(missing==0&&extras==0)score+=36;
 
+        /* Prefer the richest exact explanation of the observed pitch set.
+           A complete seventh chord must beat a triad that merely explains
+           three of its four notes (e.g. Eb-F-Ab-C => Fm7/Eb, not Ab/Eb-ish
+           triad interpretations). */
+        if(missing==0&&extras==0)score+=templates[index].complexity*12;
+        else if(extras>0)score-=extras*14;
+
         /* Bass is inversion information, not primary root evidence. */
         if(root==(bass%12))score+=2;
 
