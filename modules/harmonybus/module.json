@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.37",
+  "version": "0.1.38",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -210,8 +210,8 @@
           "name": "Diagnostics",
           "params": [
             {
-              "key": "diag_midi_events",
-              "name": "MIDI Events",
+              "key": "cache_rev",
+              "name": "Cache Rev",
               "type": "int",
               "min": 0,
               "max": 2147483647,
@@ -219,29 +219,11 @@
               "access": "read"
             },
             {
-              "key": "diag_note_ons",
-              "name": "Note Ons",
+              "key": "sense_rev",
+              "name": "Sense Rev",
               "type": "int",
               "min": 0,
               "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_last_note",
-              "name": "Last Note",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_recv_ch",
-              "name": "Recv Ch",
-              "type": "int",
-              "min": -1,
-              "max": 15,
               "step": 1,
               "access": "read"
             },
@@ -274,17 +256,35 @@
               "name": "Clip Playhead",
               "type": "string",
               "access": "read"
+            },
+            {
+              "key": "diag_midi_events",
+              "name": "MIDI Events",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_note_ons",
+              "name": "Note Ons",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
             }
           ],
           "knobs": [
-            "diag_midi_events",
-            "diag_note_ons",
-            "diag_last_note",
-            "diag_recv_ch",
+            "cache_rev",
+            "sense_rev",
             "clip_stage",
             "clip_track",
             "clip_note_count",
-            "clip_playhead"
+            "clip_playhead",
+            "diag_midi_events",
+            "diag_note_ons"
           ]
         }
       },
@@ -631,6 +631,24 @@
         "key": "clip_stage",
         "name": "Clip Stage",
         "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "cache_rev",
+        "name": "Cache Rev",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "sense_rev",
+        "name": "Sense Rev",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
         "access": "read"
       }
     ]
