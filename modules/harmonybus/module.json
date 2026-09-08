@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.93",
-  "abbrev": "HB193",
-  "version": "0.1.93",
+  "name": "Harmony Bus 0.1.94",
+  "abbrev": "HB194",
+  "version": "0.1.94",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.93 — strict Move-root follower role reference",
+  "description": "Harmony Bus v0.1.94 — unified root-only follower interpretation",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.93",
+          "name": "Harmony Bus 0.1.94",
           "params": [
             {
               "key": "role",
@@ -506,8 +506,8 @@
               "access": "read"
             },
             {
-              "key": "role_reference_root",
-              "name": "Role Reference Root",
+              "key": "used_root",
+              "name": "Used Root",
               "type": "string",
               "access": "read"
             }
@@ -521,7 +521,7 @@
             "follower_role_2",
             "follower_role_3",
             "follower_role_4",
-            "role_reference_root"
+            "used_root"
           ]
         },
         "midi_trace": {
@@ -674,14 +674,8 @@
           "name": "Follower Source",
           "params": [
             {
-              "key": "follower_source_harmony",
-              "name": "Source Harmony",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "follower_source_policy",
-              "name": "Source Policy",
+              "key": "root_policy",
+              "name": "Root Policy",
               "type": "enum",
               "options": [
                 "Input Key",
@@ -692,8 +686,8 @@
               "default": "Input Key"
             },
             {
-              "key": "follower_source_root",
-              "name": "Source Root",
+              "key": "explicit_root",
+              "name": "Explicit Root",
               "type": "enum",
               "options": [
                 "C",
@@ -713,22 +707,23 @@
               "default": "C"
             },
             {
-              "key": "follower_source_quality",
-              "name": "Source Quality",
-              "type": "enum",
-              "options": [
-                "Major",
-                "Minor"
-              ],
-              "options_as_string": true,
-              "default": "Major"
+              "key": "inferred_root",
+              "name": "Inferred Root",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "used_root",
+              "name": "Used Root",
+              "type": "string",
+              "access": "read"
             }
           ],
           "knobs": [
-            "follower_source_harmony",
-            "follower_source_policy",
-            "follower_source_root",
-            "follower_source_quality"
+            "root_policy",
+            "explicit_root",
+            "inferred_root",
+            "used_root"
           ]
         },
         "global_midi_path": {
@@ -1607,14 +1602,8 @@
         "access": "read"
       },
       {
-        "key": "follower_source_harmony",
-        "name": "Source Harmony",
-        "type": "string",
-        "access": "read"
-      },
-      {
-        "key": "follower_source_policy",
-        "name": "Source Policy",
+        "key": "root_policy",
+        "name": "Root Policy",
         "type": "enum",
         "options": [
           "Input Key",
@@ -1625,8 +1614,8 @@
         "default": "Input Key"
       },
       {
-        "key": "follower_source_root",
-        "name": "Source Root",
+        "key": "explicit_root",
+        "name": "Explicit Root",
         "type": "enum",
         "options": [
           "C",
@@ -1644,17 +1633,6 @@
         ],
         "options_as_string": true,
         "default": "C"
-      },
-      {
-        "key": "follower_source_quality",
-        "name": "Source Quality",
-        "type": "enum",
-        "options": [
-          "Major",
-          "Minor"
-        ],
-        "options_as_string": true,
-        "default": "Major"
       },
       {
         "key": "diag_marker",
@@ -1888,8 +1866,14 @@
         "access": "read"
       },
       {
-        "key": "role_reference_root",
-        "name": "Role Reference Root",
+        "key": "inferred_root",
+        "name": "Inferred Root",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "used_root",
+        "name": "Used Root",
         "type": "string",
         "access": "read"
       }
