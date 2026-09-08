@@ -164,3 +164,34 @@ int hb_map_note(int midi_note,int reference_root_pc,hb_harmony_t target,hb_map_m
     int exact_pc=mod12(target.root_pc+source_interval);if(target.pitch_mask&BIT(exact_pc)){int note=nominal;int difference=mod12(exact_pc-mod12(note));if(difference>6)difference-=12;return clamp_midi(note+difference);}
     return clamp_midi(nearest_pc_note(nominal,target.pitch_mask));
 }
+
+void hb_map_held_voices(const uint8_t *source_notes,int voice_count,int reference_root_pc,
+                        hb_harmony_t target,hb_map_mode_t mode,const int *previous_outputs,
+                        int *mapped_outputs){
+    if(!source_notes||!mapped_outputs||voice_count<=0)return;
+    for(int voice=0;voice<voice_count;voice++){
+        int source=source_notes[voice];
+        int preferred=hb_map_note(source,reference_root_pc,target,mode);
+        if(mode==HB_MAP_TRANSPOSE||!target.valid){mapped_outputs[voice]=preferred;continue;}
+        int best=preferred,best_cost=999999;
+        for(int candidate=source-12;candidate<=source+12;candidate++){
+            if(candidate<0||candidate>127)continue;
+            if(!(target.pitch_mask&BIT(mod12(candidate))))continue;
+            int movement=candidate-source;if(movement<0)movement=-movement;
+            int continuity=0;
+            if(previous_outputs&&previous_outputs[voice]>=0){
+                continuity=candidate-previous_outputs[voice];if(continuity<0)continuity=-continuity;
+            }
+            int collision=0,crossing=0;
+            for(int prior=0;prior<voice;prior++){
+                if(mapped_outputs[prior]==candidate)collision+=18;
+                if(source_notes[prior]<source&&mapped_outputs[prior]>candidate)crossing+=24;
+                if(source_notes[prior]>source&&mapped_outputs[prior]<candidate)crossing+=24;
+            }
+            int preferred_distance=candidate-preferred;if(preferred_distance<0)preferred_distance=-preferred_distance;
+            int cost=movement*4+continuity*3+preferred_distance+collision+crossing;
+            if(cost<best_cost){best_cost=cost;best=candidate;}
+        }
+        mapped_outputs[voice]=clamp_midi(best);
+    }
+}
