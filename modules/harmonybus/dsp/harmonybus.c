@@ -408,29 +408,14 @@ static void hb_scan_raw_midi_out(Inst *instance) {
         if (is_on) instance->raw_note_on_count++;
         if (is_off) instance->raw_note_off_count++;
 
-        /* Fast conductor evidence path.
+        /* Diagnostics only.
          *
-         * Move's MIDI_OUT echo carries both local pad/external input and clip
-         * playback immediately, while the MIDI-FX process callback on this
-         * configuration only sees transport.  Track voice messages use the
-         * track index as the MIDI channel (0..3).  Gate HARD on the conductor
-         * track discovered from the set/clip state so improvisation on another
-         * track can never enter harmony inference.
-         *
-         * This is an augmentation layer, not the stored-clip authority:
-         * Song.abl remains the offline/context source and reconciles edits,
-         * undo, restart, etc.  The raw echo simply removes save latency for
-         * notes that Move is actually sounding right now. */
-        if (instance->role == 0 && g_bus.clip_track >= 0 &&
-            g_bus.clip_track < 4 && channel == g_bus.clip_track) {
-            if (is_on) {
-                instance->held_now[data1] = 1;
-            } else if (is_off) {
-                instance->held_now[data1] = 0;
-            }
-            instance->dirty = 1;
-            instance->frames_since_change = 0;
-        }
+         * Do NOT promote MIDI_OUT mailbox snapshots into musical held-note
+         * state.  Hardware testing showed that enabling a track MIDI-Out route
+         * can create echoed/repeated traffic here, while the snapshot can miss
+         * matching note-offs.  Treating that as authoritative produced stuck
+         * notes and event storms.  Realtime conductor sensing must come from an
+         * event-preserving upstream track-input/instrument-bound tap instead. */
     }
 }
 
