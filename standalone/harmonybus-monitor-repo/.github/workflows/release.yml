@@ -1,0 +1,42 @@
+name: Build and publish HarmonyBus Monitor
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y clang lld file
+      - name: Build ARM64 monitor
+        run: bash scripts/build.sh
+      - name: Verify package
+        run: |
+          PKG=dist/harmonybus-monitor-v0.1.91-tool.tar.gz
+          gzip -t "$PKG"
+          rm -rf /tmp/hbmon
+          mkdir -p /tmp/hbmon
+          tar -xzf "$PKG" -C /tmp/hbmon
+          test -f /tmp/hbmon/harmonybus-monitor/module.json
+          test -f /tmp/hbmon/harmonybus-monitor/ui.js
+          test -f /tmp/hbmon/harmonybus-monitor/dsp.so
+          python3 -c 'import json; assert json.load(open("/tmp/hbmon/harmonybus-monitor/module.json"))["version"] == "0.1.91"'
+          nm -D /tmp/hbmon/harmonybus-monitor/dsp.so | grep -q "move_plugin_init_v2"
+      - name: Publish v0.1.91 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.91 >/dev/null 2>&1; then
+            gh release upload v0.1.91 dist/harmonybus-monitor-v0.1.91-tool.tar.gz --clobber
+          else
+            gh release create v0.1.91 dist/harmonybus-monitor-v0.1.91-tool.tar.gz \
+              --title "HarmonyBus Monitor v0.1.91" \
+              --notes "Source-aware cable-2 note monitor companion for HarmonyBus."
+          fi
