@@ -153,6 +153,23 @@ int main(void) {
         return 1;
     }
 
+    /* User's concrete follower scenario:
+       source phrase alternates F and Ab relative to F minor.
+       Conductor alternates Fm and Bbm. Chord mode should preserve scale degree:
+       F->F, Ab->Ab over Fm; F->Bb, Ab->Db over Bbm. */
+    const uint8_t fm_triad[] = {53, 56, 60};
+    const uint8_t bbm_triad[] = {58, 61, 65};
+    hb_harmony_t fm_target = hb_infer_harmony(fm_triad, 3);
+    hb_harmony_t bbm_target = hb_infer_harmony(bbm_triad, 3);
+    int follower_f_over_fm = hb_map_note(65, 5, fm_target, HB_MAP_CHORD);
+    int follower_ab_over_fm = hb_map_note(68, 5, fm_target, HB_MAP_CHORD);
+    int follower_f_over_bbm = hb_map_note(65, 5, bbm_target, HB_MAP_CHORD);
+    int follower_ab_over_bbm = hb_map_note(68, 5, bbm_target, HB_MAP_CHORD);
+    if (follower_f_over_fm != 65) fail("Follower F over Fm", "expected F4");
+    if (follower_ab_over_fm != 68) fail("Follower Ab over Fm", "expected Ab4");
+    if (follower_f_over_bbm != 70) fail("Follower F over Bbm", "expected Bb4");
+    if (follower_ab_over_bbm != 73) fail("Follower Ab over Bbm", "expected Db5");
+
     printf("Harmony Bus core tests passed.\n");
     return 0;
 }
