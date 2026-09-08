@@ -157,6 +157,8 @@ static const char *hb_role_name_for_interval(int interval);
 static const char *hb_follower_role_name(const Inst *instance,int ordinal);
 static int hb_resolve_follower_reference_root(Inst *instance,int *root_out);
 static void hb_publish_instance_notes(Inst *instance);
+static int hb_read_active_set(char *uuid,int uuid_len,char *name,int name_len);
+static int hb_find_conductor_track(const char *uuid);
 static Inst g_pool[HB_MAX_INSTANCES];
 static int mod12(int value){value%=12;return value<0?value+12:value;}
 static int parse_i(const char *value,int fallback){char *end;long parsed;if(!value||!*value)return fallback;end=0;parsed=strtol(value,&end,10);return end==value?fallback:(int)parsed;}
