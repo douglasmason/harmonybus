@@ -308,9 +308,10 @@ static int hb_observed_notes(const Inst *instance,uint8_t *output,int max_notes)
             if(note>=0&&note<128&&!seen[note]){seen[note]=1;output[count++]=(uint8_t)note;}
         }
     }
-    for(int note=0;note<128&&count<max_notes;note++){
-        if(instance->held_now[note]&&!seen[note]){seen[note]=1;output[count++]=(uint8_t)note;}
-    }
+    /* Realtime held-note evidence is intentionally disabled here until the
+       host provides an event-preserving conductor-input tap. The current
+       MIDI-FX/raw paths can deliver unmatched note-ons, which caused stuck
+       notes and runaway inference. Stored clip evidence remains authoritative. */
     for(int i=0;i<count;i++)for(int j=i+1;j<count;j++)if(output[j]<output[i]){
         uint8_t temp=output[i];output[i]=output[j];output[j]=temp;
     }
@@ -622,7 +623,7 @@ static void hb_receive_live_vouch(Inst *instance){
     else if(instance->live_vouch_pending<16)instance->live_vouch_pending++;
 }
 static int pass(const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){if(!input||length<1||length>3||max_output<1)return 0;memcpy(output[0],input,(size_t)length);lengths[0]=length;return 1;}
-static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;if(instance->role==0){if(input[0]==0xFA){g_bus.clip_clock_ticks=0;memset(instance->held_now,0,sizeof(instance->held_now));}else if(input[0]==0xFC){memset(instance->held_now,0,sizeof(instance->held_now));}else if(input[0]==0xF8)g_bus.clip_clock_ticks++;}instance->rx_count++;instance->last_status=input[0];if(instance->role==0&&(input[0]==0xFA||input[0]==0xFC)){memset(instance->active,0,sizeof(instance->active));memset(instance->held_now,0,sizeof(instance->held_now));memset(instance->pending_off_frames,0,sizeof(instance->pending_off_frames));instance->active_count=0;instance->last_inferred_count=0;instance->resolved_source_channel=-1;instance->dirty=0;instance->candidate_frames=0;}if(length>=2)instance->last_note=input[1]&0x7F;if(length>=3)instance->last_velocity=input[2];int status=input[0]&0xF0,is_on=(status==0x90&&length>=3&&input[2]>0),is_off=(status==0x80&&length>=3)||(status==0x90&&length>=3&&input[2]==0);if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note=input[1]&0x7F,mapped;int input_channel=input[0]&0x0F;if(is_on){instance->note_on_count++;instance->active_count++;}else if(is_off){instance->note_off_count++;if(instance->active_count>0)instance->active_count--;}if(instance->role==2)return pass(input,length,output,lengths,max_output);if(instance->role==0){int slot_channel=(g_host&&g_host->slot_recv_channel)?g_host->slot_recv_channel(instance):-1;if(slot_channel>=0&&slot_channel<16&&input_channel!=slot_channel)return pass(input,length,output,lengths,max_output);if(is_on){instance->held_now[note]=1;instance->pending_off_frames[note]=0;mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=mapped;}else{instance->held_now[note]=0;int release_frames=(g_host&&g_host->sample_rate>0)?(g_host->sample_rate/100):441;instance->pending_off_frames[note]=release_frames;mapped=instance->mapped[note];if(mapped<0)mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=-1;}instance->candidate_frames=0;instance->dirty=1;instance->frames_since_change=0;if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}if(is_on){instance->source_seen[note%12]=1;hb_harmony_t harmony=hb_mapping_target(bus_read(),instance->map_target);mapped=hb_map_note(note,reference_root(instance),harmony,(hb_map_mode_t)instance->mode);instance->mapped[note]=mapped;}else{mapped=instance->mapped[note];if(mapped<0)mapped=note;instance->mapped[note]=-1;}
+static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;if(instance->role==0){if(input[0]==0xFA){g_bus.clip_clock_ticks=0;memset(instance->held_now,0,sizeof(instance->held_now));memset(instance->active,0,sizeof(instance->active));memset(instance->pending_off_frames,0,sizeof(instance->pending_off_frames));}else if(input[0]==0xFC){memset(instance->held_now,0,sizeof(instance->held_now));memset(instance->active,0,sizeof(instance->active));memset(instance->pending_off_frames,0,sizeof(instance->pending_off_frames));}else if(input[0]==0xF8)g_bus.clip_clock_ticks++;}instance->rx_count++;instance->last_status=input[0];if(instance->role==0&&(input[0]==0xFA||input[0]==0xFC)){memset(instance->active,0,sizeof(instance->active));memset(instance->held_now,0,sizeof(instance->held_now));memset(instance->pending_off_frames,0,sizeof(instance->pending_off_frames));instance->active_count=0;instance->last_inferred_count=0;instance->resolved_source_channel=-1;instance->dirty=0;instance->candidate_frames=0;}if(length>=2)instance->last_note=input[1]&0x7F;if(length>=3)instance->last_velocity=input[2];int status=input[0]&0xF0,is_on=(status==0x90&&length>=3&&input[2]>0),is_off=(status==0x80&&length>=3)||(status==0x90&&length>=3&&input[2]==0);if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note=input[1]&0x7F,mapped;int input_channel=input[0]&0x0F;if(is_on){instance->note_on_count++;instance->active_count++;}else if(is_off){instance->note_off_count++;if(instance->active_count>0)instance->active_count--;}if(instance->role==2)return pass(input,length,output,lengths,max_output);if(instance->role==0){int slot_channel=(g_host&&g_host->slot_recv_channel)?g_host->slot_recv_channel(instance):-1;if(slot_channel>=0&&slot_channel<16&&input_channel!=slot_channel)return pass(input,length,output,lengths,max_output);if(is_on){instance->held_now[note]=1;instance->pending_off_frames[note]=0;mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=mapped;}else{instance->held_now[note]=0;int release_frames=(g_host&&g_host->sample_rate>0)?(g_host->sample_rate/100):441;instance->pending_off_frames[note]=release_frames;mapped=instance->mapped[note];if(mapped<0)mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=-1;}instance->candidate_frames=0;instance->dirty=1;instance->frames_since_change=0;if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}if(is_on){instance->source_seen[note%12]=1;hb_harmony_t harmony=hb_mapping_target(bus_read(),instance->map_target);mapped=hb_map_note(note,reference_root(instance),harmony,(hb_map_mode_t)instance->mode);instance->mapped[note]=mapped;}else{mapped=instance->mapped[note];if(mapped<0)mapped=note;instance->mapped[note]=-1;}
 if(instance->render_channel>=0){
     int recv_channel=(g_host&&g_host->slot_recv_channel)?g_host->slot_recv_channel(instance):-1;
     if(input_channel!=instance->render_channel){
@@ -655,32 +656,9 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
         int clock_status=g_host->get_clock_status();
         if(clock_status==1){
             double playhead=hb_clip_playhead();
-            double loop_length=g_bus.clip_loop_end-g_bus.clip_loop_start;
-            int wrapped=0;
-            if(g_bus.have_last_clip_playhead&&loop_length>0.0){
-                double drop=g_bus.last_clip_playhead-playhead;
-                wrapped=drop>(loop_length*0.5);
-            }
-            g_bus.clip_refresh_counter+=(unsigned)frames;
-            unsigned refresh_frames=(unsigned)(sample_rate/4);
-            if(refresh_frames<1)refresh_frames=1;
-            if(g_bus.last_clock_status!=1||wrapped||
-               g_bus.clip_refresh_counter>=refresh_frames){
-                if(!hb_load_clip_cache())hb_clear_clip_cache();
-                g_bus.clip_refresh_counter=0;
-                /* Re-read playhead because a successful load may change loop bounds. */
-                playhead=hb_clip_playhead();
-            }
             g_bus.last_clip_playhead=playhead;
             g_bus.have_last_clip_playhead=1;
         }else{
-            g_bus.clip_refresh_counter+=(unsigned)frames;
-            unsigned refresh_frames=(unsigned)(sample_rate/4);
-            if(refresh_frames<1)refresh_frames=1;
-            if(g_bus.last_clock_status==1||g_bus.clip_refresh_counter>=refresh_frames){
-                if(!hb_load_clip_cache())hb_clear_clip_cache();
-                g_bus.clip_refresh_counter=0;
-            }
             g_bus.have_last_clip_playhead=0;
         }
         g_bus.last_clock_status=clock_status;
