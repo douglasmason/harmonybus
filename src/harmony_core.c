@@ -22,13 +22,11 @@ typedef struct { const char *suffix; uint16_t mask; int complexity; } chord_temp
 static const chord_template_t templates[] = {
     {"",BIT(0)|BIT(4)|BIT(7),3},{"min",BIT(0)|BIT(3)|BIT(7),3},{"5",BIT(0)|BIT(7),2},
     {"sus2",BIT(0)|BIT(2)|BIT(7),3},{"sus4",BIT(0)|BIT(5)|BIT(7),3},{"dim",BIT(0)|BIT(3)|BIT(6),3},
-    {"aug",BIT(0)|BIT(4)|BIT(8),3},{"6",BIT(0)|BIT(4)|BIT(7)|BIT(9),4},{"min6",BIT(0)|BIT(3)|BIT(7)|BIT(9),4},
+    {"aug",BIT(0)|BIT(4)|BIT(8),3},
     {"maj7",BIT(0)|BIT(4)|BIT(7)|BIT(11),4},{"7",BIT(0)|BIT(4)|BIT(7)|BIT(10),4},{"min7",BIT(0)|BIT(3)|BIT(7)|BIT(10),4},
     {"minMaj7",BIT(0)|BIT(3)|BIT(7)|BIT(11),4},{"min7b5",BIT(0)|BIT(3)|BIT(6)|BIT(10),4},{"dim7",BIT(0)|BIT(3)|BIT(6)|BIT(9),4},
     {"add9",BIT(0)|BIT(2)|BIT(4)|BIT(7),4},{"minAdd9",BIT(0)|BIT(2)|BIT(3)|BIT(7),4},{"maj9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(11),5},
-    {"9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(10),5},{"min9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(10),5},
-    {"11",BIT(0)|BIT(2)|BIT(4)|BIT(5)|BIT(7)|BIT(10),6},{"min11",BIT(0)|BIT(2)|BIT(3)|BIT(5)|BIT(7)|BIT(10),6},
-    {"13",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(9)|BIT(10),6}
+    {"9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(10),5},{"min9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(10),5}
 };
 static const int template_count=(int)(sizeof(templates)/sizeof(templates[0]));
 static uint16_t rotate_to_root(uint16_t mask,int root) {
@@ -43,8 +41,46 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
     int input_count=popcount12(input); if(!input_count)return result;
     int best_score=INT_MIN,second_score=INT_MIN,best_root=bass%12,best_template=-1;
     for(int root=0;root<12;root++){uint16_t relative=rotate_to_root(input,root);for(int index=0;index<template_count;index++){
-        uint16_t mask=templates[index].mask; int matched=popcount12(relative&mask),missing=popcount12(mask&~relative),extras=popcount12(relative&~mask);
-        int score=matched*18-missing*13-extras*7;if(relative&BIT(0))score+=8;if(root==(bass%12))score+=10;
+        uint16_t mask=templates[index].mask;
+        int matched=popcount12(relative&mask),missing=popcount12(mask&~relative),extras=popcount12(relative&~mask);
+        int score=matched*16-missing*12-extras*8;
+
+        int has_root=(relative&BIT(0))!=0;
+        int has_m3=(relative&BIT(3))!=0;
+        int has_M3=(relative&BIT(4))!=0;
+        int has_P5=(relative&BIT(7))!=0;
+        int has_b5=(relative&BIT(6))!=0;
+        int has_sharp5=(relative&BIT(8))!=0;
+        int has_b7=(relative&BIT(10))!=0;
+        int has_M7=(relative&BIT(11))!=0;
+        int has_9=(relative&BIT(2))!=0;
+        int has_4=(relative&BIT(5))!=0;
+
+        if(has_root)score+=8;
+
+        /* Structural root evidence. */
+        if(has_P5)score+=18;
+        if((has_m3||has_M3)&&(has_b7||has_M7))score+=16; /* shell voicing */
+        if(has_b5&&has_m3)score+=14;                     /* diminished family */
+        if(has_sharp5&&has_M3)score+=14;                 /* augmented family */
+
+        /* Sus chords are valid without a third, but should keep the P5. */
+        if(index==3||index==4){
+            if(has_P5)score+=8;
+            if((index==3&&has_9)||(index==4&&has_4))score+=6;
+        }
+
+        /* Extensions decorate an established structure; they are weak root evidence
+           by themselves and should never outweigh a clear triad/shell elsewhere. */
+        if(has_9&&!has_P5&&!(has_m3||has_M3))score-=8;
+        if(has_4&&!has_P5&&!(has_m3||has_M3))score-=10;
+
+        /* Exact template fits should dominate exotic re-interpretations. */
+        if(missing==0&&extras==0)score+=24;
+
+        /* Bass as root is only a modest tie-breaker; inversions stay viable. */
+        if(root==(bass%12))score+=3;
+
         score-=(templates[index].complexity>input_count?templates[index].complexity-input_count:input_count-templates[index].complexity)*2;
         if(score>best_score){second_score=best_score;best_score=score;best_root=root;best_template=index;}else if(score>second_score)second_score=score;
     }}
