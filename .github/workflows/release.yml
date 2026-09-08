@@ -24,15 +24,25 @@ jobs:
           MON=dist/harmonybus-monitor-v0.1.89-tool.tar.gz
           gzip -t "$HB"
           gzip -t "$MON"
-          tar -tzf "$HB" | grep -q '^harmonybus/module.json          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -tzf "$HB" > /tmp/hb-files.txt
+          tar -tzf "$MON" > /tmp/mon-files.txt
+          grep -Fxq "harmonybus/module.json" /tmp/hb-files.txt
+          grep -Fxq "harmonybus/dsp.so" /tmp/hb-files.txt
+          grep -Fxq "harmonybus-monitor/module.json" /tmp/mon-files.txt
+          grep -Fxq "harmonybus-monitor/ui.js" /tmp/mon-files.txt
+          grep -Fxq "harmonybus-monitor/dsp.so" /tmp/mon-files.txt
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
           tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
           python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
           python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
           tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
-          strings /tmp/hb-dsp.so | grep -q '0.1.89'
-          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          strings /tmp/hb-dsp.so > /tmp/hb-strings.txt
+          grep -Fxq "0.1.89" /tmp/hb-strings.txt
+          nm -D /tmp/hb-dsp.so > /tmp/hb-symbols.txt
+          grep -q "move_midi_fx_init" /tmp/hb-symbols.txt
           tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
-          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+          nm -D /tmp/mon-dsp.so > /tmp/mon-symbols.txt
+          grep -q "move_plugin_init_v2" /tmp/mon-symbols.txt
 
       - name: Publish v0.1.89 release
         env:
