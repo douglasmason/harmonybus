@@ -1,5 +1,5 @@
-/* Harmony Bus v0.1.82 — Schwung MIDI FX. */
-#define HB_VERSION "0.1.82"
+/* Harmony Bus v0.1.83 — Schwung MIDI FX. */
+#define HB_VERSION "0.1.83"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -356,8 +356,7 @@ static int hb_nth_observed_note(const Inst *instance,int ordinal){
     return ordinal>=0&&ordinal<count?notes[ordinal]:-1;
 }
 static int hb_nth_shared_conductor_note(int ordinal){
-    if(ordinal<0||ordinal>=g_bus.last_sense_count||ordinal>=64)return -1;
-    return g_bus.last_sense_notes[ordinal];
+    return hb_nth_observed_note(0,ordinal);
 }
 static int hb_nth_conductor_analysis_note(const Inst *instance,int ordinal){
     if(!instance||ordinal<0)return -1;
@@ -816,22 +815,15 @@ static const char *hb_follower_role_name(const Inst *instance,int ordinal){
     return hb_role_name_for_interval(note-source.root_pc);
 }
 static int hb_nth_active_note(const Inst *instance,int ordinal){
-    if(!instance||ordinal<0)return -1;
-    int seen=0;
-    for(int note=0;note<128;note++){
-        if(instance->active[note]){
-            if(seen==ordinal)return note;
-            seen++;
-        }
-    }
-    return -1;
+    return hb_nth_observed_note(instance,ordinal);
 }
 static int hb_format_active_notes(const Inst *instance,char *buffer,int length){
-    if(!instance||!buffer||length<2)return -1;
+    if(!buffer||length<2)return -1;
+    uint8_t notes[64];
+    int count=hb_observed_notes(instance,notes,64);
     int used=0;
-    for(int note=0;note<128;note++){
-        if(!instance->active[note])continue;
-        int written=snprintf(buffer+used,(size_t)(length-used),used? ",%d":"%d",note);
+    for(int index=0;index<count;index++){
+        int written=snprintf(buffer+used,(size_t)(length-used),used?",%d":"%d",(int)notes[index]);
         if(written<0||used+written>=length)return used;
         used+=written;
     }
@@ -840,11 +832,12 @@ static int hb_format_active_notes(const Inst *instance,char *buffer,int length){
 }
 static unsigned hb_active_pc_mask(const Inst *instance){
     unsigned mask=0;
-    if(!instance)return 0;
-    for(int note=0;note<128;note++)if(instance->active[note])mask|=(1u<<(note%12));
+    uint8_t notes[64];
+    int count=hb_observed_notes(instance,notes,64);
+    for(int index=0;index<count;index++)mask|=(1u<<(notes[index]%12));
     return mask;
 }
-static int active_notes(const Inst *instance,uint8_t *output){int count=0;for(int note=0;note<128;note++)if(instance->active[note])output[count++]=(uint8_t)note;return count;}
+static int active_notes(const Inst *instance,uint8_t *output){return hb_observed_notes(instance,output,128);}
 static int infer_reference_root(Inst *instance){static const int major[7]={0,2,4,5,7,9,11};static const int minor[7]={0,2,3,5,7,8,10};int pitch_classes=0,best=-999,best_root=instance->resolved_root;for(int index=0;index<12;index++)pitch_classes+=instance->source_seen[index]?1:0;if(!pitch_classes)return instance->resolved_root;for(int root=0;root<12;root++)for(int scale=0;scale<2;scale++){int score=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(instance->source_seen[pitch_class]){int relative=mod12(pitch_class-root),inside=0;for(int degree=0;degree<7;degree++)if(relative==(scale?minor[degree]:major[degree])){inside=1;break;}score+=inside?5:-4;}if(instance->source_seen[root])score+=3;if(score>best){best=score;best_root=root;}}instance->resolved_confidence=pitch_classes>=4?80:(pitch_classes>=3?65:45);return best_root;}
 static int reference_root(Inst *instance){if(g_bus.global_root_policy==0)return mod12(g_bus.global_explicit_root);if(g_bus.global_root_policy==1)return mod12(g_bus.global_input_root);instance->resolved_root=infer_reference_root(instance);return mod12(instance->resolved_root);}
 static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];memset(instance,0,sizeof(*instance));instance->used=1;instance->role=0;instance->mode=0;instance->map_target=0;instance->window_ms=70;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=1;instance->follower_source_policy=0;instance->follower_source_root=0;instance->follower_source_quality=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}return instance;}return 0;}
@@ -1032,34 +1025,19 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
                 if(g_bus.last_sense_notes[i]!=observed_notes[i]){sense_changed=1;break;}
             }
         }
+        /* active[] is classifier scratch only. Rebuild it from the authoritative
+           per-instance held_count[] aggregate every tick so it can never retain ghosts. */
+        memset(instance->active,0,sizeof(instance->active));
+        for(int i=0;i<observed_count;i++)instance->active[observed_notes[i]]=1;
         if(sense_changed){
             g_bus.last_sense_count=observed_count;
+            memset(g_bus.last_sense_notes,0,sizeof(g_bus.last_sense_notes));
             for(int i=0;i<observed_count;i++)g_bus.last_sense_notes[i]=observed_notes[i];
             g_bus.sense_rev++;
-            memset(instance->active,0,sizeof(instance->active));
-            for(int i=0;i<observed_count;i++)instance->active[observed_notes[i]]=1;
             instance->candidate_frames=0;
             instance->dirty=1;
             instance->frames_since_change=0;
         }
-    }
-
-    int expired_release=0;
-    for(int note=0;note<128;note++){
-        if(instance->pending_off_frames[note]<=0)continue;
-        instance->pending_off_frames[note]-=frames;
-        if(instance->pending_off_frames[note]<=0){
-            instance->pending_off_frames[note]=0;
-            if(instance->active[note]){
-                instance->active[note]=0;
-                expired_release=1;
-            }
-        }
-    }
-    if(expired_release){
-        instance->candidate_frames=0;
-        instance->dirty=1;
-        instance->frames_since_change=0;
     }
 
     /* Dwell time must advance continuously, not only on MIDI changes. */
