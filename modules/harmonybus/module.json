@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.69",
-  "abbrev": "HB169",
-  "version": "0.1.69",
+  "name": "Harmony Bus 0.1.70",
+  "abbrev": "HB170",
+  "version": "0.1.70",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.69 — dynamic held follower roles and optional retrigger",
+  "description": "Harmony Bus v0.1.70 — dynamic held roles; retrigger only on mapped pitch change",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,17 +16,17 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.69",
+          "name": "Harmony Bus 0.1.70",
           "params": [
             {
               "key": "version",
               "name": "Version",
               "type": "enum",
               "options": [
-                "0.1.69"
+                "0.1.70"
               ],
               "options_as_string": true,
-              "default": "0.1.69"
+              "default": "0.1.70"
             },
             {
               "key": "role",
@@ -476,10 +476,10 @@
         "name": "Version",
         "type": "enum",
         "options": [
-          "0.1.69"
+          "0.1.70"
         ],
         "options_as_string": true,
-        "default": "0.1.69"
+        "default": "0.1.70"
       },
       {
         "key": "role",
