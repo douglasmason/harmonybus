@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.96",
-  "abbrev": "HB196",
-  "version": "0.1.96",
+  "name": "Harmony Bus 0.1.97",
+  "abbrev": "HB197",
+  "version": "0.1.97",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.96 — persistent global follower root and symmetric track/all-track diagnostics",
+  "description": "Harmony Bus v0.1.97 — true global follower root and track-local candidate",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.96",
+          "name": "Harmony Bus 0.1.97",
           "params": [
             {
               "key": "role",
@@ -120,19 +120,19 @@
             },
             {
               "level": "conductor_this",
-              "label": "Conductor — This Track"
+              "label": "Cond Track"
             },
             {
               "level": "conductor_all",
-              "label": "Conductor — All Tracks"
+              "label": "Cond All"
             },
             {
               "level": "follower_this",
-              "label": "Follower — This Track"
+              "label": "Foll Track"
             },
             {
               "level": "follower_all",
-              "label": "Follower — All Tracks"
+              "label": "Foll All"
             },
             {
               "level": "conductor_sources",
@@ -140,7 +140,7 @@
             },
             {
               "level": "follower_source",
-              "label": "Follower Root — Global"
+              "label": "Foll Root"
             },
             {
               "key": "retrigger_held",
@@ -493,19 +493,19 @@
           ]
         },
         "follower_source": {
-          "name": "Follower Root — Global",
+          "name": "Foll Root",
           "params": [
             {
               "key": "follower_root_policy",
               "name": "Root Policy",
               "type": "enum",
               "options": [
-                "Input Key",
-                "Infer Follower",
+                "Infer Input",
+                "Infer Notes",
                 "Explicit"
               ],
               "options_as_string": true,
-              "default": "Input Key"
+              "default": "Infer Input"
             },
             {
               "key": "follower_explicit_root",
@@ -829,7 +829,7 @@
           ]
         },
         "conductor_this": {
-          "name": "Conductor — This Track",
+          "name": "Cond Track",
           "params": [
             {
               "key": "conductor_this_1",
@@ -866,7 +866,7 @@
             },
             {
               "key": "candidate_harmony",
-              "name": "This Track Candidate",
+              "name": "Candidate",
               "type": "string",
               "access": "read"
             }
@@ -881,7 +881,7 @@
           ]
         },
         "conductor_all": {
-          "name": "Conductor — All Tracks",
+          "name": "Cond All",
           "params": [
             {
               "key": "conductor_all_1",
@@ -918,7 +918,7 @@
             },
             {
               "key": "harmony",
-              "name": "Global Harmony",
+              "name": "Harmony",
               "type": "string",
               "access": "read"
             }
@@ -933,7 +933,7 @@
           ]
         },
         "follower_this": {
-          "name": "Follower — This Track",
+          "name": "Foll Track",
           "params": [
             {
               "key": "follower_this_1",
@@ -1012,7 +1012,7 @@
           ]
         },
         "follower_all": {
-          "name": "Follower — All Tracks",
+          "name": "Foll All",
           "params": [
             {
               "key": "follower_all_1",
@@ -1123,11 +1123,12 @@
         "name": "Root Policy",
         "type": "enum",
         "options": [
-          "Explicit",
-          "Current Input Root",
-          "Auto-Infer"
+          "Infer Input",
+          "Infer Notes",
+          "Explicit"
         ],
-        "options_as_string": true
+        "options_as_string": true,
+        "default": "Infer Input"
       },
       {
         "key": "follower_explicit_root",
@@ -1690,12 +1691,12 @@
         "name": "Root Policy",
         "type": "enum",
         "options": [
-          "Input Key",
-          "Infer Follower",
+          "Infer Input",
+          "Infer Notes",
           "Explicit"
         ],
         "options_as_string": true,
-        "default": "Input Key"
+        "default": "Infer Input"
       },
       {
         "key": "follower_explicit_root",
