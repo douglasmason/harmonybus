@@ -229,17 +229,105 @@ void hb_map_held_voices(const uint8_t *source_notes,int voice_count,int referenc
     }
 }
 
-int hb_map_note_from_harmony(int midi_note,hb_harmony_t source_harmony,hb_harmony_t target_harmony){
-    if(!source_harmony.valid||!target_harmony.valid)return clamp_midi(midi_note);
-    int delta=target_harmony.root_pc-source_harmony.root_pc;
-    while(delta>6)delta-=12;
-    while(delta<-6)delta+=12;
-    return clamp_midi(midi_note+delta);
+
+static int hb_nearest_interval_in_mask(int preferred_interval,uint16_t relative_mask){
+    int best=preferred_interval,best_distance=999;
+    for(int interval=0;interval<12;interval++){
+        if(!(relative_mask&BIT(interval)))continue;
+        int distance=interval-preferred_interval;
+        if(distance<0)distance=-distance;
+        if(distance>6)distance=12-distance;
+        if(distance<best_distance){best_distance=distance;best=interval;}
+    }
+    return best;
 }
-void hb_map_held_voices_from_harmony(const uint8_t *source_notes,int voice_count,
-                                     hb_harmony_t source_harmony,hb_harmony_t target_harmony,
-                                     int *mapped_outputs){
+static int hb_target_role_interval(int source_interval,hb_harmony_t source_harmony,
+                                   hb_harmony_t target_harmony){
+    uint16_t source_mask=rotate_to_root(hb_harmony_chord_mask(source_harmony),source_harmony.root_pc);
+    uint16_t target_mask=rotate_to_root(hb_harmony_chord_mask(target_harmony),target_harmony.root_pc);
+
+    /* Semantic chord roles. The source quality tells us what role the note had;
+       the target quality supplies the corresponding altered degree. */
+    if(source_interval==0)return 0;
+
+    if(source_interval==3||source_interval==4){
+        if(target_mask&BIT(3))return 3;
+        if(target_mask&BIT(4))return 4;
+    }
+    if(source_interval==6||source_interval==7||source_interval==8){
+        if(target_mask&BIT(7))return 7;
+        if(target_mask&BIT(6))return 6;
+        if(target_mask&BIT(8))return 8;
+    }
+    if(source_interval==10||source_interval==11){
+        if(target_mask&BIT(10))return 10;
+        if(target_mask&BIT(11))return 11;
+    }
+    if(source_interval==2&&target_mask&BIT(2))return 2;
+    if(source_interval==5&&target_mask&BIT(5))return 5;
+    if(source_interval==9&&target_mask&BIT(9))return 9;
+
+    /* If the note was a literal source chord tone not covered above, preserve
+       its chromatic degree when available. */
+    if((source_mask&BIT(source_interval))&&(target_mask&BIT(source_interval)))
+        return source_interval;
+
+    /* Passing/non-chord tones fall back to the nearest target chord degree. */
+    return hb_nearest_interval_in_mask(source_interval,target_mask);
+}
+int hb_map_note_by_role(int midi_note,hb_harmony_t source_harmony,
+                        hb_harmony_t target_harmony,int smooth){
+    if(!source_harmony.valid||!target_harmony.valid)return clamp_midi(midi_note);
+    int source_interval=mod12(midi_note-source_harmony.root_pc);
+    int target_interval=hb_target_role_interval(source_interval,source_harmony,target_harmony);
+    int target_pc=mod12(target_harmony.root_pc+target_interval);
+
+    /* Relative mode preserves register under the conductor-root motion. */
+    int root_delta=target_harmony.root_pc-source_harmony.root_pc;
+    while(root_delta>6)root_delta-=12;
+    while(root_delta<-6)root_delta+=12;
+    int nominal=midi_note+root_delta;
+    int correction=mod12(target_pc-mod12(nominal));
+    if(correction>6)correction-=12;
+    int role_note=clamp_midi(nominal+correction);
+    if(!smooth)return role_note;
+
+    /* Smooth keeps the semantic role as a preference, but may choose a nearby
+       legal target tone when that substantially reduces physical movement. */
+    uint16_t target_mask=hb_harmony_chord_mask(target_harmony);
+    int nearest=nearest_pc_note(midi_note,target_mask);
+    int role_distance=role_note-midi_note;if(role_distance<0)role_distance=-role_distance;
+    int nearest_distance=nearest-midi_note;if(nearest_distance<0)nearest_distance=-nearest_distance;
+    return (nearest_distance+1<role_distance)?nearest:role_note;
+}
+void hb_map_held_voices_by_role(const uint8_t *source_notes,int voice_count,
+                                hb_harmony_t source_harmony,hb_harmony_t target_harmony,
+                                int smooth,const int *previous_outputs,
+                                int *mapped_outputs){
     if(!source_notes||!mapped_outputs||voice_count<=0)return;
-    for(int voice=0;voice<voice_count;voice++)
-        mapped_outputs[voice]=hb_map_note_from_harmony(source_notes[voice],source_harmony,target_harmony);
+    uint16_t target_mask=hb_harmony_chord_mask(target_harmony);
+    for(int voice=0;voice<voice_count;voice++){
+        int source=source_notes[voice];
+        int preferred=hb_map_note_by_role(source,source_harmony,target_harmony,smooth);
+        if(!smooth){mapped_outputs[voice]=preferred;continue;}
+        int best=preferred,best_cost=999999;
+        for(int candidate=source-12;candidate<=source+12;candidate++){
+            if(candidate<0||candidate>127)continue;
+            if(!(target_mask&BIT(mod12(candidate))))continue;
+            int movement=candidate-source;if(movement<0)movement=-movement;
+            int role_distance=candidate-preferred;if(role_distance<0)role_distance=-role_distance;
+            int continuity=0;
+            if(previous_outputs&&previous_outputs[voice]>=0){
+                continuity=candidate-previous_outputs[voice];if(continuity<0)continuity=-continuity;
+            }
+            int collision=0,crossing=0;
+            for(int prior=0;prior<voice;prior++){
+                if(mapped_outputs[prior]==candidate)collision+=18;
+                if(source_notes[prior]<source&&mapped_outputs[prior]>candidate)crossing+=24;
+            }
+            int cost=movement*5+continuity*3+role_distance*2+collision+crossing;
+            if(cost<best_cost){best_cost=cost;best=candidate;}
+        }
+        mapped_outputs[voice]=clamp_midi(best);
+    }
 }
