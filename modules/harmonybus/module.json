@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.68",
-  "abbrev": "HB168",
-  "version": "0.1.68",
+  "name": "Harmony Bus 0.1.69",
+  "abbrev": "HB169",
+  "version": "0.1.69",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.68 — local-own-role / aggregate-opposite-role analysis",
+  "description": "Harmony Bus v0.1.69 — dynamic held follower roles and optional retrigger",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,17 +16,17 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.68",
+          "name": "Harmony Bus 0.1.69",
           "params": [
             {
               "key": "version",
               "name": "Version",
               "type": "enum",
               "options": [
-                "0.1.68"
+                "0.1.69"
               ],
               "options_as_string": true,
-              "default": "0.1.68"
+              "default": "0.1.69"
             },
             {
               "key": "role",
@@ -135,12 +135,24 @@
             {
               "level": "follower_analysis",
               "label": "Follower Analysis"
+            },
+            {
+              "key": "retrigger_held",
+              "name": "Retrigger Held",
+              "type": "enum",
+              "options": [
+                "Off",
+                "On"
+              ],
+              "options_as_string": true,
+              "default": "On"
             }
           ],
           "knobs": [
             "version",
             "role",
             "mode",
+            "retrigger_held",
             "render_channel",
             "chord_timing",
             "context",
@@ -464,10 +476,10 @@
         "name": "Version",
         "type": "enum",
         "options": [
-          "0.1.68"
+          "0.1.69"
         ],
         "options_as_string": true,
-        "default": "0.1.68"
+        "default": "0.1.69"
       },
       {
         "key": "role",
@@ -952,6 +964,17 @@
         "max": 127,
         "step": 1,
         "access": "read"
+      },
+      {
+        "key": "retrigger_held",
+        "name": "Retrigger Held",
+        "type": "enum",
+        "options": [
+          "Off",
+          "On"
+        ],
+        "options_as_string": true,
+        "default": "On"
       }
     ],
     "pre_capable": 1
