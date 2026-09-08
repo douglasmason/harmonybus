@@ -34,7 +34,8 @@
                 "Off"
               ],
               "options_as_string": true,
-              "default": "Off"
+              "default": "Off",
+              "short_name": "Role"
             },
             {
               "key": "mode",
@@ -1111,7 +1112,7 @@
           "Off"
         ],
         "options_as_string": true,
-        "default": "Conductor"
+        "default": "Off"
       },
       {
         "key": "mode",
