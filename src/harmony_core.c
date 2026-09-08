@@ -112,6 +112,32 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
     if(result.bass_pc!=result.root_pc){size_t used=strlen(result.name);snprintf(result.name+used,sizeof(result.name)-used,"/%s",hb_pc_name(result.bass_pc));}
     return result;
 }
+hb_harmony_t hb_refine_harmony_with_root(const uint8_t *notes,int note_count,hb_harmony_t established) {
+    if(!established.valid||!notes||note_count<=0)return established;
+    uint16_t input=0; int bass=127;
+    for(int index=0;index<note_count;index++){int note=notes[index];if(note<bass)bass=note;input|=BIT(mod12(note));}
+    uint16_t relative=rotate_to_root(input,established.root_pc);
+    int best_template=-1,best_score=INT_MIN;
+    /* With the root already established, richer colors are safe to recognize:
+       6/min6/11/min11/13 are color hypotheses here, never root hypotheses. */
+    for(int index=0;index<template_count;index++){
+        uint16_t mask=templates[index].mask;
+        if(relative==mask){
+            int score=1000+templates[index].complexity*20;
+            if(score>best_score){best_score=score;best_template=index;}
+        }
+    }
+    if(best_template<0){
+        /* Do not invent a rich extension from an incomplete set. Preserve the
+           established quality until the held/current notes exactly support one. */
+        return established;
+    }
+    hb_harmony_t result=established;
+    result.bass_pc=bass%12;result.pitch_mask=input;result.chord_index=best_template;result.confidence=95;
+    snprintf(result.name,sizeof(result.name),"%s%s",hb_pc_name(result.root_pc),templates[best_template].suffix);
+    if(result.bass_pc!=result.root_pc){size_t used=strlen(result.name);snprintf(result.name+used,sizeof(result.name)-used,"/%s",hb_pc_name(result.bass_pc));}
+    return result;
+}
 uint16_t hb_harmony_chord_mask(hb_harmony_t harmony) {
     if(!harmony.valid||harmony.chord_index<0||harmony.chord_index>=template_count)return harmony.pitch_mask;
     uint16_t relative=templates[harmony.chord_index].mask;
