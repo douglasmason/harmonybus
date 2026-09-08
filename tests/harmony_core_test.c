@@ -107,6 +107,19 @@ int main(void) {
     hb_harmony_t c13_color = hb_refine_harmony_with_root(c13_notes, 6, established_c);
     if (c13_color.root_pc != 0 || c13_color.chord_index != 22) fail("C13 color", c13_color.name);
 
+    /* Polyphonic follower assignment: outputs stay legal, ordered, and
+       avoid gratuitous duplicate voices when alternatives exist. */
+    const uint8_t follower_sources[] = {60, 64, 67};
+    const int follower_previous[] = {60, 64, 67};
+    int follower_outputs[] = {-1, -1, -1};
+    hb_map_held_voices(follower_sources, 3, 0, c7, HB_MAP_CHORD,
+                       follower_previous, follower_outputs);
+    for (int voice = 0; voice < 3; ++voice) {
+        if ((c7_mask & (uint16_t)(1u << (follower_outputs[voice] % 12))) == 0)
+            fail("poly follower legal tone", "mapped outside chord");
+        if (voice > 0 && follower_outputs[voice] < follower_outputs[voice - 1])
+            fail("poly follower crossing", "voice order reversed");
+    }
     printf("Harmony Bus core tests passed.\n");
     return 0;
 }
