@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -41,58 +41,112 @@
               "options_as_string": true
             },
             {
-              "key": "root_policy",
-              "name": "Root Policy",
+              "key": "map_target",
+              "name": "Map Target",
               "type": "enum",
               "options": [
-                "Explicit",
-                "Current Input Root",
-                "Auto-Infer"
+                "Chord",
+                "Scale"
               ],
               "options_as_string": true
             },
             {
-              "key": "explicit_root",
-              "name": "Explicit Root",
+              "key": "render_channel",
+              "name": "Render To Ch",
               "type": "enum",
               "options": [
-                "C",
-                "C#",
-                "D",
-                "Eb",
-                "E",
-                "F",
-                "F#",
-                "G",
-                "Ab",
-                "A",
-                "Bb",
-                "B"
+                "Off",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11",
+                "12",
+                "13",
+                "14",
+                "15",
+                "16"
               ],
               "options_as_string": true
             },
             {
-              "key": "transpose",
-              "name": "Transpose",
-              "type": "int",
-              "min": -24,
-              "max": 24,
-              "step": 1,
-              "default": 0
+              "key": "chord_timescale",
+              "name": "Chord Timescale",
+              "type": "enum",
+              "options": [
+                "Free",
+                "1/16",
+                "1/8",
+                "1/4",
+                "1/2",
+                "1 Bar"
+              ],
+              "options_as_string": true
             },
             {
-              "key": "window_ms",
-              "name": "Inference Window",
-              "type": "int",
-              "min": 10,
-              "max": 500,
-              "step": 5,
-              "default": 70
+              "key": "stability",
+              "name": "Stability",
+              "type": "enum",
+              "options": [
+                "Responsive",
+                "Balanced",
+                "Stable"
+              ],
+              "options_as_string": true
+            },
+            {
+              "key": "accidentals",
+              "name": "Accidentals",
+              "type": "enum",
+              "options": [
+                "Auto",
+                "Sharps",
+                "C#D#F#G#Bb",
+                "C#EbF#G#Bb",
+                "C#EbF#AbBb",
+                "DbEbF#AbBb",
+                "Flats"
+              ],
+              "options_as_string": true
             },
             {
               "key": "harmony",
               "name": "Harmony",
               "type": "string",
+              "access": "read"
+            },
+            {
+              "level": "diagnostics",
+              "label": "Diagnostics"
+            }
+          ],
+          "knobs": [
+            "role",
+            "mode",
+            "map_target",
+            "render_channel",
+            "chord_timescale",
+            "stability",
+            "accidentals",
+            "harmony"
+          ]
+        },
+        "diagnostics": {
+          "name": "Diagnostics",
+          "params": [
+            {
+              "key": "confidence",
+              "name": "Confidence",
+              "type": "int",
+              "min": 0,
+              "max": 100,
+              "step": 1,
               "access": "read"
             },
             {
@@ -135,15 +189,6 @@
                 "B"
               ],
               "options_as_string": true,
-              "access": "read"
-            },
-            {
-              "key": "confidence",
-              "name": "Confidence",
-              "type": "int",
-              "min": 0,
-              "max": 100,
-              "step": 1,
               "access": "read"
             },
             {
@@ -210,6 +255,39 @@
               "access": "read"
             },
             {
+              "key": "active_note_1_name",
+              "name": "Active Note 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "active_note_2_name",
+              "name": "Active Note 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "active_note_3_name",
+              "name": "Active Note 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "active_note_4_name",
+              "name": "Active Note 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "callback_active_notes",
+              "name": "Callback Active",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
               "key": "infer_note_count",
               "name": "Inference Notes",
               "type": "int",
@@ -219,12 +297,27 @@
               "access": "read"
             },
             {
-              "key": "bus_seq",
-              "name": "Bus Seq",
+              "key": "pending_releases",
+              "name": "Pending Releases",
               "type": "int",
               "min": 0,
-              "max": 2147483647,
+              "max": 128,
               "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "active_pc_mask",
+              "name": "Active PC Mask",
+              "type": "int",
+              "min": 0,
+              "max": 4095,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "active_note_list",
+              "name": "Active Note List",
+              "type": "string",
               "access": "read"
             },
             {
@@ -309,79 +402,22 @@
               "access": "read"
             },
             {
-              "key": "chord_timescale",
-              "name": "Chord Timescale",
-              "type": "enum",
-              "options": [
-                "Free",
-                "1/16",
-                "1/8",
-                "1/4",
-                "1/2",
-                "1 Bar"
-              ],
-              "options_as_string": true
+              "key": "bus_seq",
+              "name": "Bus Seq",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
             },
             {
-              "key": "stability",
-              "name": "Stability",
-              "type": "enum",
-              "options": [
-                "Responsive",
-                "Balanced",
-                "Stable"
-              ],
-              "options_as_string": true
-            },
-            {
-              "key": "accidentals",
-              "name": "Accidentals",
-              "type": "enum",
-              "options": [
-                "Auto",
-                "Sharps",
-                "C#D#F#G#Bb",
-                "C#EbF#G#Bb",
-                "C#EbF#AbBb",
-                "DbEbF#AbBb",
-                "Flats"
-              ],
-              "options_as_string": true
-            },
-            {
-              "key": "map_target",
-              "name": "Map Target",
-              "type": "enum",
-              "options": [
-                "Chord",
-                "Scale"
-              ],
-              "options_as_string": true
-            },
-            {
-              "key": "render_channel",
-              "name": "Render To Ch",
-              "type": "enum",
-              "options": [
-                "Off",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-                "10",
-                "11",
-                "12",
-                "13",
-                "14",
-                "15",
-                "16"
-              ],
-              "options_as_string": true
+              "key": "inject_available",
+              "name": "Inject Available",
+              "type": "int",
+              "min": 0,
+              "max": 1,
+              "step": 1,
+              "access": "read"
             },
             {
               "key": "render_count",
@@ -409,119 +445,42 @@
               "max": 127,
               "step": 1,
               "access": "read"
-            },
-            {
-              "key": "inject_available",
-              "name": "Inject Available",
-              "type": "int",
-              "min": 0,
-              "max": 1,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "active_note_list",
-              "name": "Active Note List",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "active_pc_mask",
-              "name": "Active PC Mask",
-              "type": "int",
-              "min": 0,
-              "max": 4095,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "callback_active_notes",
-              "name": "Callback Active",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "active_note_1",
-              "name": "Active Note 1",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "active_note_2",
-              "name": "Active Note 2",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "active_note_3",
-              "name": "Active Note 3",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "active_note_4",
-              "name": "Active Note 4",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "pending_releases",
-              "name": "Pending Releases",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "active_note_1_name",
-              "name": "Active Note 1",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "active_note_2_name",
-              "name": "Active Note 2",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "active_note_3_name",
-              "name": "Active Note 3",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "active_note_4_name",
-              "name": "Active Note 4",
-              "type": "string",
-              "access": "read"
             }
           ],
           "knobs": [
-            "role",
-            "harmony",
+            "confidence",
+            "detected_root",
+            "detected_bass",
+            "rx_count",
+            "note_on_count",
+            "note_off_count",
+            "last_note",
+            "last_status",
+            "last_velocity",
+            "active_count",
             "active_note_1_name",
             "active_note_2_name",
             "active_note_3_name",
             "active_note_4_name",
+            "callback_active_notes",
+            "infer_note_count",
             "pending_releases",
-            "raw_last_channel"
+            "active_pc_mask",
+            "active_note_list",
+            "raw_event_count",
+            "raw_note_count",
+            "raw_note_on_count",
+            "raw_note_off_count",
+            "raw_last_note",
+            "raw_last_status",
+            "raw_last_velocity",
+            "raw_last_channel",
+            "raw_last_cable",
+            "bus_seq",
+            "inject_available",
+            "render_count",
+            "render_fail_count",
+            "render_last_note"
           ]
         }
       }
