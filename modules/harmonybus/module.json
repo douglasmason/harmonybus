@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -141,111 +141,6 @@
           "name": "Diagnostics",
           "params": [
             {
-              "key": "confidence",
-              "name": "Confidence",
-              "type": "int",
-              "min": 0,
-              "max": 100,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "detected_root",
-              "name": "Root",
-              "type": "enum",
-              "options": [
-                "C",
-                "C#",
-                "D",
-                "Eb",
-                "E",
-                "F",
-                "F#",
-                "G",
-                "Ab",
-                "A",
-                "Bb",
-                "B"
-              ],
-              "options_as_string": true,
-              "access": "read"
-            },
-            {
-              "key": "detected_bass",
-              "name": "Bass",
-              "type": "enum",
-              "options": [
-                "C",
-                "C#",
-                "D",
-                "Eb",
-                "E",
-                "F",
-                "F#",
-                "G",
-                "Ab",
-                "A",
-                "Bb",
-                "B"
-              ],
-              "options_as_string": true,
-              "access": "read"
-            },
-            {
-              "key": "rx_count",
-              "name": "RX Count",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "note_on_count",
-              "name": "Note On Count",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "note_off_count",
-              "name": "Note Off Count",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "last_note",
-              "name": "Last Note",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "last_status",
-              "name": "Last Status",
-              "type": "int",
-              "min": -1,
-              "max": 255,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "last_velocity",
-              "name": "Last Velocity",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
               "key": "active_count",
               "name": "Active Notes",
               "type": "int",
@@ -279,15 +174,6 @@
               "access": "read"
             },
             {
-              "key": "callback_active_notes",
-              "name": "Callback Active",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
               "key": "infer_note_count",
               "name": "Inference Notes",
               "type": "int",
@@ -306,77 +192,8 @@
               "access": "read"
             },
             {
-              "key": "active_pc_mask",
-              "name": "Active PC Mask",
-              "type": "int",
-              "min": 0,
-              "max": 4095,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "active_note_list",
-              "name": "Active Note List",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "raw_event_count",
-              "name": "Raw Events",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_note_count",
-              "name": "Raw Notes",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_note_on_count",
-              "name": "Raw Note On",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_note_off_count",
-              "name": "Raw Note Off",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
               "key": "raw_last_note",
               "name": "Raw Last Note",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_last_status",
-              "name": "Raw Status",
-              "type": "int",
-              "min": -1,
-              "max": 255,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_last_velocity",
-              "name": "Raw Velocity",
               "type": "int",
               "min": -1,
               "max": 127,
@@ -402,15 +219,6 @@
               "access": "read"
             },
             {
-              "key": "bus_seq",
-              "name": "Bus Seq",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
               "key": "inject_available",
               "name": "Inject Available",
               "type": "int",
@@ -429,15 +237,6 @@
               "access": "read"
             },
             {
-              "key": "render_fail_count",
-              "name": "Render Drops",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
               "key": "render_last_note",
               "name": "Rendered Note",
               "type": "int",
@@ -448,39 +247,14 @@
             }
           ],
           "knobs": [
-            "confidence",
-            "detected_root",
-            "detected_bass",
-            "rx_count",
-            "note_on_count",
-            "note_off_count",
-            "last_note",
-            "last_status",
-            "last_velocity",
             "active_count",
             "active_note_1_name",
             "active_note_2_name",
             "active_note_3_name",
             "active_note_4_name",
-            "callback_active_notes",
             "infer_note_count",
             "pending_releases",
-            "active_pc_mask",
-            "active_note_list",
-            "raw_event_count",
-            "raw_note_count",
-            "raw_note_on_count",
-            "raw_note_off_count",
-            "raw_last_note",
-            "raw_last_status",
-            "raw_last_velocity",
-            "raw_last_channel",
-            "raw_last_cable",
-            "bus_seq",
-            "inject_available",
-            "render_count",
-            "render_fail_count",
-            "render_last_note"
+            "raw_last_note"
           ]
         }
       }
@@ -564,111 +338,6 @@
         "access": "read"
       },
       {
-        "key": "detected_root",
-        "name": "Root",
-        "type": "enum",
-        "options": [
-          "C",
-          "C#",
-          "D",
-          "Eb",
-          "E",
-          "F",
-          "F#",
-          "G",
-          "Ab",
-          "A",
-          "Bb",
-          "B"
-        ],
-        "options_as_string": true,
-        "access": "read"
-      },
-      {
-        "key": "detected_bass",
-        "name": "Bass",
-        "type": "enum",
-        "options": [
-          "C",
-          "C#",
-          "D",
-          "Eb",
-          "E",
-          "F",
-          "F#",
-          "G",
-          "Ab",
-          "A",
-          "Bb",
-          "B"
-        ],
-        "options_as_string": true,
-        "access": "read"
-      },
-      {
-        "key": "confidence",
-        "name": "Confidence",
-        "type": "int",
-        "min": 0,
-        "max": 100,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "rx_count",
-        "name": "RX Count",
-        "type": "int",
-        "min": 0,
-        "max": 2147483647,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "note_on_count",
-        "name": "Note On Count",
-        "type": "int",
-        "min": 0,
-        "max": 2147483647,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "note_off_count",
-        "name": "Note Off Count",
-        "type": "int",
-        "min": 0,
-        "max": 2147483647,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "last_note",
-        "name": "Last Note",
-        "type": "int",
-        "min": -1,
-        "max": 127,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "last_status",
-        "name": "Last Status",
-        "type": "int",
-        "min": -1,
-        "max": 255,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "last_velocity",
-        "name": "Last Velocity",
-        "type": "int",
-        "min": -1,
-        "max": 127,
-        "step": 1,
-        "access": "read"
-      },
-      {
         "key": "active_count",
         "name": "Active Notes",
         "type": "int",
@@ -687,71 +356,8 @@
         "access": "read"
       },
       {
-        "key": "bus_seq",
-        "name": "Bus Seq",
-        "type": "int",
-        "min": 0,
-        "max": 2147483647,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "raw_event_count",
-        "name": "Raw Events",
-        "type": "int",
-        "min": 0,
-        "max": 2147483647,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "raw_note_count",
-        "name": "Raw Notes",
-        "type": "int",
-        "min": 0,
-        "max": 2147483647,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "raw_note_on_count",
-        "name": "Raw Note On",
-        "type": "int",
-        "min": 0,
-        "max": 2147483647,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "raw_note_off_count",
-        "name": "Raw Note Off",
-        "type": "int",
-        "min": 0,
-        "max": 2147483647,
-        "step": 1,
-        "access": "read"
-      },
-      {
         "key": "raw_last_note",
         "name": "Raw Last Note",
-        "type": "int",
-        "min": -1,
-        "max": 127,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "raw_last_status",
-        "name": "Raw Status",
-        "type": "int",
-        "min": -1,
-        "max": 255,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "raw_last_velocity",
-        "name": "Raw Velocity",
         "type": "int",
         "min": -1,
         "max": 127,
@@ -861,15 +467,6 @@
         "access": "read"
       },
       {
-        "key": "render_fail_count",
-        "name": "Render Drops",
-        "type": "int",
-        "min": 0,
-        "max": 2147483647,
-        "step": 1,
-        "access": "read"
-      },
-      {
         "key": "render_last_note",
         "name": "Rendered Note",
         "type": "int",
@@ -884,66 +481,6 @@
         "type": "int",
         "min": 0,
         "max": 1,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "active_note_list",
-        "name": "Active Note List",
-        "type": "string",
-        "access": "read"
-      },
-      {
-        "key": "active_pc_mask",
-        "name": "Active PC Mask",
-        "type": "int",
-        "min": 0,
-        "max": 4095,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "callback_active_notes",
-        "name": "Callback Active",
-        "type": "int",
-        "min": 0,
-        "max": 128,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "active_note_1",
-        "name": "Active Note 1",
-        "type": "int",
-        "min": -1,
-        "max": 127,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "active_note_2",
-        "name": "Active Note 2",
-        "type": "int",
-        "min": -1,
-        "max": 127,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "active_note_3",
-        "name": "Active Note 3",
-        "type": "int",
-        "min": -1,
-        "max": 127,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "active_note_4",
-        "name": "Active Note 4",
-        "type": "int",
-        "min": -1,
-        "max": 127,
         "step": 1,
         "access": "read"
       },
