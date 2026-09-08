@@ -657,8 +657,10 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
                 wrapped=drop>(loop_length*0.5);
             }
             g_bus.clip_refresh_counter+=(unsigned)frames;
+            unsigned refresh_frames=(unsigned)(sample_rate/4);
+            if(refresh_frames<1)refresh_frames=1;
             if(g_bus.last_clock_status!=1||wrapped||
-               g_bus.clip_refresh_counter>=(unsigned)(sample_rate*4)){
+               g_bus.clip_refresh_counter>=refresh_frames){
                 if(!hb_load_clip_cache())hb_clear_clip_cache();
                 g_bus.clip_refresh_counter=0;
                 /* Re-read playhead because a successful load may change loop bounds. */
@@ -667,12 +669,13 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
             g_bus.last_clip_playhead=playhead;
             g_bus.have_last_clip_playhead=1;
         }else{
-            /* On stop, refresh once so edits committed at the end of a take are
-               visible before the next playback. */
-            if(g_bus.last_clock_status==1){
+            g_bus.clip_refresh_counter+=(unsigned)frames;
+            unsigned refresh_frames=(unsigned)(sample_rate/4);
+            if(refresh_frames<1)refresh_frames=1;
+            if(g_bus.last_clock_status==1||g_bus.clip_refresh_counter>=refresh_frames){
                 if(!hb_load_clip_cache())hb_clear_clip_cache();
+                g_bus.clip_refresh_counter=0;
             }
-            g_bus.clip_refresh_counter=0;
             g_bus.have_last_clip_playhead=0;
         }
         g_bus.last_clock_status=clock_status;
