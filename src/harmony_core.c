@@ -31,7 +31,7 @@ static const chord_template_t templates[] = {
     {"9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(10),5,1},{"min9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(10),5,1},
     {"11",BIT(0)|BIT(2)|BIT(4)|BIT(5)|BIT(7)|BIT(10),6,0},{"min11",BIT(0)|BIT(2)|BIT(3)|BIT(5)|BIT(7)|BIT(10),6,0},
     {"13",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(9)|BIT(10),6,0}
-}
+};
 static const int template_count=(int)(sizeof(templates)/sizeof(templates[0]));
 static uint16_t rotate_to_root(uint16_t mask,int root) {
     uint16_t output=0; for(int pitch_class=0;pitch_class<12;++pitch_class) if(mask&BIT(pitch_class)) output|=BIT(mod12(pitch_class-root)); return output;
