@@ -457,12 +457,20 @@ static void hb_scan_raw_midi_out(Inst *instance) {
 
 
 static int hb_same_harmony(hb_harmony_t left,hb_harmony_t right){
-    return left.valid&&right.valid&&left.root_pc==right.root_pc&&left.chord_index==right.chord_index;
+    /* Bass is part of harmonic identity for the bus.  C, C/E and C/G share
+       root/quality, but followers and display should still see the inversion
+       change immediately rather than treating all three as identical. */
+    return left.valid&&right.valid&&
+           left.root_pc==right.root_pc&&
+           left.chord_index==right.chord_index&&
+           left.bass_pc==right.bass_pc;
 }
 static int hb_character_change(hb_harmony_t candidate,hb_harmony_t committed){
     if(!candidate.valid||!committed.valid)return 0;
-    /* Root motion is always a structural harmonic change. */
+    /* Root motion and inversion motion are both musically structural for the
+       harmony bus, even when the pitch-class set itself is unchanged. */
     if(candidate.root_pc!=committed.root_pc)return 1;
+    if(candidate.bass_pc!=committed.bass_pc&&candidate.chord_index==committed.chord_index)return 1;
 
     /* Ignore pure subset/superset changes. They usually represent voicing
        thinning/thickening (F -> F5 -> F, adding/removing 7/9, etc.). */
