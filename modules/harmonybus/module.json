@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -137,14 +137,8 @@
               "options_as_string": true
             },
             {
-              "key": "harmony",
-              "name": "Harmony",
-              "type": "string",
-              "access": "read"
-            },
-            {
               "level": "diagnostics",
-              "label": "Diagnostics"
+              "label": "Analysis"
             }
           ],
           "knobs": [
@@ -155,13 +149,18 @@
             "render_channel",
             "chord_timing",
             "context",
-            "accidentals",
-            "harmony"
+            "accidentals"
           ]
         },
         "diagnostics": {
-          "name": "Diagnostics",
+          "name": "Analysis",
           "params": [
+            {
+              "key": "harmony",
+              "name": "Harmony",
+              "type": "string",
+              "access": "read"
+            },
             {
               "key": "active_count",
               "name": "Active Notes",
@@ -196,11 +195,11 @@
               "access": "read"
             },
             {
-              "key": "clip_track",
-              "name": "Clip Track",
+              "key": "infer_note_count",
+              "name": "Inference Notes",
               "type": "int",
-              "min": -1,
-              "max": 3,
+              "min": 0,
+              "max": 128,
               "step": 1,
               "access": "read"
             },
@@ -212,32 +211,17 @@
               "max": 1024,
               "step": 1,
               "access": "read"
-            },
-            {
-              "key": "clip_playhead",
-              "name": "Clip Playhead",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "infer_note_count",
-              "name": "Inference Notes",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
             }
           ],
           "knobs": [
+            "harmony",
             "active_count",
             "active_note_1_name",
             "active_note_2_name",
             "active_note_3_name",
             "active_note_4_name",
-            "clip_track",
-            "clip_note_count",
-            "clip_playhead"
+            "infer_note_count",
+            "clip_note_count"
           ]
         }
       }
