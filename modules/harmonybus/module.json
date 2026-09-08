@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.51",
+  "version": "0.1.52",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -27,7 +27,8 @@
                 "Follower",
                 "Off"
               ],
-              "options_as_string": true
+              "options_as_string": true,
+              "default": "Conductor"
             },
             {
               "key": "sensor_sources",
@@ -38,24 +39,8 @@
                 "Realtime + Clip",
                 "Clip"
               ],
-              "options_as_string": true
-            },
-            {
-              "key": "clip_slot",
-              "name": "Clip Slot",
-              "type": "enum",
-              "options": [
-                "Auto",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8"
-              ],
-              "options_as_string": true
+              "options_as_string": true,
+              "default": "Realtime"
             },
             {
               "key": "mode",
@@ -152,7 +137,6 @@
           "knobs": [
             "role",
             "sensor_sources",
-            "clip_slot",
             "mode",
             "render_channel",
             "chord_timing",
@@ -163,12 +147,6 @@
         "diagnostics": {
           "name": "Analysis",
           "params": [
-            {
-              "key": "realtime_route",
-              "name": "Realtime Route",
-              "type": "string",
-              "access": "read"
-            },
             {
               "key": "candidate_harmony",
               "name": "Candidate",
@@ -222,19 +200,9 @@
               "max": 128,
               "step": 1,
               "access": "read"
-            },
-            {
-              "key": "clip_note_count",
-              "name": "Clip Notes",
-              "type": "int",
-              "min": 0,
-              "max": 1024,
-              "step": 1,
-              "access": "read"
             }
           ],
           "knobs": [
-            "realtime_route",
             "candidate_harmony",
             "harmony",
             "active_count",
@@ -242,13 +210,35 @@
             "active_note_2_name",
             "active_note_3_name",
             "active_note_4_name",
-            "infer_note_count",
-            "clip_note_count"
+            "infer_note_count"
           ]
         },
         "plumbing": {
           "name": "Diagnostics",
           "params": [
+            {
+              "key": "clip_slot",
+              "name": "Clip Slot",
+              "type": "enum",
+              "options": [
+                "Auto",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8"
+              ],
+              "options_as_string": true
+            },
+            {
+              "key": "realtime_route",
+              "name": "Realtime Route",
+              "type": "string",
+              "access": "read"
+            },
             {
               "key": "rt_note_count",
               "name": "RT Notes",
@@ -353,6 +343,8 @@
             }
           ],
           "knobs": [
+            "clip_slot",
+            "realtime_route",
             "rt_note_count",
             "rt_note_ons",
             "rt_note_offs",
