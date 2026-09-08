@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.44",
+  "version": "0.1.45",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -26,6 +26,17 @@
                 "Conductor",
                 "Follower",
                 "Off"
+              ],
+              "options_as_string": true
+            },
+            {
+              "key": "sensor_sources",
+              "name": "Sensor Sources",
+              "type": "enum",
+              "options": [
+                "Realtime",
+                "Realtime + Clip",
+                "Clip"
               ],
               "options_as_string": true
             },
@@ -140,6 +151,7 @@
           ],
           "knobs": [
             "role",
+            "sensor_sources",
             "clip_slot",
             "mode",
             "render_channel",
@@ -228,6 +240,24 @@
           "name": "Diagnostics",
           "params": [
             {
+              "key": "rt_note_count",
+              "name": "RT Notes",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "clip_active_count",
+              "name": "Clip Active",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
               "key": "cache_rev",
               "name": "Cache Rev",
               "type": "int",
@@ -274,35 +304,17 @@
               "name": "Clip Playhead",
               "type": "string",
               "access": "read"
-            },
-            {
-              "key": "raw_last_channel",
-              "name": "Raw Channel",
-              "type": "int",
-              "min": -1,
-              "max": 15,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_track_match",
-              "name": "Raw Track Match",
-              "type": "int",
-              "min": 0,
-              "max": 1,
-              "step": 1,
-              "access": "read"
             }
           ],
           "knobs": [
+            "rt_note_count",
+            "clip_active_count",
             "cache_rev",
             "sense_rev",
             "clip_stage",
             "clip_track",
             "clip_note_count",
-            "clip_playhead",
-            "raw_last_channel",
-            "raw_track_match"
+            "clip_playhead"
           ]
         }
       },
@@ -694,6 +706,35 @@
           "8"
         ],
         "options_as_string": true
+      },
+      {
+        "key": "sensor_sources",
+        "name": "Sensor Sources",
+        "type": "enum",
+        "options": [
+          "Realtime",
+          "Realtime + Clip",
+          "Clip"
+        ],
+        "options_as_string": true
+      },
+      {
+        "key": "rt_note_count",
+        "name": "RT Notes",
+        "type": "int",
+        "min": 0,
+        "max": 128,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "clip_active_count",
+        "name": "Clip Active",
+        "type": "int",
+        "min": 0,
+        "max": 128,
+        "step": 1,
+        "access": "read"
       }
     ]
   },
