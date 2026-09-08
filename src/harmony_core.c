@@ -78,6 +78,18 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
         }
     }
 
+    /* Rooted third dyads are enough to establish ordinary quality.
+       Prefer an actually sounded root+3rd over a rootless 3rd+5th reinterpretation.
+       Example: F-Ab => Fm, not C#/F. */
+    if(best_template<0&&input_count==2){
+        for(int root=0;root<12;root++){
+            uint16_t relative=rotate_to_root(input,root);
+            if(!(relative&BIT(0)))continue;
+            if(relative==(BIT(0)|BIT(3))){best_root=root;best_template=1;best_score=900;break;}
+            if(relative==(BIT(0)|BIT(4))){best_root=root;best_template=0;best_score=900;break;}
+        }
+    }
+
     /* Pass 2: only if no exact interpretation exists, use structural partial
        matching for shells/incomplete voicings. */
     if(best_template<0){
