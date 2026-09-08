@@ -1,5 +1,5 @@
-/* Harmony Bus v0.1.68 — Schwung MIDI FX. */
-#define HB_VERSION "0.1.68"
+/* Harmony Bus v0.1.69 — Schwung MIDI FX. */
+#define HB_VERSION "0.1.69"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -63,7 +63,7 @@ typedef struct {
 } hb_clip_note_t;
 typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int sensor_sources; int chord_timescale; int stability; int chord_timing; int context; int accidentals; int auto_spell_sharps; int auto_spell_locked; int clip_track; int clip_slot; int clip_valid; int clip_note_count; int clip_stage; int clip_context; int last_clock_status; double clip_loop_start; double clip_loop_end; unsigned long clip_clock_ticks; unsigned clip_refresh_counter; double last_clip_playhead; int have_last_clip_playhead; unsigned cache_rev; unsigned sense_rev; int last_sense_count; uint8_t last_sense_notes[64]; hb_clip_note_t clip_notes[HB_MAX_CLIP_NOTES]; } SharedBus;
 static SharedBus g_bus={0}; static int g_init=0;
-typedef struct { int used,role,mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; hb_harmony_t follower_source_harmony; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; } Inst;
+typedef struct { int used,role,mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; hb_harmony_t follower_source_harmony; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; uint8_t follower_role_interval[128]; } Inst;
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
 static int reference_root(Inst *instance);
 static Inst g_pool[HB_MAX_INSTANCES];
@@ -363,36 +363,37 @@ static int hb_conductor_analysis_count(const Inst *instance){
     if(instance->role==0)return hb_held_count(instance);
     return g_bus.last_sense_count;
 }
-static int hb_nth_aggregate_follower_note(int ordinal){
+static int hb_nth_aggregate_follower_observation(int ordinal,const Inst **follower_out){
+    if(follower_out)*follower_out=0;
     if(ordinal<0)return -1;
-    uint8_t seen_notes[128];memset(seen_notes,0,sizeof(seen_notes));
+    int seen=0;
     for(int instance_index=0;instance_index<HB_MAX_INSTANCES;instance_index++){
         const Inst *follower=&g_pool[instance_index];
         if(!follower->used||follower->role!=1)continue;
-        for(int note=0;note<128;note++)if(follower->follower_held[note])seen_notes[note]=1;
-    }
-    int seen=0;
-    for(int note=0;note<128;note++){
-        if(!seen_notes[note])continue;
-        if(seen==ordinal)return note;
-        seen++;
+        for(int note=0;note<128;note++){
+            if(!follower->follower_held[note])continue;
+            if(seen==ordinal){
+                if(follower_out)*follower_out=follower;
+                return note;
+            }
+            seen++;
+        }
     }
     return -1;
 }
 static int hb_aggregate_follower_count(void){
-    uint8_t seen_notes[128];memset(seen_notes,0,sizeof(seen_notes));
+    int count=0;
     for(int instance_index=0;instance_index<HB_MAX_INSTANCES;instance_index++){
         const Inst *follower=&g_pool[instance_index];
         if(!follower->used||follower->role!=1)continue;
-        for(int note=0;note<128;note++)if(follower->follower_held[note])seen_notes[note]=1;
+        for(int note=0;note<128;note++)if(follower->follower_held[note])count++;
     }
-    int count=0;for(int note=0;note<128;note++)if(seen_notes[note])count++;
     return count;
 }
 static int hb_nth_follower_analysis_note(const Inst *instance,int ordinal){
     if(!instance||ordinal<0)return -1;
     if(instance->role==1)return hb_nth_follower_note(instance,ordinal);
-    if(instance->role==0)return hb_nth_aggregate_follower_note(ordinal);
+    if(instance->role==0)return hb_nth_aggregate_follower_observation(ordinal,0);
     return -1;
 }
 static int hb_follower_analysis_count(const Inst *instance){
@@ -401,21 +402,22 @@ static int hb_follower_analysis_count(const Inst *instance){
     if(instance->role==0)return hb_aggregate_follower_count();
     return 0;
 }
+static const char *hb_current_role_name_for_note(const Inst *instance,int note){
+    if(!instance||note<0||note>127||!instance->follower_held[note])return "--";
+    int interval=instance->follower_role_interval[note];
+    if(interval<0||interval>11)return "--";
+    return hb_role_name_for_interval(interval);
+}
 static const char *hb_follower_analysis_role_name(const Inst *instance,int ordinal){
     if(!instance)return "--";
-    if(instance->role==1)return hb_follower_role_name(instance,ordinal);
-    if(instance->role!=0)return "--";
-    int note=hb_nth_aggregate_follower_note(ordinal);
-    if(note<0)return "--";
-    const char *role=0;
-    for(int instance_index=0;instance_index<HB_MAX_INSTANCES;instance_index++){
-        const Inst *follower=&g_pool[instance_index];
-        if(!follower->used||follower->role!=1||!follower->follower_held[note]||!follower->follower_source_harmony.valid)continue;
-        const char *candidate=hb_role_name_for_interval(note-follower->follower_source_harmony.root_pc);
-        if(!role)role=candidate;
-        else if(strcmp(role,candidate))return "Mixed";
+    if(instance->role==1){
+        int note=hb_nth_follower_note(instance,ordinal);
+        return hb_current_role_name_for_note(instance,note);
     }
-    return role?role:"--";
+    if(instance->role!=0)return "--";
+    const Inst *follower=0;
+    int note=hb_nth_aggregate_follower_observation(ordinal,&follower);
+    return hb_current_role_name_for_note(follower,note);
 }
 static int hb_nth_clip_active_note(int ordinal){
     uint8_t notes[32];int count=hb_clip_active_notes(notes,32);
@@ -473,12 +475,16 @@ static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int l
     uint8_t source_notes[128];
     int previous_outputs[128];
     int new_outputs[128];
+    int role_changed[128];
     int voice_count=0;
     for(int source_note=0;source_note<128;source_note++){
         if(!instance->follower_held[source_note])continue;
         source_notes[voice_count]=(uint8_t)source_note;
         previous_outputs[voice_count]=instance->mapped[source_note];
         new_outputs[voice_count]=previous_outputs[voice_count];
+        int next_role=mod12(source_note-bus_read().root_pc);
+        role_changed[voice_count]=(instance->follower_role_interval[source_note]!=255&&instance->follower_role_interval[source_note]!=next_role);
+        instance->follower_role_interval[source_note]=(uint8_t)next_role;
         voice_count++;
     }
 
@@ -495,7 +501,7 @@ static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int l
        In Schw+Move mode the chain host injects these into THIS slot's native
        Move instrument. Render To Ch remains an optional secondary copy. */
     for(int voice=0;voice<voice_count&&emitted<max_output;voice++){
-        if(previous_outputs[voice]<0||previous_outputs[voice]==new_outputs[voice])continue;
+        if(previous_outputs[voice]<0||((previous_outputs[voice]==new_outputs[voice])&&!(instance->retrigger_held&&role_changed[voice])))continue;
         output[emitted][0]=0x80;
         output[emitted][1]=(uint8_t)previous_outputs[voice];
         output[emitted][2]=0;
@@ -506,7 +512,7 @@ static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int l
     }
     for(int voice=0;voice<voice_count&&emitted<max_output;voice++){
         int source_note=source_notes[voice];
-        if(previous_outputs[voice]==new_outputs[voice])continue;
+        if((previous_outputs[voice]==new_outputs[voice])&&!(instance->retrigger_held&&role_changed[voice]))continue;
         output[emitted][0]=0x90;
         output[emitted][1]=(uint8_t)new_outputs[voice];
         output[emitted][2]=instance->follower_velocity[source_note];
@@ -785,7 +791,7 @@ static unsigned hb_active_pc_mask(const Inst *instance){
 static int active_notes(const Inst *instance,uint8_t *output){int count=0;for(int note=0;note<128;note++)if(instance->active[note])output[count++]=(uint8_t)note;return count;}
 static int infer_reference_root(Inst *instance){static const int major[7]={0,2,4,5,7,9,11};static const int minor[7]={0,2,3,5,7,8,10};int pitch_classes=0,best=-999,best_root=instance->resolved_root;for(int index=0;index<12;index++)pitch_classes+=instance->source_seen[index]?1:0;if(!pitch_classes)return instance->resolved_root;for(int root=0;root<12;root++)for(int scale=0;scale<2;scale++){int score=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(instance->source_seen[pitch_class]){int relative=mod12(pitch_class-root),inside=0;for(int degree=0;degree<7;degree++)if(relative==(scale?minor[degree]:major[degree])){inside=1;break;}score+=inside?5:-4;}if(instance->source_seen[root])score+=3;if(score>best){best=score;best_root=root;}}instance->resolved_confidence=pitch_classes>=4?80:(pitch_classes>=3?65:45);return best_root;}
 static int reference_root(Inst *instance){if(g_bus.global_root_policy==0)return mod12(g_bus.global_explicit_root);if(g_bus.global_root_policy==1)return mod12(g_bus.global_input_root);instance->resolved_root=infer_reference_root(instance);return mod12(instance->resolved_root);}
-static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];memset(instance,0,sizeof(*instance));instance->used=1;instance->role=0;instance->mode=0;instance->map_target=0;instance->window_ms=70;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;for(int note=0;note<128;note++)instance->mapped[note]=-1;return instance;}return 0;}
+static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];memset(instance,0,sizeof(*instance));instance->used=1;instance->role=0;instance->mode=0;instance->map_target=0;instance->window_ms=70;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=1;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}return instance;}return 0;}
 static void destroy_inst(void *value){Inst *instance=(Inst*)value;if(instance)instance->used=0;}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
@@ -847,7 +853,7 @@ static void hb_receive_live_vouch(Inst *instance){
     else if(instance->live_vouch_pending<16)instance->live_vouch_pending++;
 }
 static int pass(const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){if(!input||length<1||length>3||max_output<1)return 0;memcpy(output[0],input,(size_t)length);lengths[0]=length;return 1;}
-static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;if(instance->role==0){if(input[0]==0xFA){g_bus.clip_clock_ticks=0;}else if(input[0]==0xFC){memset(instance->held_now,0,sizeof(instance->held_now));memset(instance->active,0,sizeof(instance->active));memset(instance->pending_off_frames,0,sizeof(instance->pending_off_frames));}else if(input[0]==0xF8)g_bus.clip_clock_ticks++;}instance->rx_count++;instance->last_status=input[0];if(instance->role==0&&input[0]==0xFC){memset(instance->active,0,sizeof(instance->active));memset(instance->held_now,0,sizeof(instance->held_now));memset(instance->pending_off_frames,0,sizeof(instance->pending_off_frames));instance->active_count=0;instance->last_inferred_count=0;instance->resolved_source_channel=-1;instance->dirty=1;instance->candidate_frames=0;}if(length>=2)instance->last_note=input[1]&0x7F;if(length>=3)instance->last_velocity=input[2];int status=input[0]&0xF0,is_on=(status==0x90&&length>=3&&input[2]>0),is_off=(status==0x80&&length>=3)||(status==0x90&&length>=3&&input[2]==0);if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note=input[1]&0x7F,mapped;int input_channel=input[0]&0x0F;if(is_on){instance->note_on_count++;instance->active_count++;}else if(is_off){instance->note_off_count++;if(instance->active_count>0)instance->active_count--;}if(instance->role==2)return pass(input,length,output,lengths,max_output);if(instance->role==0){int slot_channel=(g_host&&g_host->slot_recv_channel)?g_host->slot_recv_channel(instance):-1;if(slot_channel>=0&&slot_channel<16&&input_channel!=slot_channel)return pass(input,length,output,lengths,max_output);if(is_on){instance->held_now[note]=1;instance->pending_off_frames[note]=0;mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=mapped;}else{instance->held_now[note]=0;instance->pending_off_frames[note]=0;mapped=instance->mapped[note];if(mapped<0)mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=-1;}instance->candidate_frames=0;instance->dirty=1;instance->frames_since_change=0;if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}if(is_on){instance->follower_held[note]=1;instance->follower_velocity[note]=(uint8_t)(length>=3?input[2]:100);instance->source_seen[note%12]=1;hb_harmony_t harmony=bus_read();if(!instance->follower_source_harmony.valid&&harmony.valid)instance->follower_source_harmony=harmony;if((instance->mode==0||instance->mode==1)&&instance->follower_source_harmony.valid)mapped=hb_map_note_by_role(note,instance->follower_source_harmony,harmony,instance->mode==1);else{harmony=hb_mapping_target(harmony,instance->map_target);mapped=hb_map_note(note,reference_root(instance),harmony,HB_MAP_NEAREST);}instance->mapped[note]=mapped;}else{instance->follower_held[note]=0;instance->follower_velocity[note]=0;mapped=instance->mapped[note];if(mapped<0)mapped=note;instance->mapped[note]=-1;if(hb_follower_held_count(instance)==0)memset(&instance->follower_source_harmony,0,sizeof(instance->follower_source_harmony));}
+static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;if(instance->role==0){if(input[0]==0xFA){g_bus.clip_clock_ticks=0;}else if(input[0]==0xFC){memset(instance->held_now,0,sizeof(instance->held_now));memset(instance->active,0,sizeof(instance->active));memset(instance->pending_off_frames,0,sizeof(instance->pending_off_frames));}else if(input[0]==0xF8)g_bus.clip_clock_ticks++;}instance->rx_count++;instance->last_status=input[0];if(instance->role==0&&input[0]==0xFC){memset(instance->active,0,sizeof(instance->active));memset(instance->held_now,0,sizeof(instance->held_now));memset(instance->pending_off_frames,0,sizeof(instance->pending_off_frames));instance->active_count=0;instance->last_inferred_count=0;instance->resolved_source_channel=-1;instance->dirty=1;instance->candidate_frames=0;}if(length>=2)instance->last_note=input[1]&0x7F;if(length>=3)instance->last_velocity=input[2];int status=input[0]&0xF0,is_on=(status==0x90&&length>=3&&input[2]>0),is_off=(status==0x80&&length>=3)||(status==0x90&&length>=3&&input[2]==0);if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note=input[1]&0x7F,mapped;int input_channel=input[0]&0x0F;if(is_on){instance->note_on_count++;instance->active_count++;}else if(is_off){instance->note_off_count++;if(instance->active_count>0)instance->active_count--;}if(instance->role==2)return pass(input,length,output,lengths,max_output);if(instance->role==0){int slot_channel=(g_host&&g_host->slot_recv_channel)?g_host->slot_recv_channel(instance):-1;if(slot_channel>=0&&slot_channel<16&&input_channel!=slot_channel)return pass(input,length,output,lengths,max_output);if(is_on){instance->held_now[note]=1;instance->pending_off_frames[note]=0;mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=mapped;}else{instance->held_now[note]=0;instance->pending_off_frames[note]=0;mapped=instance->mapped[note];if(mapped<0)mapped=note+g_bus.global_transpose;if(mapped<0)mapped=0;if(mapped>127)mapped=127;instance->mapped[note]=-1;}instance->candidate_frames=0;instance->dirty=1;instance->frames_since_change=0;if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}if(is_on){instance->follower_held[note]=1;instance->follower_velocity[note]=(uint8_t)(length>=3?input[2]:100);instance->source_seen[note%12]=1;hb_harmony_t harmony=bus_read();instance->follower_role_interval[note]=harmony.valid?(uint8_t)mod12(note-harmony.root_pc):255;if(!instance->follower_source_harmony.valid&&harmony.valid)instance->follower_source_harmony=harmony;if((instance->mode==0||instance->mode==1)&&instance->follower_source_harmony.valid)mapped=hb_map_note_by_role(note,instance->follower_source_harmony,harmony,instance->mode==1);else{harmony=hb_mapping_target(harmony,instance->map_target);mapped=hb_map_note(note,reference_root(instance),harmony,HB_MAP_NEAREST);}instance->mapped[note]=mapped;}else{instance->follower_held[note]=0;instance->follower_velocity[note]=0;mapped=instance->mapped[note];if(mapped<0)mapped=note;instance->mapped[note]=-1;instance->follower_role_interval[note]=255;if(hb_follower_held_count(instance)==0)memset(&instance->follower_source_harmony,0,sizeof(instance->follower_source_harmony));}
 if(instance->render_channel>=0){
     int recv_channel=(g_host&&g_host->slot_recv_channel)?g_host->slot_recv_channel(instance):-1;
     if(input_channel!=instance->render_channel){
@@ -1028,7 +1034,7 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
 
 static void hb_restore_state(Inst *instance,const char *state);
 static int enum_index(const char *value,const char *const *options,int count,int fallback){int parsed=parse_i(value,-999);if(parsed>=0&&parsed<count)return parsed;if(value)for(int index=0;index<count;index++)if(!strcmp(value,options[index]))return index;return fallback;}
-static const char *ROLE_OPTS[]={"Conductor","Follower","Off"};static const char *CLIP_SLOT_OPTS[]={"Auto","1","2","3","4","5","6","7","8"};static const char *SENSOR_SOURCE_OPTS[]={"Realtime","Realtime + Clip","Clip"};static const char *CLIP_CONTEXT_OPTS[]={"Clip + Realtime","Realtime Only"};static const char *SOURCE_CH_OPTS[]={"Auto","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *RENDER_CH_OPTS[]={"Off","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *MODE_OPTS[]={"Relative","Smooth","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *MAP_TARGET_OPTS[]={"Chord","Scale"};static const char *TIMING_OPTS[]={"Free","1/16","1/16 Ant","1/8","1/8 Ant","1/4","1/4 Ant","1/2","1/2 Ant","1 Bar","1 Bar Ant","2 Bars","2 Bars Ant"};static const char *CONTEXT_OPTS[]={"Live","1/32","1/16","1/8","1/4","1/2","1 Bar"};static const char *TIMESCALE_OPTS[]={"Free","1/16","1/8","1/4","1/2","1 Bar"};static const char *STABILITY_OPTS[]={"Responsive","Balanced","Stable"};static const char *ACCIDENTAL_OPTS[]={"Auto","Sharps","C#D#F#G#Bb","C#EbF#G#Bb","C#EbF#AbBb","DbEbF#AbBb","Flats"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
+static const char *ROLE_OPTS[]={"Conductor","Follower","Off"};static const char *RETRIGGER_OPTS[]={"Off","On"};static const char *CLIP_SLOT_OPTS[]={"Auto","1","2","3","4","5","6","7","8"};static const char *SENSOR_SOURCE_OPTS[]={"Realtime","Realtime + Clip","Clip"};static const char *CLIP_CONTEXT_OPTS[]={"Clip + Realtime","Realtime Only"};static const char *SOURCE_CH_OPTS[]={"Auto","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *RENDER_CH_OPTS[]={"Off","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *MODE_OPTS[]={"Relative","Smooth","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *MAP_TARGET_OPTS[]={"Chord","Scale"};static const char *TIMING_OPTS[]={"Free","1/16","1/16 Ant","1/8","1/8 Ant","1/4","1/4 Ant","1/2","1/2 Ant","1 Bar","1 Bar Ant","2 Bars","2 Bars Ant"};static const char *CONTEXT_OPTS[]={"Live","1/32","1/16","1/8","1/4","1/2","1 Bar"};static const char *TIMESCALE_OPTS[]={"Free","1/16","1/8","1/4","1/2","1 Bar"};static const char *STABILITY_OPTS[]={"Responsive","Balanced","Stable"};static const char *ACCIDENTAL_OPTS[]={"Auto","Sharps","C#D#F#G#Bb","C#EbF#G#Bb","C#EbF#AbBb","DbEbF#AbBb","Flats"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
 static int hb_timing_to_legacy_timescale(int timing){
     if(timing<=0)return 0;
     if(timing<=2)return 1;  /* 1/16 */
@@ -1055,7 +1061,7 @@ static const char CHAIN_PARAMS[]="["
 "{\\\"key\\\":\\\"detected_bass\\\",\\\"name\\\":\\\"Bass\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"C\\\",\\\"C#\\\",\\\"D\\\",\\\"Eb\\\",\\\"E\\\",\\\"F\\\",\\\"F#\\\",\\\"G\\\",\\\"Ab\\\",\\\"A\\\",\\\"Bb\\\",\\\"B\\\"],\\\"options_as_string\\\":true,\\\"access\\\":\\\"read\\\"},"
 "{\\\"key\\\":\\\"confidence\\\",\\\"name\\\":\\\"Confidence\\\",\\\"type\\\":\\\"int\\\",\\\"min\\\":0,\\\"max\\\":100,\\\"access\\\":\\\"read\\\"}"
 "]";
-static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;if(!strcmp(key,"live_press")){if(parameter[0]=='1')hb_receive_live_vouch(instance);return;}if(!strcmp(key,"role")){instance->role=enum_index(parameter,ROLE_OPTS,3,instance->role);if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}}else if(!strcmp(key,"clip_slot")){g_bus.clip_slot=enum_index(parameter,CLIP_SLOT_OPTS,9,g_bus.clip_slot);if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}}else if(!strcmp(key,"sensor_sources")){g_bus.sensor_sources=0;instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"clip_context")){g_bus.clip_context=0;g_bus.sensor_sources=0;hb_clear_clip_cache();instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"mode")){instance->mode=enum_index(parameter,MODE_OPTS,3,instance->mode);instance->follower_bus_seq=0;}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"chord_timing")){g_bus.chord_timing=enum_index(parameter,TIMING_OPTS,13,g_bus.chord_timing);g_bus.chord_timescale=hb_timing_to_legacy_timescale(g_bus.chord_timing);}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,instance->window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;instance->window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
+static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;if(!strcmp(key,"live_press")){if(parameter[0]=='1')hb_receive_live_vouch(instance);return;}if(!strcmp(key,"role")){instance->role=enum_index(parameter,ROLE_OPTS,3,instance->role);if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}}else if(!strcmp(key,"clip_slot")){g_bus.clip_slot=enum_index(parameter,CLIP_SLOT_OPTS,9,g_bus.clip_slot);if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}}else if(!strcmp(key,"sensor_sources")){g_bus.sensor_sources=0;instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"clip_context")){g_bus.clip_context=0;g_bus.sensor_sources=0;hb_clear_clip_cache();instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"retrigger_held")){instance->retrigger_held=enum_index(parameter,RETRIGGER_OPTS,2,instance->retrigger_held);}else if(!strcmp(key,"mode")){instance->mode=enum_index(parameter,MODE_OPTS,3,instance->mode);instance->follower_bus_seq=0;}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"chord_timing")){g_bus.chord_timing=enum_index(parameter,TIMING_OPTS,13,g_bus.chord_timing);g_bus.chord_timescale=hb_timing_to_legacy_timescale(g_bus.chord_timing);}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,instance->window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;instance->window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
 static void hb_restore_state(Inst *instance,const char *state){
     if(!instance||!state)return;
     int values[16];for(int i=0;i<16;i++)values[i]=-999;
@@ -1131,7 +1137,7 @@ static void hb_restore_state(Inst *instance,const char *state){
     if((parsed==13||parsed>=15)&&values[12]>=-1&&values[12]<16)instance->source_channel=values[12];
     if(instance->role==0)hb_clear_clip_cache();
 }
-static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();if(!strcmp(key,"version"))return snprintf(buffer,(size_t)length,"%s",HB_VERSION);if(!strcmp(key,"follower_note_1_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_follower_analysis_note(instance,0),bus_read(),note_buf,sizeof(note_buf)));}
+static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();if(!strcmp(key,"version"))return snprintf(buffer,(size_t)length,"%s",HB_VERSION);if(!strcmp(key,"retrigger_held"))return snprintf(buffer,(size_t)length,"%s",RETRIGGER_OPTS[instance->retrigger_held?1:0]);if(!strcmp(key,"follower_note_1_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_follower_analysis_note(instance,0),bus_read(),note_buf,sizeof(note_buf)));}
 if(!strcmp(key,"follower_note_2_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_follower_analysis_note(instance,1),bus_read(),note_buf,sizeof(note_buf)));}
 if(!strcmp(key,"follower_note_3_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_follower_analysis_note(instance,2),bus_read(),note_buf,sizeof(note_buf)));}
 if(!strcmp(key,"follower_note_4_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_follower_analysis_note(instance,3),bus_read(),note_buf,sizeof(note_buf)));}
