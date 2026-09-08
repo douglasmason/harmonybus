@@ -2,7 +2,7 @@
   "id": "harmonybus-monitor",
   "name": "HarmonyBus Monitor",
   "abbrev": "HBMon",
-  "version": "0.1.89",
+  "version": "0.1.90",
   "description": "Source-aware cable-2 note monitor companion for HarmonyBus.",
   "author": "Douglas Mason",
   "license": "MIT",
