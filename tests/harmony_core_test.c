@@ -190,6 +190,40 @@ int main(void) {
     if (move_f_db_stable.root_pc != 5 || move_f_db_stable.chord_index != 1)
         fail("Move Fm stable with Db color", move_f_db_stable.name);
 
+    /* Realtime state-machine regressions: committed harmony is consulted
+       before allowing transient subsets/extensions to reinterpret the root. */
+    hb_harmony_t committed_fm = hb_infer_harmony(f_minor_notes, 3);
+
+    const uint8_t realtime_f_ab[] = {53, 56};
+    hb_harmony_t realtime_f_ab_result = hb_infer_harmony_contextual(realtime_f_ab, 2, committed_fm);
+    if (realtime_f_ab_result.root_pc != 5 || realtime_f_ab_result.chord_index != 1)
+        fail("context F-Ab stays Fm", realtime_f_ab_result.name);
+
+    const uint8_t realtime_f_ab_eb[] = {53, 56, 63};
+    hb_harmony_t realtime_fm7_result = hb_infer_harmony_contextual(realtime_f_ab_eb, 3, committed_fm);
+    if (realtime_fm7_result.root_pc != 5 || realtime_fm7_result.chord_index != 11)
+        fail("context F-Ab-Eb -> Fm7", realtime_fm7_result.name);
+
+    const uint8_t realtime_f_ab_d[] = {53, 56, 62};
+    hb_harmony_t realtime_fm6_result = hb_infer_harmony_contextual(realtime_f_ab_d, 3, committed_fm);
+    if (realtime_fm6_result.root_pc != 5 || realtime_fm6_result.chord_index != 8)
+        fail("context F-Ab-D -> Fm6", realtime_fm6_result.name);
+
+    const uint8_t realtime_f_ab_db[] = {53, 56, 61};
+    hb_harmony_t realtime_f_db_result = hb_infer_harmony_contextual(realtime_f_ab_db, 3, committed_fm);
+    if (realtime_f_db_result.root_pc != 5 || realtime_f_db_result.chord_index != 1)
+        fail("context F-Ab-Db keeps Fm", realtime_f_db_result.name);
+
+    const uint8_t realtime_f_a[] = {53, 57};
+    hb_harmony_t realtime_f_major_result = hb_infer_harmony_contextual(realtime_f_a, 2, committed_fm);
+    if (realtime_f_major_result.root_pc != 5 || realtime_f_major_result.chord_index != 0)
+        fail("context F-A changes to F major", realtime_f_major_result.name);
+
+    const uint8_t realtime_f_only[] = {53};
+    hb_harmony_t realtime_f_only_result = hb_infer_harmony_contextual(realtime_f_only, 1, committed_fm);
+    if (realtime_f_only_result.root_pc != 5 || realtime_f_only_result.chord_index != 1)
+        fail("single F preserves committed Fm", realtime_f_only_result.name);
+
     printf("Harmony Bus core tests passed.\n");
     return 0;
 }
