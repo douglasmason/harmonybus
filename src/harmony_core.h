@@ -31,6 +31,7 @@ typedef enum {
 
 hb_harmony_t hb_infer_harmony(const uint8_t *notes, int note_count);
 hb_harmony_t hb_transpose_harmony(hb_harmony_t h, int semitones);
+uint16_t hb_harmony_chord_mask(hb_harmony_t harmony);
 int hb_map_note(int midi_note, int reference_root_pc, hb_harmony_t target,
                 hb_map_mode_t mode);
 const char *hb_pc_name(int pc);
