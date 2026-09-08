@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -26,6 +26,17 @@
                 "Conductor",
                 "Follower",
                 "Off"
+              ],
+              "options_as_string": true
+            },
+            {
+              "key": "sense_source",
+              "name": "Sense",
+              "type": "enum",
+              "options": [
+                "Clip",
+                "Live",
+                "Clip + Live"
               ],
               "options_as_string": true
             },
@@ -139,13 +150,13 @@
           ],
           "knobs": [
             "role",
+            "sense_source",
             "mode",
             "map_target",
             "render_channel",
             "chord_timing",
             "context",
-            "accidentals",
-            "harmony"
+            "accidentals"
           ]
         },
         "diagnostics": {
@@ -185,15 +196,6 @@
               "access": "read"
             },
             {
-              "key": "infer_note_count",
-              "name": "Inference Notes",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
               "key": "clip_track",
               "name": "Clip Track",
               "type": "int",
@@ -218,56 +220,11 @@
               "access": "read"
             },
             {
-              "key": "raw_last_note",
-              "name": "Raw Last Note",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_last_channel",
-              "name": "Raw Channel",
-              "type": "int",
-              "min": -1,
-              "max": 15,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_last_cable",
-              "name": "Raw Cable",
-              "type": "int",
-              "min": -1,
-              "max": 15,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "inject_available",
-              "name": "Inject Available",
+              "key": "infer_note_count",
+              "name": "Inference Notes",
               "type": "int",
               "min": 0,
-              "max": 1,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "render_count",
-              "name": "Rendered Events",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "render_last_note",
-              "name": "Rendered Note",
-              "type": "int",
-              "min": -1,
-              "max": 127,
+              "max": 128,
               "step": 1,
               "access": "read"
             }
@@ -568,6 +525,17 @@
         "name": "Clip Playhead",
         "type": "string",
         "access": "read"
+      },
+      {
+        "key": "sense_source",
+        "name": "Sense",
+        "type": "enum",
+        "options": [
+          "Clip",
+          "Live",
+          "Clip + Live"
+        ],
+        "options_as_string": true
       }
     ]
   },
