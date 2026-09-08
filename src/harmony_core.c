@@ -91,8 +91,12 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
                    a 3rd+7th shell and does not actually contain b5/#5, do not
                    prefer min7b5/aug over the ordinary seventh family merely
                    because their fifth happens to be omitted. */
-                if(expects_b5&&!has_b5)score-=16;
-                if(expects_sharp5&&!has_sharp5)score-=16;
+                if(expects_b5&&!has_b5)score-=36;
+                if(expects_sharp5&&!has_sharp5)score-=36;
+                /* A root+third establishes ordinary major/minor quality and
+                   implies the normal fifth unless an altered fifth is actually
+                   sounded. This makes F-Ab-Eb an Fm7 shell, not Fm7b5. */
+                if(has_root&&((expects_m3&&has_m3)||(expects_M3&&has_M3))&&expects_P5&&!has_b5&&!has_sharp5)score+=14;
                 if((expects_m3&&!has_m3)&&(expects_M3&&!has_M3))score-=10;
                 if((index==3||index==4)&&expects_P5&&has_P5)score+=8;
                 if(root==(bass%12))score+=2;
