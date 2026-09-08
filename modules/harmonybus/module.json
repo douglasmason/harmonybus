@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.95",
-  "abbrev": "HB195",
-  "version": "0.1.95",
+  "name": "Harmony Bus 0.1.96",
+  "abbrev": "HB196",
+  "version": "0.1.96",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.95 — global follower root policy",
+  "description": "Harmony Bus v0.1.96 — persistent global follower root and symmetric track/all-track diagnostics",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.95",
+          "name": "Harmony Bus 0.1.96",
           "params": [
             {
               "key": "role",
@@ -28,7 +28,7 @@
                 "Off"
               ],
               "options_as_string": true,
-              "default": "Conductor"
+              "default": "Off"
             },
             {
               "key": "mode",
@@ -119,8 +119,20 @@
               "options_as_string": true
             },
             {
-              "level": "diagnostics",
-              "label": "Conductor Analysis"
+              "level": "conductor_this",
+              "label": "Conductor — This Track"
+            },
+            {
+              "level": "conductor_all",
+              "label": "Conductor — All Tracks"
+            },
+            {
+              "level": "follower_this",
+              "label": "Follower — This Track"
+            },
+            {
+              "level": "follower_all",
+              "label": "Follower — All Tracks"
             },
             {
               "level": "conductor_sources",
@@ -128,11 +140,7 @@
             },
             {
               "level": "follower_source",
-              "label": "Follower Source"
-            },
-            {
-              "level": "follower_analysis",
-              "label": "Follower Analysis"
+              "label": "Follower Root — Global"
             },
             {
               "key": "retrigger_held",
@@ -170,95 +178,6 @@
             "chord_timing",
             "context",
             "accidentals"
-          ]
-        },
-        "diagnostics": {
-          "name": "Conductor Analysis",
-          "params": [
-            {
-              "key": "active_note_1_name",
-              "name": "Conductor Note 1",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "active_note_2_name",
-              "name": "Conductor Note 2",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "active_note_3_name",
-              "name": "Conductor Note 3",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "active_note_4_name",
-              "name": "Conductor Note 4",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "candidate_harmony",
-              "name": "This Track Candidate",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "harmony",
-              "name": "Global Harmony",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "active_count",
-              "name": "Active Notes",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "infer_note_count",
-              "name": "Inference Notes",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_recv_ch",
-              "name": "Recv Ch",
-              "type": "int",
-              "min": -1,
-              "max": 16,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_event_ch",
-              "name": "Last Event Ch",
-              "type": "int",
-              "min": -1,
-              "max": 16,
-              "step": 1,
-              "access": "read"
-            }
-          ],
-          "knobs": [
-            "active_note_1_name",
-            "active_note_2_name",
-            "active_note_3_name",
-            "active_note_4_name",
-            "candidate_harmony",
-            "harmony",
-            "active_count",
-            "infer_note_count",
-            "diag_recv_ch",
-            "diag_event_ch"
           ]
         },
         "plumbing": {
@@ -427,103 +346,6 @@
             "clip_playhead"
           ]
         },
-        "follower_analysis": {
-          "name": "Follower Analysis",
-          "params": [
-            {
-              "key": "follower_note_1_name",
-              "name": "Follower Note 1",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "follower_note_2_name",
-              "name": "Follower Note 2",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "follower_note_3_name",
-              "name": "Follower Note 3",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "follower_note_4_name",
-              "name": "Follower Note 4",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "follower_role_1",
-              "name": "Role 1",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "follower_role_2",
-              "name": "Role 2",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "follower_role_3",
-              "name": "Role 3",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "follower_role_4",
-              "name": "Role 4",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "follower_active_count",
-              "name": "Follower Notes",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_recv_ch",
-              "name": "Recv Ch",
-              "type": "int",
-              "min": -1,
-              "max": 16,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_event_ch",
-              "name": "Last Event Ch",
-              "type": "int",
-              "min": -1,
-              "max": 16,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "used_root",
-              "name": "Used Root",
-              "type": "string",
-              "access": "read"
-            }
-          ],
-          "knobs": [
-            "follower_note_1_name",
-            "follower_note_2_name",
-            "follower_note_3_name",
-            "follower_note_4_name",
-            "follower_role_1",
-            "follower_role_2",
-            "follower_role_3",
-            "follower_role_4",
-            "used_root"
-          ]
-        },
         "midi_trace": {
           "name": "MIDI Trace",
           "params": [
@@ -671,7 +493,7 @@
           ]
         },
         "follower_source": {
-          "name": "Follower Root",
+          "name": "Follower Root — Global",
           "params": [
             {
               "key": "follower_root_policy",
@@ -1004,6 +826,268 @@
             "monitor_status",
             "monitor_generation",
             "monitor_events"
+          ]
+        },
+        "conductor_this": {
+          "name": "Conductor — This Track",
+          "params": [
+            {
+              "key": "conductor_this_1",
+              "name": "Note 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "conductor_this_2",
+              "name": "Note 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "conductor_this_3",
+              "name": "Note 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "conductor_this_4",
+              "name": "Note 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "conductor_this_count",
+              "name": "Note Count",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "candidate_harmony",
+              "name": "This Track Candidate",
+              "type": "string",
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "conductor_this_1",
+            "conductor_this_2",
+            "conductor_this_3",
+            "conductor_this_4",
+            "conductor_this_count",
+            "candidate_harmony"
+          ]
+        },
+        "conductor_all": {
+          "name": "Conductor — All Tracks",
+          "params": [
+            {
+              "key": "conductor_all_1",
+              "name": "Note 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "conductor_all_2",
+              "name": "Note 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "conductor_all_3",
+              "name": "Note 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "conductor_all_4",
+              "name": "Note 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "conductor_all_count",
+              "name": "Note Count",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "harmony",
+              "name": "Global Harmony",
+              "type": "string",
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "conductor_all_1",
+            "conductor_all_2",
+            "conductor_all_3",
+            "conductor_all_4",
+            "conductor_all_count",
+            "harmony"
+          ]
+        },
+        "follower_this": {
+          "name": "Follower — This Track",
+          "params": [
+            {
+              "key": "follower_this_1",
+              "name": "Note 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_this_2",
+              "name": "Note 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_this_3",
+              "name": "Note 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_this_4",
+              "name": "Note 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_this_count",
+              "name": "Note Count",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "follower_this_role_1",
+              "name": "Role 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_this_role_2",
+              "name": "Role 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_this_role_3",
+              "name": "Role 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_this_role_4",
+              "name": "Role 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "used_root",
+              "name": "Used Root",
+              "type": "string",
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "follower_this_1",
+            "follower_this_2",
+            "follower_this_3",
+            "follower_this_4",
+            "follower_this_role_1",
+            "follower_this_role_2",
+            "follower_this_role_3",
+            "follower_this_role_4",
+            "used_root"
+          ]
+        },
+        "follower_all": {
+          "name": "Follower — All Tracks",
+          "params": [
+            {
+              "key": "follower_all_1",
+              "name": "Note 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_all_2",
+              "name": "Note 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_all_3",
+              "name": "Note 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_all_4",
+              "name": "Note 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_all_count",
+              "name": "Note Count",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "follower_all_role_1",
+              "name": "Role 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_all_role_2",
+              "name": "Role 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_all_role_3",
+              "name": "Role 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_all_role_4",
+              "name": "Role 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "used_root",
+              "name": "Used Root",
+              "type": "string",
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "follower_all_1",
+            "follower_all_2",
+            "follower_all_3",
+            "follower_all_4",
+            "follower_all_role_1",
+            "follower_all_role_2",
+            "follower_all_role_3",
+            "follower_all_role_4",
+            "used_root"
           ]
         }
       },
