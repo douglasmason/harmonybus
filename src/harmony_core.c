@@ -84,6 +84,12 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
                 if(expects_b5&&has_b5&&expects_m3&&has_m3)score+=16;
                 if(expects_sharp5&&has_sharp5&&expects_M3&&has_M3)score+=16;
                 if(expects_P5&&!has_P5)score-=12;
+                /* Altered fifths are structural claims too. If the voicing is
+                   a 3rd+7th shell and does not actually contain b5/#5, do not
+                   prefer min7b5/aug over the ordinary seventh family merely
+                   because their fifth happens to be omitted. */
+                if(expects_b5&&!has_b5)score-=16;
+                if(expects_sharp5&&!has_sharp5)score-=16;
                 if((expects_m3&&!has_m3)&&(expects_M3&&!has_M3))score-=10;
                 if((index==3||index==4)&&expects_P5&&has_P5)score+=8;
                 if(root==(bass%12))score+=2;
