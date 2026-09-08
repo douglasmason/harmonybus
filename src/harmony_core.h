@@ -36,6 +36,10 @@ hb_harmony_t hb_transpose_harmony(hb_harmony_t h, int semitones);
 uint16_t hb_harmony_chord_mask(hb_harmony_t harmony);
 int hb_map_note(int midi_note, int reference_root_pc, hb_harmony_t target,
                 hb_map_mode_t mode);
+void hb_map_held_voices(const uint8_t *source_notes, int voice_count,
+                        int reference_root_pc, hb_harmony_t target,
+                        hb_map_mode_t mode, const int *previous_outputs,
+                        int *mapped_outputs);
 const char *hb_pc_name(int pc);
 
 #ifdef __cplusplus
