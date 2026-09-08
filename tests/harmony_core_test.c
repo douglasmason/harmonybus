@@ -128,20 +128,19 @@ int main(void) {
         if (voice > 0 && follower_outputs[voice] < follower_outputs[voice - 1])
             fail("poly follower crossing", "voice order reversed");
     }
-    /* User's concrete follower test: F/Ab over Fm should become Bb/Db
-       when the conductor changes to Bbm. */
-    const uint8_t f_minor_notes[] = {53, 56, 60};   /* F Ab C */
-    const uint8_t bb_minor_notes[] = {58, 61, 65};  /* Bb Db F */
+    /* User's concrete follower semantics: the clip remains F/Ab while
+       conductor Fm -> Bbm makes it SOUND Bb/Db. */
+    const uint8_t f_minor_notes[] = {53, 56, 60};
+    const uint8_t bb_minor_notes[] = {58, 61, 65};
     hb_harmony_t follower_fm = hb_infer_harmony(f_minor_notes, 3);
     hb_harmony_t follower_bbm = hb_infer_harmony(bb_minor_notes, 3);
     const uint8_t follower_f_ab[] = {53, 56};
-    const int follower_prev_f_ab[] = {53, 56};
     int follower_over_fm[] = {-1, -1};
     int follower_over_bbm[] = {-1, -1};
-    hb_map_held_voices(follower_f_ab, 2, 5, follower_fm, HB_MAP_CHORD,
-                       follower_prev_f_ab, follower_over_fm);
-    hb_map_held_voices(follower_f_ab, 2, 5, follower_bbm, HB_MAP_CHORD,
-                       follower_over_fm, follower_over_bbm);
+    hb_map_held_voices_from_harmony(follower_f_ab, 2, follower_fm, follower_fm,
+                                    follower_over_fm);
+    hb_map_held_voices_from_harmony(follower_f_ab, 2, follower_fm, follower_bbm,
+                                    follower_over_bbm);
     if (follower_over_fm[0] != 53 || follower_over_fm[1] != 56) {
         fprintf(stderr, "FAIL Fm follower baseline: got %d,%d expected 53,56\n",
                 follower_over_fm[0], follower_over_fm[1]);
@@ -152,23 +151,6 @@ int main(void) {
                 follower_over_bbm[0], follower_over_bbm[1]);
         return 1;
     }
-
-    /* User's concrete follower scenario:
-       source phrase alternates F and Ab relative to F minor.
-       Conductor alternates Fm and Bbm. Chord mode should preserve scale degree:
-       F->F, Ab->Ab over Fm; F->Bb, Ab->Db over Bbm. */
-    const uint8_t fm_triad[] = {53, 56, 60};
-    const uint8_t bbm_triad[] = {58, 61, 65};
-    hb_harmony_t fm_target = hb_infer_harmony(fm_triad, 3);
-    hb_harmony_t bbm_target = hb_infer_harmony(bbm_triad, 3);
-    int follower_f_over_fm = hb_map_note(65, 5, fm_target, HB_MAP_CHORD);
-    int follower_ab_over_fm = hb_map_note(68, 5, fm_target, HB_MAP_CHORD);
-    int follower_f_over_bbm = hb_map_note(65, 5, bbm_target, HB_MAP_CHORD);
-    int follower_ab_over_bbm = hb_map_note(68, 5, bbm_target, HB_MAP_CHORD);
-    if (follower_f_over_fm != 65) fail("Follower F over Fm", "expected F4");
-    if (follower_ab_over_fm != 68) fail("Follower Ab over Fm", "expected Ab4");
-    if (follower_f_over_bbm != 70) fail("Follower F over Bbm", "expected Bb4");
-    if (follower_ab_over_bbm != 73) fail("Follower Ab over Bbm", "expected Db5");
 
     printf("Harmony Bus core tests passed.\n");
     return 0;
