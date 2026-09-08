@@ -20,21 +20,21 @@ jobs:
         run: bash scripts/build_harmonybus_move.sh
       - name: Verify archive and embedded version
         run: |
-          ARCHIVE=dist/harmonybus-v0.1.84-module.tar.gz
+          ARCHIVE=dist/harmonybus-v0.1.85-module.tar.gz
           gzip -t "$ARCHIVE"
           tar -tzf "$ARCHIVE"
           tar -tzf "$ARCHIVE" | grep -q '^harmonybus/module.json$'
           tar -tzf "$ARCHIVE" | grep -q '^harmonybus/dsp.so$'
           tar -xOzf "$ARCHIVE" harmonybus/module.json > /tmp/module.json
-          python3 -c 'import json; assert json.load(open("/tmp/module.json"))["version"] == "0.1.84"'
+          python3 -c 'import json; assert json.load(open("/tmp/module.json"))["version"] == "0.1.85"'
           tar -xOzf "$ARCHIVE" harmonybus/dsp.so > /tmp/dsp.so
-          strings /tmp/dsp.so | grep -q '0.1.84'
-      - name: Publish v0.1.84 release
+          strings /tmp/dsp.so | grep -q '0.1.85'
+      - name: Publish v0.1.85 release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.1.84 >/dev/null 2>&1; then
-            gh release upload v0.1.84 dist/harmonybus-v0.1.84-module.tar.gz --clobber
+          if gh release view v0.1.85 >/dev/null 2>&1; then
+            gh release upload v0.1.85 dist/harmonybus-v0.1.85-module.tar.gz --clobber
           else
-            gh release create v0.1.84 dist/harmonybus-v0.1.84-module.tar.gz --title "Harmony Bus v0.1.84" --notes "Experimental Schwung MIDI FX build for Ableton Move."
+            gh release create v0.1.85 dist/harmonybus-v0.1.85-module.tar.gz --title "Harmony Bus v0.1.85" --notes "Experimental Schwung MIDI FX build for Ableton Move."
           fi
