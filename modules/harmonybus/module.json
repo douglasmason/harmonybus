@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.34",
+  "version": "0.1.35",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -246,12 +246,9 @@
               "access": "read"
             },
             {
-              "key": "diag_event_ch",
-              "name": "Event Ch",
-              "type": "int",
-              "min": -1,
-              "max": 15,
-              "step": 1,
+              "key": "clip_stage",
+              "name": "Clip Stage",
+              "type": "string",
               "access": "read"
             },
             {
@@ -284,7 +281,7 @@
             "diag_note_ons",
             "diag_last_note",
             "diag_recv_ch",
-            "diag_event_ch",
+            "clip_stage",
             "clip_track",
             "clip_note_count",
             "clip_playhead"
@@ -631,12 +628,9 @@
         "access": "read"
       },
       {
-        "key": "diag_event_ch",
-        "name": "Event Ch",
-        "type": "int",
-        "min": -1,
-        "max": 15,
-        "step": 1,
+        "key": "clip_stage",
+        "name": "Clip Stage",
+        "type": "string",
         "access": "read"
       }
     ]
