@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.61",
+  "version": "0.1.62",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -866,7 +866,8 @@
         "step": 1,
         "access": "read"
       }
-    ]
+    ],
+    "pre_capable": 1
   },
   "min_host_version": "1.2.0"
 }
