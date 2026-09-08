@@ -65,6 +65,14 @@ int main(void) {
     const uint8_t cm7_shell[] = {48, 51, 58}; /* C Eb Bb */
     expect_harmony("Cm7 shell", cm7_shell, 3, 0, 0, 11);
 
+    /* Ordinary shell: root + minor third + minor seventh implies the
+       unaltered fifth. Never hallucinate b5 when it was not played. */
+    const uint8_t fm7_shell[] = {53, 56, 63}; /* F Ab Eb */
+    expect_harmony("Fm7 shell", fm7_shell, 3, 5, 5, 11);
+
+    const uint8_t f_minor_third[] = {53, 56}; /* F Ab */
+    expect_harmony("F minor dyad", f_minor_third, 2, 5, 5, 1);
+
     /* min6 is enabled; major6 remains disabled. */
     const uint8_t cm6[] = {48, 51, 55, 57};
     expect_harmony("Cm6", cm6, 4, 0, 0, 8);
