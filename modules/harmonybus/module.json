@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.83",
-  "abbrev": "HB183",
-  "version": "0.1.83",
+  "name": "Harmony Bus 0.1.84",
+  "abbrev": "HB184",
+  "version": "0.1.84",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.83 — eliminate ghost conductor notes from cached classifier state",
+  "description": "Harmony Bus v0.1.84 — follower notes/roles aligned in one analysis panel",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.83",
+          "name": "Harmony Bus 0.1.84",
           "params": [
             {
               "key": "role",
@@ -125,6 +125,10 @@
             {
               "level": "conductor_sources",
               "label": "Conductor Sources"
+            },
+            {
+              "level": "follower_source",
+              "label": "Follower Source"
             },
             {
               "level": "follower_analysis",
@@ -415,56 +419,6 @@
           "name": "Follower Analysis",
           "params": [
             {
-              "key": "follower_source_harmony",
-              "name": "Source Harmony",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "follower_source_policy",
-              "name": "Source Policy",
-              "type": "enum",
-              "options": [
-                "Input Key",
-                "Infer Follower",
-                "Explicit"
-              ],
-              "options_as_string": true,
-              "default": "Input Key"
-            },
-            {
-              "key": "follower_source_root",
-              "name": "Source Root",
-              "type": "enum",
-              "options": [
-                "C",
-                "C#",
-                "D",
-                "Eb",
-                "E",
-                "F",
-                "F#",
-                "G",
-                "Ab",
-                "A",
-                "Bb",
-                "B"
-              ],
-              "options_as_string": true,
-              "default": "C"
-            },
-            {
-              "key": "follower_source_quality",
-              "name": "Source Quality",
-              "type": "enum",
-              "options": [
-                "Major",
-                "Minor"
-              ],
-              "options_as_string": true,
-              "default": "Major"
-            },
-            {
               "key": "follower_note_1_name",
               "name": "Follower Note 1",
               "type": "string",
@@ -541,10 +495,6 @@
             }
           ],
           "knobs": [
-            "follower_source_harmony",
-            "follower_source_policy",
-            "follower_source_root",
-            "follower_source_quality",
             "follower_note_1_name",
             "follower_note_2_name",
             "follower_note_3_name",
@@ -552,10 +502,7 @@
             "follower_role_1",
             "follower_role_2",
             "follower_role_3",
-            "follower_role_4",
-            "follower_active_count",
-            "diag_recv_ch",
-            "diag_event_ch"
+            "follower_role_4"
           ]
         },
         "midi_trace": {
@@ -702,6 +649,67 @@
             "source_of_2",
             "source_of_3",
             "source_of_4"
+          ]
+        },
+        "follower_source": {
+          "name": "Follower Source",
+          "params": [
+            {
+              "key": "follower_source_harmony",
+              "name": "Source Harmony",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_source_policy",
+              "name": "Source Policy",
+              "type": "enum",
+              "options": [
+                "Input Key",
+                "Infer Follower",
+                "Explicit"
+              ],
+              "options_as_string": true,
+              "default": "Input Key"
+            },
+            {
+              "key": "follower_source_root",
+              "name": "Source Root",
+              "type": "enum",
+              "options": [
+                "C",
+                "C#",
+                "D",
+                "Eb",
+                "E",
+                "F",
+                "F#",
+                "G",
+                "Ab",
+                "A",
+                "Bb",
+                "B"
+              ],
+              "options_as_string": true,
+              "default": "C"
+            },
+            {
+              "key": "follower_source_quality",
+              "name": "Source Quality",
+              "type": "enum",
+              "options": [
+                "Major",
+                "Minor"
+              ],
+              "options_as_string": true,
+              "default": "Major"
+            }
+          ],
+          "knobs": [
+            "follower_source_harmony",
+            "follower_source_policy",
+            "follower_source_root",
+            "follower_source_quality"
           ]
         }
       },
