@@ -46,6 +46,23 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
 
     int best_root=-1,best_template=-1,best_score=INT_MIN,second_score=INT_MIN;
 
+    /* A bare major/minor third with its lower note as bass is sufficient to
+       establish ordinary triad quality; the perfect fifth is implied. Do this
+       before generic partial-template scoring so F-Ab cannot become C#/F. */
+    if(input_count==2){
+        int bass_pc=bass%12;
+        uint16_t rel=rotate_to_root(input,bass_pc);
+        int dyad_template=-1;
+        if(rel==(BIT(0)|BIT(3)))dyad_template=1;
+        else if(rel==(BIT(0)|BIT(4)))dyad_template=0;
+        if(dyad_template>=0){
+            result.valid=1;result.root_pc=bass_pc;result.bass_pc=bass_pc;result.pitch_mask=input;
+            result.chord_index=dyad_template;result.confidence=82;
+            snprintf(result.name,sizeof(result.name),"%s%s",hb_pc_name(bass_pc),templates[dyad_template].suffix);
+            return result;
+        }
+    }
+
     /* Pass 1: exact enabled chord templates are authoritative. Root position is
        only a tie-breaker between genuinely identical pitch-class templates.
        This guarantees D#-G#-C => G#/D# rather than a partial D# analysis. */
