@@ -173,9 +173,22 @@ int main(void) {
     const uint8_t move_fm7_shell[] = {53, 56, 63}; /* F Ab Eb */
     expect_harmony("Move Fm7 shell", move_fm7_shell, 3, 5, 5, 11);
     const uint8_t move_fmin6[] = {53, 56, 62}; /* F Ab D */
-    expect_harmony("Move Fm6", move_fmin6, 3, 5, 5, 8);
+    /* Standalone this is exactly D diminished in first inversion. */
+    expect_harmony("Move Ddim/F standalone", move_fmin6, 3, 2, 5, 5);
+    /* But once F minor is established, D is a 6th color and must not re-root. */
+    hb_harmony_t established_fm = hb_infer_harmony(f_minor_notes, 3);
+    hb_harmony_t move_fmin6_stable = hb_refine_harmony_with_root(move_fmin6, 3, established_fm);
+    if (move_fmin6_stable.root_pc != 5 || move_fmin6_stable.chord_index != 8)
+        fail("Move Fm6 established root", move_fmin6_stable.name);
+
     const uint8_t move_f_db_ab[] = {53, 56, 61}; /* F Ab Db = Db/F */
-    expect_harmony("Move Db/F", move_f_db_ab, 3, 1, 5, 0);
+    expect_harmony("Move Db/F standalone", move_f_db_ab, 3, 1, 5, 0);
+    /* Likewise, established F minor treats Db as the b6 color rather than
+       hallucinating F major. We currently preserve Fm because no dedicated
+       minor-b6 template exists. */
+    hb_harmony_t move_f_db_stable = hb_refine_harmony_with_root(move_f_db_ab, 3, established_fm);
+    if (move_f_db_stable.root_pc != 5 || move_f_db_stable.chord_index != 1)
+        fail("Move Fm stable with Db color", move_f_db_stable.name);
 
     printf("Harmony Bus core tests passed.\n");
     return 0;
