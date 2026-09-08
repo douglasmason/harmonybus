@@ -98,6 +98,7 @@ static int hb_follower_held_count(const Inst *instance);
 static const char *hb_role_name_for_interval(int interval);
 static const char *hb_follower_role_name(const Inst *instance,int ordinal);
 static hb_harmony_t hb_resolve_follower_source_harmony(Inst *instance);
+static int hb_resolve_follower_reference_root(Inst *instance,int *root_out);
 static void hb_publish_instance_notes(Inst *instance);
 static Inst g_pool[HB_MAX_INSTANCES];
 static int mod12(int value){value%=12;return value<0?value+12:value;}
