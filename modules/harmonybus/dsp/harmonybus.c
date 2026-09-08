@@ -194,7 +194,7 @@ static int hb_load_clip_cache(void){
     const char *slots_end=hb_find_matching(slots_array,'[',']');
     if(!slots_end){free(json);g_bus.clip_stage=9;return 0;}
 
-    const char *chosen=0,*chosen_end=0,*fallback=0,*fallback_end=0;
+    const char *chosen=0,*chosen_end=0;
     const char *scan=slots_array+1;
     while(scan<slots_end){
         const char *clip=strstr(scan,"\"clip\"");
@@ -203,21 +203,34 @@ static int hb_load_clip_cache(void){
         if(!obj||obj>=slots_end){scan=clip+6;continue;}
         const char *obj_end=hb_find_matching(obj,'{','}');
         if(!obj_end||obj_end>slots_end)break;
-        if(!fallback){fallback=obj;fallback_end=obj_end;}
         const char *playing=strstr(obj,"\"isPlaying\"");
         if(playing&&playing<obj_end){
             const char *colon=strstr(playing,":");
             if(colon&&colon<obj_end){
-                const char *truth=colon+1;while(*truth==' '||*truth=='\t'||*truth=='\r'||*truth=='\n')truth++;
+                const char *truth=colon+1;
+                while(*truth==' '||*truth=='\t'||*truth=='\r'||*truth=='\n')truth++;
                 if(!strncmp(truth,"true",4)){chosen=obj;chosen_end=obj_end;break;}
             }
         }
         scan=obj_end+1;
     }
-    /* Song.abl often does not persist runtime isPlaying. In that case use the
-       first stored clip on the conductor track rather than declaring no clip. */
-    if(!chosen){chosen=fallback;chosen_end=fallback_end;}
-    if(!chosen){free(json);g_bus.clip_stage=10;return 0;}
+    /* Never substitute another historical clip when the current slot cannot be
+       identified. Unknown/empty is safer and musically correct: zero notes.
+       Runtime clip-slot identity will come from the host event/state tap. */
+    if(!chosen){
+        __atomic_add_fetch(&g_bus.seq,1,__ATOMIC_RELEASE);
+        int cache_changed=(g_bus.clip_track!=track||g_bus.clip_note_count!=0||g_bus.clip_valid!=1);
+        g_bus.clip_track=track;
+        g_bus.clip_note_count=0;
+        g_bus.clip_loop_start=0.0;
+        g_bus.clip_loop_end=4.0;
+        g_bus.clip_valid=1;
+        g_bus.clip_stage=10;
+        if(cache_changed)g_bus.cache_rev++;
+        __atomic_add_fetch(&g_bus.seq,1,__ATOMIC_RELEASE);
+        free(json);
+        return 1;
+    }
     g_bus.clip_stage=11;
 
     double loop_start=0.0,loop_end=4.0;
