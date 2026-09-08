@@ -1,5 +1,5 @@
-/* Harmony Bus v0.1.69 — Schwung MIDI FX. */
-#define HB_VERSION "0.1.69"
+/* Harmony Bus v0.1.70 — Schwung MIDI FX. */
+#define HB_VERSION "0.1.70"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -507,7 +507,7 @@ static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int l
        In Schw+Move mode the chain host injects these into THIS slot's native
        Move instrument. Render To Ch remains an optional secondary copy. */
     for(int voice=0;voice<voice_count&&emitted<max_output;voice++){
-        if(previous_outputs[voice]<0||((previous_outputs[voice]==new_outputs[voice])&&!(instance->retrigger_held&&role_changed[voice])))continue;
+        if(previous_outputs[voice]<0||previous_outputs[voice]==new_outputs[voice])continue;
         output[emitted][0]=0x80;
         output[emitted][1]=(uint8_t)previous_outputs[voice];
         output[emitted][2]=0;
@@ -518,7 +518,7 @@ static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int l
     }
     for(int voice=0;voice<voice_count&&emitted<max_output;voice++){
         int source_note=source_notes[voice];
-        if((previous_outputs[voice]==new_outputs[voice])&&!(instance->retrigger_held&&role_changed[voice]))continue;
+        if(previous_outputs[voice]==new_outputs[voice])continue;
         output[emitted][0]=0x90;
         output[emitted][1]=(uint8_t)new_outputs[voice];
         output[emitted][2]=instance->follower_velocity[source_note];
