@@ -25,29 +25,29 @@ jobs:
       - name: Build ARM64 HarmonyBus
         run: |
           bash scripts/build_harmonybus_move.sh
-          mv dist/harmonybus-v0.1.89-module.tar.gz dist/harmonybus-v0.1.93-module.tar.gz
+          mv dist/harmonybus-v0.1.89-module.tar.gz dist/harmonybus-v0.1.94-module.tar.gz
 
       - name: Verify HarmonyBus package
         run: |
-          HB=dist/harmonybus-v0.1.93-module.tar.gz
+          HB=dist/harmonybus-v0.1.94-module.tar.gz
           gzip -t "$HB"
           rm -rf /tmp/hb-verify
           mkdir -p /tmp/hb-verify
           tar -xzf "$HB" -C /tmp/hb-verify
           test -f /tmp/hb-verify/harmonybus/module.json
           test -f /tmp/hb-verify/harmonybus/dsp.so
-          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.1.93"'
-          strings /tmp/hb-verify/harmonybus/dsp.so | grep -Fq "0.1.93"
+          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.1.94"'
+          strings /tmp/hb-verify/harmonybus/dsp.so | grep -Fq "0.1.94"
           nm -D /tmp/hb-verify/harmonybus/dsp.so | grep -q "move_midi_fx_init"
 
-      - name: Publish v0.1.93 release
+      - name: Publish v0.1.94 release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.1.93 >/dev/null 2>&1; then
-            gh release upload v0.1.93 dist/harmonybus-v0.1.93-module.tar.gz --clobber
+          if gh release view v0.1.94 >/dev/null 2>&1; then
+            gh release upload v0.1.94 dist/harmonybus-v0.1.94-module.tar.gz --clobber
           else
-            gh release create v0.1.93 dist/harmonybus-v0.1.93-module.tar.gz \
-              --title "Harmony Bus v0.1.93" \
+            gh release create v0.1.94 dist/harmonybus-v0.1.94-module.tar.gz \
+              --title "Harmony Bus v0.1.94" \
               --notes "HarmonyBus MIDI FX for Ableton Move."
           fi
