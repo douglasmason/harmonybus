@@ -39,71 +39,65 @@ static uint16_t rotate_to_root(uint16_t mask,int root) {
 static int popcount12(uint16_t value) { int count=0; for(int index=0;index<12;index++) if(value&BIT(index)) count++; return count; }
 hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
     hb_harmony_t result; memset(&result,0,sizeof(result)); result.chord_index=-1; strcpy(result.name,"--");
-    if(!notes||note_count<=0) return result;
+    if(!notes||note_count<=0)return result;
     uint16_t input=0; int bass=127;
     for(int index=0;index<note_count;index++){int note=notes[index];if(note<bass)bass=note;input|=BIT(mod12(note));}
     int input_count=popcount12(input); if(!input_count)return result;
-    int best_score=INT_MIN,second_score=INT_MIN,best_root=bass%12,best_template=-1;
-    for(int root=0;root<12;root++){uint16_t relative=rotate_to_root(input,root);for(int index=0;index<template_count;index++){if(!templates[index].infer_enabled)continue;
-        uint16_t mask=templates[index].mask;
-        int matched=popcount12(relative&mask),missing=popcount12(mask&~relative),extras=popcount12(relative&~mask);
-        int score=matched*16-missing*12-extras*8;
 
-        int has_root=(relative&BIT(0))!=0;
-        int has_m3=(relative&BIT(3))!=0;
-        int has_M3=(relative&BIT(4))!=0;
-        int has_P5=(relative&BIT(7))!=0;
-        int has_b5=(relative&BIT(6))!=0;
-        int has_sharp5=(relative&BIT(8))!=0;
-        int has_b7=(relative&BIT(10))!=0;
-        int has_M7=(relative&BIT(11))!=0;
+    int best_root=-1,best_template=-1,best_score=INT_MIN,second_score=INT_MIN;
 
-        int expects_m3=(mask&BIT(3))!=0;
-        int expects_M3=(mask&BIT(4))!=0;
-        int expects_P5=(mask&BIT(7))!=0;
-        int expects_b5=(mask&BIT(6))!=0;
-        int expects_sharp5=(mask&BIT(8))!=0;
-        int expects_b7=(mask&BIT(10))!=0;
-        int expects_M7=(mask&BIT(11))!=0;
-
-        if(has_root)score+=8;
-
-        /* Reward only structural tones that belong to THIS candidate template.
-           This is the key inversion fix: unrelated input intervals cannot lend
-           structural credibility to a simpler but wrong root. */
-        if(expects_P5&&has_P5)score+=20;
-        if(((expects_m3&&has_m3)||(expects_M3&&has_M3))&&
-           ((expects_b7&&has_b7)||(expects_M7&&has_M7)))score+=20;
-        if(expects_b5&&has_b5&&expects_m3&&has_m3)score+=16;
-        if(expects_sharp5&&has_sharp5&&expects_M3&&has_M3)score+=16;
-
-        /* Missing structural tones are more costly than missing extensions. */
-        if(expects_P5&&!has_P5)score-=12;
-        if((expects_m3&&!has_m3)&&(expects_M3&&!has_M3))score-=10;
-
-        /* Sus templates deliberately replace the third, but retain the fifth. */
-        if(index==3||index==4){
-            if(expects_P5&&has_P5)score+=8;
+    /* Pass 1: exact enabled chord templates are authoritative. Root position is
+       only a tie-breaker between genuinely identical pitch-class templates.
+       This guarantees D#-G#-C => G#/D# rather than a partial D# analysis. */
+    for(int root=0;root<12;root++){
+        uint16_t relative=rotate_to_root(input,root);
+        for(int index=0;index<template_count;index++){
+            if(!templates[index].infer_enabled)continue;
+            if(relative!=templates[index].mask)continue;
+            int score=1000+templates[index].complexity*20;
+            if(root==(bass%12))score+=2;
+            if(score>best_score){second_score=best_score;best_score=score;best_root=root;best_template=index;}
+            else if(score>second_score)second_score=score;
         }
+    }
 
-        /* Exact pitch-class/template identity is decisive. */
-        if(missing==0&&extras==0)score+=36;
+    /* Pass 2: only if no exact interpretation exists, use structural partial
+       matching for shells/incomplete voicings. */
+    if(best_template<0){
+        for(int root=0;root<12;root++){
+            uint16_t relative=rotate_to_root(input,root);
+            for(int index=0;index<template_count;index++){
+                if(!templates[index].infer_enabled)continue;
+                uint16_t mask=templates[index].mask;
+                int matched=popcount12(relative&mask),missing=popcount12(mask&~relative),extras=popcount12(relative&~mask);
+                int score=matched*16-missing*12-extras*22;
+                int has_root=(relative&BIT(0))!=0;
+                int has_m3=(relative&BIT(3))!=0,has_M3=(relative&BIT(4))!=0;
+                int has_P5=(relative&BIT(7))!=0,has_b5=(relative&BIT(6))!=0,has_sharp5=(relative&BIT(8))!=0;
+                int has_b7=(relative&BIT(10))!=0,has_M7=(relative&BIT(11))!=0;
+                int expects_m3=(mask&BIT(3))!=0,expects_M3=(mask&BIT(4))!=0,expects_P5=(mask&BIT(7))!=0;
+                int expects_b5=(mask&BIT(6))!=0,expects_sharp5=(mask&BIT(8))!=0;
+                int expects_b7=(mask&BIT(10))!=0,expects_M7=(mask&BIT(11))!=0;
+                if(has_root)score+=8;
+                if(expects_P5&&has_P5)score+=20;
+                if(((expects_m3&&has_m3)||(expects_M3&&has_M3))&&((expects_b7&&has_b7)||(expects_M7&&has_M7)))score+=20;
+                if(expects_b5&&has_b5&&expects_m3&&has_m3)score+=16;
+                if(expects_sharp5&&has_sharp5&&expects_M3&&has_M3)score+=16;
+                if(expects_P5&&!has_P5)score-=12;
+                if((expects_m3&&!has_m3)&&(expects_M3&&!has_M3))score-=10;
+                if((index==3||index==4)&&expects_P5&&has_P5)score+=8;
+                if(root==(bass%12))score+=2;
+                score-=(templates[index].complexity>input_count?templates[index].complexity-input_count:input_count-templates[index].complexity)*2;
+                if(score>best_score){second_score=best_score;best_score=score;best_root=root;best_template=index;}
+                else if(score>second_score)second_score=score;
+            }
+        }
+    }
 
-        /* Prefer the richest exact explanation of the observed pitch set.
-           A complete seventh chord must beat a triad that merely explains
-           three of its four notes (e.g. Eb-F-Ab-C => Fm7/Eb, not Ab/Eb-ish
-           triad interpretations). */
-        if(missing==0&&extras==0)score+=templates[index].complexity*12;
-        else if(extras>0)score-=extras*14;
-
-        /* Bass is inversion information, not primary root evidence. */
-        if(root==(bass%12))score+=2;
-
-        score-=(templates[index].complexity>input_count?templates[index].complexity-input_count:input_count-templates[index].complexity)*2;
-        if(score>best_score){second_score=best_score;best_score=score;best_root=root;best_template=index;}else if(score>second_score)second_score=score;
-    }}
-    if(best_template<0)return result; result.valid=1;result.root_pc=best_root;result.bass_pc=bass%12;result.pitch_mask=input;result.chord_index=best_template;
-    int theoretical=input_count*18+18;int confidence=theoretical>0?(best_score*100/theoretical):0;int margin=best_score-second_score;if(margin>0)confidence+=margin*2;
+    if(best_template<0)return result;
+    result.valid=1;result.root_pc=best_root;result.bass_pc=bass%12;result.pitch_mask=input;result.chord_index=best_template;
+    int margin=best_score-second_score;
+    int confidence=(best_score>=1000)?(90+(margin>5?5:margin)):60+(margin>0?(margin>20?20:margin):0);
     if(confidence<1)confidence=1;if(confidence>100)confidence=100;result.confidence=confidence;
     snprintf(result.name,sizeof(result.name),"%s%s",hb_pc_name(best_root),templates[best_template].suffix);
     if(result.bass_pc!=result.root_pc){size_t used=strlen(result.name);snprintf(result.name+used,sizeof(result.name)-used,"/%s",hb_pc_name(result.bass_pc));}
