@@ -674,7 +674,7 @@
           "name": "Follower Source",
           "params": [
             {
-              "key": "root_policy",
+              "key": "follower_root_policy",
               "name": "Root Policy",
               "type": "enum",
               "options": [
@@ -686,7 +686,7 @@
               "default": "Input Key"
             },
             {
-              "key": "explicit_root",
+              "key": "follower_explicit_root",
               "name": "Explicit Root",
               "type": "enum",
               "options": [
@@ -720,8 +720,8 @@
             }
           ],
           "knobs": [
-            "root_policy",
-            "explicit_root",
+            "follower_root_policy",
+            "follower_explicit_root",
             "inferred_root",
             "used_root"
           ]
@@ -1035,7 +1035,7 @@
         "default": "Relative"
       },
       {
-        "key": "root_policy",
+        "key": "follower_root_policy",
         "name": "Root Policy",
         "type": "enum",
         "options": [
@@ -1046,7 +1046,7 @@
         "options_as_string": true
       },
       {
-        "key": "explicit_root",
+        "key": "follower_explicit_root",
         "name": "Explicit Root",
         "type": "enum",
         "options": [
@@ -1602,7 +1602,7 @@
         "access": "read"
       },
       {
-        "key": "root_policy",
+        "key": "follower_root_policy",
         "name": "Root Policy",
         "type": "enum",
         "options": [
@@ -1614,7 +1614,7 @@
         "default": "Input Key"
       },
       {
-        "key": "explicit_root",
+        "key": "follower_explicit_root",
         "name": "Explicit Root",
         "type": "enum",
         "options": [
