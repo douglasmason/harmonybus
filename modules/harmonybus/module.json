@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -26,6 +26,31 @@
                 "Conductor",
                 "Follower",
                 "Off"
+              ],
+              "options_as_string": true
+            },
+            {
+              "key": "source_channel",
+              "name": "Source Ch",
+              "type": "enum",
+              "options": [
+                "Auto",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11",
+                "12",
+                "13",
+                "14",
+                "15",
+                "16"
               ],
               "options_as_string": true
             },
@@ -137,13 +162,13 @@
           ],
           "knobs": [
             "role",
+            "source_channel",
             "mode",
             "map_target",
             "render_channel",
             "window_ms",
             "chord_timescale",
-            "stability",
-            "accidentals"
+            "stability"
           ]
         },
         "diagnostics": {
@@ -192,20 +217,11 @@
               "access": "read"
             },
             {
-              "key": "pending_releases",
-              "name": "Pending Releases",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_last_note",
-              "name": "Raw Last Note",
+              "key": "resolved_source_channel",
+              "name": "Resolved Source Ch",
               "type": "int",
               "min": -1,
-              "max": 127,
+              "max": 15,
               "step": 1,
               "access": "read"
             },
@@ -262,8 +278,8 @@
             "active_note_3_name",
             "active_note_4_name",
             "infer_note_count",
-            "raw_last_channel",
-            "raw_last_cable"
+            "resolved_source_channel",
+            "raw_last_channel"
           ]
         }
       }
@@ -524,6 +540,40 @@
         "key": "active_note_4_name",
         "name": "Active Note 4",
         "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "source_channel",
+        "name": "Source Ch",
+        "type": "enum",
+        "options": [
+          "Auto",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16"
+        ],
+        "options_as_string": true
+      },
+      {
+        "key": "resolved_source_channel",
+        "name": "Resolved Source Ch",
+        "type": "int",
+        "min": -1,
+        "max": 15,
+        "step": 1,
         "access": "read"
       }
     ]
