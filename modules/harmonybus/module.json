@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -182,13 +182,8 @@
               "access": "read"
             },
             {
-              "key": "live_press_count",
-              "name": "Live Pad Hits",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
+              "level": "plumbing",
+              "label": "Diagnostics"
             }
           ],
           "knobs": [
@@ -198,8 +193,91 @@
             "active_note_2_name",
             "active_note_3_name",
             "active_note_4_name",
-            "infer_note_count",
-            "live_press_count"
+            "infer_note_count"
+          ]
+        },
+        "plumbing": {
+          "name": "Diagnostics",
+          "params": [
+            {
+              "key": "diag_midi_events",
+              "name": "MIDI Events",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_note_ons",
+              "name": "Note Ons",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_last_note",
+              "name": "Last Note",
+              "type": "int",
+              "min": -1,
+              "max": 127,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_recv_ch",
+              "name": "Recv Ch",
+              "type": "int",
+              "min": -1,
+              "max": 15,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_event_ch",
+              "name": "Event Ch",
+              "type": "int",
+              "min": -1,
+              "max": 15,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "clip_track",
+              "name": "Clip Track",
+              "type": "int",
+              "min": -1,
+              "max": 3,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "clip_note_count",
+              "name": "Clip Notes",
+              "type": "int",
+              "min": 0,
+              "max": 1024,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "clip_playhead",
+              "name": "Clip Playhead",
+              "type": "string",
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "diag_midi_events",
+            "diag_note_ons",
+            "diag_last_note",
+            "diag_recv_ch",
+            "diag_event_ch",
+            "clip_track",
+            "clip_note_count",
+            "clip_playhead"
           ]
         }
       },
@@ -503,6 +581,51 @@
         "type": "int",
         "min": 0,
         "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_midi_events",
+        "name": "MIDI Events",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_note_ons",
+        "name": "Note Ons",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_last_note",
+        "name": "Last Note",
+        "type": "int",
+        "min": -1,
+        "max": 127,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_recv_ch",
+        "name": "Recv Ch",
+        "type": "int",
+        "min": -1,
+        "max": 15,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_event_ch",
+        "name": "Event Ch",
+        "type": "int",
+        "min": -1,
+        "max": 15,
         "step": 1,
         "access": "read"
       }
