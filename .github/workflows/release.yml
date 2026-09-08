@@ -36,14 +36,14 @@ jobs:
           tar -xzf "$MON" -C /tmp/mon-verify
           test -f /tmp/hb-verify/harmonybus/module.json
           test -f /tmp/hb-verify/harmonybus/dsp.so
-          test -f /tmp/mon-verify/harmonybus-monitor/module.json
-          test -f /tmp/mon-verify/harmonybus-monitor/ui.js
-          test -f /tmp/mon-verify/harmonybus-monitor/dsp.so
+          test -f /tmp/mon-verify/module.json
+          test -f /tmp/mon-verify/ui.js
+          test -f /tmp/mon-verify/dsp.so
           python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.1.89"'
-          python3 -c 'import json; assert json.load(open("/tmp/mon-verify/harmonybus-monitor/module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-verify/module.json"))["version"] == "0.1.89"'
           strings /tmp/hb-verify/harmonybus/dsp.so | grep -Fq "0.1.89"
           nm -D /tmp/hb-verify/harmonybus/dsp.so | grep -q "move_midi_fx_init"
-          nm -D /tmp/mon-verify/harmonybus-monitor/dsp.so | grep -q "move_plugin_init_v2"
+          nm -D /tmp/mon-verify/dsp.so | grep -q "move_plugin_init_v2"
 
       - name: Publish v0.1.89 release
         env:
