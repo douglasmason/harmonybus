@@ -19,6 +19,12 @@
           "name": "Harmony Bus 0.1.98",
           "params": [
             {
+              "key": "version",
+              "name": "Version",
+              "type": "string",
+              "access": "read"
+            },
+            {
               "key": "role",
               "name": "Role",
               "type": "enum",
@@ -171,6 +177,7 @@
             }
           ],
           "knobs": [
+            "version",
             "role",
             "mode",
             "retrigger_held",
