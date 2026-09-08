@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.66",
-  "abbrev": "HB166",
-  "version": "0.1.66",
+  "name": "Harmony Bus 0.1.67",
+  "abbrev": "HB167",
+  "version": "0.1.67",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.66 — realtime-only conductor sensing with conductor/follower analysis",
+  "description": "Harmony Bus v0.1.67 — shared conductor snapshot diagnostics",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,17 +16,17 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.66",
+          "name": "Harmony Bus 0.1.67",
           "params": [
             {
               "key": "version",
               "name": "Version",
               "type": "enum",
               "options": [
-                "0.1.66"
+                "0.1.67"
               ],
               "options_as_string": true,
-              "default": "0.1.66"
+              "default": "0.1.67"
             },
             {
               "key": "role",
@@ -464,10 +464,10 @@
         "name": "Version",
         "type": "enum",
         "options": [
-          "0.1.66"
+          "0.1.67"
         ],
         "options_as_string": true,
-        "default": "0.1.66"
+        "default": "0.1.67"
       },
       {
         "key": "role",
