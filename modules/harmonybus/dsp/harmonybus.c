@@ -459,6 +459,21 @@ static void hb_scan_raw_midi_out(Inst *instance) {
 static int hb_same_harmony(hb_harmony_t left,hb_harmony_t right){
     return left.valid&&right.valid&&left.root_pc==right.root_pc&&left.chord_index==right.chord_index;
 }
+static int hb_character_change(hb_harmony_t candidate,hb_harmony_t committed){
+    if(!candidate.valid||!committed.valid)return 0;
+    /* Root motion is always a structural harmonic change. */
+    if(candidate.root_pc!=committed.root_pc)return 1;
+
+    /* Ignore pure subset/superset changes. They usually represent voicing
+       thinning/thickening (F -> F5 -> F, adding/removing 7/9, etc.). */
+    uint16_t candidate_mask=candidate.pitch_mask;
+    uint16_t committed_mask=committed.pitch_mask;
+    if((candidate_mask&~committed_mask)==0||(committed_mask&~candidate_mask)==0)return 0;
+
+    /* Same-root, non-nested pitch sets disagree about chord-defining content:
+       major/minor/diminished/augmented/sus character, altered fifths, etc. */
+    return 1;
+}
 static uint16_t hb_active_mask(const Inst *instance){
     uint16_t mask=0;for(int note=0;note<128;note++)if(instance->active[note])mask|=(uint16_t)(1u<<(note%12));return mask;
 }
@@ -785,6 +800,16 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
     }
 
     if(hb_same_harmony(candidate,committed)){
+        instance->candidate_frames=0;
+        return 0;
+    }
+
+    /* Be deliberately insensitive to nested subset/superset voicing changes,
+       but promote a complete structurally incompatible harmony immediately.
+       Example: Fmaj -> F5 holds Fmaj; Fmaj -> Fmin/Fdim changes now. */
+    if(count>=3&&hb_character_change(candidate,committed)){
+        bus_write(candidate);
+        instance->committed_frames=0;
         instance->candidate_frames=0;
         return 0;
     }
