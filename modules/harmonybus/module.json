@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -26,16 +26,6 @@
                 "Conductor",
                 "Follower",
                 "Off"
-              ],
-              "options_as_string": true
-            },
-            {
-              "key": "clip_context",
-              "name": "Clip Context",
-              "type": "enum",
-              "options": [
-                "Clip + Realtime",
-                "Realtime Only"
               ],
               "options_as_string": true
             },
@@ -133,7 +123,6 @@
           ],
           "knobs": [
             "role",
-            "clip_context",
             "mode",
             "render_channel",
             "chord_timing",
@@ -225,16 +214,6 @@
           "Conductor",
           "Follower",
           "Off"
-        ],
-        "options_as_string": true
-      },
-      {
-        "key": "clip_context",
-        "name": "Clip Context",
-        "type": "enum",
-        "options": [
-          "Clip + Realtime",
-          "Realtime Only"
         ],
         "options_as_string": true
       },
