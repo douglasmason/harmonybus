@@ -1,5 +1,5 @@
-/* Harmony Bus v0.1.92 — Schwung MIDI FX. */
-#define HB_VERSION "0.1.92"
+/* Harmony Bus v0.1.93 — Schwung MIDI FX. */
+#define HB_VERSION "0.1.93"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -61,8 +61,8 @@ static const host_api_v1_t *g_host = 0;
 #define HB_MAX_INSTANCES 16
 #define HB_MAX_CLIP_NOTES 1024
 #define HB_MONITOR_MAGIC 0x48424d31u
-#define HB_MONITOR_VERSION 1u
-#define HB_MONITOR_SHM "/harmonybus-monitor-v1"
+#define HB_MONITOR_VERSION 2u
+#define HB_MONITOR_SHM "/harmonybus-monitor-v2"
 #define HB_O_RDWR 2
 #define HB_PROT_READ 1
 #define HB_MAP_SHARED 1
@@ -76,6 +76,9 @@ typedef struct {
     volatile uint32_t realtime_events;
     volatile uint8_t playing;
     volatile uint8_t velocities[16][128];
+    volatile uint8_t root_valid[16];
+    volatile uint8_t root_pc[16];
+    volatile uint8_t root_confirmations[16];
 } hb_monitor_shared_t;
 static hb_monitor_shared_t *g_monitor=0;
 typedef struct {
@@ -530,9 +533,14 @@ static int hb_resolve_follower_reference_root(Inst *instance,int *root_out){
         *root_out=mod12(inferred.root_pc);
         return 1;
     }
-    /* Input Key is intentionally strict. Until Move's actual pad-mapping root
-       has been observed, do not substitute HarmonyBus's internal input root. */
-    return 0;
+    /* Input Key is intentionally strict: use only a root actually observed
+       from Move's pad mapping on this follower's MIDI channel. */
+    hb_monitor_open();
+    if(!g_monitor)return 0;
+    int channel=hb_monitor_channel(instance);
+    if(channel<0||channel>=16||!g_monitor->root_valid[channel])return 0;
+    *root_out=mod12((int)g_monitor->root_pc[channel]);
+    return 1;
 }
 static const char *hb_current_role_name_for_note(const Inst *instance,int note){
     if(!instance||note<0||note>127||!instance->published_follower[note])return "--";
@@ -1402,7 +1410,7 @@ if(!strcmp(key,"follower_active_count"))return snprintf(buffer,(size_t)length,"%
 if(!strcmp(key,"role_reference_root")){int root=0;if(!hb_resolve_follower_reference_root(instance,&root))return snprintf(buffer,(size_t)length,"%s","--");return snprintf(buffer,(size_t)length,"%s",PC_OPTS[root]);}if(!strcmp(key,"source_note_1")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(0);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_1"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(0),buffer,length);if(!strcmp(key,"source_note_2")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(1);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_2"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(1),buffer,length);if(!strcmp(key,"source_note_3")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(2);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_3"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(2),buffer,length);if(!strcmp(key,"source_note_4")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(3);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_4"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(3),buffer,length);if(!strcmp(key,"monitor_status"))return snprintf(buffer,(size_t)length,"%s",g_monitor?"ACTIVE":"ABSENT");
 if(!strcmp(key,"monitor_generation"))return snprintf(buffer,(size_t)length,"%u",g_monitor?(unsigned)g_monitor->generation:0u);
 if(!strcmp(key,"monitor_events"))return snprintf(buffer,(size_t)length,"%u",g_monitor?(unsigned)g_monitor->external_note_events:0u);
-if(!strcmp(key,"v87_marker"))return snprintf(buffer,(size_t)length,"%s","HB192");
+if(!strcmp(key,"v87_marker"))return snprintf(buffer,(size_t)length,"%s","HB193");
 if(!strcmp(key,"v87_tick"))return snprintf(buffer,(size_t)length,"%u",g_bus.global_tick_count);
 if(!strcmp(key,"v87_conductor_count")){uint8_t notes[64];return snprintf(buffer,(size_t)length,"%d",hb_observed_notes(0,notes,64));}
 if(!strcmp(key,"v87_conductor_1")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_observed_note(0,0),bus_read(),note_buf,sizeof(note_buf)));}
