@@ -17,17 +17,21 @@ const char *hb_pc_name(int pitch_class) {
     static const char *names[12]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
     return names[mod12(pitch_class)];
 }
-typedef struct { const char *suffix; uint16_t mask; int complexity; } chord_template_t;
+typedef struct { const char *suffix; uint16_t mask; int complexity; int infer_enabled; } chord_template_t;
 #define BIT(n) ((uint16_t)(1u << (n)))
 static const chord_template_t templates[] = {
-    {"",BIT(0)|BIT(4)|BIT(7),3},{"min",BIT(0)|BIT(3)|BIT(7),3},{"5",BIT(0)|BIT(7),2},
-    {"sus2",BIT(0)|BIT(2)|BIT(7),3},{"sus4",BIT(0)|BIT(5)|BIT(7),3},{"dim",BIT(0)|BIT(3)|BIT(6),3},
-    {"aug",BIT(0)|BIT(4)|BIT(8),3},
-    {"maj7",BIT(0)|BIT(4)|BIT(7)|BIT(11),4},{"7",BIT(0)|BIT(4)|BIT(7)|BIT(10),4},{"min7",BIT(0)|BIT(3)|BIT(7)|BIT(10),4},
-    {"minMaj7",BIT(0)|BIT(3)|BIT(7)|BIT(11),4},{"min7b5",BIT(0)|BIT(3)|BIT(6)|BIT(10),4},{"dim7",BIT(0)|BIT(3)|BIT(6)|BIT(9),4},
-    {"add9",BIT(0)|BIT(2)|BIT(4)|BIT(7),4},{"minAdd9",BIT(0)|BIT(2)|BIT(3)|BIT(7),4},{"maj9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(11),5},
-    {"9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(10),5},{"min9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(10),5}
-};
+    {"",BIT(0)|BIT(4)|BIT(7),3,1},{"min",BIT(0)|BIT(3)|BIT(7),3,1},{"5",BIT(0)|BIT(7),2,1},
+    {"sus2",BIT(0)|BIT(2)|BIT(7),3,1},{"sus4",BIT(0)|BIT(5)|BIT(7),3,1},{"dim",BIT(0)|BIT(3)|BIT(6),3,1},
+    {"aug",BIT(0)|BIT(4)|BIT(8),3,1},
+    {"6",BIT(0)|BIT(4)|BIT(7)|BIT(9),4,0},
+    {"min6",BIT(0)|BIT(3)|BIT(7)|BIT(9),4,1},
+    {"maj7",BIT(0)|BIT(4)|BIT(7)|BIT(11),4,1},{"7",BIT(0)|BIT(4)|BIT(7)|BIT(10),4,1},{"min7",BIT(0)|BIT(3)|BIT(7)|BIT(10),4,1},
+    {"minMaj7",BIT(0)|BIT(3)|BIT(7)|BIT(11),4,1},{"min7b5",BIT(0)|BIT(3)|BIT(6)|BIT(10),4,1},{"dim7",BIT(0)|BIT(3)|BIT(6)|BIT(9),4,1},
+    {"add9",BIT(0)|BIT(2)|BIT(4)|BIT(7),4,1},{"minAdd9",BIT(0)|BIT(2)|BIT(3)|BIT(7),4,1},{"maj9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(11),5,1},
+    {"9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(10),5,1},{"min9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(10),5,1},
+    {"11",BIT(0)|BIT(2)|BIT(4)|BIT(5)|BIT(7)|BIT(10),6,0},{"min11",BIT(0)|BIT(2)|BIT(3)|BIT(5)|BIT(7)|BIT(10),6,0},
+    {"13",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(9)|BIT(10),6,0}
+}
 static const int template_count=(int)(sizeof(templates)/sizeof(templates[0]));
 static uint16_t rotate_to_root(uint16_t mask,int root) {
     uint16_t output=0; for(int pitch_class=0;pitch_class<12;++pitch_class) if(mask&BIT(pitch_class)) output|=BIT(mod12(pitch_class-root)); return output;
@@ -40,7 +44,7 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
     for(int index=0;index<note_count;index++){int note=notes[index];if(note<bass)bass=note;input|=BIT(mod12(note));}
     int input_count=popcount12(input); if(!input_count)return result;
     int best_score=INT_MIN,second_score=INT_MIN,best_root=bass%12,best_template=-1;
-    for(int root=0;root<12;root++){uint16_t relative=rotate_to_root(input,root);for(int index=0;index<template_count;index++){
+    for(int root=0;root<12;root++){uint16_t relative=rotate_to_root(input,root);for(int index=0;index<template_count;index++){if(!templates[index].infer_enabled)continue;
         uint16_t mask=templates[index].mask;
         int matched=popcount12(relative&mask),missing=popcount12(mask&~relative),extras=popcount12(relative&~mask);
         int score=matched*16-missing*12-extras*8;
