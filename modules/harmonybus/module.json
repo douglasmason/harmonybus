@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.57",
+  "version": "0.1.58",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -217,6 +217,24 @@
           "name": "Diagnostics",
           "params": [
             {
+              "key": "follower_last_in",
+              "name": "Follower In",
+              "type": "int",
+              "min": -1,
+              "max": 127,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "follower_last_out",
+              "name": "Follower Out",
+              "type": "int",
+              "min": -1,
+              "max": 127,
+              "step": 1,
+              "access": "read"
+            },
+            {
               "key": "clip_slot",
               "name": "Clip Slot",
               "type": "enum",
@@ -343,6 +361,8 @@
             }
           ],
           "knobs": [
+            "follower_last_in",
+            "follower_last_out",
             "clip_slot",
             "realtime_route",
             "rt_note_count",
@@ -826,6 +846,24 @@
         "key": "realtime_route",
         "name": "Realtime Route",
         "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "follower_last_in",
+        "name": "Follower In",
+        "type": "int",
+        "min": -1,
+        "max": 127,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "follower_last_out",
+        "name": "Follower Out",
+        "type": "int",
+        "min": -1,
+        "max": 127,
+        "step": 1,
         "access": "read"
       }
     ]
