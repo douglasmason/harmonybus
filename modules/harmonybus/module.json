@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.64",
+  "version": "0.1.65",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -16,13 +16,17 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus",
+          "name": "Harmony Bus v0.1.65",
           "params": [
             {
               "key": "version",
               "name": "Version",
-              "type": "string",
-              "access": "read"
+              "type": "enum",
+              "access": "read",
+              "options": [
+                "0.1.65"
+              ],
+              "options_as_string": true
             },
             {
               "key": "role",
@@ -126,7 +130,11 @@
             },
             {
               "level": "diagnostics",
-              "label": "Analysis"
+              "label": "Conductor Analysis"
+            },
+            {
+              "level": "follower_analysis",
+              "label": "Follower Analysis"
             }
           ],
           "knobs": [
@@ -140,29 +148,29 @@
           ]
         },
         "diagnostics": {
-          "name": "Analysis",
+          "name": "Conductor Analysis",
           "params": [
             {
               "key": "active_note_1_name",
-              "name": "Active Note 1",
+              "name": "Conductor Note 1",
               "type": "string",
               "access": "read"
             },
             {
               "key": "active_note_2_name",
-              "name": "Active Note 2",
+              "name": "Conductor Note 2",
               "type": "string",
               "access": "read"
             },
             {
               "key": "active_note_3_name",
-              "name": "Active Note 3",
+              "name": "Conductor Note 3",
               "type": "string",
               "access": "read"
             },
             {
               "key": "active_note_4_name",
-              "name": "Active Note 4",
+              "name": "Conductor Note 4",
               "type": "string",
               "access": "read"
             },
@@ -373,6 +381,79 @@
             "clip_note_count",
             "clip_playhead"
           ]
+        },
+        "follower_analysis": {
+          "name": "Follower Analysis",
+          "params": [
+            {
+              "key": "follower_note_1_name",
+              "name": "Follower Note 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_note_2_name",
+              "name": "Follower Note 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_note_3_name",
+              "name": "Follower Note 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_note_4_name",
+              "name": "Follower Note 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_role_1",
+              "name": "Role 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_role_2",
+              "name": "Role 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_role_3",
+              "name": "Role 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_role_4",
+              "name": "Role 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "follower_active_count",
+              "name": "Follower Notes",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "follower_note_1_name",
+            "follower_note_2_name",
+            "follower_note_3_name",
+            "follower_note_4_name",
+            "follower_role_1",
+            "follower_role_2",
+            "follower_role_3",
+            "follower_role_4",
+            "follower_active_count"
+          ]
         }
       },
       "focus_press_param": "live_press"
@@ -381,8 +462,12 @@
       {
         "key": "version",
         "name": "Version",
-        "type": "string",
-        "access": "read"
+        "type": "enum",
+        "access": "read",
+        "options": [
+          "0.1.65"
+        ],
+        "options_as_string": true
       },
       {
         "key": "role",
