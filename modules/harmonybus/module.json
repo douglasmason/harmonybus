@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.84",
-  "abbrev": "HB184",
-  "version": "0.1.84",
+  "name": "Harmony Bus 0.1.85",
+  "abbrev": "HB185",
+  "version": "0.1.85",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.84 — follower notes/roles aligned in one analysis panel",
+  "description": "Harmony Bus v0.1.85 — global MIDI callback diagnostics",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.84",
+          "name": "Harmony Bus 0.1.85",
           "params": [
             {
               "key": "role",
@@ -148,6 +148,10 @@
             {
               "level": "midi_trace",
               "label": "MIDI Trace"
+            },
+            {
+              "level": "global_midi_path",
+              "label": "Global MIDI Path"
             }
           ],
           "knobs": [
@@ -710,6 +714,90 @@
             "follower_source_policy",
             "follower_source_root",
             "follower_source_quality"
+          ]
+        },
+        "global_midi_path": {
+          "name": "Global MIDI Path",
+          "params": [
+            {
+              "key": "diag_marker",
+              "name": "Marker",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "diag_ui_instance",
+              "name": "UI Instance",
+              "type": "int",
+              "min": 1,
+              "max": 16,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_global_process",
+              "name": "Process Calls",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_global_note_events",
+              "name": "Note Events",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_global_accepted",
+              "name": "Accepted Notes",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_global_last_note",
+              "name": "Last Note",
+              "type": "int",
+              "min": -1,
+              "max": 127,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_global_last_ch",
+              "name": "Last Ch",
+              "type": "int",
+              "min": -1,
+              "max": 16,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_global_last_inst",
+              "name": "Last Inst",
+              "type": "int",
+              "min": -1,
+              "max": 16,
+              "step": 1,
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "diag_marker",
+            "diag_ui_instance",
+            "diag_global_process",
+            "diag_global_note_events",
+            "diag_global_accepted",
+            "diag_global_last_note",
+            "diag_global_last_ch",
+            "diag_global_last_inst"
           ]
         }
       },
@@ -1383,6 +1471,75 @@
         ],
         "options_as_string": true,
         "default": "Major"
+      },
+      {
+        "key": "diag_marker",
+        "name": "Marker",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "diag_ui_instance",
+        "name": "UI Instance",
+        "type": "int",
+        "min": 1,
+        "max": 16,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_global_process",
+        "name": "Process Calls",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_global_note_events",
+        "name": "Note Events",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_global_accepted",
+        "name": "Accepted Notes",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_global_last_note",
+        "name": "Last Note",
+        "type": "int",
+        "min": -1,
+        "max": 127,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_global_last_ch",
+        "name": "Last Ch",
+        "type": "int",
+        "min": -1,
+        "max": 16,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_global_last_inst",
+        "name": "Last Inst",
+        "type": "int",
+        "min": -1,
+        "max": 16,
+        "step": 1,
+        "access": "read"
       }
     ],
     "pre_capable": 1
