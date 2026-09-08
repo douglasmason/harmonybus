@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -76,6 +76,15 @@
               "options_as_string": true
             },
             {
+              "key": "window_ms",
+              "name": "Inference Window",
+              "type": "int",
+              "min": 0,
+              "max": 500,
+              "step": 5,
+              "default": 70
+            },
+            {
               "key": "chord_timescale",
               "name": "Chord Timescale",
               "type": "enum",
@@ -131,10 +140,10 @@
             "mode",
             "map_target",
             "render_channel",
+            "window_ms",
             "chord_timescale",
             "stability",
-            "accidentals",
-            "harmony"
+            "accidentals"
           ]
         },
         "diagnostics": {
@@ -253,8 +262,8 @@
             "active_note_3_name",
             "active_note_4_name",
             "infer_note_count",
-            "pending_releases",
-            "raw_last_note"
+            "raw_last_channel",
+            "raw_last_cable"
           ]
         }
       }
@@ -326,7 +335,7 @@
         "key": "window_ms",
         "name": "Inference Window",
         "type": "int",
-        "min": 10,
+        "min": 0,
         "max": 500,
         "step": 5,
         "default": 70
