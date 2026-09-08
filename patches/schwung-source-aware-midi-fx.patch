@@ -1,0 +1,68 @@
+diff --git a/src/modules/chain/dsp/chain_internal.h b/src/modules/chain/dsp/chain_internal.h
+--- a/src/modules/chain/dsp/chain_internal.h
++++ b/src/modules/chain/dsp/chain_internal.h
+@@
+ #define MAX_MIDI_FX 8       /* Max native MIDI FX modules per chain */
+ #define CHAIN_PRE_DELAY_MAX 32  /* Pre-mode inject-delay buffer: one clock's output */
++
++/* Optional source-aware MIDI FX extension.
++ * Modules may export:
++ *   int move_midi_fx_process_with_source(void *instance,
++ *       const uint8_t *in_msg, int in_len, int source,
++ *       uint8_t out_msgs[][3], int out_lens[], int max_out);
++ * The legacy midi_fx_api_v1 ABI remains unchanged. */
++typedef int (*midi_fx_process_with_source_fn)(
++    void *instance,
++    const uint8_t *in_msg, int in_len, int source,
++    uint8_t out_msgs[][3], int out_lens[], int max_out);
+@@
+     void *midi_fx_handles[MAX_MIDI_FX];
+     midi_fx_api_v1_t *midi_fx_plugins[MAX_MIDI_FX];
+     void *midi_fx_instances[MAX_MIDI_FX];
++    midi_fx_process_with_source_fn midi_fx_process_with_source[MAX_MIDI_FX];
+     int midi_fx_count;
+diff --git a/src/modules/chain/dsp/chain_midi.c b/src/modules/chain/dsp/chain_midi.c
+--- a/src/modules/chain/dsp/chain_midi.c
++++ b/src/modules/chain/dsp/chain_midi.c
+@@
+     inst->midi_fx_handles[slot] = handle;
+     inst->midi_fx_plugins[slot] = api;
+     inst->midi_fx_instances[slot] = instance;
++    inst->midi_fx_process_with_source[slot] =
++        (midi_fx_process_with_source_fn)dlsym(
++            handle, "move_midi_fx_process_with_source");
+@@
+     inst->midi_fx_handles[slot] = NULL;
+     inst->midi_fx_plugins[slot] = NULL;
+     inst->midi_fx_instances[slot] = NULL;
++    inst->midi_fx_process_with_source[slot] = NULL;
+@@
+ static int v2_process_midi_fx(chain_instance_t *inst,
+-                              const uint8_t *in_msg, int in_len,
++                              const uint8_t *in_msg, int in_len, int source,
+                               uint8_t out_msgs[][3], int out_lens[],
+                               int max_out) {
+@@
+-            int out_count = api->process_midi(fx_inst,
+-                                              current[m], current_lens[m],
+-                                              &next[next_count], &next_lens[next_count],
+-                                              room);
++            int out_count;
++            if (inst->midi_fx_process_with_source[fx]) {
++                out_count = inst->midi_fx_process_with_source[fx](
++                    fx_inst,
++                    current[m], current_lens[m], source,
++                    &next[next_count], &next_lens[next_count],
++                    room);
++            } else {
++                out_count = api->process_midi(
++                    fx_inst,
++                    current[m], current_lens[m],
++                    &next[next_count], &next_lens[next_count],
++                    room);
++            }
+@@
+-    int out_count = v2_process_midi_fx(inst, msg, len, out_msgs, out_lens, MIDI_FX_MAX_OUT_MSGS);
++    int out_count = v2_process_midi_fx(inst, msg, len, source,
++                                        out_msgs, out_lens,
++                                        MIDI_FX_MAX_OUT_MSGS);
