@@ -137,10 +137,10 @@ int main(void) {
     const uint8_t follower_f_ab[] = {53, 56};
     int follower_over_fm[] = {-1, -1};
     int follower_over_bbm[] = {-1, -1};
-    hb_map_held_voices_from_harmony(follower_f_ab, 2, follower_fm, follower_fm,
-                                    follower_over_fm);
-    hb_map_held_voices_from_harmony(follower_f_ab, 2, follower_fm, follower_bbm,
-                                    follower_over_bbm);
+    hb_map_held_voices_by_role(follower_f_ab, 2, follower_fm, follower_fm, 0, NULL,
+                               follower_over_fm);
+    hb_map_held_voices_by_role(follower_f_ab, 2, follower_fm, follower_bbm, 0,
+                               follower_over_fm, follower_over_bbm);
     if (follower_over_fm[0] != 53 || follower_over_fm[1] != 56) {
         fprintf(stderr, "FAIL Fm follower baseline: got %d,%d expected 53,56\n",
                 follower_over_fm[0], follower_over_fm[1]);
@@ -149,6 +149,23 @@ int main(void) {
     if (follower_over_bbm[0] != 58 || follower_over_bbm[1] != 61) {
         fprintf(stderr, "FAIL Fm->Bbm follower: got %d,%d expected 58,61\n",
                 follower_over_bbm[0], follower_over_bbm[1]);
+        return 1;
+    }
+
+    /* Harmonic roles, not raw semitone offsets: a source minor third maps
+       to the target chord's third quality. Fm -> Bb major maps Ab -> D. */
+    const uint8_t bb_major_notes[] = {58, 62, 65};
+    hb_harmony_t follower_bb_major = hb_infer_harmony(bb_major_notes, 3);
+    if (hb_map_note_by_role(56, follower_fm, follower_bb_major, 0) != 62)
+        fail("minor-third to major-third role", "Ab should map to D");
+
+    /* Smooth mode trades role preservation for minimum movement. */
+    int follower_smooth_bbm[] = {-1, -1};
+    hb_map_held_voices_by_role(follower_f_ab, 2, follower_fm, follower_bbm, 1,
+                               follower_over_fm, follower_smooth_bbm);
+    if (follower_smooth_bbm[0] != 53 || follower_smooth_bbm[1] != 58) {
+        fprintf(stderr, "FAIL smooth Fm->Bbm: got %d,%d expected 53,58\n",
+                follower_smooth_bbm[0], follower_smooth_bbm[1]);
         return 1;
     }
 
