@@ -3,13 +3,41 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CLANG="${CLANG:-clang}"
 OUT="$ROOT/build/move"
-DIST="$ROOT/dist/harmonybus"
-rm -rf "$OUT" "$ROOT/dist/harmonybus" "$ROOT/dist/harmonybus-v0.1.88-module.tar.gz"
-mkdir -p "$OUT" "$DIST"
-"$CLANG" --target=aarch64-linux-gnu -fuse-ld=lld -std=c11 -O2 -fPIC -fno-stack-protector -DHB_FREESTANDING -nostdlibinc -nostdlib -shared -Wl,--allow-shlib-undefined "$ROOT/modules/harmonybus/dsp/harmonybus.c" "$ROOT/src/harmony_core.c" -o "$OUT/dsp.so"
-file "$OUT/dsp.so" | grep -q 'ARM aarch64' || { echo 'Not an AArch64 .so' >&2; exit 1; }
-cp "$ROOT/modules/harmonybus/module.json" "$DIST/module.json"
-cp "$OUT/dsp.so" "$DIST/dsp.so"
-chmod +x "$DIST/dsp.so"
-(cd "$ROOT/dist" && tar -czvf harmonybus-v0.1.88-module.tar.gz harmonybus/)
-echo "$ROOT/dist/harmonybus-v0.1.88-module.tar.gz"
+DIST_HB="$ROOT/dist/harmonybus"
+DIST_MON="$ROOT/dist/harmonybus-monitor"
+
+rm -rf "$OUT" "$DIST_HB" "$DIST_MON" \
+  "$ROOT/dist/harmonybus-v0.1.89-module.tar.gz" \
+  "$ROOT/dist/harmonybus-monitor-v0.1.89-tool.tar.gz"
+
+mkdir -p "$OUT" "$DIST_HB" "$DIST_MON"
+
+"$CLANG" --target=aarch64-linux-gnu -fuse-ld=lld -std=c11 -O2 -fPIC \
+  -fno-stack-protector -DHB_FREESTANDING -nostdlibinc -nostdlib -shared \
+  -Wl,--allow-shlib-undefined \
+  "$ROOT/modules/harmonybus/dsp/harmonybus.c" "$ROOT/src/harmony_core.c" \
+  -o "$OUT/harmonybus-dsp.so"
+
+"$CLANG" --target=aarch64-linux-gnu -fuse-ld=lld -std=c11 -O2 -fPIC \
+  -fno-stack-protector -nostdlibinc -nostdlib -shared \
+  -Wl,--allow-shlib-undefined \
+  "$ROOT/modules/harmonybus-monitor/dsp/monitor.c" \
+  -o "$OUT/harmonybus-monitor-dsp.so"
+
+file "$OUT/harmonybus-dsp.so" | grep -q 'ARM aarch64'
+file "$OUT/harmonybus-monitor-dsp.so" | grep -q 'ARM aarch64'
+
+cp "$ROOT/modules/harmonybus/module.json" "$DIST_HB/module.json"
+cp "$OUT/harmonybus-dsp.so" "$DIST_HB/dsp.so"
+chmod +x "$DIST_HB/dsp.so"
+
+cp "$ROOT/modules/harmonybus-monitor/module.json" "$DIST_MON/module.json"
+cp "$ROOT/modules/harmonybus-monitor/ui.js" "$DIST_MON/ui.js"
+cp "$OUT/harmonybus-monitor-dsp.so" "$DIST_MON/dsp.so"
+chmod +x "$DIST_MON/dsp.so"
+
+(cd "$ROOT/dist" && tar -czvf harmonybus-v0.1.89-module.tar.gz harmonybus/)
+(cd "$ROOT/dist" && tar -czvf harmonybus-monitor-v0.1.89-tool.tar.gz harmonybus-monitor/)
+
+echo "$ROOT/dist/harmonybus-v0.1.89-module.tar.gz"
+echo "$ROOT/dist/harmonybus-monitor-v0.1.89-tool.tar.gz"
