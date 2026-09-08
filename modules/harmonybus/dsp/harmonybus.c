@@ -1,5 +1,5 @@
-/* Harmony Bus v0.1.73 — Schwung MIDI FX. */
-#define HB_VERSION "0.1.73"
+/* Harmony Bus v0.1.74 — Schwung MIDI FX. */
+#define HB_VERSION "0.1.74"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -914,11 +914,12 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
             g_bus.last_sense_count=observed_count;
             for(int i=0;i<observed_count;i++)g_bus.last_sense_notes[i]=observed_notes[i];
             g_bus.sense_rev++;
+            memset(instance->active,0,sizeof(instance->active));
+            for(int i=0;i<observed_count;i++)instance->active[observed_notes[i]]=1;
+            instance->candidate_frames=0;
+            instance->dirty=1;
+            instance->frames_since_change=0;
         }
-        memset(instance->active,0,sizeof(instance->active));
-        for(int i=0;i<observed_count;i++)instance->active[observed_notes[i]]=1;
-        instance->dirty=1;
-        instance->frames_since_change=instance->window_ms*sample_rate/1000;
     }
 
     int expired_release=0;
