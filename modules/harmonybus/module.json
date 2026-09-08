@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.71",
-  "abbrev": "HB171",
-  "version": "0.1.71",
+  "name": "Harmony Bus 0.1.72",
+  "abbrev": "HB172",
+  "version": "0.1.72",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.71 — ghost-note cleanup and corrected conductor analysis scope",
+  "description": "Harmony Bus v0.1.72 — per-instance MIDI channel binding and channel diagnostics",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.71",
+          "name": "Harmony Bus 0.1.72",
           "params": [
             {
               "key": "role",
@@ -204,6 +204,24 @@
               "max": 128,
               "step": 1,
               "access": "read"
+            },
+            {
+              "key": "diag_recv_ch",
+              "name": "Recv Ch",
+              "type": "int",
+              "min": -1,
+              "max": 16,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_event_ch",
+              "name": "Last Event Ch",
+              "type": "int",
+              "min": -1,
+              "max": 16,
+              "step": 1,
+              "access": "read"
             }
           ],
           "knobs": [
@@ -214,7 +232,9 @@
             "candidate_harmony",
             "harmony",
             "active_count",
-            "infer_note_count"
+            "infer_note_count",
+            "diag_recv_ch",
+            "diag_event_ch"
           ]
         },
         "plumbing": {
@@ -442,6 +462,24 @@
               "max": 128,
               "step": 1,
               "access": "read"
+            },
+            {
+              "key": "diag_recv_ch",
+              "name": "Recv Ch",
+              "type": "int",
+              "min": -1,
+              "max": 16,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_event_ch",
+              "name": "Last Event Ch",
+              "type": "int",
+              "min": -1,
+              "max": 16,
+              "step": 1,
+              "access": "read"
             }
           ],
           "knobs": [
@@ -453,7 +491,9 @@
             "follower_role_2",
             "follower_role_3",
             "follower_role_4",
-            "follower_active_count"
+            "follower_active_count",
+            "diag_recv_ch",
+            "diag_event_ch"
           ]
         }
       },
@@ -790,15 +830,6 @@
         "access": "read"
       },
       {
-        "key": "diag_recv_ch",
-        "name": "Recv Ch",
-        "type": "int",
-        "min": -1,
-        "max": 15,
-        "step": 1,
-        "access": "read"
-      },
-      {
         "key": "clip_stage",
         "name": "Clip Stage",
         "type": "string",
@@ -954,6 +985,24 @@
         ],
         "options_as_string": true,
         "default": "On"
+      },
+      {
+        "key": "diag_recv_ch",
+        "name": "Recv Ch",
+        "type": "int",
+        "min": -1,
+        "max": 16,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "diag_event_ch",
+        "name": "Last Event Ch",
+        "type": "int",
+        "min": -1,
+        "max": 16,
+        "step": 1,
+        "access": "read"
       }
     ],
     "pre_capable": 1
