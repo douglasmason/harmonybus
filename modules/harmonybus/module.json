@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.85",
-  "abbrev": "HB185",
-  "version": "0.1.85",
+  "name": "Harmony Bus 0.1.86",
+  "abbrev": "HB186",
+  "version": "0.1.86",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.85 — global MIDI callback diagnostics",
+  "description": "Harmony Bus v0.1.86 — scan Move MIDI mailbox from tick for diagnostics",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.85",
+          "name": "Harmony Bus 0.1.86",
           "params": [
             {
               "key": "role",
@@ -787,6 +787,69 @@
               "max": 16,
               "step": 1,
               "access": "read"
+            },
+            {
+              "key": "raw_event_count",
+              "name": "Raw Events",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_note_count",
+              "name": "Raw Notes",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_note_on_count",
+              "name": "Raw Ons",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_note_off_count",
+              "name": "Raw Offs",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_last_note",
+              "name": "Raw Last Note",
+              "type": "int",
+              "min": -1,
+              "max": 127,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_last_channel",
+              "name": "Raw Last Ch",
+              "type": "int",
+              "min": -1,
+              "max": 15,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_last_cable",
+              "name": "Raw Last Cable",
+              "type": "int",
+              "min": -1,
+              "max": 15,
+              "step": 1,
+              "access": "read"
             }
           ],
           "knobs": [
@@ -797,7 +860,14 @@
             "diag_global_accepted",
             "diag_global_last_note",
             "diag_global_last_ch",
-            "diag_global_last_inst"
+            "diag_global_last_inst",
+            "raw_event_count",
+            "raw_note_count",
+            "raw_note_on_count",
+            "raw_note_off_count",
+            "raw_last_note",
+            "raw_last_channel",
+            "raw_last_cable"
           ]
         }
       },
@@ -889,33 +959,6 @@
         "type": "int",
         "min": 0,
         "max": 128,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "raw_last_note",
-        "name": "Raw Last Note",
-        "type": "int",
-        "min": -1,
-        "max": 127,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "raw_last_channel",
-        "name": "Raw Channel",
-        "type": "int",
-        "min": -1,
-        "max": 15,
-        "step": 1,
-        "access": "read"
-      },
-      {
-        "key": "raw_last_cable",
-        "name": "Raw Cable",
-        "type": "int",
-        "min": -1,
-        "max": 15,
         "step": 1,
         "access": "read"
       },
@@ -1538,6 +1581,69 @@
         "type": "int",
         "min": -1,
         "max": 16,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_event_count",
+        "name": "Raw Events",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_note_count",
+        "name": "Raw Notes",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_note_on_count",
+        "name": "Raw Ons",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_note_off_count",
+        "name": "Raw Offs",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_last_note",
+        "name": "Raw Last Note",
+        "type": "int",
+        "min": -1,
+        "max": 127,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_last_channel",
+        "name": "Raw Last Ch",
+        "type": "int",
+        "min": -1,
+        "max": 15,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "raw_last_cable",
+        "name": "Raw Last Cable",
+        "type": "int",
+        "min": -1,
+        "max": 15,
         "step": 1,
         "access": "read"
       }
