@@ -25,7 +25,6 @@ jobs:
       - name: Build ARM64 HarmonyBus
         run: |
           bash scripts/build_harmonybus_move.sh
-          mv dist/harmonybus-v0.1.89-module.tar.gz dist/harmonybus-v0.1.98-module.tar.gz
 
       - name: Verify HarmonyBus package
         run: |
