@@ -603,7 +603,7 @@ static const char *hb_pc_display(int pc,hb_harmony_t context){
     return (mask&(1u<<pc))?sharp[pc]:flat[pc];
 }
 static const char *hb_quality_suffix(int chord_index){
-    static const char *suffix[]={"","min","5","sus2","sus4","dim","aug","6","min6","maj7","7","min7","minMaj7","min7b5","dim7","add9","minAdd9","maj9","9","min9","11","min11","13"};
+    static const char *suffix[]={"","m","5","s2","s4","dim","aug","6","m6","M7","7","m7","mM7","m7b5","dim7","a9","ma9","M9","9","m9","11","m11","13"};
     return (chord_index>=0&&chord_index<23)?suffix[chord_index]:"";
 }
 static int hb_format_harmony(char *buffer,int length,hb_harmony_t harmony){
