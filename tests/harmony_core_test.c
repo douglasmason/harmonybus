@@ -224,6 +224,43 @@ int main(void) {
     if (realtime_f_only_result.root_pc != 5 || realtime_f_only_result.chord_index != 1)
         fail("single F preserves committed Fm", realtime_f_only_result.name);
 
+    /* Realtime sequence regression: exercise transient active-note subsets in
+       the same order Move produces while notes overlap/release. Static chord
+       snapshots alone are not enough to catch this class of bug. */
+    hb_harmony_t seq_committed = hb_infer_harmony(f_minor_notes, 3);
+    const uint8_t seq_f_only[] = {53};
+    const uint8_t seq_f_ab[] = {53, 56};
+    const uint8_t seq_f_ab_eb[] = {53, 56, 63};
+    const uint8_t seq_f_a[] = {53, 57};
+
+    hb_harmony_t seq_step = hb_infer_harmony_contextual(seq_f_only, 1, seq_committed);
+    if (seq_step.root_pc != 5 || seq_step.chord_index != 1)
+        fail("seq transient F keeps Fm", seq_step.name);
+
+    seq_step = hb_infer_harmony_contextual(seq_f_ab, 2, seq_committed);
+    if (seq_step.root_pc != 5 || seq_step.chord_index != 1)
+        fail("seq F-Ab keeps Fm", seq_step.name);
+
+    seq_step = hb_infer_harmony_contextual(seq_f_ab_eb, 3, seq_committed);
+    if (seq_step.root_pc != 5 || seq_step.chord_index != 11)
+        fail("seq F-Ab-Eb promotes Fm7", seq_step.name);
+
+    /* Simulate release-window collapse back through subsets. */
+    seq_committed = seq_step;
+    seq_step = hb_infer_harmony_contextual(seq_f_ab, 2, seq_committed);
+    if (seq_step.root_pc != 5 || seq_step.chord_index != 11)
+        fail("seq Fm7 subset retains Fm7", seq_step.name);
+
+    seq_step = hb_infer_harmony_contextual(seq_f_only, 1, seq_committed);
+    if (seq_step.root_pc != 5 || seq_step.chord_index != 11)
+        fail("seq lone F retains Fm7", seq_step.name);
+
+    /* A genuinely contradictory third is structural evidence and may change
+       quality immediately. */
+    seq_step = hb_infer_harmony_contextual(seq_f_a, 2, seq_committed);
+    if (seq_step.root_pc != 5 || seq_step.chord_index != 0)
+        fail("seq F-A changes to F major", seq_step.name);
+
     printf("Harmony Bus core tests passed.\n");
     return 0;
 }
