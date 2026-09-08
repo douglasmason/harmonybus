@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.79",
-  "abbrev": "HB179",
-  "version": "0.1.79",
+  "name": "Harmony Bus 0.1.80",
+  "abbrev": "HB180",
+  "version": "0.1.80",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.79 — live/clip unified note state; pause/stop panic clear",
+  "description": "Harmony Bus v0.1.80 — accepted MIDI event trace diagnostics",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.79",
+          "name": "Harmony Bus 0.1.80",
           "params": [
             {
               "key": "role",
@@ -136,6 +136,10 @@
               ],
               "options_as_string": true,
               "default": "On"
+            },
+            {
+              "level": "midi_trace",
+              "label": "MIDI Trace"
             }
           ],
           "knobs": [
@@ -494,6 +498,89 @@
             "follower_active_count",
             "diag_recv_ch",
             "diag_event_ch"
+          ]
+        },
+        "midi_trace": {
+          "name": "MIDI Trace",
+          "params": [
+            {
+              "key": "trace_1",
+              "name": "Event 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "trace_2",
+              "name": "Event 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "trace_3",
+              "name": "Event 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "trace_4",
+              "name": "Event 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "trace_5",
+              "name": "Event 5",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "trace_6",
+              "name": "Event 6",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "trace_7",
+              "name": "Event 7",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "trace_8",
+              "name": "Event 8",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "trace_note_ons",
+              "name": "Accepted Note Ons",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "trace_note_offs",
+              "name": "Accepted Note Offs",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "trace_1",
+            "trace_2",
+            "trace_3",
+            "trace_4",
+            "trace_5",
+            "trace_6",
+            "trace_7",
+            "trace_8",
+            "trace_note_ons",
+            "trace_note_offs"
           ]
         }
       },
@@ -1001,6 +1088,72 @@
         "type": "int",
         "min": -1,
         "max": 16,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "trace_1",
+        "name": "Event 1",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "trace_2",
+        "name": "Event 2",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "trace_3",
+        "name": "Event 3",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "trace_4",
+        "name": "Event 4",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "trace_5",
+        "name": "Event 5",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "trace_6",
+        "name": "Event 6",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "trace_7",
+        "name": "Event 7",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "trace_8",
+        "name": "Event 8",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "trace_note_ons",
+        "name": "Accepted Note Ons",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "trace_note_offs",
+        "name": "Accepted Note Offs",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
         "step": 1,
         "access": "read"
       }
