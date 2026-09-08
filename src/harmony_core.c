@@ -168,8 +168,17 @@ hb_harmony_t hb_refine_harmony_with_root(const uint8_t *notes,int note_count,hb_
         int has_m3=(relative&BIT(3))!=0;
         int has_M3=(relative&BIT(4))!=0;
         int has_6=(relative&BIT(9))!=0;
-        if(has_root&&has_6&&has_m3)best_template=8;      /* min6 */
-        else if(has_root&&has_6&&has_M3)best_template=7; /* 6 */
+        int has_b7=(relative&BIT(10))!=0;
+        int has_M7=(relative&BIT(11))!=0;
+
+        /* Root + third + seventh is a standard shell: infer the seventh
+           quality with the perfect fifth implied. */
+        if(has_root&&has_m3&&has_b7)best_template=11;       /* min7 */
+        else if(has_root&&has_M3&&has_b7)best_template=10; /* 7 */
+        else if(has_root&&has_M3&&has_M7)best_template=9;  /* maj7 */
+        else if(has_root&&has_m3&&has_M7)best_template=12; /* minMaj7 */
+        else if(has_root&&has_6&&has_m3)best_template=8;   /* min6 */
+        else if(has_root&&has_6&&has_M3)best_template=7;   /* 6 */
         else {
             /* Other incomplete extension sets remain only color evidence for
                now; preserve the established quality rather than over-guess. */
