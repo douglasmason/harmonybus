@@ -161,9 +161,20 @@ hb_harmony_t hb_refine_harmony_with_root(const uint8_t *notes,int note_count,hb_
         }
     }
     if(best_template<0){
-        /* Do not invent a rich extension from an incomplete set. Preserve the
-           established quality until the held/current notes exactly support one. */
-        return established;
+        /* Once the root is established, root+third+6 is enough to identify a
+           sixth chord; the ordinary perfect fifth may be implied just as it is
+           for rooted major/minor shell voicings. This refinement cannot re-root. */
+        int has_root=(relative&BIT(0))!=0;
+        int has_m3=(relative&BIT(3))!=0;
+        int has_M3=(relative&BIT(4))!=0;
+        int has_6=(relative&BIT(9))!=0;
+        if(has_root&&has_6&&has_m3)best_template=8;      /* min6 */
+        else if(has_root&&has_6&&has_M3)best_template=7; /* 6 */
+        else {
+            /* Other incomplete extension sets remain only color evidence for
+               now; preserve the established quality rather than over-guess. */
+            return established;
+        }
     }
     hb_harmony_t result=established;
     result.bass_pc=bass%12;result.pitch_mask=input;result.chord_index=best_template;result.confidence=95;
