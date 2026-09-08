@@ -1,0 +1,98 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "../src/harmony_core.h"
+
+static void fail(const char *label, const char *message) {
+    fprintf(stderr, "FAIL %s: %s\n", label, message);
+    exit(1);
+}
+
+static void expect_harmony(
+    const char *label,
+    const uint8_t *notes,
+    int note_count,
+    int expected_root,
+    int expected_bass,
+    int expected_chord_index
+) {
+    hb_harmony_t harmony = hb_infer_harmony(notes, note_count);
+    if (!harmony.valid) fail(label, "invalid harmony");
+    if (harmony.root_pc != expected_root) {
+        fprintf(stderr, "FAIL %s: root=%d expected=%d name=%s\n", label, harmony.root_pc, expected_root, harmony.name);
+        exit(1);
+    }
+    if (harmony.bass_pc != expected_bass) {
+        fprintf(stderr, "FAIL %s: bass=%d expected=%d name=%s\n", label, harmony.bass_pc, expected_bass, harmony.name);
+        exit(1);
+    }
+    if (harmony.chord_index != expected_chord_index) {
+        fprintf(stderr, "FAIL %s: chord_index=%d expected=%d name=%s\n", label, harmony.chord_index, expected_chord_index, harmony.name);
+        exit(1);
+    }
+}
+
+static void expect_pitch_class_in_mask(const char *label, uint16_t mask, int pitch_class) {
+    if ((mask & (uint16_t)(1u << (pitch_class % 12))) == 0) {
+        fprintf(stderr, "FAIL %s: pitch class %d absent from mask 0x%03x\n", label, pitch_class, mask);
+        exit(1);
+    }
+}
+
+int main(void) {
+    /* Exact inversions must beat partial bass-root interpretations. */
+    const uint8_t gsharp_major_over_dsharp[] = {51, 56, 60}; /* D#3 G#3 C4(B#) */
+    expect_harmony("G# major / D#", gsharp_major_over_dsharp, 3, 8, 3, 0);
+
+    const uint8_t f_minor7_over_eb[] = {51, 53, 56, 60}; /* Eb3 F3 Ab3 C4 */
+    expect_harmony("Fm7 / Eb", f_minor7_over_eb, 4, 5, 3, 11);
+
+    const uint8_t f_minor7_root[] = {53, 56, 60, 63};
+    expect_harmony("Fm7 root", f_minor7_root, 4, 5, 5, 11);
+
+    /* Triad inversions. */
+    const uint8_t c_major_root[] = {60, 64, 67};
+    const uint8_t c_major_first[] = {52, 55, 60};
+    const uint8_t c_major_second[] = {55, 60, 64};
+    expect_harmony("C major root", c_major_root, 3, 0, 0, 0);
+    expect_harmony("C major first", c_major_first, 3, 0, 4, 0);
+    expect_harmony("C major second", c_major_second, 3, 0, 7, 0);
+
+    /* Rooted shell voicings should retain seventh quality even without P5. */
+    const uint8_t c7_shell[] = {48, 52, 58}; /* C E Bb */
+    expect_harmony("C7 shell", c7_shell, 3, 0, 0, 10);
+
+    const uint8_t cm7_shell[] = {48, 51, 58}; /* C Eb Bb */
+    expect_harmony("Cm7 shell", cm7_shell, 3, 0, 0, 11);
+
+    /* min6 is enabled; major6 remains disabled. */
+    const uint8_t cm6[] = {48, 51, 55, 57};
+    expect_harmony("Cm6", cm6, 4, 0, 0, 8);
+
+    /* Canonical follower mask must recover implied chord tones from shells. */
+    hb_harmony_t c7 = hb_infer_harmony(c7_shell, 3);
+    uint16_t c7_mask = hb_harmony_chord_mask(c7);
+    expect_pitch_class_in_mask("C7 canonical root", c7_mask, 0);
+    expect_pitch_class_in_mask("C7 canonical third", c7_mask, 4);
+    expect_pitch_class_in_mask("C7 canonical fifth", c7_mask, 7);
+    expect_pitch_class_in_mask("C7 canonical seventh", c7_mask, 10);
+
+    /* Inversion should not change canonical chord-tone availability. */
+    hb_harmony_t c_major_inv = hb_infer_harmony(c_major_first, 3);
+    uint16_t c_major_mask = hb_harmony_chord_mask(c_major_inv);
+    expect_pitch_class_in_mask("C/E canonical C", c_major_mask, 0);
+    expect_pitch_class_in_mask("C/E canonical E", c_major_mask, 4);
+    expect_pitch_class_in_mask("C/E canonical G", c_major_mask, 7);
+
+    /* Follower chord mapping should always land on canonical chord tones. */
+    for (int midi_note = 36; midi_note <= 84; ++midi_note) {
+        int mapped = hb_map_note(midi_note, 0, c7, HB_MAP_CHORD);
+        if ((c7_mask & (uint16_t)(1u << (mapped % 12))) == 0) {
+            fprintf(stderr, "FAIL follower map: input=%d output=%d not in C7 mask\n", midi_note, mapped);
+            return 1;
+        }
+    }
+
+    printf("Harmony Bus core tests passed.\n");
+    return 0;
+}
