@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.06",
-  "abbrev": "HB206",
-  "version": "0.2.06",
+  "name": "Harmony Bus 0.2.07",
+  "abbrev": "HB207",
+  "version": "0.2.07",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.06 — hb8 conductor track fallback",
+  "description": "Harmony Bus v0.2.07 — simplified panel layout",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.06",
+          "name": "Harmony Bus 0.2.07",
           "params": [
             {
               "key": "version",
@@ -47,6 +47,17 @@
               ],
               "options_as_string": true,
               "default": "Relative"
+            },
+            {
+              "key": "retrigger_held",
+              "name": "Retrigger Held",
+              "type": "enum",
+              "options": [
+                "Off",
+                "On"
+              ],
+              "options_as_string": true,
+              "default": "On"
             },
             {
               "key": "render_channel",
@@ -125,6 +136,10 @@
               "options_as_string": true
             },
             {
+              "level": "follower_source",
+              "label": "Foll Root"
+            },
+            {
               "level": "conductor_this",
               "label": "Cond Trk"
             },
@@ -141,39 +156,8 @@
               "label": "Foll All"
             },
             {
-              "level": "conductor_sources",
-              "label": "Conductor Sources"
-            },
-            {
-              "level": "follower_source",
-              "label": "Foll Root"
-            },
-            {
-              "key": "retrigger_held",
-              "name": "Retrigger Held",
-              "type": "enum",
-              "options": [
-                "Off",
-                "On"
-              ],
-              "options_as_string": true,
-              "default": "On"
-            },
-            {
-              "level": "midi_trace",
-              "label": "MIDI Trace"
-            },
-            {
-              "level": "global_midi_path",
-              "label": "Global MIDI Path"
-            },
-            {
-              "level": "v87_live_state",
-              "label": "V87 Live State"
-            },
-            {
-              "level": "monitor_bridge",
-              "label": "Monitor"
+              "level": "diagnostics",
+              "label": "Diagnostics"
             }
           ],
           "knobs": [
@@ -185,318 +169,6 @@
             "chord_timing",
             "context",
             "accidentals"
-          ]
-        },
-        "plumbing": {
-          "name": "Diagnostics",
-          "params": [
-            {
-              "key": "follower_last_in",
-              "name": "Follower In",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "follower_last_out",
-              "name": "Follower Out",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "clip_slot",
-              "name": "Clip Slot",
-              "type": "enum",
-              "options": [
-                "Auto",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8"
-              ],
-              "options_as_string": true
-            },
-            {
-              "key": "realtime_route",
-              "name": "Realtime Route",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "rt_note_count",
-              "name": "RT Notes",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "rt_note_ons",
-              "name": "RT Note Ons",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "rt_note_offs",
-              "name": "RT Note Offs",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "rt_last_note",
-              "name": "RT Last Note",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "rt_last_channel",
-              "name": "RT Last Ch",
-              "type": "int",
-              "min": -1,
-              "max": 15,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "clip_active_count",
-              "name": "Clip Active",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "cache_rev",
-              "name": "Cache Rev",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "sense_rev",
-              "name": "Sense Rev",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "clip_stage",
-              "name": "Clip Stage",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "clip_track",
-              "name": "Clip Track",
-              "type": "int",
-              "min": -1,
-              "max": 3,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "clip_note_count",
-              "name": "Clip Notes",
-              "type": "int",
-              "min": 0,
-              "max": 1024,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "clip_playhead",
-              "name": "Clip Playhead",
-              "type": "string",
-              "access": "read"
-            }
-          ],
-          "knobs": [
-            "follower_last_in",
-            "follower_last_out",
-            "clip_slot",
-            "realtime_route",
-            "rt_note_count",
-            "rt_note_ons",
-            "rt_note_offs",
-            "rt_last_note",
-            "rt_last_channel",
-            "clip_active_count",
-            "cache_rev",
-            "sense_rev",
-            "clip_stage",
-            "clip_track",
-            "clip_note_count",
-            "clip_playhead"
-          ]
-        },
-        "midi_trace": {
-          "name": "MIDI Trace",
-          "params": [
-            {
-              "key": "trace_1",
-              "name": "Event 1",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "trace_2",
-              "name": "Event 2",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "trace_3",
-              "name": "Event 3",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "trace_4",
-              "name": "Event 4",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "trace_5",
-              "name": "Event 5",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "trace_6",
-              "name": "Event 6",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "trace_7",
-              "name": "Event 7",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "trace_8",
-              "name": "Event 8",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "trace_note_ons",
-              "name": "Accepted Note Ons",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "trace_note_offs",
-              "name": "Accepted Note Offs",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            }
-          ],
-          "knobs": [
-            "trace_1",
-            "trace_2",
-            "trace_3",
-            "trace_4",
-            "trace_5",
-            "trace_6",
-            "trace_7",
-            "trace_8",
-            "trace_note_ons",
-            "trace_note_offs"
-          ]
-        },
-        "conductor_sources": {
-          "name": "Conductor Sources",
-          "params": [
-            {
-              "key": "source_note_1",
-              "name": "Note 1",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "source_note_2",
-              "name": "Note 2",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "source_note_3",
-              "name": "Note 3",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "source_note_4",
-              "name": "Note 4",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "source_of_1",
-              "name": "Source 1",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "source_of_2",
-              "name": "Source 2",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "source_of_3",
-              "name": "Source 3",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "source_of_4",
-              "name": "Source 4",
-              "type": "string",
-              "access": "read"
-            }
-          ],
-          "knobs": [
-            "source_note_1",
-            "source_note_2",
-            "source_note_3",
-            "source_note_4",
-            "source_of_1",
-            "source_of_2",
-            "source_of_3",
-            "source_of_4"
           ]
         },
         "follower_source": {
@@ -553,286 +225,6 @@
             "follower_explicit_root",
             "inferred_root",
             "used_root"
-          ]
-        },
-        "global_midi_path": {
-          "name": "Global MIDI Path",
-          "params": [
-            {
-              "key": "diag_marker",
-              "name": "Marker",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "diag_ui_instance",
-              "name": "UI Instance",
-              "type": "int",
-              "min": 1,
-              "max": 16,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_global_process",
-              "name": "Process Calls",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_global_note_events",
-              "name": "Note Events",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_global_accepted",
-              "name": "Accepted Notes",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_global_last_note",
-              "name": "Last Note",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_global_last_ch",
-              "name": "Last Ch",
-              "type": "int",
-              "min": -1,
-              "max": 16,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "diag_global_last_inst",
-              "name": "Last Inst",
-              "type": "int",
-              "min": -1,
-              "max": 16,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_event_count",
-              "name": "Raw Events",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_note_count",
-              "name": "Raw Notes",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_note_on_count",
-              "name": "Raw Ons",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_note_off_count",
-              "name": "Raw Offs",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_last_note",
-              "name": "Raw Last Note",
-              "type": "int",
-              "min": -1,
-              "max": 127,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_last_channel",
-              "name": "Raw Last Ch",
-              "type": "int",
-              "min": -1,
-              "max": 15,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "raw_last_cable",
-              "name": "Raw Last Cable",
-              "type": "int",
-              "min": -1,
-              "max": 15,
-              "step": 1,
-              "access": "read"
-            }
-          ],
-          "knobs": [
-            "diag_marker",
-            "diag_ui_instance",
-            "diag_global_process",
-            "diag_global_note_events",
-            "diag_global_accepted",
-            "diag_global_last_note",
-            "diag_global_last_ch",
-            "diag_global_last_inst",
-            "raw_event_count",
-            "raw_note_count",
-            "raw_note_on_count",
-            "raw_note_off_count",
-            "raw_last_note",
-            "raw_last_channel",
-            "raw_last_cable"
-          ]
-        },
-        "v87_live_state": {
-          "name": "V87 Live State",
-          "params": [
-            {
-              "key": "v87_marker",
-              "name": "Marker",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "v87_tick",
-              "name": "Tick",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "v87_conductor_count",
-              "name": "Conductor Count",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "v87_conductor_1",
-              "name": "Conductor 1",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "v87_conductor_2",
-              "name": "Conductor 2",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "v87_conductor_3",
-              "name": "Conductor 3",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "v87_conductor_4",
-              "name": "Conductor 4",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "v87_follower_count",
-              "name": "Follower Count",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "v87_process",
-              "name": "Process Calls",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "v87_raw_notes",
-              "name": "Raw Notes",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            }
-          ],
-          "knobs": [
-            "v87_marker",
-            "v87_tick",
-            "v87_conductor_count",
-            "v87_conductor_1",
-            "v87_conductor_2",
-            "v87_conductor_3",
-            "v87_conductor_4",
-            "v87_follower_count",
-            "v87_process",
-            "v87_raw_notes"
-          ]
-        },
-        "monitor_bridge": {
-          "name": "Monitor",
-          "params": [
-            {
-              "key": "monitor_status",
-              "name": "Status",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "monitor_generation",
-              "name": "Generation",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            },
-            {
-              "key": "monitor_events",
-              "name": "Events",
-              "type": "int",
-              "min": 0,
-              "max": 2147483647,
-              "step": 1,
-              "access": "read"
-            }
-          ],
-          "knobs": [
-            "monitor_status",
-            "monitor_generation",
-            "monitor_events"
           ]
         },
         "conductor_this": {
@@ -967,15 +359,6 @@
               "access": "read"
             },
             {
-              "key": "follower_this_count",
-              "name": "Note Count",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
               "key": "follower_this_role_1",
               "name": "Role 1",
               "type": "string",
@@ -998,12 +381,6 @@
               "name": "Role 4",
               "type": "string",
               "access": "read"
-            },
-            {
-              "key": "used_root",
-              "name": "Used Root",
-              "type": "string",
-              "access": "read"
             }
           ],
           "knobs": [
@@ -1014,8 +391,7 @@
             "follower_this_role_1",
             "follower_this_role_2",
             "follower_this_role_3",
-            "follower_this_role_4",
-            "used_root"
+            "follower_this_role_4"
           ]
         },
         "follower_all": {
@@ -1046,15 +422,6 @@
               "access": "read"
             },
             {
-              "key": "follower_all_count",
-              "name": "Note Count",
-              "type": "int",
-              "min": 0,
-              "max": 128,
-              "step": 1,
-              "access": "read"
-            },
-            {
               "key": "follower_all_role_1",
               "name": "Role 1",
               "type": "string",
@@ -1077,12 +444,6 @@
               "name": "Role 4",
               "type": "string",
               "access": "read"
-            },
-            {
-              "key": "used_root",
-              "name": "Used Root",
-              "type": "string",
-              "access": "read"
             }
           ],
           "knobs": [
@@ -1093,8 +454,91 @@
             "follower_all_role_1",
             "follower_all_role_2",
             "follower_all_role_3",
-            "follower_all_role_4",
-            "used_root"
+            "follower_all_role_4"
+          ]
+        },
+        "diagnostics": {
+          "name": "Diagnostics",
+          "params": [
+            {
+              "key": "monitor_status",
+              "name": "Monitor",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "diag_recv_ch",
+              "name": "Recv Ch",
+              "type": "int",
+              "min": -1,
+              "max": 16,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_event_ch",
+              "name": "Event Ch",
+              "type": "int",
+              "min": -1,
+              "max": 16,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "resolved_source_channel",
+              "name": "Resolved Ch",
+              "type": "int",
+              "min": -1,
+              "max": 15,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_midi_events",
+              "name": "MIDI Events",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "diag_note_ons",
+              "name": "Note Ons",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "note_off_count",
+              "name": "Note Offs",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "raw_track_match",
+              "name": "Track Match",
+              "type": "int",
+              "min": 0,
+              "max": 1,
+              "step": 1,
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "monitor_status",
+            "diag_recv_ch",
+            "diag_event_ch",
+            "resolved_source_channel",
+            "diag_midi_events",
+            "diag_note_ons",
+            "note_off_count",
+            "raw_track_match"
           ]
         }
       },
