@@ -24,7 +24,906 @@ jobs:
           MON=dist/harmonybus-monitor-v0.1.89-tool.tar.gz
           gzip -t "$HB"
           gzip -t "$MON"
-          tar -tzf "$HB" | grep -q '^harmonybus/module.json
+          tar -tzf "$HB" | grep -q '^harmonybus/module.json          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
+          tar -tzf "$MON" | grep -q '^harmonybus-monitor/dsp.so
+          tar -xOzf "$HB" harmonybus/module.json > /tmp/hb-module.json
+          tar -xOzf "$MON" harmonybus-monitor/module.json > /tmp/mon-module.json
+          python3 -c 'import json; assert json.load(open("/tmp/hb-module.json"))["version"] == "0.1.89"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-module.json"))["version"] == "0.1.89"'
+          tar -xOzf "$HB" harmonybus/dsp.so > /tmp/hb-dsp.so
+          strings /tmp/hb-dsp.so | grep -q '0.1.89'
+          nm -D /tmp/hb-dsp.so | grep -q 'move_midi_fx_init'
+          tar -xOzf "$MON" harmonybus-monitor/dsp.so > /tmp/mon-dsp.so
+          nm -D /tmp/mon-dsp.so | grep -q 'move_plugin_init_v2'
+
+      - name: Publish v0.1.89 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.89 >/dev/null 2>&1; then
+            gh release upload v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz --clobber
+          else
+            gh release create v0.1.89 \
+              dist/harmonybus-v0.1.89-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.89-tool.tar.gz \
+              --title "Harmony Bus v0.1.89" \
+              --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
+          fi
+
           tar -tzf "$HB" | grep -q '^harmonybus/dsp.so
           tar -tzf "$MON" | grep -q '^harmonybus-monitor/module.json
           tar -tzf "$MON" | grep -q '^harmonybus-monitor/ui.js
