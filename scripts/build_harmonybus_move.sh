@@ -37,7 +37,9 @@ cp "$OUT/harmonybus-monitor-dsp.so" "$DIST_MON/dsp.so"
 chmod +x "$DIST_MON/dsp.so"
 
 (cd "$ROOT/dist" && tar -czvf harmonybus-v0.1.89-module.tar.gz harmonybus/)
-(cd "$ROOT/dist" && tar -czvf harmonybus-monitor-v0.1.89-tool.tar.gz harmonybus-monitor/)
+# Schwung's install-module installer extracts the archive *inside*
+# modules/tools/<module-id>, so the tool archive must contain files at its root.
+tar -C "$DIST_MON" -czvf "$ROOT/dist/harmonybus-monitor-v0.1.89-tool.tar.gz" module.json ui.js dsp.so
 
 echo "$ROOT/dist/harmonybus-v0.1.89-module.tar.gz"
 echo "$ROOT/dist/harmonybus-monitor-v0.1.89-tool.tar.gz"
