@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus",
-  "abbrev": "HBus",
-  "version": "0.1.65",
+  "name": "Harmony Bus 0.1.66",
+  "abbrev": "HB166",
+  "version": "0.1.66",
   "api_version": 2,
-  "description": "Conductor/follower harmonic transformation bus for Move clips",
+  "description": "Harmony Bus v0.1.66 — realtime-only conductor sensing with conductor/follower analysis",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,17 +16,17 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus v0.1.65",
+          "name": "Harmony Bus 0.1.66",
           "params": [
             {
               "key": "version",
               "name": "Version",
               "type": "enum",
-              "access": "read",
               "options": [
-                "0.1.65"
+                "0.1.66"
               ],
-              "options_as_string": true
+              "options_as_string": true,
+              "default": "0.1.66"
             },
             {
               "key": "role",
@@ -463,11 +463,11 @@
         "key": "version",
         "name": "Version",
         "type": "enum",
-        "access": "read",
         "options": [
-          "0.1.65"
+          "0.1.66"
         ],
-        "options_as_string": true
+        "options_as_string": true,
+        "default": "0.1.66"
       },
       {
         "key": "role",
