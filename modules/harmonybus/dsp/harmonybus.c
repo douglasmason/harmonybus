@@ -835,8 +835,13 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
     if(count<=0)return 0;
 
     hb_harmony_t candidate=hb_infer_harmony(notes,count);
-    candidate=hb_transpose_harmony(candidate,g_bus.global_transpose);
     hb_harmony_t committed=bus_read();
+    /* Conservative inference owns root discovery. Once that inference agrees
+       with the committed root, allow exact 6/11/13 colors to refine the chord
+       without giving those ambiguous extensions any power to choose a root. */
+    if(committed.valid&&candidate.valid&&candidate.root_pc==committed.root_pc)
+        candidate=hb_refine_harmony_with_root(notes,count,committed);
+    candidate=hb_transpose_harmony(candidate,g_bus.global_transpose);
 
     /* Candidate is a transparent statement of what the sensor currently
        implies. Never suppress candidate formation merely because the previous
