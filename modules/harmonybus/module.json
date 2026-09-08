@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -47,16 +47,6 @@
                 "Transpose",
                 "Chord",
                 "Nearest"
-              ],
-              "options_as_string": true
-            },
-            {
-              "key": "map_target",
-              "name": "Map Target",
-              "type": "enum",
-              "options": [
-                "Chord",
-                "Scale"
               ],
               "options_as_string": true
             },
@@ -145,7 +135,6 @@
             "role",
             "clip_context",
             "mode",
-            "map_target",
             "render_channel",
             "chord_timing",
             "context",
