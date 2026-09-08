@@ -53,33 +53,40 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
         int has_sharp5=(relative&BIT(8))!=0;
         int has_b7=(relative&BIT(10))!=0;
         int has_M7=(relative&BIT(11))!=0;
-        int has_9=(relative&BIT(2))!=0;
-        int has_4=(relative&BIT(5))!=0;
+
+        int expects_m3=(mask&BIT(3))!=0;
+        int expects_M3=(mask&BIT(4))!=0;
+        int expects_P5=(mask&BIT(7))!=0;
+        int expects_b5=(mask&BIT(6))!=0;
+        int expects_sharp5=(mask&BIT(8))!=0;
+        int expects_b7=(mask&BIT(10))!=0;
+        int expects_M7=(mask&BIT(11))!=0;
 
         if(has_root)score+=8;
 
-        /* Structural root evidence. */
-        if(has_P5)score+=18;
-        if((has_m3||has_M3)&&(has_b7||has_M7))score+=16; /* shell voicing */
-        if(has_b5&&has_m3)score+=14;                     /* diminished family */
-        if(has_sharp5&&has_M3)score+=14;                 /* augmented family */
+        /* Reward only structural tones that belong to THIS candidate template.
+           This is the key inversion fix: unrelated input intervals cannot lend
+           structural credibility to a simpler but wrong root. */
+        if(expects_P5&&has_P5)score+=20;
+        if(((expects_m3&&has_m3)||(expects_M3&&has_M3))&&
+           ((expects_b7&&has_b7)||(expects_M7&&has_M7)))score+=20;
+        if(expects_b5&&has_b5&&expects_m3&&has_m3)score+=16;
+        if(expects_sharp5&&has_sharp5&&expects_M3&&has_M3)score+=16;
 
-        /* Sus chords are valid without a third, but should keep the P5. */
+        /* Missing structural tones are more costly than missing extensions. */
+        if(expects_P5&&!has_P5)score-=12;
+        if((expects_m3&&!has_m3)&&(expects_M3&&!has_M3))score-=10;
+
+        /* Sus templates deliberately replace the third, but retain the fifth. */
         if(index==3||index==4){
-            if(has_P5)score+=8;
-            if((index==3&&has_9)||(index==4&&has_4))score+=6;
+            if(expects_P5&&has_P5)score+=8;
         }
 
-        /* Extensions decorate an established structure; they are weak root evidence
-           by themselves and should never outweigh a clear triad/shell elsewhere. */
-        if(has_9&&!has_P5&&!(has_m3||has_M3))score-=8;
-        if(has_4&&!has_P5&&!(has_m3||has_M3))score-=10;
+        /* Exact pitch-class/template identity is decisive. */
+        if(missing==0&&extras==0)score+=36;
 
-        /* Exact template fits should dominate exotic re-interpretations. */
-        if(missing==0&&extras==0)score+=24;
-
-        /* Bass as root is only a modest tie-breaker; inversions stay viable. */
-        if(root==(bass%12))score+=3;
+        /* Bass is inversion information, not primary root evidence. */
+        if(root==(bass%12))score+=2;
 
         score-=(templates[index].complexity>input_count?templates[index].complexity-input_count:input_count-templates[index].complexity)*2;
         if(score>best_score){second_score=best_score;best_score=score;best_root=root;best_template=index;}else if(score>second_score)second_score=score;
