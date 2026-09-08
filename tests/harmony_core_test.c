@@ -169,6 +169,14 @@ int main(void) {
         return 1;
     }
 
+    /* Exact regressions from Move: ordinary minor shell and sixth colors. */
+    const uint8_t move_fm7_shell[] = {53, 56, 63}; /* F Ab Eb */
+    expect_harmony("Move Fm7 shell", move_fm7_shell, 3, 5, 5, 11);
+    const uint8_t move_fmin6[] = {53, 56, 62}; /* F Ab D */
+    expect_harmony("Move Fm6", move_fmin6, 3, 5, 5, 8);
+    const uint8_t move_f_db_ab[] = {53, 56, 61}; /* F Ab Db = Db/F */
+    expect_harmony("Move Db/F", move_f_db_ab, 3, 1, 5, 0);
+
     printf("Harmony Bus core tests passed.\n");
     return 0;
 }
