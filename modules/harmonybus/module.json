@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.03",
-  "abbrev": "HB203",
-  "version": "0.2.03",
+  "name": "Harmony Bus 0.2.04",
+  "abbrev": "HB204",
+  "version": "0.2.04",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.03 — per-track note ownership",
+  "description": "Harmony Bus v0.2.04 — stable per-track role persistence",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.03",
+          "name": "Harmony Bus 0.2.04",
           "params": [
             {
               "key": "version",
@@ -34,7 +34,6 @@
                 "Off"
               ],
               "options_as_string": true,
-              "default": "Off",
               "short_name": "Role"
             },
             {
@@ -1111,8 +1110,7 @@
           "Follower",
           "Off"
         ],
-        "options_as_string": true,
-        "default": "Off"
+        "options_as_string": true
       },
       {
         "key": "mode",
