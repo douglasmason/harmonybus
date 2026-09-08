@@ -400,15 +400,19 @@ static int hb_inject_follower_note(Inst *instance,int mapped,int velocity,int is
     if(sent==4){instance->render_count++;instance->render_last_note=mapped;return 1;}
     instance->render_fail_count++;return 0;
 }
-static void hb_reharmonize_held_follower(Inst *instance){
-    if(!instance||instance->role!=1||instance->render_channel<0)return;
+static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int lengths[],int max_output){
+    if(!instance||instance->role!=1||!output||!lengths||max_output<=0)return 0;
     unsigned bus_seq=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);
-    if(bus_seq==instance->follower_bus_seq)return;
+    if(bus_seq==instance->follower_bus_seq)return 0;
     instance->follower_bus_seq=bus_seq;
     hb_harmony_t harmony=hb_mapping_target(bus_read(),instance->map_target);
-    if(!harmony.valid)return;
+    if(!harmony.valid)return 0;
+
     int render_root=reference_root(instance);
-    uint8_t source_notes[128]; int previous_outputs[128]; int new_outputs[128]; int voice_count=0;
+    uint8_t source_notes[128];
+    int previous_outputs[128];
+    int new_outputs[128];
+    int voice_count=0;
     for(int source_note=0;source_note<128;source_note++){
         if(!instance->follower_held[source_note])continue;
         source_notes[voice_count]=(uint8_t)source_note;
@@ -416,20 +420,37 @@ static void hb_reharmonize_held_follower(Inst *instance){
         new_outputs[voice_count]=previous_outputs[voice_count];
         voice_count++;
     }
-    hb_map_held_voices(source_notes,voice_count,render_root,harmony,(hb_map_mode_t)instance->mode,previous_outputs,new_outputs);
-    /* Release changed old voices first, then start replacements. This avoids
-       transient duplicate/crossed voices while a whole held chord is moved. */
-    for(int voice=0;voice<voice_count;voice++){
-        if(previous_outputs[voice]>=0&&previous_outputs[voice]!=new_outputs[voice])
+
+    hb_map_held_voices(source_notes,voice_count,render_root,harmony,
+                       (hb_map_mode_t)instance->mode,previous_outputs,new_outputs);
+
+    int emitted=0;
+    /* Emit OFFs first, then ONs, through the normal MIDI-FX tick output.
+       In Schw+Move mode the chain host injects these into THIS slot's native
+       Move instrument. Render To Ch remains an optional secondary copy. */
+    for(int voice=0;voice<voice_count&&emitted<max_output;voice++){
+        if(previous_outputs[voice]<0||previous_outputs[voice]==new_outputs[voice])continue;
+        output[emitted][0]=0x80;
+        output[emitted][1]=(uint8_t)previous_outputs[voice];
+        output[emitted][2]=0;
+        lengths[emitted]=3;
+        emitted++;
+        if(instance->render_channel>=0)
             hb_inject_follower_note(instance,previous_outputs[voice],0,0);
     }
-    for(int voice=0;voice<voice_count;voice++){
+    for(int voice=0;voice<voice_count&&emitted<max_output;voice++){
         int source_note=source_notes[voice];
-        if(previous_outputs[voice]!=new_outputs[voice]){
+        if(previous_outputs[voice]==new_outputs[voice])continue;
+        output[emitted][0]=0x90;
+        output[emitted][1]=(uint8_t)new_outputs[voice];
+        output[emitted][2]=instance->follower_velocity[source_note];
+        lengths[emitted]=3;
+        emitted++;
+        if(instance->render_channel>=0)
             hb_inject_follower_note(instance,new_outputs[voice],instance->follower_velocity[source_note],1);
-            instance->mapped[source_note]=new_outputs[voice];
-        }
+        instance->mapped[source_note]=new_outputs[voice];
     }
+    return emitted;
 }
 
 static void hb_scan_raw_midi_out(Inst *instance) {
@@ -740,12 +761,10 @@ if(instance->render_channel>=0){
 }
 if(max_output<1)return 0;output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;return 1;}
 static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int max_output){
-    (void)output;(void)lengths;(void)max_output;
     Inst *instance=(Inst*)value;
     if(!instance)return 0;
     if(instance->role==1){
-        hb_reharmonize_held_follower(instance);
-        return 0;
+        return hb_reharmonize_held_follower(instance,output,lengths,max_output);
     }
     if(instance->role!=0)return 0;
 
