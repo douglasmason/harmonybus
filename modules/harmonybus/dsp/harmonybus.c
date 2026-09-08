@@ -94,6 +94,8 @@ static int hb_nth_follower_note(const Inst *instance,int ordinal);
 static int hb_follower_held_count(const Inst *instance);
 static const char *hb_role_name_for_interval(int interval);
 static const char *hb_follower_role_name(const Inst *instance,int ordinal);
+static hb_harmony_t hb_resolve_follower_source_harmony(Inst *instance);
+static void hb_publish_instance_notes(Inst *instance);
 static Inst g_pool[HB_MAX_INSTANCES];
 static int mod12(int value){value%=12;return value<0?value+12:value;}
 static int parse_i(const char *value,int fallback){char *end;long parsed;if(!value||!*value)return fallback;end=0;parsed=strtol(value,&end,10);return end==value?fallback:(int)parsed;}
