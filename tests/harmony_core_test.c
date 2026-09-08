@@ -128,6 +128,31 @@ int main(void) {
         if (voice > 0 && follower_outputs[voice] < follower_outputs[voice - 1])
             fail("poly follower crossing", "voice order reversed");
     }
+    /* User's concrete follower test: F/Ab over Fm should become Bb/Db
+       when the conductor changes to Bbm. */
+    const uint8_t f_minor_notes[] = {53, 56, 60};   /* F Ab C */
+    const uint8_t bb_minor_notes[] = {58, 61, 65};  /* Bb Db F */
+    hb_harmony_t follower_fm = hb_infer_harmony(f_minor_notes, 3);
+    hb_harmony_t follower_bbm = hb_infer_harmony(bb_minor_notes, 3);
+    const uint8_t follower_f_ab[] = {53, 56};
+    const int follower_prev_f_ab[] = {53, 56};
+    int follower_over_fm[] = {-1, -1};
+    int follower_over_bbm[] = {-1, -1};
+    hb_map_held_voices(follower_f_ab, 2, 5, follower_fm, HB_MAP_CHORD,
+                       follower_prev_f_ab, follower_over_fm);
+    hb_map_held_voices(follower_f_ab, 2, 5, follower_bbm, HB_MAP_CHORD,
+                       follower_over_fm, follower_over_bbm);
+    if (follower_over_fm[0] != 53 || follower_over_fm[1] != 56) {
+        fprintf(stderr, "FAIL Fm follower baseline: got %d,%d expected 53,56\n",
+                follower_over_fm[0], follower_over_fm[1]);
+        return 1;
+    }
+    if (follower_over_bbm[0] != 58 || follower_over_bbm[1] != 61) {
+        fprintf(stderr, "FAIL Fm->Bbm follower: got %d,%d expected 58,61\n",
+                follower_over_bbm[0], follower_over_bbm[1]);
+        return 1;
+    }
+
     printf("Harmony Bus core tests passed.\n");
     return 0;
 }
