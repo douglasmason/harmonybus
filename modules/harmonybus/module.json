@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.91",
-  "abbrev": "HB191",
-  "version": "0.1.91",
+  "name": "Harmony Bus 0.1.92",
+  "abbrev": "HB192",
+  "version": "0.1.92",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.91 — companion cable-2 monitor sensing",
+  "description": "Harmony Bus v0.1.92 — explicit follower role reference and safer instance defaults",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.91",
+          "name": "Harmony Bus 0.1.92",
           "params": [
             {
               "key": "role",
@@ -201,13 +201,13 @@
             },
             {
               "key": "candidate_harmony",
-              "name": "Candidate",
+              "name": "This Track Candidate",
               "type": "string",
               "access": "read"
             },
             {
               "key": "harmony",
-              "name": "Harmony",
+              "name": "Global Harmony",
               "type": "string",
               "access": "read"
             },
@@ -504,6 +504,12 @@
               "max": 16,
               "step": 1,
               "access": "read"
+            },
+            {
+              "key": "role_reference_harmony",
+              "name": "Role Reference Harmony",
+              "type": "string",
+              "access": "read"
             }
           ],
           "knobs": [
@@ -514,7 +520,8 @@
             "follower_role_1",
             "follower_role_2",
             "follower_role_3",
-            "follower_role_4"
+            "follower_role_4",
+            "role_reference_harmony"
           ]
         },
         "midi_trace": {
@@ -1074,7 +1081,7 @@
       },
       {
         "key": "harmony",
-        "name": "Harmony",
+        "name": "Global Harmony",
         "type": "string",
         "access": "read"
       },
@@ -1428,7 +1435,7 @@
       },
       {
         "key": "candidate_harmony",
-        "name": "Candidate",
+        "name": "This Track Candidate",
         "type": "string",
         "access": "read"
       },
@@ -1878,6 +1885,12 @@
         "min": 0,
         "max": 2147483647,
         "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "role_reference_harmony",
+        "name": "Role Reference Harmony",
+        "type": "string",
         "access": "read"
       }
     ],
