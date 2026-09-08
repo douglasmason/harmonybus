@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.86",
-  "abbrev": "HB186",
-  "version": "0.1.86",
+  "name": "Harmony Bus 0.1.87",
+  "abbrev": "HB187",
+  "version": "0.1.87",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.86 — scan Move MIDI mailbox from tick for diagnostics",
+  "description": "Harmony Bus v0.1.87 — fresh live-state diagnostics with tick proof",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.86",
+          "name": "Harmony Bus 0.1.87",
           "params": [
             {
               "key": "role",
@@ -152,6 +152,10 @@
             {
               "level": "global_midi_path",
               "label": "Global MIDI Path"
+            },
+            {
+              "level": "v87_live_state",
+              "label": "V87 Live State"
             }
           ],
           "knobs": [
@@ -868,6 +872,98 @@
             "raw_last_note",
             "raw_last_channel",
             "raw_last_cable"
+          ]
+        },
+        "v87_live_state": {
+          "name": "V87 Live State",
+          "params": [
+            {
+              "key": "v87_marker",
+              "name": "Marker",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "v87_tick",
+              "name": "Tick",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "v87_conductor_count",
+              "name": "Conductor Count",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "v87_conductor_1",
+              "name": "Conductor 1",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "v87_conductor_2",
+              "name": "Conductor 2",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "v87_conductor_3",
+              "name": "Conductor 3",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "v87_conductor_4",
+              "name": "Conductor 4",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "v87_follower_count",
+              "name": "Follower Count",
+              "type": "int",
+              "min": 0,
+              "max": 128,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "v87_process",
+              "name": "Process Calls",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            },
+            {
+              "key": "v87_raw_notes",
+              "name": "Raw Notes",
+              "type": "int",
+              "min": 0,
+              "max": 2147483647,
+              "step": 1,
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "v87_marker",
+            "v87_tick",
+            "v87_conductor_count",
+            "v87_conductor_1",
+            "v87_conductor_2",
+            "v87_conductor_3",
+            "v87_conductor_4",
+            "v87_follower_count",
+            "v87_process",
+            "v87_raw_notes"
           ]
         }
       },
@@ -1644,6 +1740,81 @@
         "type": "int",
         "min": -1,
         "max": 15,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "v87_marker",
+        "name": "Marker",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "v87_tick",
+        "name": "Tick",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "v87_conductor_count",
+        "name": "Conductor Count",
+        "type": "int",
+        "min": 0,
+        "max": 128,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "v87_conductor_1",
+        "name": "Conductor 1",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "v87_conductor_2",
+        "name": "Conductor 2",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "v87_conductor_3",
+        "name": "Conductor 3",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "v87_conductor_4",
+        "name": "Conductor 4",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "v87_follower_count",
+        "name": "Follower Count",
+        "type": "int",
+        "min": 0,
+        "max": 128,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "v87_process",
+        "name": "Process Calls",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
+        "step": 1,
+        "access": "read"
+      },
+      {
+        "key": "v87_raw_notes",
+        "name": "Raw Notes",
+        "type": "int",
+        "min": 0,
+        "max": 2147483647,
         "step": 1,
         "access": "read"
       }
