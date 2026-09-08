@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.1.80",
-  "abbrev": "HB180",
-  "version": "0.1.80",
+  "name": "Harmony Bus 0.1.81",
+  "abbrev": "HB181",
+  "version": "0.1.81",
   "api_version": 2,
-  "description": "Harmony Bus v0.1.80 — accepted MIDI event trace diagnostics",
+  "description": "Harmony Bus v0.1.81 — overlap-safe authoritative conductor note state",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.1.80",
+          "name": "Harmony Bus 0.1.81",
           "params": [
             {
               "key": "role",
