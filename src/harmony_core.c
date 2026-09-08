@@ -228,3 +228,18 @@ void hb_map_held_voices(const uint8_t *source_notes,int voice_count,int referenc
         mapped_outputs[voice]=clamp_midi(best);
     }
 }
+
+int hb_map_note_from_harmony(int midi_note,hb_harmony_t source_harmony,hb_harmony_t target_harmony){
+    if(!source_harmony.valid||!target_harmony.valid)return clamp_midi(midi_note);
+    int delta=target_harmony.root_pc-source_harmony.root_pc;
+    while(delta>6)delta-=12;
+    while(delta<-6)delta+=12;
+    return clamp_midi(midi_note+delta);
+}
+void hb_map_held_voices_from_harmony(const uint8_t *source_notes,int voice_count,
+                                     hb_harmony_t source_harmony,hb_harmony_t target_harmony,
+                                     int *mapped_outputs){
+    if(!source_notes||!mapped_outputs||voice_count<=0)return;
+    for(int voice=0;voice<voice_count;voice++)
+        mapped_outputs[voice]=hb_map_note_from_harmony(source_notes[voice],source_harmony,target_harmony);
+}
