@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus",
   "abbrev": "HBus",
-  "version": "0.1.24",
+  "version": "0.1.25",
   "api_version": 2,
   "description": "Conductor/follower harmonic transformation bus for Move clips",
   "author": "Douglas Mason / OpenAI prototype",
@@ -220,6 +220,15 @@
               "access": "read"
             },
             {
+              "key": "live_fallback",
+              "name": "Live Fallback",
+              "type": "int",
+              "min": 0,
+              "max": 1,
+              "step": 1,
+              "access": "read"
+            },
+            {
               "key": "infer_note_count",
               "name": "Inference Notes",
               "type": "int",
@@ -235,8 +244,8 @@
             "active_note_2_name",
             "active_note_3_name",
             "active_note_4_name",
-            "clip_track",
             "clip_note_count",
+            "live_fallback",
             "clip_playhead"
           ]
         }
@@ -536,6 +545,15 @@
           "Clip + Live"
         ],
         "options_as_string": true
+      },
+      {
+        "key": "live_fallback",
+        "name": "Live Fallback",
+        "type": "int",
+        "min": 0,
+        "max": 1,
+        "step": 1,
+        "access": "read"
       }
     ]
   },
