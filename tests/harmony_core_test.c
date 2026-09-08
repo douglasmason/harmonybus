@@ -93,6 +93,20 @@ int main(void) {
         }
     }
 
+    /* Rich colors may be recognized only after the root is established. */
+    hb_harmony_t established_c = hb_infer_harmony(c_major_root, 3);
+    const uint8_t c6_notes[] = {48, 52, 55, 57};
+    hb_harmony_t c6_color = hb_refine_harmony_with_root(c6_notes, 4, established_c);
+    if (c6_color.root_pc != 0 || c6_color.chord_index != 7) fail("C6 color", c6_color.name);
+
+    const uint8_t c11_notes[] = {48, 50, 52, 53, 55, 58};
+    hb_harmony_t c11_color = hb_refine_harmony_with_root(c11_notes, 6, established_c);
+    if (c11_color.root_pc != 0 || c11_color.chord_index != 20) fail("C11 color", c11_color.name);
+
+    const uint8_t c13_notes[] = {48, 50, 52, 55, 57, 58};
+    hb_harmony_t c13_color = hb_refine_harmony_with_root(c13_notes, 6, established_c);
+    if (c13_color.root_pc != 0 || c13_color.chord_index != 22) fail("C13 color", c13_color.name);
+
     printf("Harmony Bus core tests passed.\n");
     return 0;
 }
