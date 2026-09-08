@@ -25,41 +25,45 @@ jobs:
       - name: Build ARM64 artifacts
         run: |
           bash scripts/build_harmonybus_move.sh
-          mv dist/harmonybus-v0.1.89-module.tar.gz dist/harmonybus-v0.1.90-module.tar.gz
-          mv dist/harmonybus-monitor-v0.1.89-tool.tar.gz dist/harmonybus-monitor-v0.1.90-tool.tar.gz
+          mv dist/harmonybus-v0.1.89-module.tar.gz dist/harmonybus-v0.1.91-module.tar.gz
+          rm -rf /tmp/harmonybus-monitor
+          mkdir -p /tmp/harmonybus-monitor
+          tar -xzf dist/harmonybus-monitor-v0.1.89-tool.tar.gz -C /tmp/harmonybus-monitor
+          tar -C /tmp -czf dist/harmonybus-monitor-v0.1.91-tool.tar.gz harmonybus-monitor
 
       - name: Verify archives and embedded versions
         run: |
-          HB=dist/harmonybus-v0.1.90-module.tar.gz
-          MON=dist/harmonybus-monitor-v0.1.90-tool.tar.gz
+          HB=dist/harmonybus-v0.1.91-module.tar.gz
+          MON=dist/harmonybus-monitor-v0.1.91-tool.tar.gz
           gzip -t "$HB"
           gzip -t "$MON"
+          rm -rf /tmp/hb-verify /tmp/mon-verify
           mkdir -p /tmp/hb-verify /tmp/mon-verify
           tar -xzf "$HB" -C /tmp/hb-verify
           tar -xzf "$MON" -C /tmp/mon-verify
           test -f /tmp/hb-verify/harmonybus/module.json
           test -f /tmp/hb-verify/harmonybus/dsp.so
-          test -f /tmp/mon-verify/module.json
-          test -f /tmp/mon-verify/ui.js
-          test -f /tmp/mon-verify/dsp.so
-          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.1.90"'
-          python3 -c 'import json; assert json.load(open("/tmp/mon-verify/module.json"))["version"] == "0.1.90"'
-          strings /tmp/hb-verify/harmonybus/dsp.so | grep -Fq "0.1.90"
+          test -f /tmp/mon-verify/harmonybus-monitor/module.json
+          test -f /tmp/mon-verify/harmonybus-monitor/ui.js
+          test -f /tmp/mon-verify/harmonybus-monitor/dsp.so
+          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.1.91"'
+          python3 -c 'import json; assert json.load(open("/tmp/mon-verify/harmonybus-monitor/module.json"))["version"] == "0.1.91"'
+          strings /tmp/hb-verify/harmonybus/dsp.so | grep -Fq "0.1.91"
           nm -D /tmp/hb-verify/harmonybus/dsp.so | grep -q "move_midi_fx_init"
-          nm -D /tmp/mon-verify/dsp.so | grep -q "move_plugin_init_v2"
+          nm -D /tmp/mon-verify/harmonybus-monitor/dsp.so | grep -q "move_plugin_init_v2"
 
-      - name: Publish v0.1.90 release
+      - name: Publish v0.1.91 release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.1.90 >/dev/null 2>&1; then
-            gh release upload v0.1.90 \
-              dist/harmonybus-v0.1.90-module.tar.gz \
-              dist/harmonybus-monitor-v0.1.90-tool.tar.gz --clobber
+          if gh release view v0.1.91 >/dev/null 2>&1; then
+            gh release upload v0.1.91 \
+              dist/harmonybus-v0.1.91-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.91-tool.tar.gz --clobber
           else
-            gh release create v0.1.90 \
-              dist/harmonybus-v0.1.90-module.tar.gz \
-              dist/harmonybus-monitor-v0.1.90-tool.tar.gz \
-              --title "Harmony Bus v0.1.90" \
+            gh release create v0.1.91 \
+              dist/harmonybus-v0.1.91-module.tar.gz \
+              dist/harmonybus-monitor-v0.1.91-tool.tar.gz \
+              --title "Harmony Bus v0.1.91" \
               --notes "HarmonyBus plus companion ChordDex-style cable-2 monitor for source-aware sensing on stock Schwung."
           fi
