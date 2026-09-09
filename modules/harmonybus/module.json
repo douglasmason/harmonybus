@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.18",
-  "abbrev": "HB218",
-  "version": "0.2.18",
+  "name": "Harmony Bus 0.2.19",
+  "abbrev": "HB219",
+  "version": "0.2.19",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.18 — analysis release tail and follower panel restoration",
+  "description": "Harmony Bus v0.2.19 — orthogonal follower content/travel mapping and no Follow Lookahead",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -37,13 +37,24 @@
               "short_name": "Role"
             },
             {
-              "key": "mode",
-              "name": "Follow Mode",
+              "key": "content_map",
+              "name": "Follower Content",
+              "type": "enum",
+              "options": [
+                "In Chord",
+                "In Scale",
+                "Free"
+              ],
+              "options_as_string": true,
+              "default": "In Chord"
+            },
+            {
+              "key": "travel_map",
+              "name": "Follower Travel",
               "type": "enum",
               "options": [
                 "Relative",
-                "Smooth",
-                "Nearest"
+                "Closest"
               ],
               "options_as_string": true,
               "default": "Relative"
@@ -140,7 +151,8 @@
           "knobs": [
             "version",
             "track_role",
-            "mode",
+            "content_map",
+            "travel_map",
             "chord_timing",
             "anticipation",
             "boundary_buffer_ms",
@@ -151,6 +163,29 @@
         "follower_source": {
           "name": "Foll Root",
           "params": [
+            {
+              "key": "content_map",
+              "name": "Follower Content",
+              "type": "enum",
+              "options": [
+                "In Chord",
+                "In Scale",
+                "Free"
+              ],
+              "options_as_string": true,
+              "default": "In Chord"
+            },
+            {
+              "key": "travel_map",
+              "name": "Follower Travel",
+              "type": "enum",
+              "options": [
+                "Relative",
+                "Closest"
+              ],
+              "options_as_string": true,
+              "default": "Relative"
+            },
             {
               "key": "follower_root_policy",
               "name": "Root Policy",
@@ -197,15 +232,6 @@
               "access": "read"
             },
             {
-              "key": "follow_lookahead_ms",
-              "name": "Follow Lookahead",
-              "type": "int",
-              "min": 0,
-              "max": 100,
-              "step": 5,
-              "default": 0
-            },
-            {
               "key": "retrigger_held",
               "name": "Retrigger Held",
               "type": "enum",
@@ -243,11 +269,12 @@
             }
           ],
           "knobs": [
+            "content_map",
+            "travel_map",
             "follower_root_policy",
             "follower_explicit_root",
             "inferred_root",
             "used_root",
-            "follow_lookahead_ms",
             "retrigger_held",
             "render_channel"
           ]
@@ -582,13 +609,24 @@
         "options_as_string": true
       },
       {
-        "key": "mode",
-        "name": "Follow Mode",
+        "key": "content_map",
+        "name": "Follower Content",
+        "type": "enum",
+        "options": [
+          "In Chord",
+          "In Scale",
+          "Free"
+        ],
+        "options_as_string": true,
+        "default": "In Chord"
+      },
+      {
+        "key": "travel_map",
+        "name": "Follower Travel",
         "type": "enum",
         "options": [
           "Relative",
-          "Smooth",
-          "Nearest"
+          "Closest"
         ],
         "options_as_string": true,
         "default": "Relative"
@@ -682,15 +720,6 @@
           "Scale"
         ],
         "options_as_string": true
-      },
-      {
-        "key": "follow_lookahead_ms",
-        "name": "Follow Lookahead",
-        "type": "int",
-        "min": 0,
-        "max": 100,
-        "step": 5,
-        "default": 0
       },
       {
         "key": "render_channel",
