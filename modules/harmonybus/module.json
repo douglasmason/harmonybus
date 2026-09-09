@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.13",
-  "abbrev": "HB213",
-  "version": "0.2.13",
+  "name": "Harmony Bus 0.2.14",
+  "abbrev": "HB214",
+  "version": "0.2.14",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.13 — keep global timing from being overwritten by follower state",
+  "description": "Harmony Bus v0.2.14 — simplify main timing controls; Live context fixed internally",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -89,21 +89,6 @@
               "default": 20
             },
             {
-              "key": "context",
-              "name": "Context",
-              "type": "enum",
-              "options": [
-                "Live",
-                "1/32",
-                "1/16",
-                "1/8",
-                "1/4",
-                "1/2",
-                "1 Bar"
-              ],
-              "options_as_string": true
-            },
-            {
               "key": "accidentals",
               "name": "Accidentals",
               "type": "enum",
@@ -117,15 +102,6 @@
                 "Flats"
               ],
               "options_as_string": true
-            },
-            {
-              "key": "window_ms",
-              "name": "Inference Window",
-              "type": "int",
-              "min": 0,
-              "max": 500,
-              "step": 5,
-              "default": 25
             },
             {
               "level": "follower_source",
@@ -159,9 +135,7 @@
             "chord_timing",
             "anticipation",
             "boundary_buffer_ms",
-            "context",
-            "accidentals",
-            "window_ms"
+            "accidentals"
           ]
         },
         "follower_source": {
@@ -794,15 +768,6 @@
         "access": "read"
       },
       {
-        "key": "window_ms",
-        "name": "Inference Window",
-        "type": "int",
-        "min": 0,
-        "max": 500,
-        "step": 5,
-        "default": 25
-      },
-      {
         "key": "chord_timing",
         "name": "Chord Grid",
         "type": "enum",
@@ -841,22 +806,6 @@
         "max": 100,
         "step": 1,
         "default": 20
-      },
-      {
-        "key": "context",
-        "name": "Context",
-        "type": "enum",
-        "options": [
-          "Live",
-          "1/32",
-          "1/16",
-          "1/8",
-          "1/4",
-          "1/2",
-          "1 Bar"
-        ],
-        "options_as_string": true,
-        "default": "Live"
       },
       {
         "key": "clip_track",
