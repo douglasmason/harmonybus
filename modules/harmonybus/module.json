@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.53",
-  "abbrev": "HB253",
-  "version": "0.2.53",
+  "name": "Harmony Bus 0.2.55",
+  "abbrev": "HB255",
+  "version": "0.2.55",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.53 — retain 1000 ms Follower Buffer range with original intended delayed-note articulation",
+  "description": "Harmony Bus v0.2.55 — add intermediate follower content sets and In Non-Avoid; keep 1000 ms Follower Buffer",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.53",
+          "name": "Harmony Bus 0.2.55",
           "params": [
             {
               "key": "version",
@@ -113,7 +113,7 @@
               "name": "Follower Buffer",
               "type": "int",
               "min": 0,
-              "max": 500,
+              "max": 1000,
               "step": 5,
               "default": 20
             },
@@ -177,6 +177,11 @@
               "type": "enum",
               "options": [
                 "In Chord",
+                "In 135",
+                "In 1357",
+                "In 12357",
+                "In 12356",
+                "In Non-Avoid",
                 "In Scale",
                 "Free"
               ],
@@ -617,6 +622,11 @@
         "type": "enum",
         "options": [
           "In Chord",
+          "In 135",
+          "In 1357",
+          "In 12357",
+          "In 12356",
+          "In Non-Avoid",
           "In Scale",
           "Free"
         ],
