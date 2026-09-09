@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.45",
-  "abbrev": "HB245",
-  "version": "0.2.45",
+  "name": "Harmony Bus 0.2.46",
+  "abbrev": "HB246",
+  "version": "0.2.46",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.45 — fix monitor fallback compile order; restore conductor/follower panels and persist follower globals",
+  "description": "Harmony Bus v0.2.46 — follower buffer captures notes before anticipated chord-grid and quant-grid boundaries",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.45",
+          "name": "Harmony Bus 0.2.46",
           "params": [
             {
               "key": "version",
