@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.47",
-  "abbrev": "HB247",
-  "version": "0.2.47",
+  "name": "Harmony Bus 0.2.48",
+  "abbrev": "HB248",
+  "version": "0.2.48",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.47 — make retriggered held notes use the same pitch/octave mapper as fresh follower notes",
+  "description": "Harmony Bus v0.2.48 — make In Scale source-degree classification parent-scale aware, including diminished/half-diminished b5 handling",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.47",
+          "name": "Harmony Bus 0.2.48",
           "params": [
             {
               "key": "version",
