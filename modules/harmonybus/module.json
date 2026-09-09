@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.33",
-  "abbrev": "HB233",
-  "version": "0.2.33",
+  "name": "Harmony Bus 0.2.34",
+  "abbrev": "HB234",
+  "version": "0.2.34",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.33 — preserve follower scale degree under Relative travel",
+  "description": "Harmony Bus v0.2.34 — swap Follower Root Policy and Retrigger Held positions",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -208,16 +208,15 @@
               "default": "Relative"
             },
             {
-              "key": "follower_root_policy",
-              "name": "Root Policy",
+              "key": "retrigger_held",
+              "name": "Retrigger Held",
               "type": "enum",
               "options": [
-                "Infer Input",
-                "Infer Notes",
-                "Explicit"
+                "Off",
+                "On"
               ],
               "options_as_string": true,
-              "default": "Infer Input"
+              "default": "Off"
             },
             {
               "key": "follower_explicit_root",
@@ -253,26 +252,27 @@
               "access": "read"
             },
             {
-              "key": "retrigger_held",
-              "name": "Retrigger Held",
+              "key": "follower_root_policy",
+              "name": "Root Policy",
               "type": "enum",
               "options": [
-                "Off",
-                "On"
+                "Infer Input",
+                "Infer Notes",
+                "Explicit"
               ],
               "options_as_string": true,
-              "default": "Off"
+              "default": "Infer Input"
             }
           ],
           "knobs": [
             "content_map",
             "follower_scale",
             "travel_map",
-            "follower_root_policy",
+            "retrigger_held",
             "follower_explicit_root",
             "inferred_root",
             "used_root",
-            "retrigger_held"
+            "follower_root_policy"
           ]
         },
         "conductor_this": {
