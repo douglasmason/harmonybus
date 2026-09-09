@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.09",
-  "abbrev": "HB209",
-  "version": "0.2.09",
+  "name": "Harmony Bus 0.2.10",
+  "abbrev": "HB210",
+  "version": "0.2.10",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.09 — conductor-first follower scheduling",
+  "description": "Harmony Bus v0.2.10 — split chord grid/anticipation and global inference window",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -50,24 +50,34 @@
             },
             {
               "key": "chord_timing",
-              "name": "Chord Timing",
+              "name": "Chord Grid",
               "type": "enum",
               "options": [
                 "Free",
                 "1/16",
-                "1/16 Ant",
                 "1/8",
-                "1/8 Ant",
                 "1/4",
-                "1/4 Ant",
                 "1/2",
-                "1/2 Ant",
                 "1 Bar",
-                "1 Bar Ant",
-                "2 Bars",
-                "2 Bars Ant"
+                "2 Bars"
               ],
-              "options_as_string": true
+              "options_as_string": true,
+              "default": "Free"
+            },
+            {
+              "key": "anticipation",
+              "name": "Anticipation",
+              "type": "enum",
+              "options": [
+                "Off",
+                "1/64",
+                "1/32",
+                "1/16",
+                "1/8",
+                "1/4"
+              ],
+              "options_as_string": true,
+              "default": "Off"
             },
             {
               "key": "context",
@@ -138,6 +148,7 @@
             "track_role",
             "mode",
             "chord_timing",
+            "anticipation",
             "context",
             "accidentals",
             "window_ms"
@@ -773,26 +784,44 @@
         "access": "read"
       },
       {
+        "key": "window_ms",
+        "name": "Inference Window",
+        "type": "int",
+        "min": 0,
+        "max": 500,
+        "step": 5,
+        "default": 25
+      },
+      {
         "key": "chord_timing",
-        "name": "Chord Timing",
+        "name": "Chord Grid",
         "type": "enum",
         "options": [
           "Free",
           "1/16",
-          "1/16 Ant",
           "1/8",
-          "1/8 Ant",
           "1/4",
-          "1/4 Ant",
           "1/2",
-          "1/2 Ant",
           "1 Bar",
-          "1 Bar Ant",
-          "2 Bars",
-          "2 Bars Ant"
+          "2 Bars"
         ],
         "options_as_string": true,
         "default": "Free"
+      },
+      {
+        "key": "anticipation",
+        "name": "Anticipation",
+        "type": "enum",
+        "options": [
+          "Off",
+          "1/64",
+          "1/32",
+          "1/16",
+          "1/8",
+          "1/4"
+        ],
+        "options_as_string": true,
+        "default": "Off"
       },
       {
         "key": "context",
