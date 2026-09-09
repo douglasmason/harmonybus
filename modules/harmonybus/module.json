@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.46",
-  "abbrev": "HB246",
-  "version": "0.2.46",
+  "name": "Harmony Bus 0.2.47",
+  "abbrev": "HB247",
+  "version": "0.2.47",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.46 — follower buffer captures notes before anticipated chord-grid and quant-grid boundaries",
+  "description": "Harmony Bus v0.2.47 — make retriggered held notes use the same pitch/octave mapper as fresh follower notes",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.46",
+          "name": "Harmony Bus 0.2.47",
           "params": [
             {
               "key": "version",
