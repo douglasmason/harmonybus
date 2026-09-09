@@ -1614,41 +1614,41 @@ static void hb_restore_state(Inst *instance,const char *state){
            must not overwrite them; otherwise changing tracks makes "last
            visited track wins". */
     }
-    if(parsed!=18){
+    if(!is_hb9&&parsed!=18){
         parsed=sscanf(state,"hb7,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
             &values[12],&values[13],&values[14],&values[15]);
     }
-    if(parsed!=16&&parsed!=18){
+    if(!is_hb9&&parsed!=16&&parsed!=18){
         parsed=sscanf(state,"hb6,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
             &values[12],&values[13],&values[14]);
     }
-    if(parsed!=15&&parsed!=16&&parsed!=18){
+    if(!is_hb9&&parsed!=15&&parsed!=16&&parsed!=18){
         parsed=sscanf(state,"hb5,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
             &values[12],&values[13],&values[14],&values[15]);
     }
-    if(parsed!=16&&parsed!=15&&parsed!=18){
+    if(!is_hb9&&parsed!=16&&parsed!=15&&parsed!=18){
         parsed=sscanf(state,"hb4,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
             &values[12],&values[13],&values[14]);
     }
-    if(parsed!=15&&parsed!=16&&parsed!=18){
+    if(!is_hb9&&parsed!=15&&parsed!=16&&parsed!=18){
         parsed=sscanf(state,"hb3,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],&values[12]);
     }
-    if(parsed!=13&&parsed!=15&&parsed!=16&&parsed!=18&&parsed!=18){
+    if(!is_hb9&&parsed!=13&&parsed!=15&&parsed!=16&&parsed!=18){
         parsed=sscanf(state,"hb2,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11]);
     }
-    if(parsed!=12&&parsed!=13&&parsed!=15&&parsed!=16&&parsed!=18&&parsed!=18&&parsed!=18){
+    if(!is_hb9&&parsed!=12&&parsed!=13&&parsed!=15&&parsed!=16&&parsed!=18){
         parsed=sscanf(state,"hb1,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10]);
@@ -1684,10 +1684,10 @@ static void hb_restore_state(Inst *instance,const char *state){
             g_bus.context=g_bus.stability==0?1:(g_bus.stability==1?3:5);
         }
     }
-    if(parsed>=12&&values[11]>=-1&&values[11]<16)instance->render_channel=values[11];
-    if((parsed==13||parsed>=15)&&values[12]>=-1&&values[12]<16)instance->source_channel=values[12];
-    if(parsed>=18&&values[16]>=0&&values[16]<=100)instance->follow_lookahead_ms=values[16];
-    if(parsed>=18&&values[17]>=0&&values[17]<=1)instance->retrigger_held=values[17];
+    if((is_hb9||parsed>=12)&&values[11]>=-1&&values[11]<16)instance->render_channel=values[11];
+    if((is_hb9||parsed==13||parsed>=15)&&values[12]>=-1&&values[12]<16)instance->source_channel=values[12];
+    if((is_hb9||parsed>=18)&&values[16]>=0&&values[16]<=100)instance->follow_lookahead_ms=values[16];
+    if((is_hb9||parsed>=18)&&values[17]>=0&&values[17]<=1)instance->retrigger_held=values[17];
     if(is_hb9){
         if(values[3]>=0&&values[3]<=500)g_bus.inference_window_ms=values[3];
         if(values[13]>=0&&values[13]<7)g_bus.chord_timing=values[13];
