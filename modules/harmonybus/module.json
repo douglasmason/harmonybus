@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.51",
-  "abbrev": "HB251",
-  "version": "0.2.51",
+  "name": "Harmony Bus 0.2.52",
+  "abbrev": "HB252",
+  "version": "0.2.52",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.51 — fix compile order for follower degree-role display",
+  "description": "Harmony Bus v0.2.52 — extend follower buffer to 1000 ms and preserve short notes whose OFF arrives before a delayed ON",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.51",
+          "name": "Harmony Bus 0.2.52",
           "params": [
             {
               "key": "version",
@@ -881,7 +881,7 @@
         "name": "Follower Buffer",
         "type": "int",
         "min": 0,
-        "max": 500,
+        "max": 1000,
         "step": 5,
         "default": 20
       },
