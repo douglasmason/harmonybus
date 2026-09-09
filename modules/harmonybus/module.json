@@ -226,6 +226,18 @@
               "default": "Off"
             },
             {
+              "key": "follower_root_policy",
+              "name": "Root Policy",
+              "type": "enum",
+              "options": [
+                "Infer Input",
+                "Infer Notes",
+                "Explicit"
+              ],
+              "options_as_string": true,
+              "default": "Infer Input"
+            },
+            {
               "key": "follower_explicit_root",
               "name": "Explicit Root",
               "type": "enum",
@@ -257,18 +269,6 @@
               "name": "Used Root",
               "type": "string",
               "access": "read"
-            },
-            {
-              "key": "follower_root_policy",
-              "name": "Root Policy",
-              "type": "enum",
-              "options": [
-                "Infer Input",
-                "Infer Notes",
-                "Explicit"
-              ],
-              "options_as_string": true,
-              "default": "Infer Input"
             }
           ],
           "knobs": [
@@ -276,10 +276,10 @@
             "follower_scale",
             "travel_map",
             "retrigger_held",
+            "follower_root_policy",
             "follower_explicit_root",
             "inferred_root",
-            "used_root",
-            "follower_root_policy"
+            "used_root"
           ]
         },
         "conductor_this": {
