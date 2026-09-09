@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.39",
-  "abbrev": "HB239",
-  "version": "0.2.39",
+  "name": "Harmony Bus 0.2.40",
+  "abbrev": "HB240",
+  "version": "0.2.40",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.39 — capture-only follower Quant Grid and serialized retrigger/buffer lifecycle",
+  "description": "Harmony Bus v0.2.40 — restore conductor panels from owning-track monitor state",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.39",
+          "name": "Harmony Bus 0.2.40",
           "params": [
             {
               "key": "version",
