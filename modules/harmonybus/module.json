@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.19",
-  "abbrev": "HB219",
-  "version": "0.2.19",
+  "name": "Harmony Bus 0.2.20",
+  "abbrev": "HB220",
+  "version": "0.2.20",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.19 — orthogonal follower content/travel mapping and no Follow Lookahead",
+  "description": "Harmony Bus v0.2.20 — explicit static follower scale selection",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -47,6 +47,25 @@
               ],
               "options_as_string": true,
               "default": "In Chord"
+            },
+            {
+              "key": "follower_scale",
+              "name": "Follower Scale",
+              "type": "enum",
+              "options": [
+                "Infer",
+                "Major",
+                "Natural Minor",
+                "Dorian",
+                "Phrygian",
+                "Lydian",
+                "Mixolydian",
+                "Locrian",
+                "Harmonic Minor",
+                "Melodic Minor"
+              ],
+              "options_as_string": true,
+              "default": "Infer"
             },
             {
               "key": "travel_map",
@@ -152,6 +171,7 @@
             "version",
             "track_role",
             "content_map",
+            "follower_scale",
             "travel_map",
             "chord_timing",
             "anticipation",
@@ -174,6 +194,25 @@
               ],
               "options_as_string": true,
               "default": "In Chord"
+            },
+            {
+              "key": "follower_scale",
+              "name": "Follower Scale",
+              "type": "enum",
+              "options": [
+                "Infer",
+                "Major",
+                "Natural Minor",
+                "Dorian",
+                "Phrygian",
+                "Lydian",
+                "Mixolydian",
+                "Locrian",
+                "Harmonic Minor",
+                "Melodic Minor"
+              ],
+              "options_as_string": true,
+              "default": "Infer"
             },
             {
               "key": "travel_map",
@@ -270,6 +309,7 @@
           ],
           "knobs": [
             "content_map",
+            "follower_scale",
             "travel_map",
             "follower_root_policy",
             "follower_explicit_root",
@@ -619,6 +659,25 @@
         ],
         "options_as_string": true,
         "default": "In Chord"
+      },
+      {
+        "key": "follower_scale",
+        "name": "Follower Scale",
+        "type": "enum",
+        "options": [
+          "Infer",
+          "Major",
+          "Natural Minor",
+          "Dorian",
+          "Phrygian",
+          "Lydian",
+          "Mixolydian",
+          "Locrian",
+          "Harmonic Minor",
+          "Melodic Minor"
+        ],
+        "options_as_string": true,
+        "default": "Infer"
       },
       {
         "key": "travel_map",
