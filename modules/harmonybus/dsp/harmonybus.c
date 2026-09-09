@@ -220,6 +220,7 @@ static const char *hb_follower_role_name(const Inst *instance,int ordinal);
 static int hb_resolve_follower_reference_root(Inst *instance,int *root_out);
 static hb_harmony_t hb_follower_scale_target(Inst *instance,hb_harmony_t harmony);
 static double hb_chord_grid_beats(void);
+static double hb_quant_grid_beats(void);
 static double hb_anticipation_beats(void);
 static double hb_ms_to_beats(int milliseconds);
 static double hb_current_beat(void);
