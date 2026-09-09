@@ -28,23 +28,23 @@ jobs:
 
       - name: Verify HarmonyBus package
         run: |
-          HB=dist/harmonybus-v0.2.36-module.tar.gz
+          HB=dist/harmonybus-v0.2.37-module.tar.gz
           gzip -t "$HB"
           rm -rf /tmp/hb-verify
           mkdir -p /tmp/hb-verify
           tar -xzf "$HB" -C /tmp/hb-verify
           test -f /tmp/hb-verify/harmonybus/module.json
           test -f /tmp/hb-verify/harmonybus/dsp.so
-          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.2.36"'
+          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.2.37"'
 
-      - name: Publish v0.2.36 release
+      - name: Publish v0.2.37 release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.2.36 >/dev/null 2>&1; then
-            gh release upload v0.2.36 dist/harmonybus-v0.2.36-module.tar.gz --clobber
+          if gh release view v0.2.37 >/dev/null 2>&1; then
+            gh release upload v0.2.37 dist/harmonybus-v0.2.37-module.tar.gz --clobber
           else
-            gh release create v0.2.36 dist/harmonybus-v0.2.36-module.tar.gz \
-              --title "Harmony Bus v0.2.36" \
+            gh release create v0.2.37 dist/harmonybus-v0.2.37-module.tar.gz \
+              --title "Harmony Bus v0.2.37" \
               --notes "HarmonyBus MIDI FX for Ableton Move."
           fi
