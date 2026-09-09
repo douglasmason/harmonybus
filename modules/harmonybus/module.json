@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.48",
-  "abbrev": "HB248",
-  "version": "0.2.48",
+  "name": "Harmony Bus 0.2.50",
+  "abbrev": "HB250",
+  "version": "0.2.50",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.48 — make In Scale source-degree classification parent-scale aware, including diminished/half-diminished b5 handling",
+  "description": "Harmony Bus v0.2.50 — separate input-role classification from detected harmony and display follower roles as ordinal scale degrees",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.48",
+          "name": "Harmony Bus 0.2.50",
           "params": [
             {
               "key": "version",
