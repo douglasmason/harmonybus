@@ -785,6 +785,20 @@ static int hb_map_follower_note_now(Inst *instance,int source_note){
     }
     return source_note;
 }
+static int hb_conductor_pending_for_follow(void){
+    /* Follower and conductor tick callbacks are independently scheduled.
+       A one-tick follower barrier therefore does not guarantee that the
+       conductor tick which commits the new harmony has already run.
+       Hold queued follower events until every live conductor has consumed
+       its current note-set change (dirty==0) and any confirmation candidate
+       has either committed or been rejected (candidate_frames==0). */
+    for(int index=0;index<HB_MAX_INSTANCES;index++){
+        Inst *conductor=&g_pool[index];
+        if(!conductor->used||conductor->role!=0)continue;
+        if(conductor->dirty||conductor->candidate_frames>0)return 1;
+    }
+    return 0;
+}
 static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
                                      uint8_t output[][3],int lengths[],int max_output){
     if(!instance||instance->role!=1||max_output<=0)return 0;
@@ -800,6 +814,12 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
         age+=frames;
         instance->follower_queue_age_frames[index]=age;
         if(age<target_frames||emitted>=max_output){
+            continue;
+        }
+        /* Do not map against stale harmony merely because this follower's
+           tick happened before the conductor's tick in the same scheduler
+           cycle.  This is the actual conductor-first barrier. */
+        if(hb_conductor_pending_for_follow()){
             continue;
         }
         int source_note=instance->follower_queue_note[index];
