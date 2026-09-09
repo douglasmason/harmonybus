@@ -4,7 +4,7 @@
   "abbrev": "HB232",
   "version": "0.2.32",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.32 — keep global Follower Content/Travel/Scale stable across UI instance recreation",
+  "description": "Harmony Bus v0.2.32 — move Render to Channel to Main panel",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -35,6 +35,31 @@
               ],
               "options_as_string": true,
               "short_name": "Role"
+            },
+            {
+              "key": "render_channel",
+              "name": "Render To Ch",
+              "type": "enum",
+              "options": [
+                "Off",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11",
+                "12",
+                "13",
+                "14",
+                "15",
+                "16"
+              ],
+              "options_as_string": true
             },
             {
               "key": "chord_timing",
@@ -128,6 +153,7 @@
           "knobs": [
             "version",
             "track_role",
+            "render_channel",
             "chord_timing",
             "anticipation",
             "boundary_buffer_ms",
@@ -236,31 +262,6 @@
               ],
               "options_as_string": true,
               "default": "Off"
-            },
-            {
-              "key": "render_channel",
-              "name": "Render To Ch",
-              "type": "enum",
-              "options": [
-                "Off",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-                "10",
-                "11",
-                "12",
-                "13",
-                "14",
-                "15",
-                "16"
-              ],
-              "options_as_string": true
             }
           ],
           "knobs": [
@@ -271,8 +272,7 @@
             "follower_explicit_root",
             "inferred_root",
             "used_root",
-            "retrigger_held",
-            "render_channel"
+            "retrigger_held"
           ]
         },
         "conductor_this": {
