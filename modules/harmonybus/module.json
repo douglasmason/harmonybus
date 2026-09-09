@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.50",
-  "abbrev": "HB250",
-  "version": "0.2.50",
+  "name": "Harmony Bus 0.2.51",
+  "abbrev": "HB251",
+  "version": "0.2.51",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.50 — separate input-role classification from detected harmony and display follower roles as ordinal scale degrees",
+  "description": "Harmony Bus v0.2.51 — fix compile order for follower degree-role display",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.50",
+          "name": "Harmony Bus 0.2.51",
           "params": [
             {
               "key": "version",
