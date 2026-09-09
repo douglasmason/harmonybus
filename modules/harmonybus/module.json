@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.10",
-  "abbrev": "HB210",
-  "version": "0.2.10",
+  "name": "Harmony Bus 0.2.11",
+  "abbrev": "HB211",
+  "version": "0.2.11",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.10 — split chord grid/anticipation and global inference window",
+  "description": "Harmony Bus v0.2.11 — separate chord anticipation from follower boundary buffer",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -66,18 +66,27 @@
             },
             {
               "key": "anticipation",
-              "name": "Anticipation",
+              "name": "Chord Anticipation",
               "type": "enum",
               "options": [
-                "Off",
-                "1/64",
-                "1/32",
-                "1/16",
-                "1/8",
-                "1/4"
+                "On Grid",
+                "1/64 Early",
+                "1/32 Early",
+                "1/16 Early",
+                "1/8 Early",
+                "1/4 Early"
               ],
               "options_as_string": true,
-              "default": "Off"
+              "default": "On Grid"
+            },
+            {
+              "key": "boundary_buffer_ms",
+              "name": "Follower Buffer",
+              "type": "int",
+              "min": 0,
+              "max": 100,
+              "step": 1,
+              "default": 20
             },
             {
               "key": "context",
@@ -149,6 +158,7 @@
             "mode",
             "chord_timing",
             "anticipation",
+            "boundary_buffer_ms",
             "context",
             "accidentals",
             "window_ms"
@@ -810,18 +820,27 @@
       },
       {
         "key": "anticipation",
-        "name": "Anticipation",
+        "name": "Chord Anticipation",
         "type": "enum",
         "options": [
-          "Off",
-          "1/64",
-          "1/32",
-          "1/16",
-          "1/8",
-          "1/4"
+          "On Grid",
+          "1/64 Early",
+          "1/32 Early",
+          "1/16 Early",
+          "1/8 Early",
+          "1/4 Early"
         ],
         "options_as_string": true,
-        "default": "Off"
+        "default": "On Grid"
+      },
+      {
+        "key": "boundary_buffer_ms",
+        "name": "Follower Buffer",
+        "type": "int",
+        "min": 0,
+        "max": 100,
+        "step": 1,
+        "default": 20
       },
       {
         "key": "context",
