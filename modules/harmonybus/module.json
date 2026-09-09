@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.59",
-  "abbrev": "HB259",
-  "version": "0.2.59",
+  "name": "Harmony Bus 0.2.60",
+  "abbrev": "HB260",
+  "version": "0.2.60",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.59 — make In Scale use detected-harmony-relative legal pitch sets for Closest/Meta/Upward",
+  "description": "Harmony Bus v0.2.60 — add symmetric Downward follower travel mode",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.59",
+          "name": "Harmony Bus 0.2.60",
           "params": [
             {
               "key": "version",
@@ -215,7 +215,8 @@
                 "Relative",
                 "Closest",
                 "Upward",
-                "Closest Meta"
+                "Closest Meta",
+                "Downward"
               ],
               "options_as_string": true,
               "default": "Relative"
@@ -661,7 +662,8 @@
           "Relative",
           "Closest",
           "Upward",
-          "Closest Meta"
+          "Closest Meta",
+          "Downward"
         ],
         "options_as_string": true,
         "default": "Relative"
