@@ -37,7 +37,8 @@ jobs:
           test -f /tmp/hb-verify/harmonybus/dsp.so
           python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.2.28"'
           strings /tmp/hb-verify/harmonybus/dsp.so | grep -Fq "0.2.28"
-          nm -D /tmp/hb-verify/harmonybus/dsp.so > /tmp/hb-symbols.txt\n          grep -q "move_midi_fx_init" /tmp/hb-symbols.txt
+          nm -D /tmp/hb-verify/harmonybus/dsp.so > /tmp/hb-symbols.txt
+          grep -q "move_midi_fx_init" /tmp/hb-symbols.txt
 
       - name: Publish v0.2.28 release
         env:
