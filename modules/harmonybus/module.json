@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.25",
-  "abbrev": "HB225",
-  "version": "0.2.25",
+  "name": "Harmony Bus 0.2.26",
+  "abbrev": "HB226",
+  "version": "0.2.26",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.25 — make follower mapping truly global with valid defaults",
+  "description": "Harmony Bus v0.2.26 — advertise global follower controls to Schwung UI",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.25",
+          "name": "Harmony Bus 0.2.26",
           "params": [
             {
               "key": "version",
