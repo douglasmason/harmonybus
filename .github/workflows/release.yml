@@ -28,25 +28,25 @@ jobs:
 
       - name: Verify HarmonyBus package
         run: |
-          HB=dist/harmonybus-v0.2.13-module.tar.gz
+          HB=dist/harmonybus-v0.2.14-module.tar.gz
           gzip -t "$HB"
           rm -rf /tmp/hb-verify
           mkdir -p /tmp/hb-verify
           tar -xzf "$HB" -C /tmp/hb-verify
           test -f /tmp/hb-verify/harmonybus/module.json
           test -f /tmp/hb-verify/harmonybus/dsp.so
-          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.2.13"'
-          strings /tmp/hb-verify/harmonybus/dsp.so | grep -Fq "0.2.13"
+          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.2.14"'
+          strings /tmp/hb-verify/harmonybus/dsp.so | grep -Fq "0.2.14"
           nm -D /tmp/hb-verify/harmonybus/dsp.so | grep -q "move_midi_fx_init"
 
-      - name: Publish v0.2.13 release
+      - name: Publish v0.2.14 release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.2.13 >/dev/null 2>&1; then
-            gh release upload v0.2.13 dist/harmonybus-v0.2.13-module.tar.gz --clobber
+          if gh release view v0.2.14 >/dev/null 2>&1; then
+            gh release upload v0.2.14 dist/harmonybus-v0.2.14-module.tar.gz --clobber
           else
-            gh release create v0.2.13 dist/harmonybus-v0.2.13-module.tar.gz \
-              --title "Harmony Bus v0.2.13" \
+            gh release create v0.2.14 dist/harmonybus-v0.2.14-module.tar.gz \
+              --title "Harmony Bus v0.2.14" \
               --notes "HarmonyBus MIDI FX for Ableton Move."
           fi
