@@ -7,8 +7,8 @@ DIST_HB="$ROOT/dist/harmonybus"
 DIST_MON="$ROOT/dist/harmonybus-monitor"
 
 rm -rf "$OUT" "$DIST_HB" "$DIST_MON" \
-  "$ROOT/dist/harmonybus-v0.2.37-module.tar.gz" \
-  "$ROOT/dist/harmonybus-monitor-v0.2.37-tool.tar.gz"
+  "$ROOT/dist/harmonybus-v0.2.38-module.tar.gz" \
+  "$ROOT/dist/harmonybus-monitor-v0.2.38-tool.tar.gz"
 
 mkdir -p "$OUT" "$DIST_HB" "$DIST_MON"
 
@@ -36,10 +36,10 @@ cp "$ROOT/modules/harmonybus-monitor/ui.js" "$DIST_MON/ui.js"
 cp "$OUT/harmonybus-monitor-dsp.so" "$DIST_MON/dsp.so"
 chmod +x "$DIST_MON/dsp.so"
 
-(cd "$ROOT/dist" && tar -czvf harmonybus-v0.2.37-module.tar.gz harmonybus/)
+(cd "$ROOT/dist" && tar -czvf harmonybus-v0.2.38-module.tar.gz harmonybus/)
 # Schwung's install-module installer extracts the archive *inside*
 # modules/tools/<module-id>, so the tool archive must contain files at its root.
-tar -C "$DIST_MON" -czvf "$ROOT/dist/harmonybus-monitor-v0.2.37-tool.tar.gz" module.json ui.js dsp.so
+tar -C "$DIST_MON" -czvf "$ROOT/dist/harmonybus-monitor-v0.2.38-tool.tar.gz" module.json ui.js dsp.so
 
-echo "$ROOT/dist/harmonybus-v0.2.37-module.tar.gz"
-echo "$ROOT/dist/harmonybus-monitor-v0.2.37-tool.tar.gz"
+echo "$ROOT/dist/harmonybus-v0.2.38-module.tar.gz"
+echo "$ROOT/dist/harmonybus-monitor-v0.2.38-tool.tar.gz"
