@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.08",
-  "abbrev": "HB208",
-  "version": "0.2.08",
+  "name": "Harmony Bus 0.2.09",
+  "abbrev": "HB209",
+  "version": "0.2.09",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.08 — event-accurate follower rendering",
+  "description": "Harmony Bus v0.2.09 — conductor-first follower scheduling",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.08",
+          "name": "Harmony Bus 0.2.09",
           "params": [
             {
               "key": "version",
@@ -47,42 +47,6 @@
               ],
               "options_as_string": true,
               "default": "Relative"
-            },
-            {
-              "key": "retrigger_held",
-              "name": "Retrigger Held",
-              "type": "enum",
-              "options": [
-                "Off",
-                "On"
-              ],
-              "options_as_string": true,
-              "default": "Off"
-            },
-            {
-              "key": "render_channel",
-              "name": "Render To Ch",
-              "type": "enum",
-              "options": [
-                "Off",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-                "10",
-                "11",
-                "12",
-                "13",
-                "14",
-                "15",
-                "16"
-              ],
-              "options_as_string": true
             },
             {
               "key": "chord_timing",
@@ -136,6 +100,15 @@
               "options_as_string": true
             },
             {
+              "key": "window_ms",
+              "name": "Inference Window",
+              "type": "int",
+              "min": 0,
+              "max": 500,
+              "step": 5,
+              "default": 25
+            },
+            {
               "level": "follower_source",
               "label": "Foll Root"
             },
@@ -164,11 +137,10 @@
             "version",
             "track_role",
             "mode",
-            "retrigger_held",
-            "render_channel",
             "chord_timing",
             "context",
-            "accidentals"
+            "accidentals",
+            "window_ms"
           ]
         },
         "follower_source": {
@@ -218,13 +190,61 @@
               "name": "Used Root",
               "type": "string",
               "access": "read"
+            },
+            {
+              "key": "follow_lookahead_ms",
+              "name": "Follow Lookahead",
+              "type": "int",
+              "min": 0,
+              "max": 100,
+              "step": 5,
+              "default": 0
+            },
+            {
+              "key": "retrigger_held",
+              "name": "Retrigger Held",
+              "type": "enum",
+              "options": [
+                "Off",
+                "On"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
+              "key": "render_channel",
+              "name": "Render To Ch",
+              "type": "enum",
+              "options": [
+                "Off",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11",
+                "12",
+                "13",
+                "14",
+                "15",
+                "16"
+              ],
+              "options_as_string": true
             }
           ],
           "knobs": [
             "follower_root_policy",
             "follower_explicit_root",
             "inferred_root",
-            "used_root"
+            "used_root",
+            "follow_lookahead_ms",
+            "retrigger_held",
+            "render_channel"
           ]
         },
         "conductor_this": {
@@ -659,6 +679,15 @@
         "options_as_string": true
       },
       {
+        "key": "follow_lookahead_ms",
+        "name": "Follow Lookahead",
+        "type": "int",
+        "min": 0,
+        "max": 100,
+        "step": 5,
+        "default": 0
+      },
+      {
         "key": "render_channel",
         "name": "Render To Ch",
         "type": "enum",
@@ -762,7 +791,8 @@
           "2 Bars",
           "2 Bars Ant"
         ],
-        "options_as_string": true
+        "options_as_string": true,
+        "default": "Free"
       },
       {
         "key": "context",
@@ -777,7 +807,8 @@
           "1/2",
           "1 Bar"
         ],
-        "options_as_string": true
+        "options_as_string": true,
+        "default": "Live"
       },
       {
         "key": "clip_track",
@@ -1002,7 +1033,7 @@
           "On"
         ],
         "options_as_string": true,
-        "default": "On"
+        "default": "Off"
       },
       {
         "key": "diag_recv_ch",
