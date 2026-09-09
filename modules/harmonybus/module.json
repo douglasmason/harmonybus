@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.07",
-  "abbrev": "HB207",
-  "version": "0.2.07",
+  "name": "Harmony Bus 0.2.08",
+  "abbrev": "HB208",
+  "version": "0.2.08",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.07 — simplified panel layout",
+  "description": "Harmony Bus v0.2.08 — event-accurate follower rendering",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.07",
+          "name": "Harmony Bus 0.2.08",
           "params": [
             {
               "key": "version",
@@ -57,7 +57,7 @@
                 "On"
               ],
               "options_as_string": true,
-              "default": "On"
+              "default": "Off"
             },
             {
               "key": "render_channel",
