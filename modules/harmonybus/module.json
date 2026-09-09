@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.60",
-  "abbrev": "HB260",
-  "version": "0.2.60",
+  "name": "Harmony Bus 0.2.61",
+  "abbrev": "HB261",
+  "version": "0.2.61",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.60 — add symmetric Downward follower travel mode",
+  "description": "Harmony Bus v0.2.61 — fix Follower Travel setter so Upward, Closest Meta, and Downward persist",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.60",
+          "name": "Harmony Bus 0.2.61",
           "params": [
             {
               "key": "version",
