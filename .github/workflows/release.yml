@@ -28,25 +28,25 @@ jobs:
 
       - name: Verify HarmonyBus package
         run: |
-          HB=dist/harmonybus-v0.2.26-module.tar.gz
+          HB=dist/harmonybus-v0.2.27-module.tar.gz
           gzip -t "$HB"
           rm -rf /tmp/hb-verify
           mkdir -p /tmp/hb-verify
           tar -xzf "$HB" -C /tmp/hb-verify
           test -f /tmp/hb-verify/harmonybus/module.json
           test -f /tmp/hb-verify/harmonybus/dsp.so
-          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.2.26"'
-          strings /tmp/hb-verify/harmonybus/dsp.so | grep -Fq "0.2.26"
+          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.2.27"'
+          strings /tmp/hb-verify/harmonybus/dsp.so | grep -Fq "0.2.27"
           nm -D /tmp/hb-verify/harmonybus/dsp.so > /tmp/hb-symbols.txt\n          grep -q "move_midi_fx_init" /tmp/hb-symbols.txt
 
-      - name: Publish v0.2.26 release
+      - name: Publish v0.2.27 release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.2.26 >/dev/null 2>&1; then
-            gh release upload v0.2.26 dist/harmonybus-v0.2.26-module.tar.gz --clobber
+          if gh release view v0.2.27 >/dev/null 2>&1; then
+            gh release upload v0.2.27 dist/harmonybus-v0.2.27-module.tar.gz --clobber
           else
-            gh release create v0.2.26 dist/harmonybus-v0.2.26-module.tar.gz \
-              --title "Harmony Bus v0.2.26" \
+            gh release create v0.2.27 dist/harmonybus-v0.2.27-module.tar.gz \
+              --title "Harmony Bus v0.2.27" \
               --notes "HarmonyBus MIDI FX for Ableton Move."
           fi
