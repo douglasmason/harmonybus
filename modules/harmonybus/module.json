@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.40",
-  "abbrev": "HB240",
-  "version": "0.2.40",
+  "name": "Harmony Bus 0.2.41",
+  "abbrev": "HB241",
+  "version": "0.2.41",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.40 — restore conductor panels from owning-track monitor state",
+  "description": "Harmony Bus v0.2.41 — chord/quant timing isolated to follower rendering; conductor remains direct MIDI",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.40",
+          "name": "Harmony Bus 0.2.41",
           "params": [
             {
               "key": "version",
