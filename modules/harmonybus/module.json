@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.44",
-  "abbrev": "HB244",
-  "version": "0.2.44",
+  "name": "Harmony Bus 0.2.45",
+  "abbrev": "HB245",
+  "version": "0.2.45",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.44 — restore conductor/follower monitor panel routing and persist global follower root settings",
+  "description": "Harmony Bus v0.2.45 — fix monitor fallback compile order; restore conductor/follower panels and persist follower globals",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.44",
+          "name": "Harmony Bus 0.2.45",
           "params": [
             {
               "key": "version",
