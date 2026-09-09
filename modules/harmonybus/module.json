@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.16",
-  "abbrev": "HB216",
-  "version": "0.2.16",
+  "name": "Harmony Bus 0.2.17",
+  "abbrev": "HB217",
+  "version": "0.2.17",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.16 — fix digit-prefixed enum labels such as 1/16 and 2 Bars",
+  "description": "Harmony Bus v0.2.17 — latch harmony through note-offs and restore follower note panels",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.16",
+          "name": "Harmony Bus 0.2.17",
           "params": [
             {
               "key": "version",
