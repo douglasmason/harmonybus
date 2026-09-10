@@ -1,0 +1,326 @@
+name: Patch HarmonyBus v0.2.62
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-hb262.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply HB262 mapping fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          dsp_path = Path('modules/harmonybus/dsp/harmonybus.c')
+          text = dsp_path.read_text()
+
+          def replace_once(old: str, new: str, label: str) -> None:
+              global text
+              if old not in text:
+                  raise RuntimeError(f'missing anchor: {label}')
+              text = text.replace(old, new, 1)
+
+          # Version.
+          text = text.replace('0.2.61', '0.2.62').replace('HB261', 'HB262')
+
+          # Persist a new global split setting using the previously-unused hb15
+          # state slot values[8]. Old saved states already contain 0 there, so
+          # they migrate naturally to Auto without a state-format bump.
+          replace_once(
+              'int follower_content_map; int follower_travel_map; int follower_scale; int inference_window_ms;',
+              'int follower_content_map; int follower_travel_map; int follower_scale; int follower_split_map; int inference_window_ms;',
+              'SharedBus follower_split_map')
+
+          # Add In 123567 as content code 8 while preserving all existing codes.
+          replace_once('if(value<0||value>7){\n        g_global_shared->seq++;\n        g_global_shared->follower_content_map=0;',
+                       'if(value<0||value>8){\n        g_global_shared->seq++;\n        g_global_shared->follower_content_map=0;',
+                       'content getter range')
+          replace_once('if(value<0||value>7)value=0;\n    g_global_shared->seq++;g_global_shared->follower_content_map=value;',
+                       'if(value<0||value>8)value=0;\n    g_global_shared->seq++;g_global_shared->follower_content_map=value;',
+                       'content setter range')
+          text = text.replace('if(values[21]>=0&&values[21]<8)hb_set_global_content_map(values[21]);',
+                              'if(values[21]>=0&&values[21]<9)hb_set_global_content_map(values[21]);')
+
+          replace_once('         7 In Non-Avoid\n    */\n    hb_harmony_t target=hb_mapping_target(harmony,0);\n    if(content_map<3||content_map>7)return target;',
+                       '         7 In Non-Avoid\n         8 In 123567\n    */\n    hb_harmony_t target=hb_mapping_target(harmony,0);\n    if(content_map<3||content_map>8)return target;',
+                       'content target range/docs')
+          replace_once('    else if(content_map==7) degree_bits=0x7Fu;                                   /* all scale degrees, filter avoids */',
+                       '    else if(content_map==7) degree_bits=0x7Fu;                                   /* all scale degrees, filter avoids */\n    else if(content_map==8) degree_bits=(1u<<0)|(1u<<1)|(1u<<2)|(1u<<4)|(1u<<5)|(1u<<6);/* 1 2 3 5 6 7 */',
+                       '123567 degree bits')
+          replace_once('    else if(!strcmp(parameter,"In Non-Avoid"))value=7;\n    hb_set_global_content_map(value);',
+                       '    else if(!strcmp(parameter,"In Non-Avoid"))value=7;\n    else if(!strcmp(parameter,"In 123567"))value=8;\n    hb_set_global_content_map(value);',
+                       '123567 setter')
+          replace_once('static const char *opts[]={"In Chord","In Scale","Free","In 135","In 1357","In 12357","In 12356","In Non-Avoid"};',
+                       'static const char *opts[]={"In Chord","In Scale","Free","In 135","In 1357","In 12357","In 12356","In Non-Avoid","In 123567"};',
+                       '123567 getter')
+
+          # Stable relative register helpers. Relative motion is anchored to a
+          # root-transposed nominal pitch, then Content filters around that
+          # nominal. Free+Relative therefore becomes true chromatic relative
+          # transposition instead of bypassing travel entirely.
+          marker = 'static int hb_map_follower_note_closest_meta(Inst *instance,int source_note,hb_harmony_t detected,\n                                                  hb_harmony_t content_target){'
+          start = text.find(marker)
+          if start < 0:
+              raise RuntimeError('missing Closest Meta helper')
+          end = text.find('\nstatic int hb_map_follower_note_now', start)
+          if end < 0:
+              raise RuntimeError('missing follower mapper after Closest Meta')
+
+          new_helpers = r'''static int hb_signed_root_delta(int source_root,int target_root){
+    int delta=mod12(target_root-source_root);
+    if(delta>6)delta-=12;
+    return delta;
+}
+static int hb_note_near_pc(int nominal,int pitch_class){
+    int adjustment=mod12(pitch_class-mod12(nominal));
+    if(adjustment>6)adjustment-=12;
+    int mapped=nominal+adjustment;
+    while(mapped<0)mapped+=12;
+    while(mapped>127)mapped-=12;
+    return mapped;
+}
+static int hb_map_follower_note_relative(Inst *instance,int source_note,hb_harmony_t detected,
+                                         hb_harmony_t content_target,int content_map){
+    int source_root=0;
+    if(!hb_resolve_follower_reference_root(instance,&source_root))return source_note;
+
+    int nominal=source_note+hb_signed_root_delta(source_root,detected.root_pc);
+    while(nominal<0)nominal+=12;
+    while(nominal>127)nominal-=12;
+
+    /* Free means no pitch-class filtering, but Relative still transports the
+       note with the inferred harmony root. */
+    if(content_map==2)return nominal;
+
+    int parent_scale_index=hb_parent_scale_index(instance,detected);
+    uint16_t parent_scale=hb_explicit_scale_mask(source_root,parent_scale_index);
+    int source_degree=hb_source_degree_from_parent_scale(mod12(source_note-source_root),
+                                                          source_root,parent_scale);
+    uint16_t chord_scale=parent_scale;
+    if(!parent_scale||(parent_scale&(1u<<mod12(detected.root_pc)))==0)
+        chord_scale=hb_scale_mask(detected);
+
+    int target_interval=hb_nth_scale_interval_from_root(chord_scale,detected.root_pc,source_degree);
+    int target_pc=mod12(detected.root_pc+target_interval);
+
+    /* Prefer the same ordinal role when Content allows it. Otherwise snap to
+       the closest legal Content pitch around the root-relative nominal, not
+       around the raw input pitch. This is what prevents octave discontinuities. */
+    if(content_target.pitch_mask&(1u<<target_pc))
+        return hb_note_near_pc(nominal,target_pc);
+    return hb_map_note(nominal,detected.root_pc,content_target,HB_MAP_NEAREST);
+}
+static uint16_t hb_scale_degree_mask(uint16_t chord_scale,int harmony_root,unsigned degree_bits){
+    uint16_t mask=0;
+    for(int degree=0;degree<7;degree++){
+        if(!(degree_bits&(1u<<degree)))continue;
+        int interval=hb_nth_scale_interval_from_root(chord_scale,harmony_root,degree);
+        mask|=(uint16_t)(1u<<mod12(harmony_root+interval));
+    }
+    return mask;
+}
+static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_harmony_t detected,
+                                               hb_harmony_t content_target){
+    /* Content is always the hard legal output filter. Closest Split adds a
+       second classification inside that legal set: on-chord vs off-chord
+       in-scale. The split itself may follow the inferred chord automatically
+       or be forced to triadic/seventh-style role groups. */
+    int source_root=0;
+    if(!hb_resolve_follower_reference_root(instance,&source_root))
+        return hb_map_note(source_note,reference_root(instance),content_target,HB_MAP_NEAREST);
+
+    int parent_scale_index=hb_parent_scale_index(instance,detected);
+    uint16_t parent_scale=hb_explicit_scale_mask(source_root,parent_scale_index);
+    int source_degree=hb_source_degree_from_parent_scale(mod12(source_note-source_root),
+                                                          source_root,parent_scale);
+    uint16_t chord_scale=parent_scale;
+    if(!parent_scale||(parent_scale&(1u<<mod12(detected.root_pc)))==0)
+        chord_scale=hb_scale_mask(detected);
+
+    uint16_t inferred_chord_mask=hb_harmony_chord_mask(detected);
+    uint16_t on_mask=0,off_mask=0;
+    int source_is_on=0;
+    int split=g_bus.follower_split_map;
+
+    if(split==1){
+        unsigned on_bits=(1u<<0)|(1u<<2)|(1u<<4);             /* 135 / 2467 */
+        on_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,on_bits);
+        off_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,0x7Fu&~on_bits);
+        source_is_on=(on_bits&(1u<<source_degree))!=0;
+    }else if(split==2){
+        unsigned on_bits=(1u<<0)|(1u<<2)|(1u<<4)|(1u<<6);     /* 1357 / 246 */
+        on_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,on_bits);
+        off_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,0x7Fu&~on_bits);
+        source_is_on=(on_bits&(1u<<source_degree))!=0;
+    }else{
+        on_mask=inferred_chord_mask;
+        off_mask=(uint16_t)(chord_scale&(uint16_t)(~inferred_chord_mask)&0x0FFFu);
+        int degree_interval=hb_nth_scale_interval_from_root(chord_scale,detected.root_pc,source_degree);
+        int degree_pc=mod12(detected.root_pc+degree_interval);
+        source_is_on=(inferred_chord_mask&(1u<<degree_pc))!=0;
+    }
+
+    uint16_t legal=(uint16_t)(content_target.pitch_mask&0x0FFFu);
+    uint16_t preferred=(uint16_t)(legal&(source_is_on?on_mask:off_mask));
+    hb_harmony_t target=content_target;
+    target.pitch_mask=preferred?preferred:legal;
+    if(!target.pitch_mask)return source_note;
+    return hb_map_note(source_note,reference_root(instance),target,HB_MAP_NEAREST);
+}'''
+          text = text[:start] + new_helpers + text[end:]
+
+          # Build one Content target for every travel policy, including Free.
+          old_mapper = r'''static int hb_map_follower_note_now(Inst *instance,int source_note){
+    hb_harmony_t harmony=bus_read();
+    int content_map=hb_global_content_map();
+    if(!harmony.valid||content_map==2)return source_note; /* Free */
+
+    /* In Scale + Relative transports ordinal scale degree directly. */
+    if(content_map==1&&hb_global_travel_map()==0)
+        return hb_map_scale_degree_relative(instance,source_note,harmony);
+
+    hb_harmony_t detected=harmony;
+    if(content_map==1)harmony=hb_follower_scale_target(instance,harmony);
+    else harmony=hb_follower_content_target(instance,harmony,content_map);
+
+    if(hb_global_travel_map()==3)
+        return hb_map_follower_note_closest_meta(instance,source_note,detected,harmony);
+    if(hb_global_travel_map()==1)
+        return hb_map_note(source_note,reference_root(instance),harmony,HB_MAP_NEAREST);
+    if(hb_global_travel_map()==2)
+        return hb_map_note_upward(source_note,harmony);
+    if(hb_global_travel_map()==4)
+        return hb_map_note_downward(source_note,harmony);
+    int used_root=0;
+    if(!hb_resolve_follower_reference_root(instance,&used_root))return source_note;
+    return hb_map_note(source_note,used_root,harmony,HB_MAP_CHORD);
+}'''
+          new_mapper = r'''static int hb_map_follower_note_now(Inst *instance,int source_note){
+    hb_harmony_t detected=bus_read();
+    int content_map=hb_global_content_map();
+    if(!detected.valid)return source_note;
+
+    hb_harmony_t target=detected;
+    if(content_map==2){
+        target.pitch_mask=0x0FFFu; /* Free: no Content filtering. */
+    }else if(content_map==1){
+        target=hb_follower_scale_target(instance,detected);
+    }else{
+        target=hb_follower_content_target(instance,detected,content_map);
+    }
+
+    int travel=hb_global_travel_map();
+    if(travel==0)
+        return hb_map_follower_note_relative(instance,source_note,detected,target,content_map);
+    if(travel==3)
+        return hb_map_follower_note_closest_split(instance,source_note,detected,target);
+    if(travel==1)
+        return hb_map_note(source_note,reference_root(instance),target,HB_MAP_NEAREST);
+    if(travel==2)
+        return hb_map_note_upward(source_note,target);
+    if(travel==4)
+        return hb_map_note_downward(source_note,target);
+    return source_note;
+}'''
+          if old_mapper not in text:
+              raise RuntimeError('missing old follower mapper')
+          text = text.replace(old_mapper,new_mapper,1)
+
+          # Rename travel display and add split selector. Internal code 3 stays
+          # unchanged so old saved Closest Meta selections migrate seamlessly.
+          text = text.replace('"Relative","Closest","Upward","Closest Meta","Downward"',
+                              '"Relative","Closest","Upward","Closest Split","Downward"')
+          setter_anchor = 'else if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward"};hb_set_global_travel_map(enum_index(parameter,opts,5,hb_global_travel_map()));}'
+          if setter_anchor not in text:
+              raise RuntimeError('missing travel setter after rename')
+          text = text.replace(setter_anchor,setter_anchor + 'else if(!strcmp(key,"split_map")){static const char *opts[]={"Auto","135 / 2467","1357 / 246"};g_bus.follower_split_map=enum_index(parameter,opts,3,g_bus.follower_split_map);}',1)
+
+          getter_anchor = 'if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward"};return snprintf(buffer,(size_t)length,"%s",opts[hb_global_travel_map()]);}'
+          if getter_anchor not in text:
+              raise RuntimeError('missing travel getter after rename')
+          text = text.replace(getter_anchor,getter_anchor + 'if(!strcmp(key,"split_map")){static const char *opts[]={"Auto","135 / 2467","1357 / 246"};int split=g_bus.follower_split_map;if(split<0||split>2)split=0;return snprintf(buffer,(size_t)length,"%s",opts[split]);}',1)
+
+          # Reuse hb15's intentionally unused state slot 8 for Follower Split.
+          replace_once('g_bus.global_input_root,g_bus.global_transpose,0,g_bus.stability,',
+                       'g_bus.global_input_root,g_bus.global_transpose,g_bus.follower_split_map,g_bus.stability,',
+                       'state slot 8 save')
+          restore_anchor='''        if(values[4]>=0&&values[4]<3)hb_set_global_root_policy(values[4]);'''
+          if restore_anchor not in text:
+              raise RuntimeError('missing global restore anchor')
+          text=text.replace(restore_anchor,
+                            '        if(values[8]>=0&&values[8]<3)g_bus.follower_split_map=values[8];\n'+restore_anchor,1)
+
+          dsp_path.write_text(text)
+
+          # Update module UI and insert Follower Split immediately after travel.
+          module_path=Path('modules/harmonybus/module.json')
+          module=json.loads(module_path.read_text())
+          content_options=['In Chord','In 135','In 1357','In 12357','In 12356','In 123567','In Non-Avoid','In Scale','Free']
+          travel_options=['Relative','Closest','Upward','Closest Split','Downward']
+          split_control={
+              'key':'split_map','name':'Follower Split','type':'enum',
+              'options':['Auto','135 / 2467','1357 / 246'],
+              'options_as_string':True,'default':'Auto'
+          }
+
+          def patch_list(items):
+              idx=0
+              while idx < len(items):
+                  item=items[idx]
+                  if isinstance(item,dict):
+                      if item.get('key')=='content_map':
+                          item['options']=content_options
+                          item['default']='In Chord'
+                      if item.get('key')=='travel_map':
+                          item['options']=travel_options
+                          item['default']='Relative'
+                          if idx+1>=len(items) or not isinstance(items[idx+1],dict) or items[idx+1].get('key')!='split_map':
+                              items.insert(idx+1,dict(split_control))
+                              idx+=1
+                      for value in item.values():
+                          if isinstance(value,list): patch_list(value)
+                          elif isinstance(value,dict): patch_obj(value)
+                  elif isinstance(item,list): patch_list(item)
+                  idx+=1
+          def patch_obj(obj):
+              for value in obj.values():
+                  if isinstance(value,list): patch_list(value)
+                  elif isinstance(value,dict): patch_obj(value)
+          patch_obj(module)
+          module['name']='Harmony Bus 0.2.62'
+          module['version']='0.2.62'
+          module['abbrev']='HB262'
+          module['description']='Harmony Bus v0.2.62 — stabilize Relative register, make Free+Relative transpose, add In 123567, and rename Closest Meta to Closest Split with explicit split roles'
+          try:
+              module['capabilities']['ui_hierarchy']['levels']['root']['name']='Harmony Bus 0.2.62'
+          except Exception:
+              pass
+          module_path.write_text(json.dumps(module,indent=2)+'\n')
+
+          # Release metadata/version references.
+          for path_string in ['scripts/build_harmonybus_move.sh','release.json','.github/workflows/release.yml']:
+              path=Path(path_string)
+              value=path.read_text().replace('0.2.61','0.2.62').replace('HB261','HB262')
+              path.write_text(value)
+          PY
+
+      - name: Commit HB262
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add modules/harmonybus/dsp/harmonybus.c modules/harmonybus/module.json scripts/build_harmonybus_move.sh release.json .github/workflows/release.yml
+          git commit -m 'Fix Relative mapping and add Closest Split controls for v0.2.62'
+          git push origin main
