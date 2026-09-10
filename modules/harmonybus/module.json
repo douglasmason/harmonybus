@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.62",
-  "abbrev": "HB262",
-  "version": "0.2.62",
+  "name": "Harmony Bus 0.2.63",
+  "abbrev": "HB263",
+  "version": "0.2.63",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.62 \u2014 stabilize Relative register, make Free+Relative transpose, add In 123567, and rename Closest Meta to Closest Split with explicit split roles",
+  "description": "Harmony Bus v0.2.63 \u2014 split mapping distinguishes inferred harmony tones from literal active conductor tones",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.62",
+          "name": "Harmony Bus 0.2.63",
           "params": [
             {
               "key": "version",
@@ -227,12 +227,13 @@
               "name": "Follower Split",
               "type": "enum",
               "options": [
-                "Auto",
+                "Harm. / Out",
                 "135 / 2467",
-                "1357 / 246"
+                "1357 / 246",
+                "Act. / Out"
               ],
               "options_as_string": true,
-              "default": "Auto"
+              "default": "Harm. / Out"
             },
             {
               "key": "retrigger_held",
@@ -687,12 +688,13 @@
         "name": "Follower Split",
         "type": "enum",
         "options": [
-          "Auto",
+          "Harm. / Out",
           "135 / 2467",
-          "1357 / 246"
+          "1357 / 246",
+          "Act. / Out"
         ],
         "options_as_string": true,
-        "default": "Auto"
+        "default": "Harm. / Out"
       },
       {
         "key": "follower_root_policy",
