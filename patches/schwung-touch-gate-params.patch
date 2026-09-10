@@ -1,0 +1,75 @@
+diff --git a/src/shared/param_pages/page_controller.mjs b/src/shared/param_pages/page_controller.mjs
+--- a/src/shared/param_pages/page_controller.mjs
++++ b/src/shared/param_pages/page_controller.mjs
+@@
+     function onKnobTurn(slot, direction, nowMs, { fine = false } = {}) {
+         if (s.hintLines) dismissHint();
+         const key = keyAt(slot);
+         if (!key) return null;
+         const meta = s.metaIndex.getOrGuess(key);
++
++        /* A touch gate is a write-only ACTION whose gesture is capacitive
++         * down/up, not rotation. Turning it must be inert: the module sees
++         * "On" only while a finger is physically on the encoder. */
++        if (meta.writeOnly && meta.touch_gate === true) return null;
+ 
+         /*
+          * A TRIGGER fires on a detent, in EITHER direction.
+@@
+     function clearTouch() {
++        /* A screen hand-off steals the physical release event from this
++         * controller. Explicitly drop any held touch gates before forgetting
++         * the touch set so a gate can never remain stuck On. */
++        for (const slot of s.touchOrder) writeTouchGate(slot, false);
+         s.touchOrder.length = 0;
+         s.touched = -1;
+         s.turnClaimMs = 0;
+     }
++
++    /*
++     * A write-only enum may opt into a TRUE hold gesture with
++     * `touch_gate: true`. Unlike the ordinary write-only trigger, it emits
++     * BOTH edges and never latches:
++     *
++     *   finger down -> option 1
++     *   finger up   -> option 0
++     *
++     * The module decides what those options mean. Keeping this at the generic
++     * parameter-page layer lets MIDI FX use the Move encoders' capacitive
++     * sensors without extending the DSP ABI or synthesizing knob turns.
++     */
++    function writeTouchGate(slot, down) {
++        const key = keyAt(slot);
++        const meta = metaAt(slot);
++        if (!key || !meta || !meta.writeOnly || meta.touch_gate !== true) return false;
++        if (meta.kind === KIND_ENUM && Array.isArray(meta.options) && meta.options.length > 1) {
++            setParam(fullKey(key), enumWireValue(meta, down ? 1 : 0));
++        } else {
++            setParam(fullKey(key), down ? "1" : "0");
++        }
++        return true;
++    }
+ 
+     /*
+      * Capacitive touch. Down announces the full name and value.
+@@
+         if (down && s.pickerOpen) closePicker();
+         if (!down) {
++            writeTouchGate(slot, false);
+             const at = s.touchOrder.indexOf(slot);
+             if (at >= 0) s.touchOrder.splice(at, 1);
+@@
+         const key = keyAt(slot);
+         const meta = metaAt(slot);
+         const dec = s.decorations ? s.decorations[slot] : null;
++        writeTouchGate(slot, true);
+         /* Whatever the header is about to show is what gets spoken — a routing
+@@
+-        if (meta.writeOnly) { fireTrigger(key, meta, now()); return null; }
++        if (meta.writeOnly) {
++            /* A touch gate has no click action. Its complete gesture is the
++             * capacitive down/up pair handled by onKnobTouch(). */
++            if (meta.touch_gate === true) return null;
++            fireTrigger(key, meta, now());
++            return null;
++        }
