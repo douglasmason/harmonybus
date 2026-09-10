@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.61",
-  "abbrev": "HB261",
-  "version": "0.2.61",
+  "name": "Harmony Bus 0.2.62",
+  "abbrev": "HB262",
+  "version": "0.2.62",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.61 — fix Follower Travel setter so Upward, Closest Meta, and Downward persist",
+  "description": "Harmony Bus v0.2.62 \u2014 stabilize Relative register, make Free+Relative transpose, add In 123567, and rename Closest Meta to Closest Split with explicit split roles",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.61",
+          "name": "Harmony Bus 0.2.62",
           "params": [
             {
               "key": "version",
@@ -181,6 +181,7 @@
                 "In 1357",
                 "In 12357",
                 "In 12356",
+                "In 123567",
                 "In Non-Avoid",
                 "In Scale",
                 "Free"
@@ -215,11 +216,23 @@
                 "Relative",
                 "Closest",
                 "Upward",
-                "Closest Meta",
+                "Closest Split",
                 "Downward"
               ],
               "options_as_string": true,
               "default": "Relative"
+            },
+            {
+              "key": "split_map",
+              "name": "Follower Split",
+              "type": "enum",
+              "options": [
+                "Auto",
+                "135 / 2467",
+                "1357 / 246"
+              ],
+              "options_as_string": true,
+              "default": "Auto"
             },
             {
               "key": "retrigger_held",
@@ -628,6 +641,7 @@
           "In 1357",
           "In 12357",
           "In 12356",
+          "In 123567",
           "In Non-Avoid",
           "In Scale",
           "Free"
@@ -662,11 +676,23 @@
           "Relative",
           "Closest",
           "Upward",
-          "Closest Meta",
+          "Closest Split",
           "Downward"
         ],
         "options_as_string": true,
         "default": "Relative"
+      },
+      {
+        "key": "split_map",
+        "name": "Follower Split",
+        "type": "enum",
+        "options": [
+          "Auto",
+          "135 / 2467",
+          "1357 / 246"
+        ],
+        "options_as_string": true,
+        "default": "Auto"
       },
       {
         "key": "follower_root_policy",

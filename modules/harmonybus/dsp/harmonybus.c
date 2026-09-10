@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.61 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.61"
+/* Harmony Bus v0.2.62 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.62"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -136,7 +136,7 @@ static int hb_global_content_map(void){
     hb_global_open();
     if(!g_global_shared)return 0;
     int value=g_global_shared->follower_content_map;
-    if(value<0||value>7){
+    if(value<0||value>8){
         g_global_shared->seq++;
         g_global_shared->follower_content_map=0;
         g_global_shared->seq++;
@@ -186,7 +186,7 @@ static void hb_set_global_explicit_root(int root){
 }
 static void hb_set_global_content_map(int value){
     hb_global_open();if(!g_global_shared)return;
-    if(value<0||value>7)value=0;
+    if(value<0||value>8)value=0;
     g_global_shared->seq++;g_global_shared->follower_content_map=value;g_global_shared->seq++;
 }
 static void hb_set_global_travel_map(int value){
@@ -204,7 +204,7 @@ typedef struct {
     double start;
     double duration;
 } hb_clip_note_t;
-typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int sensor_sources; int chord_timescale; int stability; int chord_timing; int quant_timing; int anticipation; int boundary_buffer_ms; int analysis_release_ms; int follower_content_map; int follower_travel_map; int follower_scale; int inference_window_ms; int context; int accidentals; int auto_spell_sharps; int auto_spell_locked; int clip_track; int clip_slot; int clip_valid; int clip_note_count; int clip_stage; int clip_context; int last_clock_status; double clip_loop_start; double clip_loop_end; unsigned long clip_clock_ticks; unsigned clip_refresh_counter; double last_clip_playhead; int have_last_clip_playhead; unsigned cache_rev; unsigned sense_rev; int last_sense_count; uint8_t last_sense_notes[64]; unsigned global_process_count; unsigned global_note_event_count; unsigned global_accepted_note_count; unsigned global_tick_count; int global_last_status; int global_last_note; int global_last_channel; int global_last_instance; int follower_root_policy; int follower_explicit_root; hb_clip_note_t clip_notes[HB_MAX_CLIP_NOTES]; } SharedBus;
+typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int sensor_sources; int chord_timescale; int stability; int chord_timing; int quant_timing; int anticipation; int boundary_buffer_ms; int analysis_release_ms; int follower_content_map; int follower_travel_map; int follower_scale; int follower_split_map; int inference_window_ms; int context; int accidentals; int auto_spell_sharps; int auto_spell_locked; int clip_track; int clip_slot; int clip_valid; int clip_note_count; int clip_stage; int clip_context; int last_clock_status; double clip_loop_start; double clip_loop_end; unsigned long clip_clock_ticks; unsigned clip_refresh_counter; double last_clip_playhead; int have_last_clip_playhead; unsigned cache_rev; unsigned sense_rev; int last_sense_count; uint8_t last_sense_notes[64]; unsigned global_process_count; unsigned global_note_event_count; unsigned global_accepted_note_count; unsigned global_tick_count; int global_last_status; int global_last_note; int global_last_channel; int global_last_instance; int follower_root_policy; int follower_explicit_root; hb_clip_note_t clip_notes[HB_MAX_CLIP_NOTES]; } SharedBus;
 static SharedBus g_bus={0}; static int g_init=0;
 typedef struct { int used,role,mode,content_map,travel_map,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; uint8_t local_sense_notes[64]; int global_timing_restored; } Inst;
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
@@ -1112,9 +1112,10 @@ static hb_harmony_t hb_follower_content_target(Inst *instance,hb_harmony_t harmo
          5 In 12357
          6 In 12356
          7 In Non-Avoid
+         8 In 123567
     */
     hb_harmony_t target=hb_mapping_target(harmony,0);
-    if(content_map<3||content_map>7)return target;
+    if(content_map<3||content_map>8)return target;
 
     int source_root=0;
     if(!hb_resolve_follower_reference_root(instance,&source_root))source_root=harmony.root_pc;
@@ -1130,6 +1131,7 @@ static hb_harmony_t hb_follower_content_target(Inst *instance,hb_harmony_t harmo
     else if(content_map==5) degree_bits=(1u<<0)|(1u<<1)|(1u<<2)|(1u<<4)|(1u<<6);/* 1 2 3 5 7 */
     else if(content_map==6) degree_bits=(1u<<0)|(1u<<1)|(1u<<2)|(1u<<4)|(1u<<5);/* 1 2 3 5 6 */
     else if(content_map==7) degree_bits=0x7Fu;                                   /* all scale degrees, filter avoids */
+    else if(content_map==8) degree_bits=(1u<<0)|(1u<<1)|(1u<<2)|(1u<<4)|(1u<<5)|(1u<<6);/* 1 2 3 5 6 7 */
 
     uint16_t chord_mask=hb_harmony_chord_mask(harmony);
     for(int degree=0;degree<7;degree++){
@@ -1178,15 +1180,56 @@ static int hb_map_note_downward(int source_note,hb_harmony_t harmony){
     }
     return source_note;
 }
-static int hb_map_follower_note_closest_meta(Inst *instance,int source_note,hb_harmony_t detected,
-                                                  hb_harmony_t content_target){
-    /* Content and Travel are orthogonal:
-         CONTENT decides which output pitches are legal.
-         CLOSEST META decides which legal subset to prefer:
-           source role in inferred chord     -> legal chord tones
-           source role out of chord/in scale -> legal non-chord scale tones
+static int hb_signed_root_delta(int source_root,int target_root){
+    int delta=mod12(target_root-source_root);
+    if(delta>6)delta-=12;
+    return delta;
+}
+static int hb_note_near_pc(int nominal,int pitch_class){
+    int adjustment=mod12(pitch_class-mod12(nominal));
+    if(adjustment>6)adjustment-=12;
+    int mapped=nominal+adjustment;
+    while(mapped<0)mapped+=12;
+    while(mapped>127)mapped-=12;
+    return mapped;
+}
+static int hb_map_follower_note_relative(Inst *instance,int source_note,hb_harmony_t detected,
+                                         hb_harmony_t content_target,int content_map){
+    int source_root=0;
+    if(!hb_resolve_follower_reference_root(instance,&source_root))return source_note;
 
-       Literal conductor voicing is irrelevant after harmony inference. */
+    int nominal=source_note+hb_signed_root_delta(source_root,detected.root_pc);
+    while(nominal<0)nominal+=12;
+    while(nominal>127)nominal-=12;
+
+    if(content_map==2)return nominal; /* Free + Relative is chromatic root-relative transport. */
+
+    int parent_scale_index=hb_parent_scale_index(instance,detected);
+    uint16_t parent_scale=hb_explicit_scale_mask(source_root,parent_scale_index);
+    int source_degree=hb_source_degree_from_parent_scale(mod12(source_note-source_root),
+                                                          source_root,parent_scale);
+    uint16_t chord_scale=parent_scale;
+    if(!parent_scale||(parent_scale&(1u<<mod12(detected.root_pc)))==0)
+        chord_scale=hb_scale_mask(detected);
+
+    int target_interval=hb_nth_scale_interval_from_root(chord_scale,detected.root_pc,source_degree);
+    int target_pc=mod12(detected.root_pc+target_interval);
+
+    if(content_target.pitch_mask&(1u<<target_pc))
+        return hb_note_near_pc(nominal,target_pc);
+    return hb_map_note(nominal,detected.root_pc,content_target,HB_MAP_NEAREST);
+}
+static uint16_t hb_scale_degree_mask(uint16_t chord_scale,int harmony_root,unsigned degree_bits){
+    uint16_t mask=0;
+    for(int degree=0;degree<7;degree++){
+        if(!(degree_bits&(1u<<degree)))continue;
+        int interval=hb_nth_scale_interval_from_root(chord_scale,harmony_root,degree);
+        mask|=(uint16_t)(1u<<mod12(harmony_root+interval));
+    }
+    return mask;
+}
+static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_harmony_t detected,
+                                               hb_harmony_t content_target){
     int source_root=0;
     if(!hb_resolve_follower_reference_root(instance,&source_root))
         return hb_map_note(source_note,reference_root(instance),content_target,HB_MAP_NEAREST);
@@ -1195,62 +1238,66 @@ static int hb_map_follower_note_closest_meta(Inst *instance,int source_note,hb_h
     uint16_t parent_scale=hb_explicit_scale_mask(source_root,parent_scale_index);
     int source_degree=hb_source_degree_from_parent_scale(mod12(source_note-source_root),
                                                           source_root,parent_scale);
-
     uint16_t chord_scale=parent_scale;
     if(!parent_scale||(parent_scale&(1u<<mod12(detected.root_pc)))==0)
         chord_scale=hb_scale_mask(detected);
 
-    uint16_t chord_mask=hb_harmony_chord_mask(detected);
-    int degree_interval=hb_nth_scale_interval_from_root(chord_scale,detected.root_pc,source_degree);
-    int degree_pc=mod12(detected.root_pc+degree_interval);
-    int source_role_is_chordal=(chord_mask&(1u<<degree_pc))!=0;
+    uint16_t inferred_chord_mask=hb_harmony_chord_mask(detected);
+    uint16_t on_mask=0,off_mask=0;
+    int source_is_on=0;
+    int split=g_bus.follower_split_map;
 
-    uint16_t legal_mask=(uint16_t)(content_target.pitch_mask&0x0FFFu);
-    uint16_t preferred_mask=0;
-    if(source_role_is_chordal){
-        preferred_mask=(uint16_t)(legal_mask&chord_mask);
+    if(split==1){
+        unsigned on_bits=(1u<<0)|(1u<<2)|(1u<<4);             /* 135 / 2467 */
+        on_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,on_bits);
+        off_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,0x7Fu&~on_bits);
+        source_is_on=(on_bits&(1u<<source_degree))!=0;
+    }else if(split==2){
+        unsigned on_bits=(1u<<0)|(1u<<2)|(1u<<4)|(1u<<6);     /* 1357 / 246 */
+        on_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,on_bits);
+        off_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,0x7Fu&~on_bits);
+        source_is_on=(on_bits&(1u<<source_degree))!=0;
     }else{
-        preferred_mask=(uint16_t)(legal_mask&chord_scale&
-                                   (uint16_t)(~chord_mask)&0x0FFFu);
+        on_mask=inferred_chord_mask;
+        off_mask=(uint16_t)(chord_scale&(uint16_t)(~inferred_chord_mask)&0x0FFFu);
+        int degree_interval=hb_nth_scale_interval_from_root(chord_scale,detected.root_pc,source_degree);
+        int degree_pc=mod12(detected.root_pc+degree_interval);
+        source_is_on=(inferred_chord_mask&(1u<<degree_pc))!=0;
     }
 
-    hb_harmony_t meta_target=content_target;
-    if(preferred_mask){
-        meta_target.pitch_mask=preferred_mask;
-    }else{
-        /* Content is a hard filter. If that Content mode contains no pitch in
-           the preferred meta class, fall back to the closest pitch that the
-           selected Content mode allows; never escape the Content filter. */
-        meta_target.pitch_mask=legal_mask;
-    }
-
-    if(!meta_target.pitch_mask)return source_note;
-    return hb_map_note(source_note,reference_root(instance),meta_target,HB_MAP_NEAREST);
+    uint16_t legal=(uint16_t)(content_target.pitch_mask&0x0FFFu);
+    uint16_t preferred=(uint16_t)(legal&(source_is_on?on_mask:off_mask));
+    hb_harmony_t target=content_target;
+    target.pitch_mask=preferred?preferred:legal;
+    if(!target.pitch_mask)return source_note;
+    return hb_map_note(source_note,reference_root(instance),target,HB_MAP_NEAREST);
 }
 static int hb_map_follower_note_now(Inst *instance,int source_note){
-    hb_harmony_t harmony=bus_read();
+    hb_harmony_t detected=bus_read();
     int content_map=hb_global_content_map();
-    if(!harmony.valid||content_map==2)return source_note; /* Free */
+    if(!detected.valid)return source_note;
 
-    /* In Scale + Relative transports ordinal scale degree directly. */
-    if(content_map==1&&hb_global_travel_map()==0)
-        return hb_map_scale_degree_relative(instance,source_note,harmony);
+    hb_harmony_t target=detected;
+    if(content_map==2){
+        target.pitch_mask=0x0FFFu;
+    }else if(content_map==1){
+        target=hb_follower_scale_target(instance,detected);
+    }else{
+        target=hb_follower_content_target(instance,detected,content_map);
+    }
 
-    hb_harmony_t detected=harmony;
-    if(content_map==1)harmony=hb_follower_scale_target(instance,harmony);
-    else harmony=hb_follower_content_target(instance,harmony,content_map);
-
-    if(hb_global_travel_map()==3)
-        return hb_map_follower_note_closest_meta(instance,source_note,detected,harmony);
-    if(hb_global_travel_map()==1)
-        return hb_map_note(source_note,reference_root(instance),harmony,HB_MAP_NEAREST);
-    if(hb_global_travel_map()==2)
-        return hb_map_note_upward(source_note,harmony);
-    if(hb_global_travel_map()==4)
-        return hb_map_note_downward(source_note,harmony);
-    int used_root=0;
-    if(!hb_resolve_follower_reference_root(instance,&used_root))return source_note;
-    return hb_map_note(source_note,used_root,harmony,HB_MAP_CHORD);
+    int travel=hb_global_travel_map();
+    if(travel==0)
+        return hb_map_follower_note_relative(instance,source_note,detected,target,content_map);
+    if(travel==3)
+        return hb_map_follower_note_closest_split(instance,source_note,detected,target);
+    if(travel==1)
+        return hb_map_note(source_note,reference_root(instance),target,HB_MAP_NEAREST);
+    if(travel==2)
+        return hb_map_note_upward(source_note,target);
+    if(travel==4)
+        return hb_map_note_downward(source_note,target);
+    return source_note;
 }
 static int hb_conductor_pending_for_follow(void){
     /* Follower and conductor tick callbacks are independently scheduled.
@@ -2211,8 +2258,9 @@ static void set_param(void *value,const char *key,const char *parameter){Inst *i
     else if(!strcmp(parameter,"In 12357"))value=5;
     else if(!strcmp(parameter,"In 12356"))value=6;
     else if(!strcmp(parameter,"In Non-Avoid"))value=7;
+    else if(!strcmp(parameter,"In 123567"))value=8;
     hb_set_global_content_map(value);
-}else if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Meta","Downward"};hb_set_global_travel_map(enum_index(parameter,opts,5,hb_global_travel_map()));}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"quant_timing")){/* follower-render timing only */g_bus.quant_timing=enum_index(parameter,QUANT_GRID_OPTS,7,g_bus.quant_timing);}else if(!strcmp(key,"chord_timing")){/* follower-render timing only */g_bus.chord_timing=enum_index(parameter,TIMING_OPTS,7,g_bus.chord_timing);g_bus.chord_timescale=0;}else if(!strcmp(key,"anticipation")){/* follower-render timing only */g_bus.anticipation=enum_index(parameter,ANTICIPATION_OPTS,6,g_bus.anticipation);}else if(!strcmp(key,"boundary_buffer_ms")){/* follower-render capture window only */int parsed=parse_i(parameter,g_bus.boundary_buffer_ms);if(parsed<0)parsed=0;if(parsed>1000)parsed=1000;g_bus.boundary_buffer_ms=parsed;}else if(!strcmp(key,"analysis_release_ms")){int parsed=parse_i(parameter,g_bus.analysis_release_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.analysis_release_ms=parsed;}else if(!strcmp(key,"follower_scale")){hb_set_global_scale(enum_index(parameter,FOLLOWER_SCALE_OPTS,10,hb_global_scale()));}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,g_bus.inference_window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.inference_window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
+}else if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward"};hb_set_global_travel_map(enum_index(parameter,opts,5,hb_global_travel_map()));}else if(!strcmp(key,"split_map")){static const char *opts[]={"Auto","135 / 2467","1357 / 246"};g_bus.follower_split_map=enum_index(parameter,opts,3,g_bus.follower_split_map);}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"quant_timing")){/* follower-render timing only */g_bus.quant_timing=enum_index(parameter,QUANT_GRID_OPTS,7,g_bus.quant_timing);}else if(!strcmp(key,"chord_timing")){/* follower-render timing only */g_bus.chord_timing=enum_index(parameter,TIMING_OPTS,7,g_bus.chord_timing);g_bus.chord_timescale=0;}else if(!strcmp(key,"anticipation")){/* follower-render timing only */g_bus.anticipation=enum_index(parameter,ANTICIPATION_OPTS,6,g_bus.anticipation);}else if(!strcmp(key,"boundary_buffer_ms")){/* follower-render capture window only */int parsed=parse_i(parameter,g_bus.boundary_buffer_ms);if(parsed<0)parsed=0;if(parsed>1000)parsed=1000;g_bus.boundary_buffer_ms=parsed;}else if(!strcmp(key,"analysis_release_ms")){int parsed=parse_i(parameter,g_bus.analysis_release_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.analysis_release_ms=parsed;}else if(!strcmp(key,"follower_scale")){hb_set_global_scale(enum_index(parameter,FOLLOWER_SCALE_OPTS,10,hb_global_scale()));}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,g_bus.inference_window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.inference_window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
 static void hb_restore_state(Inst *instance,const char *state){
     if(!instance||!state)return;
     int values[25];for(int i=0;i<25;i++)values[i]=-999;
@@ -2352,9 +2400,10 @@ static void hb_restore_state(Inst *instance,const char *state){
         /* The conductor snapshot is the canonical persisted copy of GLOBAL
            follower settings. Restore it exactly once after process/Move restart;
            later per-track/UI restores must never overwrite live globals. */
+        if(values[8]>=0&&values[8]<3)g_bus.follower_split_map=values[8];
         if(values[4]>=0&&values[4]<3)hb_set_global_root_policy(values[4]);
         if(values[5]>=0&&values[5]<12)hb_set_global_explicit_root(values[5]);
-        if(values[21]>=0&&values[21]<8)hb_set_global_content_map(values[21]);
+        if(values[21]>=0&&values[21]<9)hb_set_global_content_map(values[21]);
         if(values[22]>=0&&values[22]<5)hb_set_global_travel_map(values[22]);
         if(values[23]>=0&&values[23]<10)hb_set_global_scale(values[23]);
         g_follower_globals_restored=1;
@@ -2426,16 +2475,16 @@ if(!strcmp(key,"follower_role_1"))return snprintf(buffer,(size_t)length,"%s",hb_
 if(!strcmp(key,"follower_role_2"))return snprintf(buffer,(size_t)length,"%s",hb_follower_analysis_role_name(instance,1));
 if(!strcmp(key,"follower_role_3"))return snprintf(buffer,(size_t)length,"%s",hb_follower_analysis_role_name(instance,2));
 if(!strcmp(key,"follower_role_4"))return snprintf(buffer,(size_t)length,"%s",hb_follower_analysis_role_name(instance,3));
-if(!strcmp(key,"follower_active_count"))return snprintf(buffer,(size_t)length,"%d",hb_follower_analysis_count(instance));if(!strcmp(key,"state"))return snprintf(buffer,(size_t)length,"hb15,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",instance->role,instance->mode,instance->map_target,g_bus.inference_window_ms,hb_global_root_policy(),hb_global_explicit_root(),g_bus.global_input_root,g_bus.global_transpose,0,g_bus.stability,g_bus.accidentals,instance->render_channel,instance->source_channel,g_bus.chord_timing,g_bus.context,g_bus.clip_context,instance->follow_lookahead_ms,instance->retrigger_held,g_bus.anticipation,g_bus.boundary_buffer_ms,g_bus.analysis_release_ms,hb_global_content_map(),hb_global_travel_map(),hb_global_scale(),g_bus.quant_timing);if(!strcmp(key,"track_role")||!strcmp(key,"role"))return snprintf(buffer,(size_t)length,"%s",ROLE_OPTS[instance->role]);if(!strcmp(key,"clip_slot"))return snprintf(buffer,(size_t)length,"%s",CLIP_SLOT_OPTS[g_bus.clip_slot]);if(!strcmp(key,"sensor_sources"))return snprintf(buffer,(size_t)length,"%s","Realtime");if(!strcmp(key,"realtime_route"))return snprintf(buffer,(size_t)length,"%s","Set Track MIDI Out -> Schwung");if(!strcmp(key,"clip_context"))return snprintf(buffer,(size_t)length,"%s","Realtime Only");if(!strcmp(key,"mode"))return snprintf(buffer,(size_t)length,"%s",MODE_OPTS[instance->mode]);
+if(!strcmp(key,"follower_active_count"))return snprintf(buffer,(size_t)length,"%d",hb_follower_analysis_count(instance));if(!strcmp(key,"state"))return snprintf(buffer,(size_t)length,"hb15,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",instance->role,instance->mode,instance->map_target,g_bus.inference_window_ms,hb_global_root_policy(),hb_global_explicit_root(),g_bus.global_input_root,g_bus.global_transpose,g_bus.follower_split_map,g_bus.stability,g_bus.accidentals,instance->render_channel,instance->source_channel,g_bus.chord_timing,g_bus.context,g_bus.clip_context,instance->follow_lookahead_ms,instance->retrigger_held,g_bus.anticipation,g_bus.boundary_buffer_ms,g_bus.analysis_release_ms,hb_global_content_map(),hb_global_travel_map(),hb_global_scale(),g_bus.quant_timing);if(!strcmp(key,"track_role")||!strcmp(key,"role"))return snprintf(buffer,(size_t)length,"%s",ROLE_OPTS[instance->role]);if(!strcmp(key,"clip_slot"))return snprintf(buffer,(size_t)length,"%s",CLIP_SLOT_OPTS[g_bus.clip_slot]);if(!strcmp(key,"sensor_sources"))return snprintf(buffer,(size_t)length,"%s","Realtime");if(!strcmp(key,"realtime_route"))return snprintf(buffer,(size_t)length,"%s","Set Track MIDI Out -> Schwung");if(!strcmp(key,"clip_context"))return snprintf(buffer,(size_t)length,"%s","Realtime Only");if(!strcmp(key,"mode"))return snprintf(buffer,(size_t)length,"%s",MODE_OPTS[instance->mode]);
 if(!strcmp(key,"content_map")){
-    static const char *opts[]={"In Chord","In Scale","Free","In 135","In 1357","In 12357","In 12356","In Non-Avoid"};
+    static const char *opts[]={"In Chord","In Scale","Free","In 135","In 1357","In 12357","In 12356","In Non-Avoid","In 123567"};
     return snprintf(buffer,(size_t)length,"%s",opts[hb_global_content_map()]);
 }
-if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Meta","Downward"};return snprintf(buffer,(size_t)length,"%s",opts[hb_global_travel_map()]);}
+if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward"};return snprintf(buffer,(size_t)length,"%s",opts[hb_global_travel_map()]);}if(!strcmp(key,"split_map")){static const char *opts[]={"Auto","135 / 2467","1357 / 246"};int split=g_bus.follower_split_map;if(split<0||split>2)split=0;return snprintf(buffer,(size_t)length,"%s",opts[split]);}
 if(!strcmp(key,"map_target"))return snprintf(buffer,(size_t)length,"%s",MAP_TARGET_OPTS[instance->map_target]);if(!strcmp(key,"source_channel"))return snprintf(buffer,(size_t)length,"%s",SOURCE_CH_OPTS[instance->source_channel+1]);if(!strcmp(key,"resolved_source_channel"))return snprintf(buffer,(size_t)length,"%d",instance->resolved_source_channel);if(!strcmp(key,"render_channel"))return snprintf(buffer,(size_t)length,"%s",RENDER_CH_OPTS[instance->render_channel+1]);if(!strcmp(key,"quant_timing"))return snprintf(buffer,(size_t)length,"%s",QUANT_GRID_OPTS[g_bus.quant_timing]);if(!strcmp(key,"chord_timing"))return snprintf(buffer,(size_t)length,"%s",TIMING_OPTS[g_bus.chord_timing]);if(!strcmp(key,"anticipation"))return snprintf(buffer,(size_t)length,"%s",ANTICIPATION_OPTS[g_bus.anticipation]);if(!strcmp(key,"boundary_buffer_ms"))return snprintf(buffer,(size_t)length,"%d",g_bus.boundary_buffer_ms);if(!strcmp(key,"analysis_release_ms"))return snprintf(buffer,(size_t)length,"%d",g_bus.analysis_release_ms);if(!strcmp(key,"follower_scale"))return snprintf(buffer,(size_t)length,"%s",FOLLOWER_SCALE_OPTS[hb_global_scale()]);if(!strcmp(key,"context"))return snprintf(buffer,(size_t)length,"%s",CONTEXT_OPTS[g_bus.context]);if(!strcmp(key,"chord_timescale"))return snprintf(buffer,(size_t)length,"%s",TIMESCALE_OPTS[g_bus.chord_timescale]);if(!strcmp(key,"stability"))return snprintf(buffer,(size_t)length,"%s",STABILITY_OPTS[g_bus.stability]);if(!strcmp(key,"accidentals"))return snprintf(buffer,(size_t)length,"%s",ACCIDENTAL_OPTS[g_bus.accidentals]);if(!strcmp(key,"root_policy"))return snprintf(buffer,(size_t)length,"%s",POLICY_OPTS[g_bus.global_root_policy]);if(!strcmp(key,"explicit_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_explicit_root]);if(!strcmp(key,"input_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_input_root]);if(!strcmp(key,"transpose"))return snprintf(buffer,(size_t)length,"%d",g_bus.global_transpose);if(!strcmp(key,"window_ms"))return snprintf(buffer,(size_t)length,"%d",g_bus.inference_window_ms);if(!strcmp(key,"detected_root"))return snprintf(buffer,(size_t)length,"%s",harmony.valid?hb_pc_display(harmony.root_pc,harmony):"--");if(!strcmp(key,"detected_bass"))return snprintf(buffer,(size_t)length,"%s",harmony.valid?hb_pc_display(harmony.bass_pc,harmony):"--");if(!strcmp(key,"detected_quality"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.chord_index+1:0);if(!strcmp(key,"confidence"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.confidence:0);if(!strcmp(key,"resolved_root"))return snprintf(buffer,(size_t)length,"%d",reference_root(instance));if(!strcmp(key,"harmony"))return hb_format_harmony(buffer,length,harmony);if(!strcmp(key,"candidate_harmony"))return hb_format_harmony(buffer,length,instance->candidate_harmony);if(!strcmp(key,"pitch_mask"))return snprintf(buffer,(size_t)length,"%u",(unsigned)harmony.pitch_mask);if(!strcmp(key,"rx_count"))return snprintf(buffer,(size_t)length,"%u",instance->rx_count);if(!strcmp(key,"note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_off_count);if(!strcmp(key,"last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"last_status"))return snprintf(buffer,(size_t)length,"%d",instance->last_status);if(!strcmp(key,"last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->last_velocity);if(!strcmp(key,"diag_midi_events"))return snprintf(buffer,(size_t)length,"%u",instance->rx_count);if(!strcmp(key,"diag_note_ons"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"diag_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"diag_recv_ch")){int recv=hb_monitor_channel(instance);return snprintf(buffer,(size_t)length,"%d",(recv>=0&&recv<16)?recv+1:-1);}if(!strcmp(key,"diag_event_ch")){int type=instance->last_status&0xF0;int event_ch=(type==0x80||type==0x90)?(instance->last_status&15):-1;return snprintf(buffer,(size_t)length,"%d",event_ch>=0?event_ch+1:-1);}if(!strcmp(key,"live_press_count"))return snprintf(buffer,(size_t)length,"%u",instance->live_press_count);if(!strcmp(key,"rt_note_count"))return snprintf(buffer,(size_t)length,"%d",hb_held_count(instance));if(!strcmp(key,"rt_note_ons"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"rt_note_offs"))return snprintf(buffer,(size_t)length,"%u",instance->note_off_count);if(!strcmp(key,"rt_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"rt_last_channel")){int t=instance->last_status&0xF0;return snprintf(buffer,(size_t)length,"%d",(t==0x80||t==0x90)?(instance->last_status&15):-1);}if(!strcmp(key,"clip_active_count")){uint8_t temp_notes[32];int temp_count=hb_clip_active_notes(temp_notes,32);return snprintf(buffer,(size_t)length,"%d",temp_count);}if(!strcmp(key,"active_count"))return snprintf(buffer,(size_t)length,"%d",hb_conductor_analysis_count(instance));if(!strcmp(key,"active_note_list"))return hb_format_active_notes(instance,buffer,length);if(!strcmp(key,"callback_active_notes"))return snprintf(buffer,(size_t)length,"%d",active_notes(instance,(uint8_t[128]){0}));if(!strcmp(key,"pending_releases")){int n=0;for(int i=0;i<128;i++)if(instance->pending_off_frames[i]>0)n++;return snprintf(buffer,(size_t)length,"%d",n);}if(!strcmp(key,"active_pc_mask"))return snprintf(buffer,(size_t)length,"%u",hb_active_pc_mask(instance));if(!strcmp(key,"active_note_1"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,0));if(!strcmp(key,"active_note_2"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,1));if(!strcmp(key,"active_note_3"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,2));if(!strcmp(key,"active_note_4"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,3));if(!strcmp(key,"active_note_4_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,3),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"active_note_3_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,2),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"active_note_2_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,1),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"active_note_1_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,0),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"clip_stage")){static const char *names[]={"idle","no active set","active set","no conductor","conductor found","no Song.abl","Song.abl found","no track","track found","no clip slots","no clip","clip found","no notes array","empty clip","OK"};int stage=g_bus.clip_stage;if(stage<0||stage>14)stage=0;return snprintf(buffer,(size_t)length,"%s",names[stage]);}if(!strcmp(key,"cache_rev"))return snprintf(buffer,(size_t)length,"%u",g_bus.cache_rev);if(!strcmp(key,"sense_rev"))return snprintf(buffer,(size_t)length,"%u",g_bus.sense_rev);if(!strcmp(key,"clip_track"))return snprintf(buffer,(size_t)length,"%d",g_bus.clip_context?g_bus.clip_track:-1);if(!strcmp(key,"clip_note_count"))return snprintf(buffer,(size_t)length,"%d",g_bus.clip_context?g_bus.clip_note_count:0);if(!strcmp(key,"clip_playhead"))return g_bus.clip_context?snprintf(buffer,(size_t)length,"%.3f",hb_clip_playhead()):snprintf(buffer,(size_t)length,"%s","realtime");if(!strcmp(key,"infer_note_count")){uint8_t notes[128];return snprintf(buffer,(size_t)length,"%d",active_notes(instance,notes));}if(!strcmp(key,"bus_seq"))return snprintf(buffer,(size_t)length,"%u",__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE));if(!strcmp(key,"raw_event_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_event_count);if(!strcmp(key,"raw_note_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_count);if(!strcmp(key,"raw_note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_on_count);if(!strcmp(key,"raw_note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_off_count);if(!strcmp(key,"raw_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_note);if(!strcmp(key,"raw_last_status"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_status);if(!strcmp(key,"raw_last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_velocity);if(!strcmp(key,"raw_last_channel"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_channel);if(!strcmp(key,"raw_track_match"))return snprintf(buffer,(size_t)length,"%d",(g_bus.clip_track>=0&&instance->raw_last_channel==g_bus.clip_track)?1:0);if(!strcmp(key,"raw_last_cable"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_cable);if(!strcmp(key,"inject_available"))return snprintf(buffer,(size_t)length,"%d",(g_host&&g_host->midi_inject_to_move)?1:0);if(!strcmp(key,"render_count"))return snprintf(buffer,(size_t)length,"%u",instance->render_count);if(!strcmp(key,"render_fail_count"))return snprintf(buffer,(size_t)length,"%u",instance->render_fail_count);if(!strcmp(key,"render_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->render_last_note);if(!strcmp(key,"follower_last_in"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"follower_last_out"))return snprintf(buffer,(size_t)length,"%d",instance->render_channel>=0?instance->render_last_note:(instance->last_note>=0&&instance->last_note<128?instance->mapped[instance->last_note]:-1));if(!strcmp(key,"follower_root_policy")||!strcmp(key,"follower_source_policy"))return snprintf(buffer,(size_t)length,"%s",FOLLOWER_SOURCE_POLICY_OPTS[hb_global_root_policy()]);if(!strcmp(key,"follower_explicit_root")||!strcmp(key,"follower_source_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[hb_global_explicit_root()]);if(!strcmp(key,"inferred_root")){int root=0;if(!hb_infer_follower_root(instance,&root))return snprintf(buffer,(size_t)length,"%s","--");return snprintf(buffer,(size_t)length,"%s",PC_OPTS[root]);}if(!strcmp(key,"role_reference_root")||!strcmp(key,"used_root")){int root=0;if(!hb_resolve_follower_reference_root(instance,&root))return snprintf(buffer,(size_t)length,"%s","--");return snprintf(buffer,(size_t)length,"%s",PC_OPTS[root]);}if(!strcmp(key,"source_note_1")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(0);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_1"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(0),buffer,length);if(!strcmp(key,"source_note_2")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(1);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_2"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(1),buffer,length);if(!strcmp(key,"source_note_3")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(2);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_3"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(2),buffer,length);if(!strcmp(key,"source_note_4")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(3);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_4"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(3),buffer,length);if(!strcmp(key,"monitor_status"))return snprintf(buffer,(size_t)length,"%s",g_monitor?"ACTIVE":"ABSENT");
 if(!strcmp(key,"monitor_generation"))return snprintf(buffer,(size_t)length,"%u",g_monitor?(unsigned)g_monitor->generation:0u);
 if(!strcmp(key,"monitor_events"))return snprintf(buffer,(size_t)length,"%u",g_monitor?(unsigned)g_monitor->external_note_events:0u);
-if(!strcmp(key,"v87_marker"))return snprintf(buffer,(size_t)length,"%s","HB261");
+if(!strcmp(key,"v87_marker"))return snprintf(buffer,(size_t)length,"%s","HB262");
 if(!strcmp(key,"v87_tick"))return snprintf(buffer,(size_t)length,"%u",g_bus.global_tick_count);
 if(!strcmp(key,"v87_conductor_count")){uint8_t notes[64];return snprintf(buffer,(size_t)length,"%d",hb_observed_notes(0,notes,64));}
 if(!strcmp(key,"v87_conductor_1")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_observed_note(0,0),bus_read(),note_buf,sizeof(note_buf)));}
