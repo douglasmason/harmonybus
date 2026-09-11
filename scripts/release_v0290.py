@@ -11,7 +11,12 @@ ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "modules/harmonybus/module.json"
 DSP = ROOT / "modules/harmonybus/dsp/harmonybus.c"
 
-runpy.run_path(str(ROOT / "scripts/release_v0289.py"), run_name="__main__")
+# Only migrate through v0.2.89 when the checked-out source has not already
+# been normalized to v0.2.90. The v0.2.89 normalizer is intentionally tied to
+# the older source shape and must not be replayed over the new implementation.
+existing_module = json.loads(MODULE.read_text())
+if existing_module.get("version") != "0.2.90":
+    runpy.run_path(str(ROOT / "scripts/release_v0289.py"), run_name="__main__")
 
 module = json.loads(MODULE.read_text())
 module["version"] = "0.2.90"
@@ -66,7 +71,8 @@ elif 'next_learning_progress_beats' not in source:
 source = source.replace('g_bus.next_have_playhead=0;g_bus.next_learning_started=0;memset(&g_bus.observed_harmony', 'g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony', 1)
 source = source.replace('    g_bus.next_learning_started=0;\n}', '    g_bus.next_learning_started=0;\n    g_bus.next_learning_progress_beats=0.0;\n}', 1)
 
-source, count = re.subn(r'static void hb_next_promote_learning\(void\)\{.*?\n\}', '''static void hb_next_promote_learning(void){
+promote_re = r'static void hb_next_promote_learning\(void\)\{.*?\n\}'
+promote_new = '''static void hb_next_promote_learning(void){
     /* A full loop LENGTH of observation covers every circular clip phase even
        when learning started mid-loop. No explicit playhead-wrap event needed. */
     if(g_bus.next_learning_count<=0&&g_bus.observed_harmony.valid){
@@ -80,11 +86,12 @@ source, count = re.subn(r'static void hb_next_promote_learning\(void\)\{.*?\n\}'
     g_bus.next_learning_count=0;
     g_bus.next_model_locked=1;
     g_bus.next_learning_started=1;
-}''', source, count=1, flags=re.S)
-if count != 1:
-    raise SystemExit('hb_next_promote_learning not found')
+}'''
+if re.search(r'static void hb_next_promote_learning\(void\)', source):
+    source = re.sub(promote_re, promote_new, source, count=1, flags=re.S)
 
-source, count = re.subn(r'static void hb_next_update_playhead\(void\)\{.*?\n\}', '''static void hb_next_update_playhead(int frames,int sample_rate){
+update_old_re = r'static void hb_next_update_playhead\(void\)\{.*?\n\}'
+update_new = '''static void hb_next_update_playhead(int frames,int sample_rate){
     double playhead=hb_clip_playhead();
     g_bus.next_last_playhead=playhead;
     g_bus.next_have_playhead=1;
@@ -99,9 +106,9 @@ source, count = re.subn(r'static void hb_next_update_playhead\(void\)\{.*?\n\}',
         }
     }
     hb_next_apply_effective(playhead);
-}''', source, count=1, flags=re.S)
-if count != 1:
-    raise SystemExit('hb_next_update_playhead not found')
+}'''
+if re.search(r'static void hb_next_update_playhead\(void\)', source):
+    source = re.sub(update_old_re, update_new, source, count=1, flags=re.S)
 
 # Collapse duplicated v0.2.89 calls and preserve the last sampled position on stop.
 source = re.sub(r'(?:\s*if\(instance->role==0\)hb_next_update_playhead\(\);)+', '\n            if(instance->role==0)hb_next_update_playhead(frames,sample_rate);', source)
