@@ -24,11 +24,12 @@ jobs:
           python3 scripts/fix_scale_controls_v0279.py
           python3 scripts/fix_approach_state_v0280.py
           python3 scripts/simplify_approach_state_v0281.py
+          python3 scripts/fix_scale_above_v0282.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c modules/harmonybus/canvas.js
+          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c modules/harmonybus/canvas.js src/approach_pitch.h tests/approach_pitch_test.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.81 source'
+            git commit -m 'Normalize HarmonyBus v0.2.82 source'
             git push origin main
           fi
 
@@ -43,8 +44,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.81'
+          assert module['version']=='0.2.82'
           levels=module['capabilities']['ui_hierarchy']['levels']
+          assert levels['root']['name']=='Harmony Bus 0.2.82'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -66,15 +68,14 @@ jobs:
               assert params[key]['access']=='write'
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
           assert '#include "../../../src/approach_state.h"' in source
+          assert '#include "../../../src/approach_pitch.h"' in source
           assert 'static SharedBus g_bus={.approach_control=HB_APPROACH_OFF,.approach_mode=0}' in source
           assert 'return hb_approach_effective(g_bus.approach_control,instance->approach_pad_armed);' in source
           assert 'g_bus.approach_control=hb_approach_toggle(g_bus.approach_control,HB_APPROACH_SCALE_ABOVE,on)' in source
           assert 'g_bus.approach_control=hb_approach_toggle(g_bus.approach_control,HB_APPROACH_CHROM_BELOW,on)' in source
           assert 'int next_override=hb_approach_normalize(instance->approach_pad_armed);' in source
-          assert 'if(next_override!=HB_APPROACH_OFF)' in source
-          assert '(g_bus.approach_mode==0)?next_approach' not in source
-          assert 'if(g_bus.approach_mode==1)' not in source
-          assert 'if(!scale_mask)scale_mask=(uint16_t)(hb_scale_mask(detected)&0x0FFFu);' in source
+          assert 'return hb_next_scale_pitch_above(mapped,(unsigned int)scale_mask);' in source
+          assert 'hb_harmony_t scale_target=hb_follower_scale_target(instance,detected);' not in source[source.index('static int hb_apply_approach'):source.index('static void hb_consume_next_approach')]
           PY
 
       - name: Install build tools
@@ -86,6 +87,8 @@ jobs:
           /tmp/harmony_core_test
           clang -std=c11 -O2 tests/approach_state_test.c -o /tmp/approach_state_test
           /tmp/approach_state_test
+          clang -std=c11 -O2 tests/approach_pitch_test.c -o /tmp/approach_pitch_test
+          /tmp/approach_pitch_test
 
       - name: Build ARM64 HarmonyBus
         run: bash scripts/build_harmonybus_move.sh
@@ -102,7 +105,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.81'
+          assert module['version']==os.environ['VERSION']=='0.2.82'
           params={p.get('key'):p for p in module['capabilities']['chain_params']}
           for key in ('approach_reset','approach_scale_next','approach_chrom_next'):
               assert params[key].get('access')=='write'
