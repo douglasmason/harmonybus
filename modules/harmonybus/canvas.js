@@ -1,28 +1,7 @@
-/* HarmonyBus follower modifier performance page.
- *
- * Knob touch assignments while this page is open:
- *   K6 touch: Off/reset
- *   K7 touch: scale approach above
- *   K8 touch: chromatic approach below
- *
- * K1 rotation selects modifier behavior (Next / Held).
- * K2 rotation provides the retained manual Approach selector.
- */
-
+/* HarmonyBus Touch Perf page. */
 const CC_KNOB_1 = 71;
 const CC_KNOB_2 = 72;
-const TOUCH_K2 = 1;
-const TOUCH_K3 = 2;
-const TOUCH_K4 = 3;
-const TOUCH_K5 = 4;
-const TOUCH_K2 = 1;
-const TOUCH_K3 = 2;
-const TOUCH_K4 = 3;
-const TOUCH_K5 = 4;
-const TOUCH_K2 = 1;
-const TOUCH_K3 = 2;
-const TOUCH_K4 = 3;
-const TOUCH_K5 = 4;
+
 const TOUCH_K2 = 1;
 const TOUCH_K3 = 2;
 const TOUCH_K4 = 3;
@@ -62,39 +41,34 @@ function setApproach(ctx, state, index) {
 function resetModifier(ctx, state) {
     ctx.setParam("approach_below_pad", "0");
     ctx.setParam("approach_above_pad", "0");
-    /* Re-writing the current mode deliberately clears any armed one-shot state
-     * in the DSP, so K6 is a real reset rather than merely setting the manual
-     * Approach knob to Off. */
     ctx.setParam("approach_mode", MODES[state.modeIndex]);
     setApproach(ctx, state, 1);
-    state.lastAction = "OFF / RESET";
+    state.lastAction = "RESET";
+}
+
+function selectTravel(ctx, state, value, label) {
+    ctx.setParam("travel_map", value);
+    state.lastAction = label;
 }
 
 function handleTouch(ctx, state, note, down) {
-    /* K1 touch is intentionally inert; K1 rotation only selects Next/Held/Off. */
-    if (down && note === TOUCH_K2) { ctx.setParam("travel_map", "Direct"); state.lastAction = "DIRECT"; return true; }
-    if (down && note === TOUCH_K3) { ctx.setParam("travel_map", "Relative"); state.lastAction = "RELATIVE"; return true; }
-    if (down && note === TOUCH_K4) { ctx.setParam("travel_map", "Closest"); state.lastAction = "CLOSEST"; return true; }
-    if (down && note === TOUCH_K5) { ctx.setParam("travel_map", "Closest Split"); state.lastAction = "CLOSEST SPLIT"; return true; }
-    if (!down && (note === TOUCH_K2 || note === TOUCH_K3 || note === TOUCH_K4 || note === TOUCH_K5)) return true;
-    /* K1 touch is intentionally inert; K1 rotation only selects Next/Held/Off. */
-    if (down && note === TOUCH_K2) { ctx.setParam("travel_map", "Direct"); state.lastAction = "DIRECT"; return true; }
-    if (down && note === TOUCH_K3) { ctx.setParam("travel_map", "Relative"); state.lastAction = "RELATIVE"; return true; }
-    if (down && note === TOUCH_K4) { ctx.setParam("travel_map", "Closest"); state.lastAction = "CLOSEST"; return true; }
-    if (down && note === TOUCH_K5) { ctx.setParam("travel_map", "Closest Split"); state.lastAction = "CLOSEST SPLIT"; return true; }
-    if (!down && (note === TOUCH_K2 || note === TOUCH_K3 || note === TOUCH_K4 || note === TOUCH_K5)) return true;
-    /* K1 touch is intentionally inert; K1 rotation only selects Next/Held/Off. */
-    if (down && note === TOUCH_K2) { ctx.setParam("travel_map", "Direct"); state.lastAction = "DIRECT"; return true; }
-    if (down && note === TOUCH_K3) { ctx.setParam("travel_map", "Relative"); state.lastAction = "RELATIVE"; return true; }
-    if (down && note === TOUCH_K4) { ctx.setParam("travel_map", "Closest"); state.lastAction = "CLOSEST"; return true; }
-    if (down && note === TOUCH_K5) { ctx.setParam("travel_map", "Closest Split"); state.lastAction = "CLOSEST SPLIT"; return true; }
-    if (!down && (note === TOUCH_K2 || note === TOUCH_K3 || note === TOUCH_K4 || note === TOUCH_K5)) return true;
-    /* K1 touch is intentionally inert; K1 rotation only selects Next/Held/Off. */
-    if (down && note === TOUCH_K2) { ctx.setParam("travel_map", "Direct"); state.lastAction = "DIRECT"; return true; }
-    if (down && note === TOUCH_K3) { ctx.setParam("travel_map", "Relative"); state.lastAction = "RELATIVE"; return true; }
-    if (down && note === TOUCH_K4) { ctx.setParam("travel_map", "Closest"); state.lastAction = "CLOSEST"; return true; }
-    if (down && note === TOUCH_K5) { ctx.setParam("travel_map", "Closest Split"); state.lastAction = "CLOSEST SPLIT"; return true; }
-    if (!down && (note === TOUCH_K2 || note === TOUCH_K3 || note === TOUCH_K4 || note === TOUCH_K5)) return true;
+    /* K1 touch is intentionally inert. */
+    if (note === TOUCH_K2) {
+        if (down) selectTravel(ctx, state, "Direct", "DIRECT");
+        return true;
+    }
+    if (note === TOUCH_K3) {
+        if (down) selectTravel(ctx, state, "Relative", "RELATIVE");
+        return true;
+    }
+    if (note === TOUCH_K4) {
+        if (down) selectTravel(ctx, state, "Closest", "CLOSEST");
+        return true;
+    }
+    if (note === TOUCH_K5) {
+        if (down) selectTravel(ctx, state, "Closest Split", "CLOSEST SPLIT");
+        return true;
+    }
     if (note === TOUCH_K6) {
         if (down) resetModifier(ctx, state);
         return true;
@@ -128,8 +102,6 @@ function onMidi(ctx, payload) {
     const number = data[1] | 0;
     const value = data[2] | 0;
 
-    /* Capacitive knob touches are MIDI note events 0..7. Schwung represents
-     * release either as note-off or note-on with a non-pressed velocity. */
     if (status === 0x90 || status === 0x80) {
         const down = status === 0x90 && value >= 64;
         if (handleTouch(ctx, ctx.state, number, down)) return;
@@ -148,13 +120,13 @@ function onMidi(ctx, payload) {
 
 function draw(ctx) {
     ctx.clear();
-    ctx.print(2, 2, "FOLLOWER MOD", 1);
-    ctx.print(2, 14, `K1 MODE: ${MODES[ctx.state.modeIndex]}`, 1);
-    ctx.print(2, 24, `K2 MANUAL: ${APPROACHES[ctx.state.approachIndex]}`, 1);
-    ctx.print(2, 34, "K2 DIRECT  K3 REL  K4 CLOSE", 1);
-    ctx.print(2, 42, "K5 SPLIT   K6 RESET", 1);
-    ctx.print(2, 50, "K7 SCALE+  K8 CHROM-", 1);
-    ctx.print(2, 58, `LAST: ${ctx.state.lastAction}`, 1);
+    ctx.print(2, 2, "TOUCH PERF", 1);
+    ctx.print(2, 13, `K1 MODE ${MODES[ctx.state.modeIndex]}`, 1);
+    ctx.print(2, 22, `K2 MAN ${APPROACHES[ctx.state.approachIndex]}`, 1);
+    ctx.print(2, 33, "TOUCH: 2 DIR 3 REL 4 CLOSE", 1);
+    ctx.print(2, 42, "5 SPLIT 6 RESET", 1);
+    ctx.print(2, 51, "7 SCALE+ 8 CHROM-", 1);
+    ctx.print(2, 60, ctx.state.lastAction, 1);
 }
 
 function onClose(ctx) {
@@ -167,11 +139,5 @@ function onExit(ctx) {
 }
 
 globalThis.canvas_overlays = {
-    follower_mod: {
-        onOpen,
-        onMidi,
-        draw,
-        onClose,
-        onExit
-    }
+    follower_mod: { onOpen, onMidi, draw, onClose, onExit }
 };

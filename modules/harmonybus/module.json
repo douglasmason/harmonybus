@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.73",
-  "abbrev": "HB273",
-  "version": "0.2.73",
+  "name": "Harmony Bus 0.2.74",
+  "abbrev": "HB274",
+  "version": "0.2.74",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.73 \u2014 Touch Perf is an adjacent jog-accessible canvas page",
+  "description": "Harmony Bus v0.2.74 \u2014 repaired Touch Perf as-page canvas and touch handlers",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.73",
+          "name": "Harmony Bus 0.2.74",
           "params": [
             {
               "key": "version",
@@ -719,7 +719,12 @@
               "canvas_script": "canvas.js",
               "canvas_overlay": "follower_mod",
               "show_value": false,
-              "as_page": true
+              "as_page": true,
+              "extra_keys": [
+                "approach_mode",
+                "approach",
+                "travel_map"
+              ]
             }
           ],
           "knobs": [
@@ -1733,7 +1738,12 @@
         "canvas_script": "canvas.js",
         "canvas_overlay": "follower_mod",
         "show_value": false,
-        "as_page": true
+        "as_page": true,
+        "extra_keys": [
+          "approach_mode",
+          "approach",
+          "travel_map"
+        ]
       },
       {
         "key": "approach_status",
