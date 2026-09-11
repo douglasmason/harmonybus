@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.72",
-  "abbrev": "HB272",
-  "version": "0.2.72",
+  "name": "Harmony Bus 0.2.73",
+  "abbrev": "HB273",
+  "version": "0.2.73",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.72 \u2014 fixed Touch Perf mapping selectors, Direct follower travel, and Off/Next/Held approach behavior",
+  "description": "Harmony Bus v0.2.73 \u2014 Touch Perf is an adjacent jog-accessible canvas page",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.72",
+          "name": "Harmony Bus 0.2.73",
           "params": [
             {
               "key": "version",
@@ -674,12 +674,10 @@
               "access": "read"
             },
             {
-              "key": "follower_mod_canvas",
-              "name": "Touch Perf",
-              "type": "canvas",
-              "canvas_script": "canvas.js",
-              "canvas_overlay": "follower_mod",
-              "show_value": false
+              "key": "foll_mod_blank5",
+              "name": "",
+              "type": "string",
+              "access": "read"
             },
             {
               "key": "approach_reset",
@@ -713,6 +711,15 @@
               ],
               "options_as_string": true,
               "default": "Off"
+            },
+            {
+              "key": "follower_mod_canvas",
+              "name": "Touch Perf",
+              "type": "canvas",
+              "canvas_script": "canvas.js",
+              "canvas_overlay": "follower_mod",
+              "show_value": false,
+              "as_page": true
             }
           ],
           "knobs": [
@@ -720,7 +727,7 @@
             "approach",
             "foll_mod_blank3",
             "foll_mod_blank4",
-            "follower_mod_canvas",
+            "foll_mod_blank5",
             "approach_reset",
             "mod_scale_above",
             "mod_chrom_below"
@@ -1725,7 +1732,8 @@
         "type": "canvas",
         "canvas_script": "canvas.js",
         "canvas_overlay": "follower_mod",
-        "show_value": false
+        "show_value": false,
+        "as_page": true
       },
       {
         "key": "approach_status",
