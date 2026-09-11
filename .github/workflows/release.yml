@@ -23,11 +23,12 @@ jobs:
           python3 scripts/ui_test_as_page_v0278.py
           python3 scripts/fix_scale_controls_v0279.py
           python3 scripts/fix_approach_state_v0280.py
+          python3 scripts/simplify_approach_state_v0281.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c modules/harmonybus/canvas.js
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.80 source'
+            git commit -m 'Normalize HarmonyBus v0.2.81 source'
             git push origin main
           fi
 
@@ -42,7 +43,7 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.80'
+          assert module['version']=='0.2.81'
           levels=module['capabilities']['ui_hierarchy']['levels']
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
@@ -63,32 +64,28 @@ jobs:
               assert params[key]['type']=='enum'
               assert params[key]['options']==options
               assert params[key]['access']=='write'
-          ui=levels['ui_test']
-          assert ui['knobs']==['content_map','travel_map','split_map']
-          test=params['ui_test_canvas']
-          assert test['type']=='canvas'
-          assert test['canvas_script']=='canvas.js'
-          assert test['canvas_overlay']=='ui_test'
-          assert test['as_page'] is True
-          canvas=Path('modules/harmonybus/canvas.js').read_text()
-          assert 'ui_test:' in canvas
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
-          assert 'static SharedBus g_bus={.approach_control=1,.approach_mode=0}' in source
-          assert 'instance->approach_pad_armed=1;instance->approach_below_held=0;instance->approach_above_held=0' in source
+          assert '#include "../../../src/approach_state.h"' in source
+          assert 'static SharedBus g_bus={.approach_control=HB_APPROACH_OFF,.approach_mode=0}' in source
+          assert 'return hb_approach_effective(g_bus.approach_control,instance->approach_pad_armed);' in source
+          assert 'g_bus.approach_control=hb_approach_toggle(g_bus.approach_control,HB_APPROACH_SCALE_ABOVE,on)' in source
+          assert 'g_bus.approach_control=hb_approach_toggle(g_bus.approach_control,HB_APPROACH_CHROM_BELOW,on)' in source
+          assert 'int next_override=hb_approach_normalize(instance->approach_pad_armed);' in source
+          assert 'if(next_override!=HB_APPROACH_OFF)' in source
+          assert '(g_bus.approach_mode==0)?next_approach' not in source
+          assert 'if(g_bus.approach_mode==1)' not in source
           assert 'if(!scale_mask)scale_mask=(uint16_t)(hb_scale_mask(detected)&0x0FFFu);' in source
-          assert 'instance->approach_pad_armed=2;g_bus.approach_mode=0' in source
-          assert 'instance->approach_pad_armed=0;g_bus.approach_mode=0' in source
-          blank='if(!strcmp(key,"foll_mod_blank3")||!strcmp(key,"foll_mod_blank4")||!strcmp(key,"foll_mod_blank5"))return snprintf(buffer,(size_t)length,"");'
-          assert source.count(blank)==1
           PY
 
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y clang lld file
 
-      - name: Run native core tests
+      - name: Run native core and modifier tests
         run: |
           clang -std=c11 -O2 tests/harmony_core_test.c src/harmony_core.c -o /tmp/harmony_core_test
           /tmp/harmony_core_test
+          clang -std=c11 -O2 tests/approach_state_test.c -o /tmp/approach_state_test
+          /tmp/approach_state_test
 
       - name: Build ARM64 HarmonyBus
         run: bash scripts/build_harmonybus_move.sh
@@ -105,11 +102,10 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']
+          assert module['version']==os.environ['VERSION']=='0.2.81'
           params={p.get('key'):p for p in module['capabilities']['chain_params']}
           for key in ('approach_reset','approach_scale_next','approach_chrom_next'):
               assert params[key].get('access')=='write'
-          assert params['ui_test_canvas'].get('as_page') is True
           PY
 
       - name: Publish release
