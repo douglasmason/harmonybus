@@ -18,12 +18,12 @@ jobs:
 
       - name: Apply current HarmonyBus normalization
         run: |
-          python3 scripts/release_v0285.py
+          python3 scripts/release_v0286.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c src/follower_timing.h tests/follower_timing_test.c
+          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.85 source'
+            git commit -m 'Normalize HarmonyBus v0.2.86 source'
             git push origin main
           fi
 
@@ -38,12 +38,18 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.85'
+          assert module['version']=='0.2.86'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.85'
+          assert levels['root']['name']=='Harmony Bus 0.2.86'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
+          assert levels['follower_mod']['knobs']==[
+              'approach','travel_map','mod_scale_above','mod_chrom_below',
+              'foll_mod_blank5','approach_reset','approach_scale_next','approach_chrom_next'
+          ]
+          assert any(p.get('key')=='travel_map' for p in levels['follower_mod']['params'])
+          assert not any(p.get('key')=='foll_mod_blank2' for p in levels['follower_mod']['params'])
           assert levels['follower_this']['name']=='Foll Trk'
           assert levels['follower_all']['name']=='Foll All'
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
@@ -88,7 +94,9 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.85'
+          assert module['version']==os.environ['VERSION']=='0.2.86'
+          panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
+          assert panel['knobs'][1]=='travel_map'
           PY
 
       - name: Publish release
