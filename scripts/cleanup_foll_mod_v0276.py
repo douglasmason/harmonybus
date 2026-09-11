@@ -35,15 +35,16 @@ def main() -> None:
     # v0.2.75 accidentally closed get_param immediately after the Chrom Below getter.
     broken = 'if(!strcmp(key,"mod_chrom_below"))return snprintf(buffer,(size_t)length,"%s",g_bus.approach_control==0?"On":"Off");}if(!strcmp(key,"approach"))'
     fixed = 'if(!strcmp(key,"mod_chrom_below"))return snprintf(buffer,(size_t)length,"%s",g_bus.approach_control==0?"On":"Off");if(!strcmp(key,"approach"))'
-    if broken not in source:
-        raise RuntimeError("expected v0.2.75 get_param corruption not found")
-    source = source.replace(broken, fixed, 1)
+    if broken in source:
+        source = source.replace(broken, fixed, 1)
 
     # Guard against this class of migration corruption recurring silently.
     if source.count(blank_getter) != 1:
         raise RuntimeError("duplicate Foll Mod blank getters remain")
     if '"Off");}if(!strcmp(key,"approach"))' in source:
         raise RuntimeError("premature get_param close remains")
+    if fixed not in source:
+        raise RuntimeError("expected repaired Foll Mod getter sequence not found")
 
     DSP.write_text(source)
 
