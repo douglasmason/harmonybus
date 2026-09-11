@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.75",
-  "abbrev": "HB275",
-  "version": "0.2.75",
+  "name": "Harmony Bus 0.2.76",
+  "abbrev": "HB276",
+  "version": "0.2.76",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.75 \u2014 standard Foll Mod uses manual selector, mutually-exclusive persistent toggles, and one-shot approach buttons",
+  "description": "Harmony Bus v0.2.76 \u2014 repaired standard Foll Mod build and cleaned accumulated getter migrations",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.75",
+          "name": "Harmony Bus 0.2.76",
           "params": [
             {
               "key": "version",
