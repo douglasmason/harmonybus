@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.87",
-  "abbrev": "HB287",
-  "version": "0.2.87",
+  "name": "Harmony Bus 0.2.88",
+  "abbrev": "HB288",
+  "version": "0.2.88",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.87 \u2014 proximity-first Closest Split",
+  "description": "Harmony Bus v0.2.88 \u2014 learned loop harmony lookahead",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.87",
+          "name": "Harmony Bus 0.2.88",
           "params": [
             {
               "key": "version",
@@ -143,6 +143,10 @@
             {
               "level": "follower_mod",
               "label": "Foll Mod"
+            },
+            {
+              "level": "next_harm",
+              "label": "Next Harm"
             },
             {
               "level": "ui_test",
@@ -749,6 +753,89 @@
             "content_map",
             "travel_map",
             "split_map"
+          ]
+        },
+        "next_harm": {
+          "name": "Next Harm",
+          "params": [
+            {
+              "key": "next_predict",
+              "name": "Predict",
+              "type": "enum",
+              "options": [
+                "Off",
+                "On"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
+              "key": "next_lookahead",
+              "name": "Lookahead",
+              "type": "enum",
+              "options": [
+                "Off",
+                "1/32",
+                "1/16",
+                "1/8",
+                "1/4",
+                "1/2",
+                "1 Bar"
+              ],
+              "options_as_string": true,
+              "default": "1/8"
+            },
+            {
+              "key": "next_model",
+              "name": "Model",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "next_shift",
+              "name": "Shift",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "next_loop_length",
+              "name": "Loop Length",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "next_position",
+              "name": "Position",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "next_harmony",
+              "name": "Next",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "next_reset",
+              "name": "Reset Learn",
+              "type": "enum",
+              "options": [
+                "Off",
+                "Reset"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            }
+          ],
+          "knobs": [
+            "next_predict",
+            "next_lookahead",
+            "next_model",
+            "next_shift",
+            "next_loop_length",
+            "next_position",
+            "next_harmony",
+            "next_reset"
           ]
         }
       },
@@ -1842,6 +1929,74 @@
         "canvas_script": "canvas.js",
         "canvas_overlay": "ui_test",
         "as_page": true
+      },
+      {
+        "key": "next_predict",
+        "name": "Predict",
+        "type": "enum",
+        "options": [
+          "Off",
+          "On"
+        ],
+        "options_as_string": true,
+        "default": "Off"
+      },
+      {
+        "key": "next_lookahead",
+        "name": "Lookahead",
+        "type": "enum",
+        "options": [
+          "Off",
+          "1/32",
+          "1/16",
+          "1/8",
+          "1/4",
+          "1/2",
+          "1 Bar"
+        ],
+        "options_as_string": true,
+        "default": "1/8"
+      },
+      {
+        "key": "next_model",
+        "name": "Model",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "next_shift",
+        "name": "Shift",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "next_loop_length",
+        "name": "Loop Length",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "next_position",
+        "name": "Position",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "next_harmony",
+        "name": "Next",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "next_reset",
+        "name": "Reset Learn",
+        "type": "enum",
+        "options": [
+          "Off",
+          "Reset"
+        ],
+        "options_as_string": true,
+        "default": "Off"
       }
     ],
     "pre_capable": 1
