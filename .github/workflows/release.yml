@@ -29,6 +29,19 @@ jobs:
             fi
           fi
 
+      - name: Apply v0.2.66 version bump
+        run: |
+          if test -f scripts/bump_to_0266.py; then
+            python3 scripts/bump_to_0266.py
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add modules/harmonybus/module.json
+            if ! git diff --cached --quiet; then
+              git commit -m 'Bump HarmonyBus to v0.2.66'
+              git push origin main
+            fi
+          fi
+
       - name: Resolve version
         run: |
           VERSION=$(python3 -c 'import json; print(json.load(open("modules/harmonybus/module.json"))["version"])')
@@ -68,4 +81,26 @@ jobs:
             gh release create "$TAG" "$HB" \
               --title "Harmony Bus ${TAG}" \
               --notes "HarmonyBus MIDI FX for Ableton Move."
+          fi
+
+      - name: Update Module Store metadata
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          release = {
+              "version": version,
+              "download_url": f"https://github.com/douglasmason/harmonybus/releases/download/v{version}/harmonybus-v{version}-module.tar.gz",
+          }
+          Path("release.json").write_text(json.dumps(release, indent=2) + "\n")
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add release.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update release.json for v${VERSION}"
+            git push origin main
           fi
