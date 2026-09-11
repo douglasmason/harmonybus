@@ -23,4 +23,6 @@ jobs:
           /tmp/hb_virtual_bank_test
           clang -std=c11 -O2 tests/hb_virtual_router_test.c src/hb_virtual_bank.c src/hb_virtual_router.c -o /tmp/hb_virtual_router_test
           /tmp/hb_virtual_router_test
+          clang -std=c11 -O2 tests/hb_virtual_midi_test.c src/hb_virtual_midi.c -o /tmp/hb_virtual_midi_test
+          /tmp/hb_virtual_midi_test
           python3 tests/test_movy_harmonybus_profile.py
