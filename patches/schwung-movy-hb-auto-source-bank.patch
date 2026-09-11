@@ -1,0 +1,60 @@
+diff --git a/src/seq/ui-state.ts b/src/seq/ui-state.ts
+--- a/src/seq/ui-state.ts
++++ b/src/seq/ui-state.ts
+@@ -15,5 +15,35 @@
+ import { readPrefDefaultQuant } from './prefs.js';
+ import { perSetFlagsSnapshot } from './flags.js';
+-import { loadSetHostChoice } from '../track/host-mode.js';
++import { loadSetHostChoice, setMovyTracks } from '../track/host-mode.js';
++
++/* Dedicated HarmonyBus/Movy overlay: fresh sets are born with four source
++ * tracks on Movy's hosted bank while native Move/Schwung keeps tracks 1-4.
++ * Movy indices are zero-based, so user tracks 5-8 are t=4..7. */
++const HB_SOURCE_CHAINS = [
++    {
++        t: 4,
++        comp: [
++            { c: 'midi_fx1', m: 'harmonybus', s: 'hb15,0,0,0,25,2,0,0,0,0,0,0,2,0,0,0,1,0,0,0,20,60,0,0,0,0' },
++            { c: 'synth', m: 'plaits' },
++        ],
++    },
++    {
++        t: 5,
++        comp: [
++            { c: 'midi_fx1', m: 'harmonybus', s: 'hb15,1,0,0,25,2,0,0,0,0,0,0,1,0,0,0,1,0,0,0,20,60,0,0,0,0' },
++            { c: 'synth', m: 'plaits' },
++        ],
++    },
++    {
++        t: 6,
++        comp: [
++            { c: 'midi_fx1', m: 'harmonybus', s: 'hb15,1,0,0,25,2,0,0,0,0,0,0,2,0,0,0,1,0,0,0,20,60,0,0,0,0' },
++            { c: 'synth', m: 'plaits' },
++        ],
++    },
++    {
++        t: 7,
++        comp: [
++            { c: 'midi_fx1', m: 'harmonybus', s: 'hb15,1,0,0,25,2,0,0,0,0,0,0,3,0,0,0,1,0,0,0,20,60,0,0,0,0' },
++            { c: 'synth', m: 'plaits' },
++        ],
++    },
++];
+ 
+ const clampInt = (v: unknown, lo: number, hi: number, dflt: number): number =>
+@@ -107,9 +137,10 @@
+ /* Defaults match init(): C tonic, Major, Chromatic/4ths, C3 on every track. */
+ export function resetUiState(): void {
+-    /* A Set with no UI blob at all is new work: it takes the shipped default,
+-     * which puts tracks 1-4 on movy's own chains. */
+-    loadSetHostChoice(null);
+-    /* A Set with no UI blob wants no movy chains — the same clean slate schwung
+-     * gives an unseen set when it seeds empty slots. */
+-    restoreChains(null, null);
++    /* The HarmonyBus overlay deliberately keeps the audible/export bank on
++     * native Move/Schwung and uses Movy only for source tracks 5-8. This is a
++     * dedicated integration build, so it overrides Movy's normal new-set host
++     * preference rather than silently moving tracks 1-4 into hosted chains. */
++    setMovyTracks(false);
++    restoreChains(HB_SOURCE_CHAINS, null);
+     keyboardState.rootPc = 0;

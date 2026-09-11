@@ -1,0 +1,78 @@
+diff --git a/src/mixer/track-mutes.ts b/src/mixer/track-mutes.ts
+--- a/src/mixer/track-mutes.ts
++++ b/src/mixer/track-mutes.ts
+@@ -8,4 +8,6 @@
+ import { markUiStateDirty } from '../seq/ui-dirty.js';
+ import { seqToast } from '../seq/render.js';
+ import { mlog } from '../log.js';
++import { MIX_KEY, packMixValue, parseMixValue, readMix } from './mix-io.js';
++import { portFor } from '../track/registry.js';
+ 
+@@ -33,2 +35,10 @@
+ const solo: boolean[] = new Array(TRACK_COUNT).fill(false) as boolean[];
+ let base: boolean[] | null = null;   /* user's own mutes, held while a solo is up */
++const HB_SOURCE_FIRST = 4;
++const HB_SOURCE_LAST = 7;
++const sourceAudioMuted: boolean[] = new Array(TRACK_COUNT).fill(false) as boolean[];
++
++function isHbSourceTrack(track: number): boolean {
++    return track >= HB_SOURCE_FIRST && track <= HB_SOURCE_LAST;
++}
+ 
+@@ -40,4 +50,13 @@
+ /* What the user asked for, ignoring solo — the state a mute toggle flips. */
+ export function isMuted(track: number): boolean {
++    if (isHbSourceTrack(track)) return sourceAudioMuted[track];
+     return base ? base[track] : seqState.muted[track];
+ }
++
++function setSourceAudioMute(track: number, want: boolean): void {
++    const mix = readMix(track);
++    mix.muted = want;
++    portFor(track).setParam(MIX_KEY, packMixValue(mix));
++    sourceAudioMuted[track] = want;
++    markUiStateDirty();
++}
+@@ -83,2 +102,9 @@
+ export function toggleMute(track: number): void {
+     if (track < 0 || track >= TRACK_COUNT) return;
++    if (isHbSourceTrack(track)) {
++        const next = !sourceAudioMuted[track];
++        setSourceAudioMute(track, next);
++        mlog('source audio mute t=' + track + ' -> ' + (next ? 1 : 0));
++        seqToast('T' + (track + 1) + (next ? ' SRC MUTED' : ' SRC UNMUTED'));
++        return;
++    }
+     asOneEdit(isMuted(track) ? 'UNMUTE' : 'MUTE', trackLabel(track), () => {
+@@ -116,4 +142,18 @@
+ export function resetTrackMutes(): void {
+     for (let t = 0; t < TRACK_COUNT; t++) solo[t] = false;
++    for (let t = HB_SOURCE_FIRST; t <= HB_SOURCE_LAST; t++) sourceAudioMuted[t] = false;
+     base = null;
+ }
++
++export function restoreSourceAudioMutes(chains: unknown): void {
++    for (let t = HB_SOURCE_FIRST; t <= HB_SOURCE_LAST; t++) sourceAudioMuted[t] = false;
++    if (!Array.isArray(chains)) return;
++    for (const chain of chains) {
++        if (!chain || typeof chain !== 'object') continue;
++        const track = (chain as { t?: unknown }).t;
++        const rawMix = (chain as { mix?: unknown }).mix;
++        if (typeof track !== 'number' || !isHbSourceTrack(track) || typeof rawMix !== 'string') continue;
++        sourceAudioMuted[track] = parseMixValue(rawMix).muted;
++    }
++}
+ 
+diff --git a/src/seq/ui-state.ts b/src/seq/ui-state.ts
+--- a/src/seq/ui-state.ts
++++ b/src/seq/ui-state.ts
+@@ -12,3 +12,4 @@
+ import { MODE_NAMES, layoutNames } from '../keyboard/layouts.js';
+ import { SCALES } from './scales.js';
+-import { mutesSnapshot, restoreMutes, resetTrackMutes } from '../mixer/track-mutes.js';
++import { mutesSnapshot, restoreMutes, resetTrackMutes, restoreSourceAudioMutes }
++    from '../mixer/track-mutes.js';
+@@ -50,2 +51,3 @@
+         loadSetHostChoice(o.flags && typeof o.flags === 'object' ? o.flags : {});
++        restoreSourceAudioMutes(o.chains);
+         /* Then the chains, before anything cosmetic: the loads are queued one
