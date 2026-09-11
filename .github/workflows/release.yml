@@ -16,16 +16,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply follower modifier migrations
+      - name: Apply HarmonyBus migrations
         run: |
-          for script in scripts/add_follower_modifier_panel.py scripts/bump_to_0266.py scripts/finish_follower_mod_v0267.py scripts/fix_follower_mod_v0268.py scripts/fix_follower_mod_v0269.py; do
+          for script in scripts/add_follower_modifier_panel.py scripts/bump_to_0266.py scripts/finish_follower_mod_v0267.py scripts/fix_follower_mod_v0268.py scripts/fix_follower_mod_v0269.py scripts/move_follower_scale_v0270.py; do
             if test -f "$script"; then python3 "$script"; fi
           done
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Apply HarmonyBus follower modifier migrations through v0.2.69'
+            git commit -m 'Apply HarmonyBus migrations through v0.2.70'
             git push origin main
           fi
 
