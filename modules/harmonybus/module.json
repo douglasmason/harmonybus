@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.89",
-  "abbrev": "HB289",
-  "version": "0.2.89",
+  "name": "Harmony Bus 0.2.90",
+  "abbrev": "HB290",
+  "version": "0.2.90",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.89 \u2014 full-loop learned harmony lookahead",
+  "description": "Harmony Bus v0.2.90 \u2014 robust full-duration learned harmony lookahead",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.89",
+          "name": "Harmony Bus 0.2.90",
           "params": [
             {
               "key": "version",
@@ -759,17 +759,6 @@
           "name": "Next Harm",
           "params": [
             {
-              "key": "next_predict",
-              "name": "Predict",
-              "type": "enum",
-              "options": [
-                "Off",
-                "On"
-              ],
-              "options_as_string": true,
-              "default": "Off"
-            },
-            {
               "key": "next_lookahead",
               "name": "Lookahead",
               "type": "enum",
@@ -828,7 +817,6 @@
             }
           ],
           "knobs": [
-            "next_predict",
             "next_lookahead",
             "next_model",
             "next_shift",
@@ -1929,17 +1917,6 @@
         "canvas_script": "canvas.js",
         "canvas_overlay": "ui_test",
         "as_page": true
-      },
-      {
-        "key": "next_predict",
-        "name": "Predict",
-        "type": "enum",
-        "options": [
-          "Off",
-          "On"
-        ],
-        "options_as_string": true,
-        "default": "Off"
       },
       {
         "key": "next_lookahead",
