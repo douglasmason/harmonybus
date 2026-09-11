@@ -34,16 +34,12 @@ jobs:
           python3 scripts/apply_conductor_monitor.py /tmp/harmonybus.c
           python3 scripts/apply_conductor_monitor.py /tmp/harmonybus.c
           grep -q 'HB conductor monitor injection' /tmp/harmonybus.c
-      - name: Validate and build Movy overlays against current upstream
+      - name: Validate and build HarmonyBus Movy integration against current upstream
         run: |
           git clone --depth 1 https://github.com/DimaDake/schwung-movy.git /tmp/schwung-movy
+          python3 scripts/apply_movy_harmonybus.py /tmp/schwung-movy
+          python3 scripts/apply_movy_harmonybus.py /tmp/schwung-movy
           cd /tmp/schwung-movy
-          git apply --check "$GITHUB_WORKSPACE/patches/schwung-movy-hb-source-audio-mute.patch"
-          git apply "$GITHUB_WORKSPACE/patches/schwung-movy-hb-source-audio-mute.patch"
-          git apply --check "$GITHUB_WORKSPACE/patches/schwung-movy-hb-two-bank-navigation.patch"
-          git apply "$GITHUB_WORKSPACE/patches/schwung-movy-hb-two-bank-navigation.patch"
-          git apply --check "$GITHUB_WORKSPACE/patches/schwung-movy-hb-auto-source-bank.patch"
-          git apply "$GITHUB_WORKSPACE/patches/schwung-movy-hb-auto-source-bank.patch"
           npm install
           npm run typecheck
           npm run build:device
