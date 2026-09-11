@@ -4,20 +4,15 @@ from __future__ import annotations
 
 import json
 import re
-import runpy
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "modules/harmonybus/module.json"
 DSP = ROOT / "modules/harmonybus/dsp/harmonybus.c"
 
-# Only migrate through v0.2.89 when the checked-out source has not already
-# been normalized to v0.2.90. The v0.2.89 normalizer is intentionally tied to
-# the older source shape and must not be replayed over the new implementation.
-existing_module = json.loads(MODULE.read_text())
-if existing_module.get("version") != "0.2.90":
-    runpy.run_path(str(ROOT / "scripts/release_v0289.py"), run_name="__main__")
-
+# Main is already on the v0.2.89 implementation. Transform that source
+# directly instead of replaying historical normalizers, which are intentionally
+# tied to older source shapes and can duplicate/corrupt the getter section.
 module = json.loads(MODULE.read_text())
 module["version"] = "0.2.90"
 module["name"] = "Harmony Bus 0.2.90"
@@ -35,18 +30,21 @@ source = DSP.read_text()
 source = re.sub(r'/\* Harmony Bus v0\.2\.\d+ — Schwung MIDI FX\. \*/', '/* Harmony Bus v0.2.90 — Schwung MIDI FX. */', source, count=1)
 source = re.sub(r'#define HB_VERSION "0\.2\.\d+"', '#define HB_VERSION "0.2.90"', source, count=1)
 
-# Canonicalize only the beginning of get_param. Older normalizers duplicated
-# Next Harm getters there; never run a broad regex across set_param/get_param.
+# Canonicalize the beginning of get_param. v0.2.89 currently contains repeated
+# Next Harm getter blocks from earlier idempotence mistakes. Remove only the
+# region between the harmony declaration and the ordinary Version getter, then
+# insert one canonical block.
 get_start = source.find('static int get_param(')
 if get_start < 0:
     raise SystemExit('get_param function not found')
-harmony_decl = source.find('hb_harmony_t harmony=bus_read();', get_start)
+harmony_decl_text = 'hb_harmony_t harmony=bus_read();'
+harmony_decl = source.find(harmony_decl_text, get_start)
 if harmony_decl < 0:
     raise SystemExit('get_param harmony declaration not found')
 version_marker = source.find('if(!strcmp(key,"version"))', harmony_decl)
 if version_marker < 0:
     raise SystemExit('get_param version marker not found')
-insert_at = harmony_decl + len('hb_harmony_t harmony=bus_read();')
+insert_at = harmony_decl + len(harmony_decl_text)
 get_block = '''\nif(!strcmp(key,"next_lookahead")){int index=g_bus.next_lookahead;if(index<0||index>6)index=3;return snprintf(buffer,(size_t)length,"%s",NEXT_LOOKAHEAD_OPTS[index]);}
 if(!strcmp(key,"next_model"))return snprintf(buffer,(size_t)length,"%s",g_bus.next_model_locked?"Locked":"Learning");
 if(!strcmp(key,"next_shift"))return snprintf(buffer,(size_t)length,"%s",g_bus.next_shift_active?"Early":"Live");
@@ -89,8 +87,9 @@ promote_new = '''static void hb_next_promote_learning(void){
 }'''
 if re.search(r'static void hb_next_promote_learning\(void\)', source):
     source = re.sub(promote_re, promote_new, source, count=1, flags=re.S)
+else:
+    raise SystemExit('hb_next_promote_learning not found')
 
-update_old_re = r'static void hb_next_update_playhead\(void\)\{.*?\n\}'
 update_new = '''static void hb_next_update_playhead(int frames,int sample_rate){
     double playhead=hb_clip_playhead();
     g_bus.next_last_playhead=playhead;
@@ -107,8 +106,10 @@ update_new = '''static void hb_next_update_playhead(int frames,int sample_rate){
     }
     hb_next_apply_effective(playhead);
 }'''
-if re.search(r'static void hb_next_update_playhead\(void\)', source):
-    source = re.sub(update_old_re, update_new, source, count=1, flags=re.S)
+if 'static void hb_next_update_playhead(void)' in source:
+    source = re.sub(r'static void hb_next_update_playhead\(void\)\{.*?\n\}', update_new, source, count=1, flags=re.S)
+elif 'static void hb_next_update_playhead(int frames,int sample_rate)' not in source:
+    raise SystemExit('hb_next_update_playhead not found')
 
 # Collapse duplicated v0.2.89 calls and preserve the last sampled position on stop.
 source = re.sub(r'(?:\s*if\(instance->role==0\)hb_next_update_playhead\(\);)+', '\n            if(instance->role==0)hb_next_update_playhead(frames,sample_rate);', source)
