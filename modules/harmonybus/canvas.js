@@ -15,6 +15,10 @@ const TOUCH_K2 = 1;
 const TOUCH_K3 = 2;
 const TOUCH_K4 = 3;
 const TOUCH_K5 = 4;
+const TOUCH_K2 = 1;
+const TOUCH_K3 = 2;
+const TOUCH_K4 = 3;
+const TOUCH_K5 = 4;
 const TOUCH_K6 = 5;
 const TOUCH_K7 = 6;
 const TOUCH_K8 = 7;
@@ -59,6 +63,12 @@ function resetModifier(ctx, state) {
 }
 
 function handleTouch(ctx, state, note, down) {
+    /* K1 touch is intentionally inert; K1 rotation only selects Next/Held/Off. */
+    if (down && note === TOUCH_K2) { ctx.setParam("travel_map", "Direct"); state.lastAction = "DIRECT"; return true; }
+    if (down && note === TOUCH_K3) { ctx.setParam("travel_map", "Relative"); state.lastAction = "RELATIVE"; return true; }
+    if (down && note === TOUCH_K4) { ctx.setParam("travel_map", "Closest"); state.lastAction = "CLOSEST"; return true; }
+    if (down && note === TOUCH_K5) { ctx.setParam("travel_map", "Closest Split"); state.lastAction = "CLOSEST SPLIT"; return true; }
+    if (!down && (note === TOUCH_K2 || note === TOUCH_K3 || note === TOUCH_K4 || note === TOUCH_K5)) return true;
     /* K1 touch is intentionally inert; K1 rotation only selects Next/Held/Off. */
     if (down && note === TOUCH_K2) { ctx.setParam("travel_map", "Direct"); state.lastAction = "DIRECT"; return true; }
     if (down && note === TOUCH_K3) { ctx.setParam("travel_map", "Relative"); state.lastAction = "RELATIVE"; return true; }
