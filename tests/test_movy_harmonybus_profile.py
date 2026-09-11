@@ -40,12 +40,12 @@ def test_preserves_unrelated_chains_and_ui_state(profile: ModuleType) -> None:
 
 
 def test_harmonybus_defaults(profile: ModuleType) -> None:
-    """Tracks 5-8 are seeded Conductor/Follower with render channels 3/off and 2-4."""
+    """Tracks 5-8 seed Conductor/Follower output channels 3 and 2-4."""
     merged: dict[str, Any] = profile.merge_source_bank({}, synth_module="plaits")
     map_track_to_chain: dict[int, dict[str, Any]] = {chain["t"]: chain for chain in merged["chains"]}
 
     expected_state: dict[int, str] = {
-        4: "hb15,0,0,0,25,2,0,0,0,0,0,0,-1,0,0,0,1,0,0,0,20,60,0,0,0,0",
+        4: "hb15,0,0,0,25,2,0,0,0,0,0,0,2,0,0,0,1,0,0,0,20,60,0,0,0,0",
         5: "hb15,1,0,0,25,2,0,0,0,0,0,0,1,0,0,0,1,0,0,0,20,60,0,0,0,0",
         6: "hb15,1,0,0,25,2,0,0,0,0,0,0,2,0,0,0,1,0,0,0,20,60,0,0,0,0",
         7: "hb15,1,0,0,25,2,0,0,0,0,0,0,3,0,0,0,1,0,0,0,20,60,0,0,0,0",
