@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.86 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.86"
+/* Harmony Bus v0.2.87 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.87"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1248,12 +1248,14 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
     int source_degree_interval=hb_nth_scale_interval_from_root(parent_scale,source_root,source_degree);
     int source_root_note=source_note-source_degree_interval;
     source_root_note=hb_note_near_pc(source_root_note,source_root);
-    int target_root_note=hb_note_near_pc(source_root_note,detected.root_pc);
 
     for(int degree=0;degree<HB_CLOSEST_SPLIT_DEGREES;degree++){
+        int source_interval=hb_nth_scale_interval_from_root(parent_scale,source_root,degree);
         int target_interval=hb_nth_scale_interval_from_root(chord_scale,detected.root_pc,degree);
         int degree_pc=mod12(detected.root_pc+target_interval);
-        nominal_by_degree[degree]=target_root_note+target_interval;
+        /* Closest Split stays near the source degree's ACTUAL register position.
+           Using target_root+target_degree here reconstructs Relative mapping. */
+        nominal_by_degree[degree]=source_root_note+source_interval;
 
         uint16_t preferred=0;
         int split=g_bus.follower_split_map;
@@ -1275,13 +1277,10 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
         allowed_by_degree[degree]=(unsigned int)(preferred?preferred:legal);
     }
 
-    /* Solve the seven follower degrees jointly.  For the explicit 135/2467
-       and 1357/246 splits, the preferred masks partition the seven-note
-       chord-scale, so closest_split.h assigns every scale pitch class exactly
-       once while keeping rendered MIDI pitches strictly ascending.  Only when
-       Content removes too many pitch classes do we permit octave-repeated
-       pitch classes; MIDI-note ordering remains strict in all cases. */
-    if(!hb_build_monotonic_degree_ladder(nominal_by_degree,allowed_by_degree,output_by_degree))
+    /* Solve jointly only to avoid exact MIDI-note collisions. Proximity is
+       primary; pitch-class repetition and local inversions are allowed so
+       Closest Split remains musically distinct from Relative. */
+    if(!hb_build_closest_split_assignment(nominal_by_degree,allowed_by_degree,output_by_degree))
         return hb_map_note(source_note,reference_root(instance),content_target,HB_MAP_NEAREST);
     return output_by_degree[source_degree];
 }
