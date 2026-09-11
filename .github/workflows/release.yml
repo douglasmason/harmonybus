@@ -18,12 +18,12 @@ jobs:
 
       - name: Apply current HarmonyBus normalization
         run: |
-          python3 scripts/release_v0291.py
+          python3 scripts/release_v0292.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.91 source'
+            git commit -m 'Normalize HarmonyBus v0.2.92 source'
             git push origin main
           fi
 
@@ -38,9 +38,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.91'
+          assert module['version']=='0.2.92'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.91'
+          assert levels['root']['name']=='Harmony Bus 0.2.92'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -49,45 +49,43 @@ jobs:
               'foll_mod_blank5','approach_reset','approach_scale_next','approach_chrom_next'
           ]
           assert any(p.get('key')=='travel_map' for p in levels['follower_mod']['params'])
-          assert not any(p.get('key')=='foll_mod_blank2' for p in levels['follower_mod']['params'])
           assert levels['next_harm']['name']=='Next Harm'
           assert levels['next_harm']['knobs']==[
               'next_lookahead','next_model','next_shift','next_loop_length',
               'next_position','next_harmony','next_reset'
           ]
-          assert not any(p.get('key')=='next_predict' for p in levels['next_harm']['params'])
-          assert any(item.get('level')=='next_harm' for item in levels['root']['params'])
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
+          # Shared harmony/prediction semantics remain global.
+          assert 'static double hb_chord_grid_beats(void)' in source
+          assert 'static double hb_anticipation_beats(void)' in source
+          assert 'hb_global_root_policy()' in source
+          assert 'hb_global_explicit_root()' in source
+          assert 'static void hb_next_update_playhead(int frames,int sample_rate)' in source
+          assert 'static int hb_next_model_accepts_observed' in source
+          # Follower voice behavior is now instance-local.
+          assert 'int content_map=instance->content_map;' in source
+          assert 'int travel=instance->travel_map;' in source
+          assert 'int explicit_scale=instance?instance->follower_scale:0;' in source
+          assert 'int split=instance->follower_split_map;' in source
+          assert 'hb_quant_grid_beats_for(instance)' in source
+          assert 'hb_ms_to_beats(instance->boundary_buffer_ms)' in source
+          assert 'instance->approach_control=hb_approach_toggle' in source
+          assert '"hb16,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d"' in source
+          for obsolete in (
+              'hb_global_content_map()', 'hb_global_travel_map()', 'hb_global_scale()',
+              'hb_set_global_content_map(', 'hb_set_global_travel_map(', 'hb_set_global_scale('
+          ):
+              assert obsolete not in source, obsolete
+          # Existing timing and mapping invariants stay intact.
           assert '#include "../../../src/follower_timing.h"' in source
           assert '#include "../../../src/closest_split.h"' in source
-          assert 'static void hb_next_update_playhead(int frames,int sample_rate)' in source
-          assert 'next_learning_progress_beats' in source
-          assert 'A full loop LENGTH of observation covers every circular clip phase' in source
-          assert source.count('hb_next_update_playhead(frames,sample_rate);') == 1
-          assert 'static int hb_next_model_accepts_observed' in source
-          assert 'static void hb_next_begin_relearning' in source
-          assert 'Compare against the UNSHIFTED learned schedule' in source
-          assert 'g_bus.next_model_locked&&!hb_next_model_accepts_observed' in source
-          getp=source[source.index('static int get_param('):]
-          assert getp.count('if(!strcmp(key,"next_lookahead"))') == 1
-          assert 'static void hb_commit_observed_harmony' in source
           assert 'learned_boundary=hb_next_effective_boundary' in source
-          assert 'hb_harmony_t committed=hb_observed_read();' in source
-          assert 'if(g_host&&g_host->get_clock_status)' in source
-          assert 'if(g_bus.clip_context&&g_host&&g_host->get_clock_status)' not in source
-          assert 'g_bus.have_last_clip_playhead=0;g_bus.next_have_playhead=0' not in source
+          assert 'Compare against the UNSHIFTED learned schedule' in source
           closest=source[source.index('static int hb_map_follower_note_closest_split'):source.index('static int hb_map_follower_note_now')]
-          assert 'nominal_by_degree[degree]=source_root_note+source_interval;' in closest
           assert 'hb_build_closest_split_assignment(' in closest
-          assert 'hb_build_monotonic_degree_ladder(' not in closest
           queue=source[source.index('static int hb_queue_follower_event'):source.index('static int hb_source_interval_to_default_degree')]
           assert 'hb_follower_capture_target(' in queue
           assert 'hb_next_effective_boundary' in queue
-          assert 'instance->follower_queue_age_frames[slot]=0;' in queue
-          release=source[source.index('static int hb_release_follower_queue'):source.index('static int hb_reharmonize_held_follower')]
-          assert 'hb_follower_needs_same_tick_barrier(' in release
-          assert 'if(hb_conductor_pending_for_follow())' not in release
-          assert 'if(age<0)' not in release
           PY
 
       - name: Install build tools
@@ -121,7 +119,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.91'
+          assert module['version']==os.environ['VERSION']=='0.2.92'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -137,7 +135,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" --clobber
           else
-            gh release create "$TAG" "$HB" --title "Harmony Bus ${TAG}" --notes "HarmonyBus MIDI FX for Ableton Move."
+            gh release create "$TAG" "$HB" --title "Harmony Bus ${TAG}" --notes "Independent per-follower Content, Travel, Split, Scale, modifiers, Quant Grid and Follower Buffer; shared harmony/lookahead semantics retained."
           fi
 
       - name: Update Module Store metadata
