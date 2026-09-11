@@ -2,6 +2,8 @@
 #define HARMONYBUS_CLOSEST_SPLIT_H
 
 #define HB_CLOSEST_SPLIT_DEGREES 7
+#define HB_CLOSEST_SPLIT_MAX_MONOTONIC_DISPLACEMENT 6
+#define HB_CLOSEST_SPLIT_MAX_EXTRA_COST 8
 
 static inline int hb_cs_mod12(int value) {
     value %= 12;
@@ -12,22 +14,12 @@ static inline int hb_cs_abs(int value) {
     return value < 0 ? -value : value;
 }
 
-static inline int hb_cs_popcount12(unsigned int mask) {
-    int count = 0;
-    mask &= 0x0FFFu;
-    for (int pitch_class = 0; pitch_class < 12; ++pitch_class)
-        if (mask & (1u << pitch_class)) ++count;
-    return count;
-}
-
-static inline int hb_cs_nearest_at_or_above(int nominal, int minimum,
-                                             unsigned int pitch_mask) {
+static inline int hb_cs_nearest(int nominal, unsigned int pitch_mask) {
     int best = -1;
     int best_distance = 1000000;
     pitch_mask &= 0x0FFFu;
     if (!pitch_mask) return -1;
-    if (minimum < 0) minimum = 0;
-    for (int candidate = minimum; candidate <= 127; ++candidate) {
+    for (int candidate = 0; candidate <= 127; ++candidate) {
         if (!(pitch_mask & (1u << hb_cs_mod12(candidate)))) continue;
         int distance = hb_cs_abs(candidate - nominal);
         if (distance < best_distance) {
@@ -38,150 +30,104 @@ static inline int hb_cs_nearest_at_or_above(int nominal, int minimum,
     return best;
 }
 
-static inline int hb_cs_nearest_pc_at_or_above(int nominal, int minimum,
-                                                 int pitch_class) {
-    if (minimum < 0) minimum = 0;
-    pitch_class = hb_cs_mod12(pitch_class);
-    int best = -1;
-    int best_distance = 1000000;
-    for (int candidate = minimum; candidate <= 127; ++candidate) {
-        if (hb_cs_mod12(candidate) != pitch_class) continue;
-        int distance = hb_cs_abs(candidate - nominal);
-        if (distance < best_distance) {
-            best = candidate;
-            best_distance = distance;
-        }
-    }
-    return best;
+static inline int hb_cs_strictly_increasing(
+    const int values[HB_CLOSEST_SPLIT_DEGREES]) {
+    for (int degree = 1; degree < HB_CLOSEST_SPLIT_DEGREES; ++degree)
+        if (values[degree] <= values[degree - 1]) return 0;
+    return 1;
 }
 
-static inline void hb_cs_search_unique(
-    int degree,
-    const int nominal_by_degree[HB_CLOSEST_SPLIT_DEGREES],
-    const unsigned int allowed_mask_by_degree[HB_CLOSEST_SPLIT_DEGREES],
-    int previous_note,
-    unsigned int used_pitch_classes,
-    int running_score,
-    int trial[HB_CLOSEST_SPLIT_DEGREES],
-    int *best_score,
-    int *have_best,
-    int best_outputs[HB_CLOSEST_SPLIT_DEGREES]) {
-
-    if (degree == HB_CLOSEST_SPLIT_DEGREES) {
-        if (!*have_best || running_score < *best_score) {
-            for (int index = 0; index < HB_CLOSEST_SPLIT_DEGREES; ++index)
-                best_outputs[index] = trial[index];
-            *best_score = running_score;
-            *have_best = 1;
-        }
-        return;
-    }
-
-    if (*have_best && running_score >= *best_score) return;
-
-    unsigned int allowed = allowed_mask_by_degree[degree] & 0x0FFFu;
-    for (int pitch_class = 0; pitch_class < 12; ++pitch_class) {
-        unsigned int bit = 1u << pitch_class;
-        if (!(allowed & bit) || (used_pitch_classes & bit)) continue;
-        int candidate = hb_cs_nearest_pc_at_or_above(
-            nominal_by_degree[degree], previous_note + 1, pitch_class);
-        if (candidate < 0) continue;
-        trial[degree] = candidate;
-        hb_cs_search_unique(
-            degree + 1,
-            nominal_by_degree,
-            allowed_mask_by_degree,
-            candidate,
-            used_pitch_classes | bit,
-            running_score + hb_cs_abs(candidate - nominal_by_degree[degree]),
-            trial,
-            best_score,
-            have_best,
-            best_outputs);
-    }
-}
-
-/* Build seven distinct, strictly ascending MIDI pitches, one for each
- * follower scale degree 0..6.
+/* Closest Split is fundamentally a proximity mapper, not a scale-degree mapper.
+ * First find the independently closest pitch in each degree's assigned split
+ * pool. If that result is already strictly ordered, keep it exactly.
  *
- * Strong invariant: when the union of the per-degree legal masks contains
- * exactly seven pitch classes and a complete assignment exists, use every one
- * exactly once. This is the normal case for the explicit Closest Split modes
- * 135 / 2467 and 1357 / 246: their two sides partition the seven-note
- * chord-scale, so all seven follower degrees map to seven distinct scale pitch
- * classes in strictly increasing MIDI order.
+ * When independent closest choices cross or collide, try a best-effort
+ * monotonic repair. The repair is accepted only when it remains musically
+ * close: no degree may move more than six semitones from its nominal and the
+ * total movement may exceed the independent optimum by at most eight
+ * semitones. Otherwise proximity wins and the independent result is returned.
  *
- * If Content restrictions make a seven-pitch-class assignment impossible,
- * fall back to the weaker invariant: seven distinct, strictly increasing MIDI
- * notes. Pitch classes may then repeat in later octaves, but degree order can
- * never collapse or invert.
+ * This intentionally does NOT require seven unique pitch classes. Repeated
+ * pitch classes in different octaves are legal, and even local inversions are
+ * legal when enforcing monotonicity would create an obviously non-closest
+ * mapping. This keeps Closest Split behavior distinct from Relative.
  */
-static inline int hb_build_monotonic_degree_ladder(
+static inline int hb_build_closest_split_ladder(
     const int nominal_by_degree[HB_CLOSEST_SPLIT_DEGREES],
     const unsigned int allowed_mask_by_degree[HB_CLOSEST_SPLIT_DEGREES],
     int output_by_degree[HB_CLOSEST_SPLIT_DEGREES]) {
 
-    unsigned int union_mask = 0;
-    for (int degree = 0; degree < HB_CLOSEST_SPLIT_DEGREES; ++degree)
-        union_mask |= allowed_mask_by_degree[degree] & 0x0FFFu;
+    int independent[HB_CLOSEST_SPLIT_DEGREES];
+    int independent_cost = 0;
+    for (int degree = 0; degree < HB_CLOSEST_SPLIT_DEGREES; ++degree) {
+        int candidate = hb_cs_nearest(
+            nominal_by_degree[degree], allowed_mask_by_degree[degree]);
+        if (candidate < 0) return 0;
+        independent[degree] = candidate;
+        independent_cost += hb_cs_abs(candidate - nominal_by_degree[degree]);
+    }
 
-    if (hb_cs_popcount12(union_mask) == HB_CLOSEST_SPLIT_DEGREES) {
-        int trial[HB_CLOSEST_SPLIT_DEGREES];
-        int best_outputs[HB_CLOSEST_SPLIT_DEGREES];
-        int best_score = 1000000000;
-        int have_best = 0;
-        hb_cs_search_unique(
-            0,
-            nominal_by_degree,
-            allowed_mask_by_degree,
-            -1,
-            0u,
-            0,
-            trial,
-            &best_score,
-            &have_best,
-            best_outputs);
-        if (have_best) {
-            for (int degree = 0; degree < HB_CLOSEST_SPLIT_DEGREES; ++degree)
-                output_by_degree[degree] = best_outputs[degree];
-            return 1;
+    if (hb_cs_strictly_increasing(independent)) {
+        for (int degree = 0; degree < HB_CLOSEST_SPLIT_DEGREES; ++degree)
+            output_by_degree[degree] = independent[degree];
+        return 1;
+    }
+
+    enum { INF = 1000000000 };
+    int cost[HB_CLOSEST_SPLIT_DEGREES][128];
+    int prev[HB_CLOSEST_SPLIT_DEGREES][128];
+
+    for (int degree = 0; degree < HB_CLOSEST_SPLIT_DEGREES; ++degree) {
+        for (int note = 0; note < 128; ++note) {
+            cost[degree][note] = INF;
+            prev[degree][note] = -1;
         }
     }
 
-    int best_outputs[HB_CLOSEST_SPLIT_DEGREES];
-    int have_best = 0;
-    int best_score = 1000000000;
+    for (int note = 0; note < 128; ++note) {
+        if (!(allowed_mask_by_degree[0] & (1u << hb_cs_mod12(note)))) continue;
+        int displacement = hb_cs_abs(note - nominal_by_degree[0]);
+        if (displacement > HB_CLOSEST_SPLIT_MAX_MONOTONIC_DISPLACEMENT) continue;
+        cost[0][note] = displacement;
+    }
 
-    for (int octave_shift = -48; octave_shift <= 48; octave_shift += 12) {
-        int trial[HB_CLOSEST_SPLIT_DEGREES];
-        int previous = -1;
-        int score = 0;
-        int valid = 1;
-
-        for (int degree = 0; degree < HB_CLOSEST_SPLIT_DEGREES; ++degree) {
-            int shifted_nominal = nominal_by_degree[degree] + octave_shift;
-            int candidate = hb_cs_nearest_at_or_above(
-                shifted_nominal, previous + 1, allowed_mask_by_degree[degree]);
-            if (candidate < 0) {
-                valid = 0;
-                break;
+    for (int degree = 1; degree < HB_CLOSEST_SPLIT_DEGREES; ++degree) {
+        for (int note = 0; note < 128; ++note) {
+            if (!(allowed_mask_by_degree[degree] & (1u << hb_cs_mod12(note)))) continue;
+            int displacement = hb_cs_abs(note - nominal_by_degree[degree]);
+            if (displacement > HB_CLOSEST_SPLIT_MAX_MONOTONIC_DISPLACEMENT) continue;
+            for (int previous = 0; previous < note; ++previous) {
+                if (cost[degree - 1][previous] == INF) continue;
+                int candidate_cost = cost[degree - 1][previous] + displacement;
+                if (candidate_cost < cost[degree][note]) {
+                    cost[degree][note] = candidate_cost;
+                    prev[degree][note] = previous;
+                }
             }
-            trial[degree] = candidate;
-            previous = candidate;
-            score += hb_cs_abs(candidate - nominal_by_degree[degree]);
-        }
-
-        if (valid && (!have_best || score < best_score)) {
-            for (int degree = 0; degree < HB_CLOSEST_SPLIT_DEGREES; ++degree)
-                best_outputs[degree] = trial[degree];
-            best_score = score;
-            have_best = 1;
         }
     }
 
-    if (!have_best) return 0;
+    int best_note = -1;
+    int best_cost = INF;
+    for (int note = 0; note < 128; ++note) {
+        if (cost[HB_CLOSEST_SPLIT_DEGREES - 1][note] < best_cost) {
+            best_cost = cost[HB_CLOSEST_SPLIT_DEGREES - 1][note];
+            best_note = note;
+        }
+    }
+
+    if (best_note >= 0 &&
+        best_cost <= independent_cost + HB_CLOSEST_SPLIT_MAX_EXTRA_COST) {
+        int note = best_note;
+        for (int degree = HB_CLOSEST_SPLIT_DEGREES - 1; degree >= 0; --degree) {
+            output_by_degree[degree] = note;
+            note = prev[degree][note];
+        }
+        return 1;
+    }
+
     for (int degree = 0; degree < HB_CLOSEST_SPLIT_DEGREES; ++degree)
-        output_by_degree[degree] = best_outputs[degree];
+        output_by_degree[degree] = independent[degree];
     return 1;
 }
 
