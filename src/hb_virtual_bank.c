@@ -67,14 +67,15 @@ int hb_virtual_bank_make_harmonybus_state(
      * retrigger_held, anticipation, boundary_buffer_ms, analysis_release_ms,
      * content_map, travel_map, follower_scale, quant_timing.
      *
-     * These match a fresh HarmonyBus instance/global bus. source_channel stays
-     * Auto (-1); Movy's hosted chain already gives us stable virtual-track
-     * ownership and the follower's output is selected solely by render_channel.
+     * These match a fresh HarmonyBus instance/global bus. Movy's private chains
+     * deliver their internal MIDI as channel 1 (status-channel nibble zero), so
+     * Source Channel is explicitly channel 1 (zero-based value 0). This avoids
+     * HarmonyBus' native Move-track ownership fallback entirely for tracks 5-8.
      */
     return snprintf(
         buffer,
         buffer_size,
-        "hb15,%d,0,0,25,2,0,0,0,0,0,0,%d,-1,0,0,1,0,0,0,20,60,0,0,0,0",
+        "hb15,%d,0,0,25,2,0,0,0,0,0,0,%d,0,0,0,1,0,0,0,20,60,0,0,0,0",
         (int)track->role,
         track->render_channel);
 }
