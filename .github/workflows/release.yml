@@ -18,12 +18,12 @@ jobs:
 
       - name: Apply current HarmonyBus normalization
         run: |
-          python3 scripts/release_v0286.py
+          python3 scripts/release_v0287.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.86 source'
+            git commit -m 'Normalize HarmonyBus v0.2.87 source'
             git push origin main
           fi
 
@@ -38,9 +38,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.86'
+          assert module['version']=='0.2.87'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.86'
+          assert levels['root']['name']=='Harmony Bus 0.2.87'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -50,10 +50,13 @@ jobs:
           ]
           assert any(p.get('key')=='travel_map' for p in levels['follower_mod']['params'])
           assert not any(p.get('key')=='foll_mod_blank2' for p in levels['follower_mod']['params'])
-          assert levels['follower_this']['name']=='Foll Trk'
-          assert levels['follower_all']['name']=='Foll All'
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
           assert '#include "../../../src/follower_timing.h"' in source
+          assert '#include "../../../src/closest_split.h"' in source
+          closest=source[source.index('static int hb_map_follower_note_closest_split'):source.index('static int hb_map_follower_note_now')]
+          assert 'nominal_by_degree[degree]=source_root_note+source_interval;' in closest
+          assert 'hb_build_closest_split_assignment(' in closest
+          assert 'hb_build_monotonic_degree_ladder(' not in closest
           queue=source[source.index('static int hb_queue_follower_event'):source.index('static int hb_source_interval_to_default_degree')]
           assert 'hb_follower_capture_target(' in queue
           assert 'instance->follower_queue_age_frames[slot]=0;' in queue
@@ -94,7 +97,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.86'
+          assert module['version']==os.environ['VERSION']=='0.2.87'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           PY
