@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.74",
-  "abbrev": "HB274",
-  "version": "0.2.74",
+  "name": "Harmony Bus 0.2.75",
+  "abbrev": "HB275",
+  "version": "0.2.75",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.74 \u2014 repaired Touch Perf as-page canvas and touch handlers",
+  "description": "Harmony Bus v0.2.75 \u2014 standard Foll Mod uses manual selector, mutually-exclusive persistent toggles, and one-shot approach buttons",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.74",
+          "name": "Harmony Bus 0.2.75",
           "params": [
             {
               "key": "version",
@@ -638,18 +638,6 @@
           "name": "Foll Mod",
           "params": [
             {
-              "key": "approach_mode",
-              "name": "Behavior",
-              "type": "enum",
-              "options": [
-                "Next",
-                "Held",
-                "Off"
-              ],
-              "options_as_string": true,
-              "default": "Next"
-            },
-            {
               "key": "approach",
               "name": "Manual",
               "type": "enum",
@@ -662,33 +650,10 @@
               "default": "Off"
             },
             {
-              "key": "foll_mod_blank3",
+              "key": "foll_mod_blank2",
               "name": "",
               "type": "string",
               "access": "read"
-            },
-            {
-              "key": "foll_mod_blank4",
-              "name": "",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "foll_mod_blank5",
-              "name": "",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "approach_reset",
-              "name": "Reset",
-              "type": "enum",
-              "options": [
-                "Off",
-                "Reset"
-              ],
-              "options_as_string": true,
-              "default": "Off"
             },
             {
               "key": "mod_scale_above",
@@ -713,29 +678,54 @@
               "default": "Off"
             },
             {
-              "key": "follower_mod_canvas",
-              "name": "Touch Perf",
-              "type": "canvas",
-              "canvas_script": "canvas.js",
-              "canvas_overlay": "follower_mod",
-              "show_value": false,
-              "as_page": true,
-              "extra_keys": [
-                "approach_mode",
-                "approach",
-                "travel_map"
-              ]
+              "key": "foll_mod_blank5",
+              "name": "",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "approach_reset",
+              "name": "Reset",
+              "type": "enum",
+              "options": [
+                "Off",
+                "Reset"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
+              "key": "approach_scale_next",
+              "name": "Scale Next",
+              "type": "enum",
+              "options": [
+                "Off",
+                "Scale +"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
+              "key": "approach_chrom_next",
+              "name": "Chrom Next",
+              "type": "enum",
+              "options": [
+                "Off",
+                "Chrom -"
+              ],
+              "options_as_string": true,
+              "default": "Off"
             }
           ],
           "knobs": [
-            "approach_mode",
             "approach",
-            "foll_mod_blank3",
-            "foll_mod_blank4",
+            "foll_mod_blank2",
+            "mod_scale_above",
+            "mod_chrom_below",
             "foll_mod_blank5",
             "approach_reset",
-            "mod_scale_above",
-            "mod_chrom_below"
+            "approach_scale_next",
+            "approach_chrom_next"
           ]
         }
       },
@@ -1732,20 +1722,6 @@
         "default": "Off"
       },
       {
-        "key": "follower_mod_canvas",
-        "name": "Touch Perf",
-        "type": "canvas",
-        "canvas_script": "canvas.js",
-        "canvas_overlay": "follower_mod",
-        "show_value": false,
-        "as_page": true,
-        "extra_keys": [
-          "approach_mode",
-          "approach",
-          "travel_map"
-        ]
-      },
-      {
         "key": "approach_status",
         "name": "Armed",
         "type": "string",
@@ -1807,6 +1783,34 @@
         "name": "",
         "type": "string",
         "access": "read"
+      },
+      {
+        "key": "foll_mod_blank2",
+        "name": "",
+        "type": "string",
+        "access": "read"
+      },
+      {
+        "key": "approach_scale_next",
+        "name": "Scale Next",
+        "type": "enum",
+        "options": [
+          "Off",
+          "Scale +"
+        ],
+        "options_as_string": true,
+        "default": "Off"
+      },
+      {
+        "key": "approach_chrom_next",
+        "name": "Chrom Next",
+        "type": "enum",
+        "options": [
+          "Off",
+          "Chrom -"
+        ],
+        "options_as_string": true,
+        "default": "Off"
       }
     ],
     "pre_capable": 1
