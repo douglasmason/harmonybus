@@ -138,6 +138,42 @@ function onExit(ctx) {
     onClose(ctx);
 }
 
+
+/* Isolated host capability diagnostic for Schwung as_page canvases. */
+function uiTestOpen(ctx) {
+    ctx.state.lastTouch = "NONE";
+    ctx.state.touchDown = false;
+}
+
+function uiTestMidi(ctx, payload) {
+    const data = payload && (payload.data || payload.midi || payload.message || payload);
+    if (!data || data.length < 3) return;
+    const status = data[0] & 0xF0;
+    if (status !== 0x90 && status !== 0x80) return;
+    const number = data[1] | 0;
+    const velocity = data[2] | 0;
+    const down = status === 0x90 && velocity >= 64;
+    if (number >= 0 && number < 8) {
+        ctx.state.lastTouch = `K${number + 1}`;
+        ctx.state.touchDown = down;
+    }
+}
+
+function uiTestDraw(ctx) {
+    ctx.clear();
+    const content = readString(ctx, "content_map", "?");
+    const travel = readString(ctx, "travel_map", "?");
+    const split = readString(ctx, "split_map", "?");
+    const touch = ctx.state.lastTouch || "NONE";
+    const edge = ctx.state.touchDown ? "DOWN" : "UP";
+    ctx.print(2, 3, "AS_PAGE UI TEST", 1);
+    ctx.print(2, 15, `K1 Content ${content}`, 1);
+    ctx.print(2, 27, `K2 Travel ${travel}`, 1);
+    ctx.print(2, 39, `K3 Split ${split}`, 1);
+    ctx.print(2, 52, `Touch ${touch} ${edge}`, 1);
+}
+
 globalThis.canvas_overlays = {
-    follower_mod: { onOpen, onMidi, draw, onClose, onExit }
+    follower_mod: { onOpen, onMidi, draw, onClose, onExit },
+    ui_test: { onOpen: uiTestOpen, onMidi: uiTestMidi, draw: uiTestDraw }
 };

@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.77 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.77"
+/* Harmony Bus v0.2.78 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.78"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;

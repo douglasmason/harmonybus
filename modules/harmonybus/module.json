@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.77",
-  "abbrev": "HB277",
-  "version": "0.2.77",
+  "name": "Harmony Bus 0.2.78",
+  "abbrev": "HB278",
+  "version": "0.2.78",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.77 \u2014 Foll Mod K6-K8 are true momentary push buttons",
+  "description": "Harmony Bus v0.2.78 \u2014 adds isolated Schwung as_page/touch UI diagnostic",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.77",
+          "name": "Harmony Bus 0.2.78",
           "params": [
             {
               "key": "version",
@@ -143,6 +143,10 @@
             {
               "level": "follower_mod",
               "label": "Foll Mod"
+            },
+            {
+              "level": "ui_test",
+              "label": "UI Test"
             },
             {
               "level": "conductor_this",
@@ -726,6 +730,28 @@
             "approach_reset",
             "approach_scale_next",
             "approach_chrom_next"
+          ]
+        },
+        "ui_test": {
+          "name": "UI Test",
+          "params": [
+            {
+              "key": "content_map"
+            },
+            {
+              "key": "travel_map"
+            },
+            {
+              "key": "split_map"
+            },
+            {
+              "key": "ui_test_canvas"
+            }
+          ],
+          "knobs": [
+            "content_map",
+            "travel_map",
+            "split_map"
           ]
         }
       },
@@ -1811,6 +1837,14 @@
         ],
         "options_as_string": true,
         "access": "write"
+      },
+      {
+        "key": "ui_test_canvas",
+        "name": "UI Test",
+        "type": "canvas",
+        "canvas_script": "canvas.js",
+        "canvas_overlay": "ui_test",
+        "as_page": true
       }
     ],
     "pre_capable": 1
