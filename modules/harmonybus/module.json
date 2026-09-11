@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.84",
-  "abbrev": "HB284",
-  "version": "0.2.84",
+  "name": "Harmony Bus 0.2.85",
+  "abbrev": "HB285",
+  "version": "0.2.85",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.84 \u2014 scale ornaments independent of Content; seven-degree monotonic Closest Split",
+  "description": "Harmony Bus v0.2.85 \u2014 pre-boundary follower capture without post-chord latency",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.84",
+          "name": "Harmony Bus 0.2.85",
           "params": [
             {
               "key": "version",

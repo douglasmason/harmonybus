@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.84 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.84"
+/* Harmony Bus v0.2.85 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.85"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -38,6 +38,7 @@ extern int close(int);
 #include "../../../src/approach_state.h"
 #include "../../../src/closest_split.h"
 #include "../../../src/approach_pitch.h"
+#include "../../../src/follower_timing.h"
 
 struct host_api_v1 {
     uint32_t api_version;
@@ -897,43 +898,12 @@ static int hb_queue_follower_event(Inst *instance,int note,int velocity,int is_o
 
     if(is_on){
         double capture=hb_ms_to_beats(g_bus.boundary_buffer_ms);
-        double target=-1.0;
-
-        /* Follower Buffer defines capture windows immediately BEFORE every
-           enabled timing boundary. A note inside any window is delayed to the
-           NEXT applicable boundary; notes outside all windows are untouched.
-
-           Chord Grid boundaries are phase-shifted by Anticipation:
-             grid=1 Bar, anticipation=1/8 => ..., 3.5, 7.5, 11.5, ...
-           Quant Grid boundaries remain on their literal grid:
-             quant=1/4 => ..., 3, 4, 5, ...
-
-           If windows overlap, choose the EARLIEST upcoming boundary. Waiting
-           for the later one adds an unintended extra rhythmic delay. */
-        double chord_grid=hb_chord_grid_beats();
-        if(chord_grid>0.0){
-            double anticipation=hb_anticipation_beats();
-            /* Solve for the first boundary > beat in the shifted sequence
-               n*grid - anticipation. Avoid truncation-toward-zero phase bugs
-               near beat 0 by advancing from a conservative integer bucket. */
-            long cycle=(long)((beat+anticipation)/chord_grid);
-            double boundary=(double)cycle*chord_grid-anticipation;
-            while(boundary<=beat+1e-9)boundary+=chord_grid;
-            double distance=boundary-beat;
-            if(distance>=-1e-6&&distance<=capture+1e-6)
-                target=boundary;
-        }
-
-        double quant_grid=hb_quant_grid_beats();
-        if(quant_grid>0.0){
-            long cycle=(long)(beat/quant_grid);
-            double boundary=(double)cycle*quant_grid;
-            while(boundary<=beat+1e-9)boundary+=quant_grid;
-            double distance=boundary-beat;
-            if(distance>=-1e-6&&distance<=capture+1e-6
-               &&(target<0.0||boundary<target))
-                target=boundary;
-        }
+        double target=hb_follower_capture_target(
+            beat,
+            hb_chord_grid_beats(),
+            hb_anticipation_beats(),
+            hb_quant_grid_beats(),
+            capture);
         instance->follower_queue_target_beat[slot]=target;
     }else{
         /* Preserve articulation. A note-off inherits the exact delay applied
@@ -952,8 +922,11 @@ static int hb_queue_follower_event(Inst *instance,int note,int velocity,int is_o
         if(delay>0.0)instance->follower_queue_target_beat[slot]=beat+delay;
     }
 
-    /* -1 guarantees at least one full tick boundary before release. */
-    instance->follower_queue_age_frames[slot]=-1;
+    /* Start at age zero. Uncaptured notes can render on the first release
+       attempt; a conductor change may impose at most ONE scheduler-tick
+       ordering barrier in hb_release_follower_queue(). Captured notes are
+       governed only by target_beat and therefore land exactly on the boundary. */
+    instance->follower_queue_age_frames[slot]=0;
     return 1;
 }
 static int hb_source_interval_to_default_degree(int source_interval){
@@ -1390,10 +1363,6 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
     double next_arrival=-1.0;
     for(int index=0;index<instance->follower_queue_count;index++){
         int age=instance->follower_queue_age_frames[index];
-        if(age<0){
-            instance->follower_queue_age_frames[index]=0;
-            continue;
-        }
         age+=frames;
         instance->follower_queue_age_frames[index]=age;
         if(age<target_frames||emitted>=max_output){
@@ -1405,10 +1374,12 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
         if(target_beat>=0.0&&hb_current_beat()+1e-6<target_beat){
             continue;
         }
-        /* Do not map against stale harmony merely because this follower's
-           tick happened before the conductor's tick in the same scheduler
-           cycle.  This is the actual conductor-first barrier. */
-        if(hb_conductor_pending_for_follow()){
+        /* Protect only the first release attempt of an UNCAPTURED note when
+           a conductor update is concurrently pending. Never wait for harmony
+           confirmation beyond that one scheduler tick, and never hold a note
+           beyond an explicit pre-boundary target. */
+        if(hb_follower_needs_same_tick_barrier(
+               target_beat, age, frames, hb_conductor_pending_for_follow())){
             continue;
         }
         int source_note=instance->follower_queue_note[index];
