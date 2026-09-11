@@ -1,0 +1,177 @@
+diff --git a/modules/harmonybus/dsp/harmonybus.c b/modules/harmonybus/dsp/harmonybus.c
+--- a/modules/harmonybus/dsp/harmonybus.c
++++ b/modules/harmonybus/dsp/harmonybus.c
+@@
+-/* Harmony Bus v0.2.63 — Schwung MIDI FX. */
+-#define HB_VERSION "0.2.63"
++/* Harmony Bus v0.2.64 — Schwung MIDI FX. */
++#define HB_VERSION "0.2.64"
+@@
+-typedef struct { int used,role,mode,content_map,travel_map,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; uint8_t local_sense_notes[64]; int global_timing_restored; } Inst;
++typedef struct { int used,role,mode,content_map,travel_map,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int chromatic_touch_direction; int chromatic_touch_consumed; uint8_t chromatic_below_held; uint8_t chromatic_above_held; int follow_lookahead_ms; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; signed char follower_queue_chromatic_offset[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; uint8_t local_sense_notes[64]; int global_timing_restored; } Inst;
+@@
+ static Inst g_pool[HB_MAX_INSTANCES];
+ static int mod12(int value){value%=12;return value<0?value+12:value;}
++static void hb_set_chromatic_touch(Inst *instance,int direction,int down){
++    if(!instance||(direction!=-1&&direction!=1))return;
++    uint8_t *held=direction<0?&instance->chromatic_below_held:&instance->chromatic_above_held;
++    if(down){
++        /* Repeated On while the same finger remains down is not a new gesture.
++           This matters because a consumed modifier must not re-arm until a
++           real release/touch cycle occurs. */
++        if(*held)return;
++        *held=1;
++        /* Most-recent touch wins. A newer opposite direction preempts the old
++           one; releasing the newer touch does not resurrect the older hold. */
++        instance->chromatic_touch_direction=direction;
++        instance->chromatic_touch_consumed=0;
++        return;
++    }
++    *held=0;
++    if(instance->chromatic_touch_direction==direction){
++        instance->chromatic_touch_direction=0;
++        instance->chromatic_touch_consumed=0;
++    }
++}
++static int hb_take_chromatic_touch(Inst *instance){
++    if(!instance||instance->chromatic_touch_direction==0||instance->chromatic_touch_consumed)return 0;
++    instance->chromatic_touch_consumed=1;
++    return instance->chromatic_touch_direction;
++}
+ static int parse_i(const char *value,int fallback){char *end;long parsed;if(!value||!*value)return fallback;end=0;parsed=strtol(value,&end,10);return end==value?fallback:(int)parsed;}
+@@
+ static int hb_queue_follower_event(Inst *instance,int note,int velocity,int is_on,int channel){
+@@
+     instance->follower_queue_on[slot]=(uint8_t)(is_on?1:0);
+     instance->follower_queue_channel[slot]=(uint8_t)(channel&0x0F);
++    /* Capture the touch modifier at PHYSICAL note-on time, not when the queue
++       later releases. Quant Grid/Follower Buffer may delay sounding beyond the
++       finger release; the musical rule is "first note played while held". */
++    instance->follower_queue_chromatic_offset[slot]=(signed char)(is_on?hb_take_chromatic_touch(instance):0);
+     instance->follower_queue_target_beat[slot]=-1.0;
+@@
+         if(is_on){
+             mapped=hb_map_follower_note_now(instance,source_note);
++            /* Chromatic approach is deliberately the FINAL pitch transform.
++               HarmonyBus first chooses the normal chord/scale/travel target,
++               then this one onset approaches that target by one semitone. */
++            mapped+=(int)instance->follower_queue_chromatic_offset[index];
++            if(mapped<0)mapped=0;
++            if(mapped>127)mapped=127;
+             instance->mapped[source_note]=mapped;
+@@
+             instance->follower_queue_on[write]=instance->follower_queue_on[index];
+             instance->follower_queue_channel[write]=instance->follower_queue_channel[index];
++            instance->follower_queue_chromatic_offset[write]=instance->follower_queue_chromatic_offset[index];
+             instance->follower_queue_age_frames[write]=instance->follower_queue_age_frames[index];
+@@
+ static void hb_clear_instance_note_state(Inst *instance){
+@@
+-    memset(instance->follower_velocity,0,sizeof(instance->follower_velocity));instance->follower_queue_count=0;memset(instance->published_conductor,0,sizeof(instance->published_conductor));memset(instance->published_follower,0,sizeof(instance->published_follower));instance->settle_frames_remaining=0;instance->clip_event_idle_frames=0;
++    memset(instance->follower_velocity,0,sizeof(instance->follower_velocity));instance->follower_queue_count=0;instance->chromatic_touch_direction=0;instance->chromatic_touch_consumed=0;instance->chromatic_below_held=0;instance->chromatic_above_held=0;memset(instance->published_conductor,0,sizeof(instance->published_conductor));memset(instance->published_follower,0,sizeof(instance->published_follower));instance->settle_frames_remaining=0;instance->clip_event_idle_frames=0;
+@@
+ "{\\\"key\\\":\\\"travel_map\\\",\\\"name\\\":\\\"Follower Travel\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Relative\\\",\\\"Closest\\\",\\\"Up\\\"],\\\"options_as_string\\\":true,\\\"default\\\":\\\"Relative\\\"},"
++"{\\\"key\\\":\\\"chrom_below\\\",\\\"name\\\":\\\"Chr -1\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Off\\\",\\\"On\\\"],\\\"options_as_string\\\":true,\\\"access\\\":\\\"write\\\",\\\"touch_gate\\\":true},"
++"{\\\"key\\\":\\\"chrom_above\\\",\\\"name\\\":\\\"Chr +1\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Off\\\",\\\"On\\\"],\\\"options_as_string\\\":true,\\\"access\\\":\\\"write\\\",\\\"touch_gate\\\":true},"
+ "{\\\"key\\\":\\\"follower_scale\\\",\\\"name\\\":\\\"Follower Scale\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Infer\\\",\\\"Major\\\",\\\"Natural Minor\\\",\\\"Dorian\\\",\\\"Phrygian\\\",\\\"Lydian\\\",\\\"Mixolydian\\\",\\\"Locrian\\\",\\\"Harmonic Minor\\\",\\\"Melodic Minor\\\"],\\\"options_as_string\\\":true,\\\"default\\\":\\\"Infer\\\"},"
+@@
+-static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;if(!strcmp(key,"live_press")){if(parameter[0]=='1')hb_receive_live_vouch(instance);return;}if(!strcmp(key,"track_role")||!strcmp(key,"role")){
++static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;if(!strcmp(key,"live_press")){if(parameter[0]=='1')hb_receive_live_vouch(instance);return;}if(!strcmp(key,"chrom_below")){hb_set_chromatic_touch(instance,-1,!strcmp(parameter,"On")||parameter[0]=='1');return;}if(!strcmp(key,"chrom_above")){hb_set_chromatic_touch(instance,1,!strcmp(parameter,"On")||parameter[0]=='1');return;}if(!strcmp(key,"track_role")||!strcmp(key,"role")){
+@@
+-static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();if(!strcmp(key,"version"))return snprintf(buffer,(size_t)length,"%s",HB_VERSION);if(!strcmp(key,"retrigger_held"))return snprintf(buffer,(size_t)length,"%s",RETRIGGER_OPTS[instance->retrigger_held?1:0]);if(!strcmp(key,"follow_lookahead_ms"))return snprintf(buffer,(size_t)length,"%d",instance->follow_lookahead_ms);if(!strcmp(key,"conductor_this_1")){char b[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_local_conductor_note(instance,0),harmony,b,sizeof(b)));}
++static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();if(!strcmp(key,"version"))return snprintf(buffer,(size_t)length,"%s",HB_VERSION);if(!strcmp(key,"chrom_below")||!strcmp(key,"chrom_above"))return snprintf(buffer,(size_t)length,"%s","Off");if(!strcmp(key,"retrigger_held"))return snprintf(buffer,(size_t)length,"%s",RETRIGGER_OPTS[instance->retrigger_held?1:0]);if(!strcmp(key,"follow_lookahead_ms"))return snprintf(buffer,(size_t)length,"%d",instance->follow_lookahead_ms);if(!strcmp(key,"conductor_this_1")){char b[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_local_conductor_note(instance,0),harmony,b,sizeof(b)));}
+@@
+-if(!strcmp(key,"v87_marker"))return snprintf(buffer,(size_t)length,"%s","HB263");
++if(!strcmp(key,"v87_marker"))return snprintf(buffer,(size_t)length,"%s","HB264");
+diff --git a/modules/harmonybus/module.json b/modules/harmonybus/module.json
+--- a/modules/harmonybus/module.json
++++ b/modules/harmonybus/module.json
+@@
+-  "name": "Harmony Bus 0.2.63",
+-  "abbrev": "HB263",
+-  "version": "0.2.63",
++  "name": "Harmony Bus 0.2.64",
++  "abbrev": "HB264",
++  "version": "0.2.64",
+@@
+-  "description": "Harmony Bus v0.2.63 — split mapping distinguishes inferred harmony tones from literal active conductor tones",
++  "description": "Harmony Bus v0.2.64 — first-note chromatic approach touch gates for followers",
+@@
+-          "name": "Harmony Bus 0.2.63",
++          "name": "Harmony Bus 0.2.64",
+@@
+             {
+               "key": "retrigger_held",
+@@
+               "default": "Off"
+             },
++            {
++              "key": "chrom_below",
++              "name": "Chromatic Below",
++              "short_name": "Chr -1",
++              "type": "enum",
++              "options": [
++                "Off",
++                "On"
++              ],
++              "options_as_string": true,
++              "access": "write",
++              "touch_gate": true
++            },
++            {
++              "key": "chrom_above",
++              "name": "Chromatic Above",
++              "short_name": "Chr +1",
++              "type": "enum",
++              "options": [
++                "Off",
++                "On"
++              ],
++              "options_as_string": true,
++              "access": "write",
++              "touch_gate": true
++            },
+             {
+               "key": "follower_root_policy",
+@@
+             "travel_map",
+             "retrigger_held",
+             "follower_root_policy",
+             "follower_explicit_root",
+-            "inferred_root",
+-            "used_root"
++            "chrom_below",
++            "chrom_above"
+           ]
+@@
+       {
+         "key": "split_map",
+@@
+         "default": "Harm. / Out"
+       },
++      {
++        "key": "chrom_below",
++        "name": "Chr -1",
++        "type": "enum",
++        "options": [
++          "Off",
++          "On"
++        ],
++        "options_as_string": true,
++        "access": "write",
++        "touch_gate": true
++      },
++      {
++        "key": "chrom_above",
++        "name": "Chr +1",
++        "type": "enum",
++        "options": [
++          "Off",
++          "On"
++        ],
++        "options_as_string": true,
++        "access": "write",
++        "touch_gate": true
++      },
+       {
+         "key": "follower_root_policy",
