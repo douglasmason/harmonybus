@@ -1,5 +1,7 @@
 #include "hb_virtual_router.h"
 
+#include <stddef.h>
+
 hb_virtual_route_decision_t hb_virtual_route_decide(
     const hb_virtual_track_config_t *config,
     const hb_virtual_track_runtime_t *runtime) {
