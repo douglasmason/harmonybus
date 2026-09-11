@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.78",
-  "abbrev": "HB278",
-  "version": "0.2.78",
+  "name": "Harmony Bus 0.2.79",
+  "abbrev": "HB279",
+  "version": "0.2.79",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.78 \u2014 adds isolated Schwung as_page/touch UI diagnostic",
+  "description": "Harmony Bus v0.2.79 \u2014 reliable Scale Above toggle/next button and shortened Foll panel names",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -181,7 +181,7 @@
           ]
         },
         "follower_source": {
-          "name": "Follower Map",
+          "name": "Foll Map",
           "params": [
             {
               "key": "content_map",
@@ -563,7 +563,7 @@
           ]
         },
         "follower_root": {
-          "name": "Follower Root",
+          "name": "Foll Root",
           "params": [
             {
               "key": "follower_root_policy",
