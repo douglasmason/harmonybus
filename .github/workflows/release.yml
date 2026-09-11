@@ -18,12 +18,12 @@ jobs:
 
       - name: Apply current HarmonyBus normalization
         run: |
-          python3 scripts/release_v0284.py
+          python3 scripts/release_v0285.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
+          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c src/follower_timing.h tests/follower_timing_test.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.84 source'
+            git commit -m 'Normalize HarmonyBus v0.2.85 source'
             git push origin main
           fi
 
@@ -38,47 +38,29 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.84'
+          assert module['version']=='0.2.85'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.84'
+          assert levels['root']['name']=='Harmony Bus 0.2.85'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
           assert levels['follower_this']['name']=='Foll Trk'
           assert levels['follower_all']['name']=='Foll All'
-          panel=levels['follower_mod']
-          assert panel['knobs']==[
-              'approach','foll_mod_blank2','mod_scale_above','mod_chrom_below',
-              'foll_mod_blank5','approach_reset','approach_scale_next','approach_chrom_next'
-          ]
-          params={p.get('key'):p for p in module['capabilities']['chain_params']}
-          for key, options in {
-              'approach_reset':['-','Reset'],
-              'approach_scale_next':['-','Scale +'],
-              'approach_chrom_next':['-','Chrom -'],
-          }.items():
-              assert params[key]['type']=='enum'
-              assert params[key]['options']==options
-              assert params[key]['access']=='write'
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
-          assert '#include "../../../src/approach_state.h"' in source
-          assert '#include "../../../src/approach_pitch.h"' in source
-          assert '#include "../../../src/closest_split.h"' in source
-          assert 'return hb_next_scale_pitch_above(mapped,(unsigned int)scale_mask);' in source
-          apply=source[source.index('static int hb_apply_approach'):source.index('static void hb_consume_next_approach')]
-          assert 'hb_global_content_map' not in apply
-          closest=source[source.index('static int hb_map_follower_note_closest_split'):source.index('static int hb_map_follower_note_now')]
-          assert 'hb_build_monotonic_degree_ladder' in closest
-          assert 'output_by_degree[source_degree]' in closest
-          header=Path('src/closest_split.h').read_text()
-          assert 'hb_cs_search_unique' in header
-          assert 'used_pitch_classes' in header
+          assert '#include "../../../src/follower_timing.h"' in source
+          queue=source[source.index('static int hb_queue_follower_event'):source.index('static int hb_source_interval_to_default_degree')]
+          assert 'hb_follower_capture_target(' in queue
+          assert 'instance->follower_queue_age_frames[slot]=0;' in queue
+          release=source[source.index('static int hb_release_follower_queue'):source.index('static int hb_reharmonize_held_follower')]
+          assert 'hb_follower_needs_same_tick_barrier(' in release
+          assert 'if(hb_conductor_pending_for_follow())' not in release
+          assert 'if(age<0)' not in release
           PY
 
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y clang lld file
 
-      - name: Run native core and modifier tests
+      - name: Run native core, mapping, modifier, and timing tests
         run: |
           clang -std=c11 -O2 tests/harmony_core_test.c src/harmony_core.c -o /tmp/harmony_core_test
           /tmp/harmony_core_test
@@ -88,6 +70,8 @@ jobs:
           /tmp/approach_pitch_test
           clang -std=c11 -O2 tests/closest_split_test.c -o /tmp/closest_split_test
           /tmp/closest_split_test
+          clang -std=c11 -O2 tests/follower_timing_test.c -o /tmp/follower_timing_test
+          /tmp/follower_timing_test
 
       - name: Build ARM64 HarmonyBus
         run: bash scripts/build_harmonybus_move.sh
@@ -104,10 +88,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.84'
-          params={p.get('key'):p for p in module['capabilities']['chain_params']}
-          for key in ('approach_reset','approach_scale_next','approach_chrom_next'):
-              assert params[key].get('access')=='write'
+          assert module['version']==os.environ['VERSION']=='0.2.85'
           PY
 
       - name: Publish release
