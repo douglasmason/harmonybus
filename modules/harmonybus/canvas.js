@@ -11,12 +11,16 @@
 
 const CC_KNOB_1 = 71;
 const CC_KNOB_2 = 72;
+const TOUCH_K2 = 1;
+const TOUCH_K3 = 2;
+const TOUCH_K4 = 3;
+const TOUCH_K5 = 4;
 const TOUCH_K6 = 5;
 const TOUCH_K7 = 6;
 const TOUCH_K8 = 7;
 
 const APPROACHES = ["Chrom Below", "Off", "Scale Above"];
-const MODES = ["Next", "Held"];
+const MODES = ["Next", "Held", "Off"];
 
 function relativeDelta(value) {
     if (value === 0 || value === 64) return 0;
@@ -55,6 +59,12 @@ function resetModifier(ctx, state) {
 }
 
 function handleTouch(ctx, state, note, down) {
+    /* K1 touch is intentionally inert; K1 rotation only selects Next/Held/Off. */
+    if (down && note === TOUCH_K2) { ctx.setParam("travel_map", "Direct"); state.lastAction = "DIRECT"; return true; }
+    if (down && note === TOUCH_K3) { ctx.setParam("travel_map", "Relative"); state.lastAction = "RELATIVE"; return true; }
+    if (down && note === TOUCH_K4) { ctx.setParam("travel_map", "Closest"); state.lastAction = "CLOSEST"; return true; }
+    if (down && note === TOUCH_K5) { ctx.setParam("travel_map", "Closest Split"); state.lastAction = "CLOSEST SPLIT"; return true; }
+    if (!down && (note === TOUCH_K2 || note === TOUCH_K3 || note === TOUCH_K4 || note === TOUCH_K5)) return true;
     if (note === TOUCH_K6) {
         if (down) resetModifier(ctx, state);
         return true;
@@ -111,9 +121,10 @@ function draw(ctx) {
     ctx.print(2, 2, "FOLLOWER MOD", 1);
     ctx.print(2, 14, `K1 MODE: ${MODES[ctx.state.modeIndex]}`, 1);
     ctx.print(2, 24, `K2 MANUAL: ${APPROACHES[ctx.state.approachIndex]}`, 1);
-    ctx.print(2, 38, "TOUCH K6  OFF / RESET", 1);
-    ctx.print(2, 46, "TOUCH K7  SCALE ABOVE", 1);
-    ctx.print(2, 54, "TOUCH K8  CHROM BELOW", 1);
+    ctx.print(2, 34, "K2 DIRECT  K3 REL  K4 CLOSE", 1);
+    ctx.print(2, 42, "K5 SPLIT   K6 RESET", 1);
+    ctx.print(2, 50, "K7 SCALE+  K8 CHROM-", 1);
+    ctx.print(2, 58, `LAST: ${ctx.state.lastAction}`, 1);
 }
 
 function onClose(ctx) {
