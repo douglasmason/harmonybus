@@ -236,40 +236,6 @@
               "default": "Harm. / Out"
             },
             {
-              "key": "approach",
-              "name": "Approach",
-              "type": "enum",
-              "options": [
-                "Chrom Below",
-                "Off",
-                "Scale Above"
-              ],
-              "options_as_string": true,
-              "default": "Off"
-            },
-            {
-              "key": "approach_mode",
-              "name": "Approach Mode",
-              "type": "enum",
-              "options": [
-                "Next",
-                "Held"
-              ],
-              "options_as_string": true,
-              "default": "Next"
-            },
-            {
-              "key": "retrigger_held",
-              "name": "Retrigger Held",
-              "type": "enum",
-              "options": [
-                "Off",
-                "On"
-              ],
-              "options_as_string": true,
-              "default": "Off"
-            },
-            {
               "key": "follower_root_policy",
               "name": "Root Policy",
               "type": "enum",
@@ -313,6 +279,40 @@
               "name": "Used Root",
               "type": "string",
               "access": "read"
+            },
+            {
+              "key": "approach",
+              "name": "Approach",
+              "type": "enum",
+              "options": [
+                "Chrom Below",
+                "Off",
+                "Scale Above"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
+              "key": "approach_mode",
+              "name": "Approach Mode",
+              "type": "enum",
+              "options": [
+                "Next",
+                "Held"
+              ],
+              "options_as_string": true,
+              "default": "Next"
+            },
+            {
+              "key": "retrigger_held",
+              "name": "Retrigger Held",
+              "type": "enum",
+              "options": [
+                "Off",
+                "On"
+              ],
+              "options_as_string": true,
+              "default": "Off"
             }
           ],
           "knobs": [
