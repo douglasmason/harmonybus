@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.67",
-  "abbrev": "HB267",
-  "version": "0.2.67",
+  "name": "Harmony Bus 0.2.68",
+  "abbrev": "HB268",
+  "version": "0.2.68",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.67 \u2014 completed follower modifier panel with Next/Held, manual approach, and dedicated K6/K7/K8 performance controls",
+  "description": "Harmony Bus v0.2.68 \u2014 Foll Mod uses discrete enum/action/readout controls with K6 reset, K7 scale-above, and K8 chromatic-below",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.67",
+          "name": "Harmony Bus 0.2.68",
           "params": [
             {
               "key": "version",
@@ -634,31 +634,83 @@
           ]
         },
         "follower_mod": {
-          "name": "Follower Mod",
+          "name": "Foll Mod",
           "params": [
             {
-              "key": "approach_mode"
+              "key": "approach_mode",
+              "name": "Behavior",
+              "type": "enum",
+              "options": [
+                "Next",
+                "Held"
+              ],
+              "options_as_string": true,
+              "default": "Next"
             },
             {
-              "key": "approach"
+              "key": "approach",
+              "name": "Manual",
+              "type": "enum",
+              "options": [
+                "Chrom Below",
+                "Off",
+                "Scale Above"
+              ],
+              "options_as_string": true,
+              "default": "Off"
             },
             {
-              "key": "follower_mod_canvas"
+              "key": "follower_mod_canvas",
+              "name": "Touch Perf",
+              "type": "canvas",
+              "canvas_script": "canvas.js",
+              "canvas_overlay": "follower_mod",
+              "show_value": false
             },
             {
-              "key": "approach_status"
+              "key": "approach_status",
+              "name": "Armed",
+              "type": "string",
+              "access": "read"
             },
             {
-              "key": "touch_hint"
+              "key": "touch_hint",
+              "name": "Touch",
+              "type": "string",
+              "access": "read"
             },
             {
-              "key": "approach_reset"
+              "key": "approach_reset",
+              "name": "Reset",
+              "type": "enum",
+              "options": [
+                "Off",
+                "Reset"
+              ],
+              "options_as_string": true,
+              "default": "Off"
             },
             {
-              "key": "mod_scale_above"
+              "key": "mod_scale_above",
+              "name": "Scale Above",
+              "type": "enum",
+              "options": [
+                "Off",
+                "On"
+              ],
+              "options_as_string": true,
+              "default": "Off"
             },
             {
-              "key": "mod_chrom_below"
+              "key": "mod_chrom_below",
+              "name": "Chrom Below",
+              "type": "enum",
+              "options": [
+                "Off",
+                "On"
+              ],
+              "options_as_string": true,
+              "default": "Off"
             }
           ],
           "knobs": [
@@ -1685,7 +1737,7 @@
       },
       {
         "key": "approach_reset",
-        "name": "K6 Reset",
+        "name": "Reset",
         "type": "enum",
         "options": [
           "Off",
@@ -1696,7 +1748,7 @@
       },
       {
         "key": "mod_scale_above",
-        "name": "K7 Scale Up",
+        "name": "Scale Above",
         "type": "enum",
         "options": [
           "Off",
@@ -1707,7 +1759,7 @@
       },
       {
         "key": "mod_chrom_below",
-        "name": "K8 Chrom Dn",
+        "name": "Chrom Below",
         "type": "enum",
         "options": [
           "Off",
