@@ -18,12 +18,12 @@ jobs:
 
       - name: Apply current HarmonyBus normalization
         run: |
-          python3 scripts/release_v0289.py
+          python3 scripts/release_v0290.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.89 source'
+            git commit -m 'Normalize HarmonyBus v0.2.90 source'
             git push origin main
           fi
 
@@ -38,9 +38,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.89'
+          assert module['version']=='0.2.90'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.89'
+          assert levels['root']['name']=='Harmony Bus 0.2.90'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -52,21 +52,25 @@ jobs:
           assert not any(p.get('key')=='foll_mod_blank2' for p in levels['follower_mod']['params'])
           assert levels['next_harm']['name']=='Next Harm'
           assert levels['next_harm']['knobs']==[
-              'next_predict','next_lookahead','next_model','next_shift',
-              'next_loop_length','next_position','next_harmony','next_reset'
+              'next_lookahead','next_model','next_shift','next_loop_length',
+              'next_position','next_harmony','next_reset'
           ]
+          assert not any(p.get('key')=='next_predict' for p in levels['next_harm']['params'])
           assert any(item.get('level')=='next_harm' for item in levels['root']['params'])
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
           assert '#include "../../../src/follower_timing.h"' in source
           assert '#include "../../../src/closest_split.h"' in source
-          assert 'static void hb_next_update_playhead' in source
+          assert 'static void hb_next_update_playhead(int frames,int sample_rate)' in source
+          assert 'next_learning_progress_beats' in source
+          assert 'A full loop LENGTH of observation covers every circular clip phase' in source
+          assert source.count('hb_next_update_playhead(frames,sample_rate);') == 1
+          assert source.count('if(!strcmp(key,"next_lookahead"))') == 1
           assert 'static void hb_commit_observed_harmony' in source
-          assert 'hb_next_update_playhead();' in source
           assert 'learned_boundary=hb_next_effective_boundary' in source
           assert 'hb_harmony_t committed=hb_observed_read();' in source
-          assert 'First wrap establishes a trustworthy phase-zero' in source
           assert 'if(g_host&&g_host->get_clock_status)' in source
           assert 'if(g_bus.clip_context&&g_host&&g_host->get_clock_status)' not in source
+          assert 'g_bus.have_last_clip_playhead=0;g_bus.next_have_playhead=0' not in source
           closest=source[source.index('static int hb_map_follower_note_closest_split'):source.index('static int hb_map_follower_note_now')]
           assert 'nominal_by_degree[degree]=source_root_note+source_interval;' in closest
           assert 'hb_build_closest_split_assignment(' in closest
@@ -112,12 +116,12 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.89'
+          assert module['version']==os.environ['VERSION']=='0.2.90'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
-          assert next_panel['knobs'][0]=='next_predict'
-          assert next_panel['knobs'][7]=='next_reset'
+          assert next_panel['knobs'][0]=='next_lookahead'
+          assert next_panel['knobs'][-1]=='next_reset'
           PY
 
       - name: Publish release
