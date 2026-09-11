@@ -20,11 +20,12 @@ jobs:
         run: |
           python3 scripts/cleanup_foll_mod_v0276.py
           python3 scripts/foll_mod_buttons_v0277.py
+          python3 scripts/ui_test_as_page_v0278.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
+          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c modules/harmonybus/canvas.js
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.77 source'
+            git commit -m 'Normalize HarmonyBus v0.2.78 source'
             git push origin main
           fi
 
@@ -34,11 +35,13 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "HB=dist/harmonybus-v${VERSION}-module.tar.gz" >> "$GITHUB_ENV"
           grep -q "#define HB_VERSION \"${VERSION}\"" modules/harmonybus/dsp/harmonybus.c
+          node --check modules/harmonybus/canvas.js
           python3 - <<'PY'
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
+          levels=module['capabilities']['ui_hierarchy']['levels']
+          panel=levels['follower_mod']
           assert panel['knobs']==[
               'approach','foll_mod_blank2','mod_scale_above','mod_chrom_below',
               'foll_mod_blank5','approach_reset','approach_scale_next','approach_chrom_next'
@@ -53,6 +56,15 @@ jobs:
               assert params[key]['type']=='enum'
               assert params[key]['options']==options
               assert params[key]['access']=='write'
+          ui=levels['ui_test']
+          assert ui['knobs']==['content_map','travel_map','split_map']
+          test=params['ui_test_canvas']
+          assert test['type']=='canvas'
+          assert test['canvas_script']=='canvas.js'
+          assert test['canvas_overlay']=='ui_test'
+          assert test['as_page'] is True
+          canvas=Path('modules/harmonybus/canvas.js').read_text()
+          assert 'ui_test:' in canvas
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
           blank='if(!strcmp(key,"foll_mod_blank3")||!strcmp(key,"foll_mod_blank4")||!strcmp(key,"foll_mod_blank5"))return snprintf(buffer,(size_t)length,"");'
           assert source.count(blank)==1
@@ -77,6 +89,8 @@ jobs:
           tar -xzf "$HB" -C /tmp/hb-verify
           test -f /tmp/hb-verify/harmonybus/module.json
           test -f /tmp/hb-verify/harmonybus/dsp.so
+          test -f /tmp/hb-verify/harmonybus/canvas.js
+          node --check /tmp/hb-verify/harmonybus/canvas.js
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
@@ -85,6 +99,7 @@ jobs:
           assert 'follower_mod_canvas' not in params
           for key in ('approach_reset','approach_scale_next','approach_chrom_next'):
               assert params[key].get('access')=='write'
+          assert params['ui_test_canvas'].get('as_page') is True
           PY
 
       - name: Publish release
