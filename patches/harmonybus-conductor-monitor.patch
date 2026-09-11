@@ -1,0 +1,16 @@
+diff --git a/modules/harmonybus/dsp/harmonybus.c b/modules/harmonybus/dsp/harmonybus.c
+--- a/modules/harmonybus/dsp/harmonybus.c
++++ b/modules/harmonybus/dsp/harmonybus.c
+@@
+     }
+     hb_publish_instance_notes(instance);
++    /* For a Conductor, Render To Ch is an unchanged monitor destination.
++       Followers keep the existing meaning: transformed output destination.
++       This lets Movy source track 5 feed its local monitoring synth and, at
++       the same time, mirror the accepted conductor note to native Move track 3. */
++    if(instance->render_channel>=0)
++        hb_inject_follower_note(instance,mapped,length>=3?input[2]:0,is_on);
+     if(max_output<1)return 0;
+     output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;
+     return 1;
+ }
