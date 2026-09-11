@@ -18,18 +18,12 @@ jobs:
 
       - name: Apply current HarmonyBus normalization
         run: |
-          python3 scripts/cleanup_foll_mod_v0276.py
-          python3 scripts/foll_mod_buttons_v0277.py
-          python3 scripts/ui_test_as_page_v0278.py
-          python3 scripts/fix_scale_controls_v0279.py
-          python3 scripts/fix_approach_state_v0280.py
-          python3 scripts/simplify_approach_state_v0281.py
-          python3 scripts/fix_scale_above_v0282.py
+          python3 scripts/release_v0283.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c modules/harmonybus/canvas.js src/approach_pitch.h tests/approach_pitch_test.c
+          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.82 source'
+            git commit -m 'Normalize HarmonyBus v0.2.83 source'
             git push origin main
           fi
 
@@ -44,9 +38,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.82'
+          assert module['version']=='0.2.83'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.82'
+          assert levels['root']['name']=='Harmony Bus 0.2.83'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -69,13 +63,13 @@ jobs:
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
           assert '#include "../../../src/approach_state.h"' in source
           assert '#include "../../../src/approach_pitch.h"' in source
-          assert 'static SharedBus g_bus={.approach_control=HB_APPROACH_OFF,.approach_mode=0}' in source
-          assert 'return hb_approach_effective(g_bus.approach_control,instance->approach_pad_armed);' in source
-          assert 'g_bus.approach_control=hb_approach_toggle(g_bus.approach_control,HB_APPROACH_SCALE_ABOVE,on)' in source
-          assert 'g_bus.approach_control=hb_approach_toggle(g_bus.approach_control,HB_APPROACH_CHROM_BELOW,on)' in source
-          assert 'int next_override=hb_approach_normalize(instance->approach_pad_armed);' in source
+          assert '#include "../../../src/closest_split.h"' in source
           assert 'return hb_next_scale_pitch_above(mapped,(unsigned int)scale_mask);' in source
-          assert 'hb_harmony_t scale_target=hb_follower_scale_target(instance,detected);' not in source[source.index('static int hb_apply_approach'):source.index('static void hb_consume_next_approach')]
+          apply=source[source.index('static int hb_apply_approach'):source.index('static void hb_consume_next_approach')]
+          assert 'hb_global_content_map' not in apply
+          closest=source[source.index('static int hb_map_follower_note_closest_split'):source.index('static int hb_map_follower_note_now')]
+          assert 'hb_build_monotonic_degree_ladder' in closest
+          assert 'output_by_degree[source_degree]' in closest
           PY
 
       - name: Install build tools
@@ -89,6 +83,8 @@ jobs:
           /tmp/approach_state_test
           clang -std=c11 -O2 tests/approach_pitch_test.c -o /tmp/approach_pitch_test
           /tmp/approach_pitch_test
+          clang -std=c11 -O2 tests/closest_split_test.c -o /tmp/closest_split_test
+          /tmp/closest_split_test
 
       - name: Build ARM64 HarmonyBus
         run: bash scripts/build_harmonybus_move.sh
@@ -105,7 +101,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.82'
+          assert module['version']==os.environ['VERSION']=='0.2.83'
           params={p.get('key'):p for p in module['capabilities']['chain_params']}
           for key in ('approach_reset','approach_scale_next','approach_chrom_next'):
               assert params[key].get('access')=='write'
