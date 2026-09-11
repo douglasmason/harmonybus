@@ -1,6 +1,8 @@
 #ifndef HB_VIRTUAL_BANK_H
 #define HB_VIRTUAL_BANK_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -41,6 +43,20 @@ int hb_virtual_bank_index_for_track(int logical_track);
 const hb_virtual_track_config_t *hb_virtual_bank_track(
     const hb_virtual_track_config_t tracks[HB_VIRTUAL_BANK_TRACK_COUNT],
     int bank_index);
+
+/*
+ * Build a fresh-instance HarmonyBus opaque state blob suitable for Movy's
+ * ChainComponentState.s field. This is initialization state, not a reset
+ * operation: callers should only apply it when creating a source bank or when
+ * the user explicitly asks to reinitialize one.
+ *
+ * Returns the number of bytes that would have been written (snprintf style),
+ * or -1 for invalid input.
+ */
+int hb_virtual_bank_make_harmonybus_state(
+    const hb_virtual_track_config_t *track,
+    char *buffer,
+    size_t buffer_size);
 
 #ifdef __cplusplus
 }
