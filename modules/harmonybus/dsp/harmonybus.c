@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.91 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.91"
+/* Harmony Bus v0.2.92 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.92"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -123,9 +123,6 @@ static void hb_global_open(void){
         /* Default to inferred Move input key, never an undefined policy. */
         shared->follower_root_policy=0;
         shared->follower_explicit_root=0;
-        shared->follower_content_map=0; /* In Chord */
-        shared->follower_travel_map=0;  /* Relative */
-        shared->follower_scale=0;       /* Infer */
     }
     g_global_shared=shared;
 }
@@ -136,42 +133,6 @@ static int hb_global_root_policy(void){
 static int hb_global_explicit_root(void){
     hb_global_open();
     return g_global_shared?g_global_shared->follower_explicit_root:0;
-}
-static int hb_global_content_map(void){
-    hb_global_open();
-    if(!g_global_shared)return 0;
-    int value=g_global_shared->follower_content_map;
-    if(value<0||value>8){
-        g_global_shared->seq++;
-        g_global_shared->follower_content_map=0;
-        g_global_shared->seq++;
-        return 0;
-    }
-    return value;
-}
-static int hb_global_travel_map(void){
-    hb_global_open();
-    if(!g_global_shared)return 0;
-    int value=g_global_shared->follower_travel_map;
-    if(value<0||value>5){
-        g_global_shared->seq++;
-        g_global_shared->follower_travel_map=0;
-        g_global_shared->seq++;
-        return 0;
-    }
-    return value;
-}
-static int hb_global_scale(void){
-    hb_global_open();
-    if(!g_global_shared)return 0;
-    int value=g_global_shared->follower_scale;
-    if(value<0||value>9){
-        g_global_shared->seq++;
-        g_global_shared->follower_scale=0;
-        g_global_shared->seq++;
-        return 0;
-    }
-    return value;
 }
 static void hb_set_global_root_policy(int policy){
     hb_global_open();
@@ -189,21 +150,6 @@ static void hb_set_global_explicit_root(int root){
     g_global_shared->follower_explicit_root=root;
     g_global_shared->seq++;
 }
-static void hb_set_global_content_map(int value){
-    hb_global_open();if(!g_global_shared)return;
-    if(value<0||value>8)value=0;
-    g_global_shared->seq++;g_global_shared->follower_content_map=value;g_global_shared->seq++;
-}
-static void hb_set_global_travel_map(int value){
-    hb_global_open();if(!g_global_shared)return;
-    if(value<0||value>5)value=0;
-    g_global_shared->seq++;g_global_shared->follower_travel_map=value;g_global_shared->seq++;
-}
-static void hb_set_global_scale(int value){
-    hb_global_open();if(!g_global_shared)return;
-    if(value<0||value>9)value=0;
-    g_global_shared->seq++;g_global_shared->follower_scale=value;g_global_shared->seq++;
-}
 typedef struct {
     int note;
     double start;
@@ -215,7 +161,7 @@ typedef struct {
 } hb_loop_harmony_event_t;
 typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int sensor_sources; int chord_timescale; int stability; int chord_timing; int quant_timing; int anticipation; int boundary_buffer_ms; int analysis_release_ms; int follower_content_map; int follower_travel_map; int follower_scale; int follower_split_map; int approach_control; int approach_mode; int inference_window_ms; int context; int accidentals; int auto_spell_sharps; int auto_spell_locked; int clip_track; int clip_slot; int clip_valid; int clip_note_count; int clip_stage; int clip_context; int last_clock_status; double clip_loop_start; double clip_loop_end; unsigned long clip_clock_ticks; unsigned clip_refresh_counter; double last_clip_playhead; int have_last_clip_playhead; int next_predict; int next_lookahead; int next_model_locked; int next_shift_active; int next_learning_count; int next_model_count; double next_last_playhead; int next_have_playhead; int next_learning_started; double next_learning_progress_beats; hb_harmony_t observed_harmony; hb_loop_harmony_event_t next_learning[HB_MAX_LOOP_HARMONIES]; hb_loop_harmony_event_t next_model[HB_MAX_LOOP_HARMONIES]; unsigned cache_rev; unsigned sense_rev; int last_sense_count; uint8_t last_sense_notes[64]; unsigned global_process_count; unsigned global_note_event_count; unsigned global_accepted_note_count; unsigned global_tick_count; int global_last_status; int global_last_note; int global_last_channel; int global_last_instance; int follower_root_policy; int follower_explicit_root; hb_clip_note_t clip_notes[HB_MAX_CLIP_NOTES]; } SharedBus;
 static SharedBus g_bus={.approach_control=HB_APPROACH_OFF,.approach_mode=0}; static int g_init=0;
-typedef struct { int used,role,mode,content_map,travel_map,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; uint8_t local_sense_notes[64]; int global_timing_restored; } Inst;
+typedef struct { int used,role,mode,content_map,travel_map,follower_scale,follower_split_map,quant_timing,boundary_buffer_ms,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; uint8_t local_sense_notes[64]; int global_timing_restored; } Inst;
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
 static uint16_t hb_scale_mask(hb_harmony_t harmony);
 static uint16_t hb_explicit_scale_mask(int root_pc,int scale_index);
@@ -1104,13 +1050,13 @@ static int hb_queue_follower_event(Inst *instance,int note,int velocity,int is_o
     instance->follower_queue_arrival_beat[slot]=beat;
 
     if(is_on){
-        double capture=hb_ms_to_beats(g_bus.boundary_buffer_ms);
+        double capture=hb_ms_to_beats(instance->boundary_buffer_ms);
         double target;
         double learned_boundary=hb_next_effective_boundary(beat);
         if(learned_boundary>=0.0){
             /* Prediction owns the harmonic boundary; Quant Grid remains an
                independent follower-only capture source. */
-            target=hb_follower_capture_target(beat,0.0,0.0,hb_quant_grid_beats(),capture);
+            target=hb_follower_capture_target(beat,0.0,0.0,hb_quant_grid_beats_for(instance),capture);
             double distance=learned_boundary-beat;
             if(distance>=-1e-6&&distance<=capture+1e-6&&
                (target<0.0||learned_boundary<target))target=learned_boundary;
@@ -1226,7 +1172,7 @@ static int hb_inferred_parent_scale_index(int source_root,hb_harmony_t harmony){
     return best_scale;
 }
 static int hb_parent_scale_index(Inst *instance,hb_harmony_t harmony){
-    int explicit_scale=hb_global_scale();
+    int explicit_scale=instance?instance->follower_scale:0;
     if(explicit_scale>0)return explicit_scale;
     int source_root=0;
     if(!hb_resolve_follower_reference_root(instance,&source_root))source_root=harmony.root_pc;
@@ -1446,7 +1392,7 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
     uint8_t active_notes[64];
     int active_count=0;
     uint16_t active_mask=0;
-    if(g_bus.follower_split_map==3){
+    if(instance->follower_split_map==3){
         active_count=hb_observed_notes(0,active_notes,64);
         for(int index=0;index<active_count;index++)
             active_mask|=(uint16_t)(1u<<mod12(active_notes[index]));
@@ -1476,7 +1422,7 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
         nominal_by_degree[degree]=source_root_note+source_interval;
 
         uint16_t preferred=0;
-        int split=g_bus.follower_split_map;
+        int split=instance->follower_split_map;
         if(split==1){
             int is_on=(on_bits_135&(1u<<degree))!=0;
             preferred=(uint16_t)(legal&(is_on?on_mask_135:off_mask_135));
@@ -1504,7 +1450,7 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
 }
 static int hb_map_follower_note_now(Inst *instance,int source_note){
     hb_harmony_t detected=bus_read();
-    int content_map=hb_global_content_map();
+    int content_map=instance->content_map;
     if(!detected.valid)return source_note;
 
     hb_harmony_t target=detected;
@@ -1516,7 +1462,7 @@ static int hb_map_follower_note_now(Inst *instance,int source_note){
         target=hb_follower_content_target(instance,detected,content_map);
     }
 
-    int travel=hb_global_travel_map();
+    int travel=instance->travel_map;
     if(travel==5)return source_note;
     if(travel==0)
         return hb_map_follower_note_relative(instance,source_note,detected,target,content_map);
@@ -1532,7 +1478,7 @@ static int hb_map_follower_note_now(Inst *instance,int source_note){
 }
 static int hb_active_approach(const Inst *instance){
     if(!instance)return HB_APPROACH_OFF;
-    return hb_approach_effective(g_bus.approach_control,instance->approach_pad_armed);
+    return hb_approach_effective(instance->approach_control,instance->approach_pad_armed);
 }
 static int hb_apply_approach(Inst *instance,int mapped,int approach){
     if(approach==HB_APPROACH_CHROM_BELOW){
@@ -1575,7 +1521,7 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
     int target_frames=0; /* Follow Lookahead removed; Follower Buffer owns intentional pre-boundary delay. */
     int emitted=0;
     int next_override=hb_approach_normalize(instance->approach_pad_armed);
-    int active_approach=hb_approach_effective(g_bus.approach_control,next_override);
+    int active_approach=hb_approach_effective(instance->approach_control,next_override);
     int next_approach_used=0;
     double next_arrival=-1.0;
     for(int index=0;index<instance->follower_queue_count;index++){
@@ -2041,7 +1987,7 @@ static int local_conductor_notes(const Inst *instance,uint8_t *output,int max_no
 }
 static int infer_reference_root(Inst *instance){static const int major[7]={0,2,4,5,7,9,11};static const int minor[7]={0,2,3,5,7,8,10};int pitch_classes=0,best=-999,best_root=instance->resolved_root;for(int index=0;index<12;index++)pitch_classes+=instance->source_seen[index]?1:0;if(!pitch_classes)return instance->resolved_root;for(int root=0;root<12;root++)for(int scale=0;scale<2;scale++){int score=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(instance->source_seen[pitch_class]){int relative=mod12(pitch_class-root),inside=0;for(int degree=0;degree<7;degree++)if(relative==(scale?minor[degree]:major[degree])){inside=1;break;}score+=inside?5:-4;}if(instance->source_seen[root])score+=3;if(score>best){best=score;best_root=root;}}instance->resolved_confidence=pitch_classes>=4?80:(pitch_classes>=3?65:45);return best_root;}
 static int reference_root(Inst *instance){if(g_bus.global_root_policy==0)return mod12(g_bus.global_explicit_root);if(g_bus.global_root_policy==1)return mod12(g_bus.global_input_root);instance->resolved_root=infer_reference_root(instance);return mod12(instance->resolved_root);}
-static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];memset(instance,0,sizeof(*instance));instance->used=1;instance->role=2;instance->mode=0;instance->content_map=0;instance->travel_map=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=0;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}return instance;}return 0;}
+static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];memset(instance,0,sizeof(*instance));instance->used=1;instance->role=2;instance->mode=0;instance->content_map=0;instance->travel_map=0;instance->follower_scale=0;instance->follower_split_map=0;instance->quant_timing=0;instance->boundary_buffer_ms=20;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=0;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}return instance;}return 0;}
 static void destroy_inst(void *value){Inst *instance=(Inst*)value;if(instance)instance->used=0;}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
@@ -2476,9 +2422,9 @@ static double hb_chord_grid_beats(void){
     int index=g_bus.chord_timing;
     return (index>=0&&index<7)?beats[index]:0.0;
 }
-static double hb_quant_grid_beats(void){
+static double hb_quant_grid_beats_for(const Inst *instance){
     static const double beats[7]={0.0,0.25,0.5,1.0,2.0,4.0,8.0};
-    int index=g_bus.quant_timing;
+    int index=instance?instance->quant_timing:0;
     return (index>=0&&index<7)?beats[index]:0.0;
 }
 static double hb_anticipation_beats(void){
@@ -2527,9 +2473,9 @@ if(!strcmp(key,"next_reset")){if(parameter[0]=='1'||!strcmp(parameter,"Reset")){
 if(!strcmp(key,"live_press")){if(parameter[0]=='1')hb_receive_live_vouch(instance);return;}
 if(!strcmp(key,"approach_below_pad")){if(parameter[0]=='1'){instance->approach_pad_armed=HB_APPROACH_CHROM_BELOW;}return;}
 if(!strcmp(key,"approach_above_pad")){if(parameter[0]=='1'){instance->approach_pad_armed=HB_APPROACH_SCALE_ABOVE;}return;}
-if(!strcmp(key,"approach_reset")){if(parameter[0]=='1'||!strcmp(parameter,"Reset")){g_bus.approach_control=HB_APPROACH_OFF;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;}return;}
-if(!strcmp(key,"mod_scale_above")){int on=parameter[0]=='1'||!strcmp(parameter,"On");g_bus.approach_control=hb_approach_toggle(g_bus.approach_control,HB_APPROACH_SCALE_ABOVE,on);instance->approach_pad_armed=HB_APPROACH_OFF;return;}
-if(!strcmp(key,"mod_chrom_below")){int on=parameter[0]=='1'||!strcmp(parameter,"On");g_bus.approach_control=hb_approach_toggle(g_bus.approach_control,HB_APPROACH_CHROM_BELOW,on);instance->approach_pad_armed=HB_APPROACH_OFF;return;}
+if(!strcmp(key,"approach_reset")){if(parameter[0]=='1'||!strcmp(parameter,"Reset")){instance->approach_control=HB_APPROACH_OFF;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;}return;}
+if(!strcmp(key,"mod_scale_above")){int on=parameter[0]=='1'||!strcmp(parameter,"On");instance->approach_control=hb_approach_toggle(instance->approach_control,HB_APPROACH_SCALE_ABOVE,on);instance->approach_pad_armed=HB_APPROACH_OFF;return;}
+if(!strcmp(key,"mod_chrom_below")){int on=parameter[0]=='1'||!strcmp(parameter,"On");instance->approach_control=hb_approach_toggle(instance->approach_control,HB_APPROACH_CHROM_BELOW,on);instance->approach_pad_armed=HB_APPROACH_OFF;return;}
 if(!strcmp(key,"approach_scale_next")){if(parameter[0]=='1'||!strcmp(parameter,"Scale +"))instance->approach_pad_armed=HB_APPROACH_SCALE_ABOVE;return;}
 if(!strcmp(key,"approach_chrom_next")){if(parameter[0]=='1'||!strcmp(parameter,"Chrom -"))instance->approach_pad_armed=HB_APPROACH_CHROM_BELOW;return;}
 if(!strcmp(key,"track_role")||!strcmp(key,"role")){
@@ -2542,7 +2488,7 @@ if(!strcmp(key,"track_role")||!strcmp(key,"role")){
     }
     if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}
 }else if(!strcmp(key,"clip_slot")){g_bus.clip_slot=enum_index(parameter,CLIP_SLOT_OPTS,9,g_bus.clip_slot);if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}}else if(!strcmp(key,"sensor_sources")){g_bus.sensor_sources=0;instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"clip_context")){g_bus.clip_context=0;g_bus.sensor_sources=0;instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"retrigger_held")){instance->retrigger_held=enum_index(parameter,RETRIGGER_OPTS,2,instance->retrigger_held);}else if(!strcmp(key,"follow_lookahead_ms")){int parsed=parse_i(parameter,instance->follow_lookahead_ms);if(parsed<0)parsed=0;if(parsed>100)parsed=100;instance->follow_lookahead_ms=parsed;}else if(!strcmp(key,"follower_root_policy")||!strcmp(key,"follower_source_policy")){hb_set_global_root_policy(enum_index(parameter,FOLLOWER_SOURCE_POLICY_OPTS,3,hb_global_root_policy()));}else if(!strcmp(key,"follower_explicit_root")||!strcmp(key,"follower_source_root")){hb_set_global_explicit_root(enum_index(parameter,PC_OPTS,12,hb_global_explicit_root()));}else if(!strcmp(key,"mode")){instance->mode=enum_index(parameter,MODE_OPTS,3,instance->mode);instance->follower_bus_seq=0;}else if(!strcmp(key,"content_map")){
-    int value=hb_global_content_map();
+    int value=instance->content_map;
     if(!strcmp(parameter,"In Chord"))value=0;
     else if(!strcmp(parameter,"In Scale"))value=1;
     else if(!strcmp(parameter,"Free"))value=2;
@@ -2552,52 +2498,58 @@ if(!strcmp(key,"track_role")||!strcmp(key,"role")){
     else if(!strcmp(parameter,"In 12356"))value=6;
     else if(!strcmp(parameter,"In Non-Avoid"))value=7;
     else if(!strcmp(parameter,"In 123567"))value=8;
-    hb_set_global_content_map(value);
-}else if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward","Direct"};hb_set_global_travel_map(enum_index(parameter,opts,6,hb_global_travel_map()));}else if(!strcmp(key,"split_map")){static const char *opts[]={"Harm. / Out","135 / 2467","1357 / 246","Act. / Out"};g_bus.follower_split_map=enum_index(parameter,opts,4,g_bus.follower_split_map);}else if(!strcmp(key,"approach")){g_bus.approach_control=enum_index(parameter,APPROACH_OPTS,3,HB_APPROACH_OFF);instance->approach_pad_armed=HB_APPROACH_OFF;}else if(!strcmp(key,"approach_mode")){g_bus.approach_mode=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"quant_timing")){/* follower-render timing only */g_bus.quant_timing=enum_index(parameter,QUANT_GRID_OPTS,7,g_bus.quant_timing);}else if(!strcmp(key,"chord_timing")){/* follower-render timing only */g_bus.chord_timing=enum_index(parameter,TIMING_OPTS,7,g_bus.chord_timing);g_bus.chord_timescale=0;}else if(!strcmp(key,"anticipation")){/* follower-render timing only */g_bus.anticipation=enum_index(parameter,ANTICIPATION_OPTS,6,g_bus.anticipation);}else if(!strcmp(key,"boundary_buffer_ms")){/* follower-render capture window only */int parsed=parse_i(parameter,g_bus.boundary_buffer_ms);if(parsed<0)parsed=0;if(parsed>1000)parsed=1000;g_bus.boundary_buffer_ms=parsed;}else if(!strcmp(key,"analysis_release_ms")){int parsed=parse_i(parameter,g_bus.analysis_release_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.analysis_release_ms=parsed;}else if(!strcmp(key,"follower_scale")){hb_set_global_scale(enum_index(parameter,FOLLOWER_SCALE_OPTS,10,hb_global_scale()));}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,g_bus.inference_window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.inference_window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
+    instance->content_map=value;
+}else if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward","Direct"};instance->travel_map=enum_index(parameter,opts,6,instance->travel_map);}else if(!strcmp(key,"split_map")){static const char *opts[]={"Harm. / Out","135 / 2467","1357 / 246","Act. / Out"};instance->follower_split_map=enum_index(parameter,opts,4,instance->follower_split_map);}else if(!strcmp(key,"approach")){instance->approach_control=enum_index(parameter,APPROACH_OPTS,3,HB_APPROACH_OFF);instance->approach_pad_armed=HB_APPROACH_OFF;}else if(!strcmp(key,"approach_mode")){instance->approach_mode=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"quant_timing")){/* follower-render timing only */instance->quant_timing=enum_index(parameter,QUANT_GRID_OPTS,7,instance->quant_timing);}else if(!strcmp(key,"chord_timing")){/* follower-render timing only */g_bus.chord_timing=enum_index(parameter,TIMING_OPTS,7,g_bus.chord_timing);g_bus.chord_timescale=0;}else if(!strcmp(key,"anticipation")){/* follower-render timing only */g_bus.anticipation=enum_index(parameter,ANTICIPATION_OPTS,6,g_bus.anticipation);}else if(!strcmp(key,"boundary_buffer_ms")){/* follower-render capture window only */int parsed=parse_i(parameter,instance->boundary_buffer_ms);if(parsed<0)parsed=0;if(parsed>1000)parsed=1000;instance->boundary_buffer_ms=parsed;}else if(!strcmp(key,"analysis_release_ms")){int parsed=parse_i(parameter,g_bus.analysis_release_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.analysis_release_ms=parsed;}else if(!strcmp(key,"follower_scale")){instance->follower_scale=enum_index(parameter,FOLLOWER_SCALE_OPTS,10,instance->follower_scale);}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,g_bus.inference_window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.inference_window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
 static void hb_restore_state(Inst *instance,const char *state){
     if(!instance||!state)return;
     int values[25];for(int i=0;i<25;i++)values[i]=-999;
-    int parsed=sscanf(state,"hb15,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    int parsed=sscanf(state,"hb16,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
         &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
         &values[12],&values[13],&values[14],&values[15],&values[16],&values[17],
         &values[18],&values[19],&values[20],&values[21],&values[22],&values[23],&values[24]);
-    int is_hb15=(parsed==25);
-    if(!is_hb15)parsed=sscanf(state,"hb14,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    int is_hb16=(parsed==25);
+    if(!is_hb16)parsed=sscanf(state,"hb15,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
         &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
         &values[12],&values[13],&values[14],&values[15],&values[16],&values[17],
         &values[18],&values[19],&values[20],&values[21],&values[22],&values[23]);
-    int is_hb14=(!is_hb15&&parsed==24);
-    if(!is_hb15&&!is_hb14)parsed=sscanf(state,"hb13,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    int is_hb15=(!is_hb16&&parsed==25);
+    if(!is_hb16&&!is_hb15)parsed=sscanf(state,"hb14,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+        &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
+        &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
+        &values[12],&values[13],&values[14],&values[15],&values[16],&values[17],
+        &values[18],&values[19],&values[20],&values[21],&values[22],&values[23]);
+    int is_hb14=(!is_hb16&&!is_hb15&&parsed==24);
+    if(!is_hb16&&!is_hb15&&!is_hb14)parsed=sscanf(state,"hb13,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
         &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
         &values[12],&values[13],&values[14],&values[15],&values[16],&values[17],
         &values[18],&values[19],&values[20],&values[21],&values[22],&values[23]);
     int is_hb13=(!is_hb15&&!is_hb14&&parsed==24);
-    if(!is_hb15&&!is_hb14&&!is_hb13)parsed=sscanf(state,"hb12,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13)parsed=sscanf(state,"hb12,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
         &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
         &values[12],&values[13],&values[14],&values[15],&values[16],&values[17],
         &values[18],&values[19],&values[20],&values[21],&values[22]);
     int is_hb12=(!is_hb13&&parsed==23);
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12)parsed=sscanf(state,"hb11,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12)parsed=sscanf(state,"hb11,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
         &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
         &values[12],&values[13],&values[14],&values[15],&values[16],&values[17],
         &values[18],&values[19],&values[20]);
     int is_hb11=(!is_hb13&&!is_hb12&&parsed==21);
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11)parsed=sscanf(state,"hb10,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11)parsed=sscanf(state,"hb10,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
         &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
         &values[12],&values[13],&values[14],&values[15],&values[16],&values[17],&values[18],&values[19]);
     int is_hb10=(!is_hb13&&!is_hb12&&!is_hb11&&parsed==20);
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10)parsed=sscanf(state,"hb9,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10)parsed=sscanf(state,"hb9,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
         &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
         &values[12],&values[13],&values[14],&values[15],&values[16],&values[17],&values[18]);
     int is_hb9=(!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&parsed==19);
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9)parsed=sscanf(state,"hb8,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9)parsed=sscanf(state,"hb8,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
         &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
         &values[12],&values[13],&values[14],&values[15],&values[16],&values[17]);
@@ -2606,41 +2558,41 @@ static void hb_restore_state(Inst *instance,const char *state){
            must not overwrite them; otherwise changing tracks makes "last
            visited track wins". */
     }
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=18){
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=18){
         parsed=sscanf(state,"hb7,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
             &values[12],&values[13],&values[14],&values[15]);
     }
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=16&&parsed!=18){
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=16&&parsed!=18){
         parsed=sscanf(state,"hb6,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
             &values[12],&values[13],&values[14]);
     }
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=15&&parsed!=16&&parsed!=18){
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=15&&parsed!=16&&parsed!=18){
         parsed=sscanf(state,"hb5,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
             &values[12],&values[13],&values[14],&values[15]);
     }
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=16&&parsed!=15&&parsed!=18){
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=16&&parsed!=15&&parsed!=18){
         parsed=sscanf(state,"hb4,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
             &values[12],&values[13],&values[14]);
     }
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=15&&parsed!=16&&parsed!=18){
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=15&&parsed!=16&&parsed!=18){
         parsed=sscanf(state,"hb3,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],&values[12]);
     }
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=13&&parsed!=15&&parsed!=16&&parsed!=18){
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=13&&parsed!=15&&parsed!=16&&parsed!=18){
         parsed=sscanf(state,"hb2,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10],&values[11]);
     }
-    if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=12&&parsed!=13&&parsed!=15&&parsed!=16&&parsed!=18){
+    if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed!=12&&parsed!=13&&parsed!=15&&parsed!=16&&parsed!=18){
         parsed=sscanf(state,"hb1,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
             &values[6],&values[7],&values[8],&values[9],&values[10]);
@@ -2676,44 +2628,46 @@ static void hb_restore_state(Inst *instance,const char *state){
             g_bus.context=g_bus.stability==0?1:(g_bus.stability==1?3:5);
         }
     }
-    if((is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10||is_hb9||parsed>=12)&&values[11]>=-1&&values[11]<16)instance->render_channel=values[11];
-    if((is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10||is_hb9||parsed==13||parsed>=15)&&values[12]>=-1&&values[12]<16){
+    if((is_hb16||is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10||is_hb9||parsed>=12)&&values[11]>=-1&&values[11]<16)instance->render_channel=values[11];
+    if((is_hb16||is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10||is_hb9||parsed==13||parsed>=15)&&values[12]>=-1&&values[12]<16){
         instance->source_channel=values[12];
         /* Restoring opaque state must never leave a cached owning-track
            channel from a previous UI/instance lifetime. Re-resolve direct
            MIDI routing from the current track tag/fallback. */
         instance->resolved_source_channel=-1;
     }
-    if((is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10||is_hb9||parsed>=18)&&values[16]>=0&&values[16]<=100)instance->follow_lookahead_ms=values[16];
-    if((is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10||is_hb9||parsed>=18)&&values[17]>=0&&values[17]<=1)instance->retrigger_held=values[17];
-    /* Follower mapping controls are global from hb14 onward. Older per-track
-       copies are ignored during migration to avoid last-visited-track wins. */
+    if((is_hb16||is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10||is_hb9||parsed>=18)&&values[16]>=0&&values[16]<=100)instance->follow_lookahead_ms=values[16];
+    if((is_hb16||is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10||is_hb9||parsed>=18)&&values[17]>=0&&values[17]<=1)instance->retrigger_held=values[17];
+    /* Follower behavior is per instance from hb16 onward. hb15/hb14 stored
+       the same then-global mapping values in every instance, so reading each
+       copy locally is a lossless migration and avoids last-visited-track wins. */
     instance->follow_lookahead_ms=0;
-    if((is_hb15||is_hb14)&&values[0]==0&&!g_follower_globals_restored){
-        /* The conductor snapshot is the canonical persisted copy of GLOBAL
-           follower settings. Restore it exactly once after process/Move restart;
-           later per-track/UI restores must never overwrite live globals. */
-        if(values[8]>=0&&values[8]<4)g_bus.follower_split_map=values[8];
+    if((is_hb16||is_hb15||is_hb14)){
+        if(values[8]>=0&&values[8]<4)instance->follower_split_map=values[8];
+        if(values[19]>=0&&values[19]<=1000)instance->boundary_buffer_ms=values[19];
+        if(values[21]>=0&&values[21]<9)instance->content_map=values[21];
+        if(values[22]>=0&&values[22]<6)instance->travel_map=values[22];
+        if(values[23]>=0&&values[23]<10)instance->follower_scale=values[23];
+        if(values[24]>=0&&values[24]<7)instance->quant_timing=values[24];
+    }
+    if((is_hb16||is_hb15||is_hb14)&&values[0]==0&&!g_follower_globals_restored){
+        /* Only source-root semantics remain global. Restore their canonical
+           conductor copy once; follower voice settings above remain local. */
         if(values[4]>=0&&values[4]<3)hb_set_global_root_policy(values[4]);
         if(values[5]>=0&&values[5]<12)hb_set_global_explicit_root(values[5]);
-        if(values[21]>=0&&values[21]<9)hb_set_global_content_map(values[21]);
-        if(values[22]>=0&&values[22]<5)hb_set_global_travel_map(values[22]);
-        if(values[23]>=0&&values[23]<10)hb_set_global_scale(values[23]);
         g_follower_globals_restored=1;
     }
-    if((is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10||is_hb9)&&values[0]==0&&!instance->global_timing_restored){
+    if((is_hb16||is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10||is_hb9)&&values[0]==0&&!instance->global_timing_restored){
         /* Restore shared timing only once for the conductor instance. Schwung
            may reapply opaque module state while navigating the UI; allowing
            that stale copy to overwrite live globals made Chord Grid snap back. */
         g_bus.inference_window_ms=25;
         if(values[13]>=0&&values[13]<7)g_bus.chord_timing=values[13];
-        if(is_hb15&&values[24]>=0&&values[24]<7)g_bus.quant_timing=values[24];
         g_bus.context=0;
         if(values[18]>=0&&values[18]<6)g_bus.anticipation=values[18];
-        if((is_hb15||is_hb14||is_hb13||is_hb12||is_hb11||is_hb10)&&values[19]>=0&&values[19]<=1000)g_bus.boundary_buffer_ms=values[19];
-        if((is_hb15||is_hb14||is_hb13||is_hb12||is_hb11)&&values[20]>=0&&values[20]<=500)g_bus.analysis_release_ms=values[20];
+        if((is_hb16||is_hb15||is_hb14||is_hb13||is_hb12||is_hb11)&&values[20]>=0&&values[20]<=500)g_bus.analysis_release_ms=values[20];
         instance->global_timing_restored=1;
-    }else if(!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed>=15&&values[0]==0&&!instance->global_timing_restored){
+    }else if(!is_hb16&&!is_hb15&&!is_hb14&&!is_hb13&&!is_hb12&&!is_hb11&&!is_hb10&&!is_hb9&&parsed>=15&&values[0]==0&&!instance->global_timing_restored){
         /* Migrate old combined Timing choices: Ant variants collapse to the
            same Grid; anticipation defaults Off until explicitly selected. */
         int old_timing=values[13];
@@ -2739,7 +2693,7 @@ if(!strcmp(key,"next_shift"))return snprintf(buffer,(size_t)length,"%s",g_bus.ne
 if(!strcmp(key,"next_loop_length")){double beats=hb_next_loop_length();if(beats<=0.0)return snprintf(buffer,(size_t)length,"--");if(((long)(beats+0.5))%4==0&&beats>=4.0)return snprintf(buffer,(size_t)length,"%.2f Bars",beats/4.0);return snprintf(buffer,(size_t)length,"%.2f Beats",beats);}
 if(!strcmp(key,"next_position")){double beats=hb_next_loop_length();if(beats<=0.0||!g_bus.have_last_clip_playhead)return snprintf(buffer,(size_t)length,"--");double phase=hb_next_phase(g_bus.last_clip_playhead);if(((long)(beats+0.5))%4==0&&beats>=4.0)return snprintf(buffer,(size_t)length,"%.2f / %.2f Bars",phase/4.0,beats/4.0);return snprintf(buffer,(size_t)length,"%.2f / %.2f Beats",phase,beats);}
 if(!strcmp(key,"next_harmony")){if(!g_bus.next_model_locked||g_bus.next_model_count<=0)return snprintf(buffer,(size_t)length,"--");double playhead=g_bus.have_last_clip_playhead?g_bus.last_clip_playhead:hb_clip_playhead();int index=hb_next_upcoming_event(hb_next_phase(playhead));if(index<0)return snprintf(buffer,(size_t)length,"--");return hb_format_harmony(buffer,length,g_bus.next_model[index].harmony);}
-if(!strcmp(key,"next_reset"))return snprintf(buffer,(size_t)length,"Off");if(!strcmp(key,"version"))return snprintf(buffer,(size_t)length,"%s",HB_VERSION);if(!strcmp(key,"foll_mod_blank2"))return snprintf(buffer,(size_t)length,"");if(!strcmp(key,"foll_mod_blank3")||!strcmp(key,"foll_mod_blank4")||!strcmp(key,"foll_mod_blank5"))return snprintf(buffer,(size_t)length,"");if(!strcmp(key,"approach_status")){int active=hb_active_approach(instance);return snprintf(buffer,(size_t)length,"%s",APPROACH_OPTS[(active>=0&&active<3)?active:1]);}if(!strcmp(key,"touch_hint"))return snprintf(buffer,(size_t)length,"K6 OFF K7 UP K8 DN");if(!strcmp(key,"approach_reset"))return snprintf(buffer,(size_t)length,"Off");if(!strcmp(key,"approach_scale_next"))return snprintf(buffer,(size_t)length,"Off");if(!strcmp(key,"approach_chrom_next"))return snprintf(buffer,(size_t)length,"Off");if(!strcmp(key,"mod_scale_above"))return snprintf(buffer,(size_t)length,"%s",g_bus.approach_control==2?"On":"Off");if(!strcmp(key,"mod_chrom_below"))return snprintf(buffer,(size_t)length,"%s",g_bus.approach_control==0?"On":"Off");if(!strcmp(key,"approach"))return snprintf(buffer,(size_t)length,"%s",APPROACH_OPTS[(g_bus.approach_control>=0&&g_bus.approach_control<3)?g_bus.approach_control:1]);if(!strcmp(key,"approach_mode")){int mode=g_bus.approach_mode;if(mode<0||mode>2)mode=0;return snprintf(buffer,(size_t)length,"%s",APPROACH_MODE_OPTS[mode]);}if(!strcmp(key,"approach_below_pad"))return snprintf(buffer,(size_t)length,"%d",instance->approach_below_held?1:0);if(!strcmp(key,"approach_above_pad"))return snprintf(buffer,(size_t)length,"%d",instance->approach_above_held?1:0);if(!strcmp(key,"retrigger_held"))return snprintf(buffer,(size_t)length,"%s",RETRIGGER_OPTS[instance->retrigger_held?1:0]);if(!strcmp(key,"follow_lookahead_ms"))return snprintf(buffer,(size_t)length,"%d",instance->follow_lookahead_ms);if(!strcmp(key,"conductor_this_1")){char b[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_local_conductor_note(instance,0),harmony,b,sizeof(b)));}
+if(!strcmp(key,"next_reset"))return snprintf(buffer,(size_t)length,"Off");if(!strcmp(key,"version"))return snprintf(buffer,(size_t)length,"%s",HB_VERSION);if(!strcmp(key,"foll_mod_blank2"))return snprintf(buffer,(size_t)length,"");if(!strcmp(key,"foll_mod_blank3")||!strcmp(key,"foll_mod_blank4")||!strcmp(key,"foll_mod_blank5"))return snprintf(buffer,(size_t)length,"");if(!strcmp(key,"approach_status")){int active=hb_active_approach(instance);return snprintf(buffer,(size_t)length,"%s",APPROACH_OPTS[(active>=0&&active<3)?active:1]);}if(!strcmp(key,"touch_hint"))return snprintf(buffer,(size_t)length,"K6 OFF K7 UP K8 DN");if(!strcmp(key,"approach_reset"))return snprintf(buffer,(size_t)length,"Off");if(!strcmp(key,"approach_scale_next"))return snprintf(buffer,(size_t)length,"Off");if(!strcmp(key,"approach_chrom_next"))return snprintf(buffer,(size_t)length,"Off");if(!strcmp(key,"mod_scale_above"))return snprintf(buffer,(size_t)length,"%s",instance->approach_control==2?"On":"Off");if(!strcmp(key,"mod_chrom_below"))return snprintf(buffer,(size_t)length,"%s",instance->approach_control==0?"On":"Off");if(!strcmp(key,"approach"))return snprintf(buffer,(size_t)length,"%s",APPROACH_OPTS[(instance->approach_control>=0&&instance->approach_control<3)?instance->approach_control:1]);if(!strcmp(key,"approach_mode")){int mode=instance->approach_mode;if(mode<0||mode>2)mode=0;return snprintf(buffer,(size_t)length,"%s",APPROACH_MODE_OPTS[mode]);}if(!strcmp(key,"approach_below_pad"))return snprintf(buffer,(size_t)length,"%d",instance->approach_below_held?1:0);if(!strcmp(key,"approach_above_pad"))return snprintf(buffer,(size_t)length,"%d",instance->approach_above_held?1:0);if(!strcmp(key,"retrigger_held"))return snprintf(buffer,(size_t)length,"%s",RETRIGGER_OPTS[instance->retrigger_held?1:0]);if(!strcmp(key,"follow_lookahead_ms"))return snprintf(buffer,(size_t)length,"%d",instance->follow_lookahead_ms);if(!strcmp(key,"conductor_this_1")){char b[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_local_conductor_note(instance,0),harmony,b,sizeof(b)));}
 if(!strcmp(key,"conductor_this_2")){char b[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_local_conductor_note(instance,1),harmony,b,sizeof(b)));}
 if(!strcmp(key,"conductor_this_3")){char b[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_local_conductor_note(instance,2),harmony,b,sizeof(b)));}
 if(!strcmp(key,"conductor_this_4")){char b[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_local_conductor_note(instance,3),harmony,b,sizeof(b)));}
@@ -2775,13 +2729,13 @@ if(!strcmp(key,"follower_role_1"))return snprintf(buffer,(size_t)length,"%s",hb_
 if(!strcmp(key,"follower_role_2"))return snprintf(buffer,(size_t)length,"%s",hb_follower_analysis_role_name(instance,1));
 if(!strcmp(key,"follower_role_3"))return snprintf(buffer,(size_t)length,"%s",hb_follower_analysis_role_name(instance,2));
 if(!strcmp(key,"follower_role_4"))return snprintf(buffer,(size_t)length,"%s",hb_follower_analysis_role_name(instance,3));
-if(!strcmp(key,"follower_active_count"))return snprintf(buffer,(size_t)length,"%d",hb_follower_analysis_count(instance));if(!strcmp(key,"state"))return snprintf(buffer,(size_t)length,"hb15,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",instance->role,instance->mode,instance->map_target,g_bus.inference_window_ms,hb_global_root_policy(),hb_global_explicit_root(),g_bus.global_input_root,g_bus.global_transpose,g_bus.follower_split_map,g_bus.stability,g_bus.accidentals,instance->render_channel,instance->source_channel,g_bus.chord_timing,g_bus.context,g_bus.clip_context,instance->follow_lookahead_ms,instance->retrigger_held,g_bus.anticipation,g_bus.boundary_buffer_ms,g_bus.analysis_release_ms,hb_global_content_map(),hb_global_travel_map(),hb_global_scale(),g_bus.quant_timing);if(!strcmp(key,"track_role")||!strcmp(key,"role"))return snprintf(buffer,(size_t)length,"%s",ROLE_OPTS[instance->role]);if(!strcmp(key,"clip_slot"))return snprintf(buffer,(size_t)length,"%s",CLIP_SLOT_OPTS[g_bus.clip_slot]);if(!strcmp(key,"sensor_sources"))return snprintf(buffer,(size_t)length,"%s","Realtime");if(!strcmp(key,"realtime_route"))return snprintf(buffer,(size_t)length,"%s","Set Track MIDI Out -> Schwung");if(!strcmp(key,"clip_context"))return snprintf(buffer,(size_t)length,"%s","Realtime Only");if(!strcmp(key,"mode"))return snprintf(buffer,(size_t)length,"%s",MODE_OPTS[instance->mode]);
+if(!strcmp(key,"follower_active_count"))return snprintf(buffer,(size_t)length,"%d",hb_follower_analysis_count(instance));if(!strcmp(key,"state"))return snprintf(buffer,(size_t)length,"hb16,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",instance->role,instance->mode,instance->map_target,g_bus.inference_window_ms,hb_global_root_policy(),hb_global_explicit_root(),g_bus.global_input_root,g_bus.global_transpose,instance->follower_split_map,g_bus.stability,g_bus.accidentals,instance->render_channel,instance->source_channel,g_bus.chord_timing,g_bus.context,g_bus.clip_context,instance->follow_lookahead_ms,instance->retrigger_held,g_bus.anticipation,instance->boundary_buffer_ms,g_bus.analysis_release_ms,instance->content_map,instance->travel_map,instance->follower_scale,instance->quant_timing);if(!strcmp(key,"track_role")||!strcmp(key,"role"))return snprintf(buffer,(size_t)length,"%s",ROLE_OPTS[instance->role]);if(!strcmp(key,"clip_slot"))return snprintf(buffer,(size_t)length,"%s",CLIP_SLOT_OPTS[g_bus.clip_slot]);if(!strcmp(key,"sensor_sources"))return snprintf(buffer,(size_t)length,"%s","Realtime");if(!strcmp(key,"realtime_route"))return snprintf(buffer,(size_t)length,"%s","Set Track MIDI Out -> Schwung");if(!strcmp(key,"clip_context"))return snprintf(buffer,(size_t)length,"%s","Realtime Only");if(!strcmp(key,"mode"))return snprintf(buffer,(size_t)length,"%s",MODE_OPTS[instance->mode]);
 if(!strcmp(key,"content_map")){
     static const char *opts[]={"In Chord","In Scale","Free","In 135","In 1357","In 12357","In 12356","In Non-Avoid","In 123567"};
-    return snprintf(buffer,(size_t)length,"%s",opts[hb_global_content_map()]);
+    return snprintf(buffer,(size_t)length,"%s",opts[instance->content_map]);
 }
-if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward","Direct"};int travel=hb_global_travel_map();if(travel<0||travel>5)travel=0;return snprintf(buffer,(size_t)length,"%s",opts[travel]);}if(!strcmp(key,"split_map")){static const char *opts[]={"Harm. / Out","135 / 2467","1357 / 246","Act. / Out"};int split=g_bus.follower_split_map;if(split<0||split>3)split=0;return snprintf(buffer,(size_t)length,"%s",opts[split]);}
-if(!strcmp(key,"map_target"))return snprintf(buffer,(size_t)length,"%s",MAP_TARGET_OPTS[instance->map_target]);if(!strcmp(key,"source_channel"))return snprintf(buffer,(size_t)length,"%s",SOURCE_CH_OPTS[instance->source_channel+1]);if(!strcmp(key,"resolved_source_channel"))return snprintf(buffer,(size_t)length,"%d",instance->resolved_source_channel);if(!strcmp(key,"render_channel"))return snprintf(buffer,(size_t)length,"%s",RENDER_CH_OPTS[instance->render_channel+1]);if(!strcmp(key,"quant_timing"))return snprintf(buffer,(size_t)length,"%s",QUANT_GRID_OPTS[g_bus.quant_timing]);if(!strcmp(key,"chord_timing"))return snprintf(buffer,(size_t)length,"%s",TIMING_OPTS[g_bus.chord_timing]);if(!strcmp(key,"anticipation"))return snprintf(buffer,(size_t)length,"%s",ANTICIPATION_OPTS[g_bus.anticipation]);if(!strcmp(key,"boundary_buffer_ms"))return snprintf(buffer,(size_t)length,"%d",g_bus.boundary_buffer_ms);if(!strcmp(key,"analysis_release_ms"))return snprintf(buffer,(size_t)length,"%d",g_bus.analysis_release_ms);if(!strcmp(key,"follower_scale"))return snprintf(buffer,(size_t)length,"%s",FOLLOWER_SCALE_OPTS[hb_global_scale()]);if(!strcmp(key,"context"))return snprintf(buffer,(size_t)length,"%s",CONTEXT_OPTS[g_bus.context]);if(!strcmp(key,"chord_timescale"))return snprintf(buffer,(size_t)length,"%s",TIMESCALE_OPTS[g_bus.chord_timescale]);if(!strcmp(key,"stability"))return snprintf(buffer,(size_t)length,"%s",STABILITY_OPTS[g_bus.stability]);if(!strcmp(key,"accidentals"))return snprintf(buffer,(size_t)length,"%s",ACCIDENTAL_OPTS[g_bus.accidentals]);if(!strcmp(key,"root_policy"))return snprintf(buffer,(size_t)length,"%s",POLICY_OPTS[g_bus.global_root_policy]);if(!strcmp(key,"explicit_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_explicit_root]);if(!strcmp(key,"input_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_input_root]);if(!strcmp(key,"transpose"))return snprintf(buffer,(size_t)length,"%d",g_bus.global_transpose);if(!strcmp(key,"window_ms"))return snprintf(buffer,(size_t)length,"%d",g_bus.inference_window_ms);if(!strcmp(key,"detected_root"))return snprintf(buffer,(size_t)length,"%s",harmony.valid?hb_pc_display(harmony.root_pc,harmony):"--");if(!strcmp(key,"detected_bass"))return snprintf(buffer,(size_t)length,"%s",harmony.valid?hb_pc_display(harmony.bass_pc,harmony):"--");if(!strcmp(key,"detected_quality"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.chord_index+1:0);if(!strcmp(key,"confidence"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.confidence:0);if(!strcmp(key,"resolved_root"))return snprintf(buffer,(size_t)length,"%d",reference_root(instance));if(!strcmp(key,"harmony"))return hb_format_harmony(buffer,length,harmony);if(!strcmp(key,"candidate_harmony"))return hb_format_harmony(buffer,length,instance->candidate_harmony);if(!strcmp(key,"pitch_mask"))return snprintf(buffer,(size_t)length,"%u",(unsigned)harmony.pitch_mask);if(!strcmp(key,"rx_count"))return snprintf(buffer,(size_t)length,"%u",instance->rx_count);if(!strcmp(key,"note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_off_count);if(!strcmp(key,"last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"last_status"))return snprintf(buffer,(size_t)length,"%d",instance->last_status);if(!strcmp(key,"last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->last_velocity);if(!strcmp(key,"diag_midi_events"))return snprintf(buffer,(size_t)length,"%u",instance->rx_count);if(!strcmp(key,"diag_note_ons"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"diag_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"diag_recv_ch")){int recv=hb_monitor_channel(instance);return snprintf(buffer,(size_t)length,"%d",(recv>=0&&recv<16)?recv+1:-1);}if(!strcmp(key,"diag_event_ch")){int type=instance->last_status&0xF0;int event_ch=(type==0x80||type==0x90)?(instance->last_status&15):-1;return snprintf(buffer,(size_t)length,"%d",event_ch>=0?event_ch+1:-1);}if(!strcmp(key,"live_press_count"))return snprintf(buffer,(size_t)length,"%u",instance->live_press_count);if(!strcmp(key,"rt_note_count"))return snprintf(buffer,(size_t)length,"%d",hb_held_count(instance));if(!strcmp(key,"rt_note_ons"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"rt_note_offs"))return snprintf(buffer,(size_t)length,"%u",instance->note_off_count);if(!strcmp(key,"rt_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"rt_last_channel")){int t=instance->last_status&0xF0;return snprintf(buffer,(size_t)length,"%d",(t==0x80||t==0x90)?(instance->last_status&15):-1);}if(!strcmp(key,"clip_active_count")){uint8_t temp_notes[32];int temp_count=hb_clip_active_notes(temp_notes,32);return snprintf(buffer,(size_t)length,"%d",temp_count);}if(!strcmp(key,"active_count"))return snprintf(buffer,(size_t)length,"%d",hb_conductor_analysis_count(instance));if(!strcmp(key,"active_note_list"))return hb_format_active_notes(instance,buffer,length);if(!strcmp(key,"callback_active_notes"))return snprintf(buffer,(size_t)length,"%d",active_notes(instance,(uint8_t[128]){0}));if(!strcmp(key,"pending_releases")){int n=0;for(int i=0;i<128;i++)if(instance->pending_off_frames[i]>0)n++;return snprintf(buffer,(size_t)length,"%d",n);}if(!strcmp(key,"active_pc_mask"))return snprintf(buffer,(size_t)length,"%u",hb_active_pc_mask(instance));if(!strcmp(key,"active_note_1"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,0));if(!strcmp(key,"active_note_2"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,1));if(!strcmp(key,"active_note_3"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,2));if(!strcmp(key,"active_note_4"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,3));if(!strcmp(key,"active_note_4_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,3),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"active_note_3_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,2),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"active_note_2_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,1),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"active_note_1_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,0),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"clip_stage")){static const char *names[]={"idle","no active set","active set","no conductor","conductor found","no Song.abl","Song.abl found","no track","track found","no clip slots","no clip","clip found","no notes array","empty clip","OK"};int stage=g_bus.clip_stage;if(stage<0||stage>14)stage=0;return snprintf(buffer,(size_t)length,"%s",names[stage]);}if(!strcmp(key,"cache_rev"))return snprintf(buffer,(size_t)length,"%u",g_bus.cache_rev);if(!strcmp(key,"sense_rev"))return snprintf(buffer,(size_t)length,"%u",g_bus.sense_rev);if(!strcmp(key,"clip_track"))return snprintf(buffer,(size_t)length,"%d",g_bus.clip_context?g_bus.clip_track:-1);if(!strcmp(key,"clip_note_count"))return snprintf(buffer,(size_t)length,"%d",g_bus.clip_context?g_bus.clip_note_count:0);if(!strcmp(key,"clip_playhead"))return g_bus.clip_context?snprintf(buffer,(size_t)length,"%.3f",hb_clip_playhead()):snprintf(buffer,(size_t)length,"%s","realtime");if(!strcmp(key,"infer_note_count")){uint8_t notes[128];return snprintf(buffer,(size_t)length,"%d",active_notes(instance,notes));}if(!strcmp(key,"bus_seq"))return snprintf(buffer,(size_t)length,"%u",__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE));if(!strcmp(key,"raw_event_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_event_count);if(!strcmp(key,"raw_note_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_count);if(!strcmp(key,"raw_note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_on_count);if(!strcmp(key,"raw_note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_off_count);if(!strcmp(key,"raw_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_note);if(!strcmp(key,"raw_last_status"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_status);if(!strcmp(key,"raw_last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_velocity);if(!strcmp(key,"raw_last_channel"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_channel);if(!strcmp(key,"raw_track_match"))return snprintf(buffer,(size_t)length,"%d",(g_bus.clip_track>=0&&instance->raw_last_channel==g_bus.clip_track)?1:0);if(!strcmp(key,"raw_last_cable"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_cable);if(!strcmp(key,"inject_available"))return snprintf(buffer,(size_t)length,"%d",(g_host&&g_host->midi_inject_to_move)?1:0);if(!strcmp(key,"render_count"))return snprintf(buffer,(size_t)length,"%u",instance->render_count);if(!strcmp(key,"render_fail_count"))return snprintf(buffer,(size_t)length,"%u",instance->render_fail_count);if(!strcmp(key,"render_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->render_last_note);if(!strcmp(key,"follower_last_in"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"follower_last_out"))return snprintf(buffer,(size_t)length,"%d",instance->render_channel>=0?instance->render_last_note:(instance->last_note>=0&&instance->last_note<128?instance->mapped[instance->last_note]:-1));if(!strcmp(key,"follower_root_policy")||!strcmp(key,"follower_source_policy"))return snprintf(buffer,(size_t)length,"%s",FOLLOWER_SOURCE_POLICY_OPTS[hb_global_root_policy()]);if(!strcmp(key,"follower_explicit_root")||!strcmp(key,"follower_source_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[hb_global_explicit_root()]);if(!strcmp(key,"inferred_root")){int root=0;if(!hb_infer_follower_root(instance,&root))return snprintf(buffer,(size_t)length,"%s","--");return snprintf(buffer,(size_t)length,"%s",PC_OPTS[root]);}if(!strcmp(key,"role_reference_root")||!strcmp(key,"used_root")){int root=0;if(!hb_resolve_follower_reference_root(instance,&root))return snprintf(buffer,(size_t)length,"%s","--");return snprintf(buffer,(size_t)length,"%s",PC_OPTS[root]);}if(!strcmp(key,"source_note_1")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(0);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_1"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(0),buffer,length);if(!strcmp(key,"source_note_2")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(1);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_2"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(1),buffer,length);if(!strcmp(key,"source_note_3")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(2);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_3"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(2),buffer,length);if(!strcmp(key,"source_note_4")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(3);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_4"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(3),buffer,length);if(!strcmp(key,"monitor_status"))return snprintf(buffer,(size_t)length,"%s",g_monitor?"ACTIVE":"ABSENT");
+if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward","Direct"};int travel=instance->travel_map;if(travel<0||travel>5)travel=0;return snprintf(buffer,(size_t)length,"%s",opts[travel]);}if(!strcmp(key,"split_map")){static const char *opts[]={"Harm. / Out","135 / 2467","1357 / 246","Act. / Out"};int split=instance->follower_split_map;if(split<0||split>3)split=0;return snprintf(buffer,(size_t)length,"%s",opts[split]);}
+if(!strcmp(key,"map_target"))return snprintf(buffer,(size_t)length,"%s",MAP_TARGET_OPTS[instance->map_target]);if(!strcmp(key,"source_channel"))return snprintf(buffer,(size_t)length,"%s",SOURCE_CH_OPTS[instance->source_channel+1]);if(!strcmp(key,"resolved_source_channel"))return snprintf(buffer,(size_t)length,"%d",instance->resolved_source_channel);if(!strcmp(key,"render_channel"))return snprintf(buffer,(size_t)length,"%s",RENDER_CH_OPTS[instance->render_channel+1]);if(!strcmp(key,"quant_timing"))return snprintf(buffer,(size_t)length,"%s",QUANT_GRID_OPTS[instance->quant_timing]);if(!strcmp(key,"chord_timing"))return snprintf(buffer,(size_t)length,"%s",TIMING_OPTS[g_bus.chord_timing]);if(!strcmp(key,"anticipation"))return snprintf(buffer,(size_t)length,"%s",ANTICIPATION_OPTS[g_bus.anticipation]);if(!strcmp(key,"boundary_buffer_ms"))return snprintf(buffer,(size_t)length,"%d",instance->boundary_buffer_ms);if(!strcmp(key,"analysis_release_ms"))return snprintf(buffer,(size_t)length,"%d",g_bus.analysis_release_ms);if(!strcmp(key,"follower_scale"))return snprintf(buffer,(size_t)length,"%s",FOLLOWER_SCALE_OPTS[instance->follower_scale]);if(!strcmp(key,"context"))return snprintf(buffer,(size_t)length,"%s",CONTEXT_OPTS[g_bus.context]);if(!strcmp(key,"chord_timescale"))return snprintf(buffer,(size_t)length,"%s",TIMESCALE_OPTS[g_bus.chord_timescale]);if(!strcmp(key,"stability"))return snprintf(buffer,(size_t)length,"%s",STABILITY_OPTS[g_bus.stability]);if(!strcmp(key,"accidentals"))return snprintf(buffer,(size_t)length,"%s",ACCIDENTAL_OPTS[g_bus.accidentals]);if(!strcmp(key,"root_policy"))return snprintf(buffer,(size_t)length,"%s",POLICY_OPTS[g_bus.global_root_policy]);if(!strcmp(key,"explicit_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_explicit_root]);if(!strcmp(key,"input_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[g_bus.global_input_root]);if(!strcmp(key,"transpose"))return snprintf(buffer,(size_t)length,"%d",g_bus.global_transpose);if(!strcmp(key,"window_ms"))return snprintf(buffer,(size_t)length,"%d",g_bus.inference_window_ms);if(!strcmp(key,"detected_root"))return snprintf(buffer,(size_t)length,"%s",harmony.valid?hb_pc_display(harmony.root_pc,harmony):"--");if(!strcmp(key,"detected_bass"))return snprintf(buffer,(size_t)length,"%s",harmony.valid?hb_pc_display(harmony.bass_pc,harmony):"--");if(!strcmp(key,"detected_quality"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.chord_index+1:0);if(!strcmp(key,"confidence"))return snprintf(buffer,(size_t)length,"%d",harmony.valid?harmony.confidence:0);if(!strcmp(key,"resolved_root"))return snprintf(buffer,(size_t)length,"%d",reference_root(instance));if(!strcmp(key,"harmony"))return hb_format_harmony(buffer,length,harmony);if(!strcmp(key,"candidate_harmony"))return hb_format_harmony(buffer,length,instance->candidate_harmony);if(!strcmp(key,"pitch_mask"))return snprintf(buffer,(size_t)length,"%u",(unsigned)harmony.pitch_mask);if(!strcmp(key,"rx_count"))return snprintf(buffer,(size_t)length,"%u",instance->rx_count);if(!strcmp(key,"note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->note_off_count);if(!strcmp(key,"last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"last_status"))return snprintf(buffer,(size_t)length,"%d",instance->last_status);if(!strcmp(key,"last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->last_velocity);if(!strcmp(key,"diag_midi_events"))return snprintf(buffer,(size_t)length,"%u",instance->rx_count);if(!strcmp(key,"diag_note_ons"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"diag_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"diag_recv_ch")){int recv=hb_monitor_channel(instance);return snprintf(buffer,(size_t)length,"%d",(recv>=0&&recv<16)?recv+1:-1);}if(!strcmp(key,"diag_event_ch")){int type=instance->last_status&0xF0;int event_ch=(type==0x80||type==0x90)?(instance->last_status&15):-1;return snprintf(buffer,(size_t)length,"%d",event_ch>=0?event_ch+1:-1);}if(!strcmp(key,"live_press_count"))return snprintf(buffer,(size_t)length,"%u",instance->live_press_count);if(!strcmp(key,"rt_note_count"))return snprintf(buffer,(size_t)length,"%d",hb_held_count(instance));if(!strcmp(key,"rt_note_ons"))return snprintf(buffer,(size_t)length,"%u",instance->note_on_count);if(!strcmp(key,"rt_note_offs"))return snprintf(buffer,(size_t)length,"%u",instance->note_off_count);if(!strcmp(key,"rt_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"rt_last_channel")){int t=instance->last_status&0xF0;return snprintf(buffer,(size_t)length,"%d",(t==0x80||t==0x90)?(instance->last_status&15):-1);}if(!strcmp(key,"clip_active_count")){uint8_t temp_notes[32];int temp_count=hb_clip_active_notes(temp_notes,32);return snprintf(buffer,(size_t)length,"%d",temp_count);}if(!strcmp(key,"active_count"))return snprintf(buffer,(size_t)length,"%d",hb_conductor_analysis_count(instance));if(!strcmp(key,"active_note_list"))return hb_format_active_notes(instance,buffer,length);if(!strcmp(key,"callback_active_notes"))return snprintf(buffer,(size_t)length,"%d",active_notes(instance,(uint8_t[128]){0}));if(!strcmp(key,"pending_releases")){int n=0;for(int i=0;i<128;i++)if(instance->pending_off_frames[i]>0)n++;return snprintf(buffer,(size_t)length,"%d",n);}if(!strcmp(key,"active_pc_mask"))return snprintf(buffer,(size_t)length,"%u",hb_active_pc_mask(instance));if(!strcmp(key,"active_note_1"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,0));if(!strcmp(key,"active_note_2"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,1));if(!strcmp(key,"active_note_3"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,2));if(!strcmp(key,"active_note_4"))return snprintf(buffer,(size_t)length,"%d",hb_nth_active_note(instance,3));if(!strcmp(key,"active_note_4_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,3),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"active_note_3_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,2),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"active_note_2_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,1),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"active_note_1_name")){char note_buf[8];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(hb_nth_conductor_analysis_note(instance,0),harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"clip_stage")){static const char *names[]={"idle","no active set","active set","no conductor","conductor found","no Song.abl","Song.abl found","no track","track found","no clip slots","no clip","clip found","no notes array","empty clip","OK"};int stage=g_bus.clip_stage;if(stage<0||stage>14)stage=0;return snprintf(buffer,(size_t)length,"%s",names[stage]);}if(!strcmp(key,"cache_rev"))return snprintf(buffer,(size_t)length,"%u",g_bus.cache_rev);if(!strcmp(key,"sense_rev"))return snprintf(buffer,(size_t)length,"%u",g_bus.sense_rev);if(!strcmp(key,"clip_track"))return snprintf(buffer,(size_t)length,"%d",g_bus.clip_context?g_bus.clip_track:-1);if(!strcmp(key,"clip_note_count"))return snprintf(buffer,(size_t)length,"%d",g_bus.clip_context?g_bus.clip_note_count:0);if(!strcmp(key,"clip_playhead"))return g_bus.clip_context?snprintf(buffer,(size_t)length,"%.3f",hb_clip_playhead()):snprintf(buffer,(size_t)length,"%s","realtime");if(!strcmp(key,"infer_note_count")){uint8_t notes[128];return snprintf(buffer,(size_t)length,"%d",active_notes(instance,notes));}if(!strcmp(key,"bus_seq"))return snprintf(buffer,(size_t)length,"%u",__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE));if(!strcmp(key,"raw_event_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_event_count);if(!strcmp(key,"raw_note_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_count);if(!strcmp(key,"raw_note_on_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_on_count);if(!strcmp(key,"raw_note_off_count"))return snprintf(buffer,(size_t)length,"%u",instance->raw_note_off_count);if(!strcmp(key,"raw_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_note);if(!strcmp(key,"raw_last_status"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_status);if(!strcmp(key,"raw_last_velocity"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_velocity);if(!strcmp(key,"raw_last_channel"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_channel);if(!strcmp(key,"raw_track_match"))return snprintf(buffer,(size_t)length,"%d",(g_bus.clip_track>=0&&instance->raw_last_channel==g_bus.clip_track)?1:0);if(!strcmp(key,"raw_last_cable"))return snprintf(buffer,(size_t)length,"%d",instance->raw_last_cable);if(!strcmp(key,"inject_available"))return snprintf(buffer,(size_t)length,"%d",(g_host&&g_host->midi_inject_to_move)?1:0);if(!strcmp(key,"render_count"))return snprintf(buffer,(size_t)length,"%u",instance->render_count);if(!strcmp(key,"render_fail_count"))return snprintf(buffer,(size_t)length,"%u",instance->render_fail_count);if(!strcmp(key,"render_last_note"))return snprintf(buffer,(size_t)length,"%d",instance->render_last_note);if(!strcmp(key,"follower_last_in"))return snprintf(buffer,(size_t)length,"%d",instance->last_note);if(!strcmp(key,"follower_last_out"))return snprintf(buffer,(size_t)length,"%d",instance->render_channel>=0?instance->render_last_note:(instance->last_note>=0&&instance->last_note<128?instance->mapped[instance->last_note]:-1));if(!strcmp(key,"follower_root_policy")||!strcmp(key,"follower_source_policy"))return snprintf(buffer,(size_t)length,"%s",FOLLOWER_SOURCE_POLICY_OPTS[hb_global_root_policy()]);if(!strcmp(key,"follower_explicit_root")||!strcmp(key,"follower_source_root"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[hb_global_explicit_root()]);if(!strcmp(key,"inferred_root")){int root=0;if(!hb_infer_follower_root(instance,&root))return snprintf(buffer,(size_t)length,"%s","--");return snprintf(buffer,(size_t)length,"%s",PC_OPTS[root]);}if(!strcmp(key,"role_reference_root")||!strcmp(key,"used_root")){int root=0;if(!hb_resolve_follower_reference_root(instance,&root))return snprintf(buffer,(size_t)length,"%s","--");return snprintf(buffer,(size_t)length,"%s",PC_OPTS[root]);}if(!strcmp(key,"source_note_1")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(0);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_1"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(0),buffer,length);if(!strcmp(key,"source_note_2")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(1);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_2"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(1),buffer,length);if(!strcmp(key,"source_note_3")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(2);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_3"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(2),buffer,length);if(!strcmp(key,"source_note_4")){char note_buf[8];int note=hb_nth_aggregate_conductor_note(3);return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(note,harmony,note_buf,sizeof(note_buf)));}if(!strcmp(key,"source_of_4"))return hb_format_conductor_source(hb_nth_aggregate_conductor_note(3),buffer,length);if(!strcmp(key,"monitor_status"))return snprintf(buffer,(size_t)length,"%s",g_monitor?"ACTIVE":"ABSENT");
 if(!strcmp(key,"monitor_generation"))return snprintf(buffer,(size_t)length,"%u",g_monitor?(unsigned)g_monitor->generation:0u);
 if(!strcmp(key,"monitor_events"))return snprintf(buffer,(size_t)length,"%u",g_monitor?(unsigned)g_monitor->external_note_events:0u);
 if(!strcmp(key,"v87_marker"))return snprintf(buffer,(size_t)length,"%s","HB264");

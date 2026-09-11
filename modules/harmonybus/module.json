@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.91",
-  "abbrev": "HB291",
-  "version": "0.2.91",
+  "name": "Harmony Bus 0.2.92",
+  "abbrev": "HB292",
+  "version": "0.2.92",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.91 \u2014 adaptive learned harmony lookahead",
+  "description": "Harmony Bus v0.2.92 \u2014 independent follower behavior per track",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.91",
+          "name": "Harmony Bus 0.2.92",
           "params": [
             {
               "key": "version",
