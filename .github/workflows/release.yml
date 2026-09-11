@@ -19,11 +19,12 @@ jobs:
       - name: Apply current HarmonyBus normalization
         run: |
           python3 scripts/cleanup_foll_mod_v0276.py
+          python3 scripts/foll_mod_buttons_v0277.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.76 source'
+            git commit -m 'Normalize HarmonyBus v0.2.77 source'
             git push origin main
           fi
 
@@ -44,8 +45,14 @@ jobs:
           ]
           params={p.get('key'):p for p in module['capabilities']['chain_params']}
           assert 'follower_mod_canvas' not in params
-          assert params['approach_scale_next']['options']==['Off','Scale +']
-          assert params['approach_chrom_next']['options']==['Off','Chrom -']
+          for key, options in {
+              'approach_reset':['-','Reset'],
+              'approach_scale_next':['-','Scale +'],
+              'approach_chrom_next':['-','Chrom -'],
+          }.items():
+              assert params[key]['type']=='enum'
+              assert params[key]['options']==options
+              assert params[key]['access']=='write'
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
           blank='if(!strcmp(key,"foll_mod_blank3")||!strcmp(key,"foll_mod_blank4")||!strcmp(key,"foll_mod_blank5"))return snprintf(buffer,(size_t)length,"");'
           assert source.count(blank)==1
@@ -76,6 +83,8 @@ jobs:
           assert module['version']==os.environ['VERSION']
           params={p.get('key'):p for p in module['capabilities']['chain_params']}
           assert 'follower_mod_canvas' not in params
+          for key in ('approach_reset','approach_scale_next','approach_chrom_next'):
+              assert params[key].get('access')=='write'
           PY
 
       - name: Publish release
