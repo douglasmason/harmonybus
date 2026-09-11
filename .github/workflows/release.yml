@@ -18,14 +18,14 @@ jobs:
 
       - name: Apply HarmonyBus migrations
         run: |
-          for script in scripts/add_follower_modifier_panel.py scripts/bump_to_0266.py scripts/finish_follower_mod_v0267.py scripts/fix_follower_mod_v0268.py scripts/fix_follower_mod_v0269.py scripts/move_follower_scale_v0270.py scripts/foll_mod_touch_launcher_v0271.py; do
+          for script in scripts/add_follower_modifier_panel.py scripts/bump_to_0266.py scripts/finish_follower_mod_v0267.py scripts/fix_follower_mod_v0268.py scripts/fix_follower_mod_v0269.py scripts/move_follower_scale_v0270.py scripts/foll_mod_touch_launcher_v0271.py scripts/touch_mapping_modes_v0272.py; do
             if test -f "$script"; then python3 "$script"; fi
           done
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
+          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c modules/harmonybus/canvas.js
           if ! git diff --cached --quiet; then
-            git commit -m 'Apply HarmonyBus migrations through v0.2.71'
+            git commit -m 'Apply HarmonyBus migrations through v0.2.72'
             git push origin main
           fi
 
