@@ -18,14 +18,14 @@ jobs:
 
       - name: Apply HarmonyBus migrations
         run: |
-          for script in scripts/add_follower_modifier_panel.py scripts/bump_to_0266.py scripts/finish_follower_mod_v0267.py scripts/fix_follower_mod_v0268.py scripts/fix_follower_mod_v0269.py scripts/move_follower_scale_v0270.py scripts/foll_mod_touch_launcher_v0271.py scripts/touch_mapping_modes_v0272.py scripts/touch_perf_as_page_v0273.py scripts/fix_touch_perf_canvas_v0274.py scripts/foll_mod_controls_v0275.py; do
+          for script in scripts/add_follower_modifier_panel.py scripts/bump_to_0266.py scripts/finish_follower_mod_v0267.py scripts/fix_follower_mod_v0268.py scripts/fix_follower_mod_v0269.py scripts/move_follower_scale_v0270.py scripts/foll_mod_touch_launcher_v0271.py scripts/touch_mapping_modes_v0272.py scripts/touch_perf_as_page_v0273.py scripts/fix_touch_perf_canvas_v0274.py scripts/foll_mod_controls_v0275.py scripts/cleanup_foll_mod_v0276.py; do
             if test -f "$script"; then python3 "$script"; fi
           done
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c modules/harmonybus/canvas.js
           if ! git diff --cached --quiet; then
-            git commit -m 'Apply HarmonyBus migrations through v0.2.75'
+            git commit -m 'Apply HarmonyBus migrations through v0.2.76'
             git push origin main
           fi
 
@@ -37,6 +37,7 @@ jobs:
           grep -q "#define HB_VERSION \"${VERSION}\"" modules/harmonybus/dsp/harmonybus.c
           python3 - <<'PY'
           import json
+          from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs']==[
@@ -47,6 +48,10 @@ jobs:
           assert 'follower_mod_canvas' not in params
           assert params['approach_scale_next']['options']==['Off','Scale +']
           assert params['approach_chrom_next']['options']==['Off','Chrom -']
+          source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
+          blank='if(!strcmp(key,"foll_mod_blank3")||!strcmp(key,"foll_mod_blank4")||!strcmp(key,"foll_mod_blank5"))return snprintf(buffer,(size_t)length,"");'
+          assert source.count(blank)==1
+          assert '"Off");}if(!strcmp(key,"approach"))' not in source
           PY
 
       - name: Install build tools
