@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.85",
-  "abbrev": "HB285",
-  "version": "0.2.85",
+  "name": "Harmony Bus 0.2.86",
+  "abbrev": "HB286",
+  "version": "0.2.86",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.85 \u2014 pre-boundary follower capture without post-chord latency",
+  "description": "Harmony Bus v0.2.86 \u2014 follower timing fix plus Foll Mod travel shortcut",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.85",
+          "name": "Harmony Bus 0.2.86",
           "params": [
             {
               "key": "version",
@@ -654,10 +654,7 @@
               "default": "Off"
             },
             {
-              "key": "foll_mod_blank2",
-              "name": "",
-              "type": "string",
-              "access": "read"
+              "key": "travel_map"
             },
             {
               "key": "mod_scale_above",
@@ -723,7 +720,7 @@
           ],
           "knobs": [
             "approach",
-            "foll_mod_blank2",
+            "travel_map",
             "mod_scale_above",
             "mod_chrom_below",
             "foll_mod_blank5",
