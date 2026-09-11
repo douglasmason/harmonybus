@@ -30,11 +30,18 @@ source = DSP.read_text()
 source = re.sub(r'/\* Harmony Bus v0\.2\.\d+ — Schwung MIDI FX\. \*/', '/* Harmony Bus v0.2.90 — Schwung MIDI FX. */', source, count=1)
 source = re.sub(r'#define HB_VERSION "0\.2\.\d+"', '#define HB_VERSION "0.2.90"', source, count=1)
 
-# Older lookahead normalizers were not idempotent and could duplicate this block.
-source = re.sub(
-    r'if\(!strcmp\(key,"next_predict"\)\).*?if\(!strcmp\(key,"next_reset"\)\)return snprintf\(buffer,\(size_t\)length,"Off"\);',
-    '', source, flags=re.S)
-
+# Canonicalize only the beginning of get_param. Older normalizers duplicated
+# Next Harm getters there; never run a broad regex across set_param/get_param.
+get_start = source.find('static int get_param(')
+if get_start < 0:
+    raise SystemExit('get_param function not found')
+harmony_decl = source.find('hb_harmony_t harmony=bus_read();', get_start)
+if harmony_decl < 0:
+    raise SystemExit('get_param harmony declaration not found')
+version_marker = source.find('if(!strcmp(key,"version"))', harmony_decl)
+if version_marker < 0:
+    raise SystemExit('get_param version marker not found')
+insert_at = harmony_decl + len('hb_harmony_t harmony=bus_read();')
 get_block = '''\nif(!strcmp(key,"next_lookahead")){int index=g_bus.next_lookahead;if(index<0||index>6)index=3;return snprintf(buffer,(size_t)length,"%s",NEXT_LOOKAHEAD_OPTS[index]);}
 if(!strcmp(key,"next_model"))return snprintf(buffer,(size_t)length,"%s",g_bus.next_model_locked?"Locked":"Learning");
 if(!strcmp(key,"next_shift"))return snprintf(buffer,(size_t)length,"%s",g_bus.next_shift_active?"Early":"Live");
@@ -42,15 +49,9 @@ if(!strcmp(key,"next_loop_length")){double beats=hb_next_loop_length();if(beats<
 if(!strcmp(key,"next_position")){double beats=hb_next_loop_length();if(beats<=0.0||!g_bus.have_last_clip_playhead)return snprintf(buffer,(size_t)length,"--");double phase=hb_next_phase(g_bus.last_clip_playhead);if(((long)(beats+0.5))%4==0&&beats>=4.0)return snprintf(buffer,(size_t)length,"%.2f / %.2f Bars",phase/4.0,beats/4.0);return snprintf(buffer,(size_t)length,"%.2f / %.2f Beats",phase,beats);}
 if(!strcmp(key,"next_harmony")){if(!g_bus.next_model_locked||g_bus.next_model_count<=0)return snprintf(buffer,(size_t)length,"--");double playhead=g_bus.have_last_clip_playhead?g_bus.last_clip_playhead:hb_clip_playhead();int index=hb_next_upcoming_event(hb_next_phase(playhead));if(index<0)return snprintf(buffer,(size_t)length,"--");return hb_format_harmony(buffer,length,g_bus.next_model[index].harmony);}
 if(!strcmp(key,"next_reset"))return snprintf(buffer,(size_t)length,"Off");'''
-start = source.find('static int get_param(')
-if start < 0:
-    raise SystemExit('get_param function not found')
-harmony_decl = source.find('hb_harmony_t harmony=bus_read();', start)
-if harmony_decl < 0:
-    raise SystemExit('get_param harmony declaration not found')
-insert_at = harmony_decl + len('hb_harmony_t harmony=bus_read();')
-source = source[:insert_at] + get_block + source[insert_at:]
+source = source[:insert_at] + get_block + source[version_marker:]
 
+# Prediction is permanently armed; Lookahead=Off is the bypass.
 source = source.replace('g_bus.next_predict=0;g_bus.next_lookahead=3;', 'g_bus.next_predict=1;g_bus.next_lookahead=3;', 1)
 source = source.replace('if(!g_bus.next_predict||!g_bus.next_model_locked)hb_effective_write(harmony);', 'if(hb_next_lookahead_beats()<=0.0||!g_bus.next_model_locked)hb_effective_write(harmony);', 1)
 source = source.replace('if(!g_bus.next_predict||!g_bus.next_model_locked||g_bus.next_model_count<=0){', 'if(hb_next_lookahead_beats()<=0.0||!g_bus.next_model_locked||g_bus.next_model_count<=0){', 1)
@@ -102,7 +103,8 @@ source, count = re.subn(r'static void hb_next_update_playhead\(void\)\{.*?\n\}',
 if count != 1:
     raise SystemExit('hb_next_update_playhead not found')
 
+# Collapse duplicated v0.2.89 calls and preserve the last sampled position on stop.
 source = re.sub(r'(?:\s*if\(instance->role==0\)hb_next_update_playhead\(\);)+', '\n            if(instance->role==0)hb_next_update_playhead(frames,sample_rate);', source)
 source = source.replace('g_bus.have_last_clip_playhead=0;g_bus.next_have_playhead=0;g_bus.next_shift_active=0;', 'g_bus.next_have_playhead=0;g_bus.next_shift_active=0;')
-source = re.sub(r'if\(!strcmp\(key,"next_predict"\)\)\{[^}]*\}', 'if(!strcmp(key,"next_predict")){g_bus.next_predict=1;return;}', source)
+
 DSP.write_text(source)
