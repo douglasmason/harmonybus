@@ -18,12 +18,12 @@ jobs:
 
       - name: Apply current HarmonyBus normalization
         run: |
-          python3 scripts/release_v0288.py
+          python3 scripts/release_v0289.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.88 source'
+            git commit -m 'Normalize HarmonyBus v0.2.89 source'
             git push origin main
           fi
 
@@ -38,9 +38,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.88'
+          assert module['version']=='0.2.89'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.88'
+          assert levels['root']['name']=='Harmony Bus 0.2.89'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -64,6 +64,9 @@ jobs:
           assert 'hb_next_update_playhead();' in source
           assert 'learned_boundary=hb_next_effective_boundary' in source
           assert 'hb_harmony_t committed=hb_observed_read();' in source
+          assert 'First wrap establishes a trustworthy phase-zero' in source
+          assert 'if(g_host&&g_host->get_clock_status)' in source
+          assert 'if(g_bus.clip_context&&g_host&&g_host->get_clock_status)' not in source
           closest=source[source.index('static int hb_map_follower_note_closest_split'):source.index('static int hb_map_follower_note_now')]
           assert 'nominal_by_degree[degree]=source_root_note+source_interval;' in closest
           assert 'hb_build_closest_split_assignment(' in closest
@@ -109,7 +112,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.88'
+          assert module['version']==os.environ['VERSION']=='0.2.89'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -137,7 +140,7 @@ jobs:
           Path("release.json").write_text(json.dumps({"version": version, "download_url": f"https://github.com/douglasmason/harmonybus/releases/download/v{version}/harmonybus-v{version}-module.tar.gz"}, indent=2) + "\n")
           PY
           git config user.name 'github-actions[bot]'
-          git config user.email '4189822+github-actions[bot]@users.noreply.github.com'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add release.json
           if ! git diff --cached --quiet; then
             git commit -m "Update release.json for v${VERSION}"
