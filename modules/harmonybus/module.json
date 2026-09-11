@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.76",
-  "abbrev": "HB276",
-  "version": "0.2.76",
+  "name": "Harmony Bus 0.2.77",
+  "abbrev": "HB277",
+  "version": "0.2.77",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.76 \u2014 repaired standard Foll Mod build and cleaned accumulated getter migrations",
+  "description": "Harmony Bus v0.2.77 \u2014 Foll Mod K6-K8 are true momentary push buttons",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.76",
+          "name": "Harmony Bus 0.2.77",
           "params": [
             {
               "key": "version",
@@ -688,33 +688,33 @@
               "name": "Reset",
               "type": "enum",
               "options": [
-                "Off",
+                "-",
                 "Reset"
               ],
               "options_as_string": true,
-              "default": "Off"
+              "access": "write"
             },
             {
               "key": "approach_scale_next",
               "name": "Scale Next",
               "type": "enum",
               "options": [
-                "Off",
+                "-",
                 "Scale +"
               ],
               "options_as_string": true,
-              "default": "Off"
+              "access": "write"
             },
             {
               "key": "approach_chrom_next",
               "name": "Chrom Next",
               "type": "enum",
               "options": [
-                "Off",
+                "-",
                 "Chrom -"
               ],
               "options_as_string": true,
-              "default": "Off"
+              "access": "write"
             }
           ],
           "knobs": [
@@ -1738,11 +1738,11 @@
         "name": "Reset",
         "type": "enum",
         "options": [
-          "Off",
+          "-",
           "Reset"
         ],
         "options_as_string": true,
-        "default": "Off"
+        "access": "write"
       },
       {
         "key": "mod_scale_above",
@@ -1795,22 +1795,22 @@
         "name": "Scale Next",
         "type": "enum",
         "options": [
-          "Off",
+          "-",
           "Scale +"
         ],
         "options_as_string": true,
-        "default": "Off"
+        "access": "write"
       },
       {
         "key": "approach_chrom_next",
         "name": "Chrom Next",
         "type": "enum",
         "options": [
-          "Off",
+          "-",
           "Chrom -"
         ],
         "options_as_string": true,
-        "default": "Off"
+        "access": "write"
       }
     ],
     "pre_capable": 1
