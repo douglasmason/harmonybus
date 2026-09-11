@@ -2259,6 +2259,7 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
             if(instance->role==0)hb_next_update_playhead();
             if(instance->role==0)hb_next_update_playhead();
             if(instance->role==0)hb_next_update_playhead();
+            if(instance->role==0)hb_next_update_playhead();
         }else{
             g_bus.have_last_clip_playhead=0;g_bus.next_have_playhead=0;g_bus.next_shift_active=0;
         }
@@ -2690,6 +2691,14 @@ static void hb_restore_state(Inst *instance,const char *state){
     if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}
 }
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();
+if(!strcmp(key,"next_predict"))return snprintf(buffer,(size_t)length,"%s",NEXT_PREDICT_OPTS[g_bus.next_predict?1:0]);
+if(!strcmp(key,"next_lookahead")){int index=g_bus.next_lookahead;if(index<0||index>6)index=3;return snprintf(buffer,(size_t)length,"%s",NEXT_LOOKAHEAD_OPTS[index]);}
+if(!strcmp(key,"next_model"))return snprintf(buffer,(size_t)length,"%s",!g_bus.next_predict?"Off":(g_bus.next_model_locked?"Locked":"Learning"));
+if(!strcmp(key,"next_shift"))return snprintf(buffer,(size_t)length,"%s",g_bus.next_shift_active?"Early":"Live");
+if(!strcmp(key,"next_loop_length")){double beats=hb_next_loop_length();if(beats<=0.0)return snprintf(buffer,(size_t)length,"--");if(((long)(beats+0.5))%4==0&&beats>=4.0)return snprintf(buffer,(size_t)length,"%.2f Bars",beats/4.0);return snprintf(buffer,(size_t)length,"%.2f Beats",beats);}
+if(!strcmp(key,"next_position")){double beats=hb_next_loop_length();if(beats<=0.0||!g_bus.have_last_clip_playhead)return snprintf(buffer,(size_t)length,"--");double phase=hb_next_phase(g_bus.last_clip_playhead);if(((long)(beats+0.5))%4==0&&beats>=4.0)return snprintf(buffer,(size_t)length,"%.2f / %.2f Bars",phase/4.0,beats/4.0);return snprintf(buffer,(size_t)length,"%.2f / %.2f Beats",phase,beats);}
+if(!strcmp(key,"next_harmony")){if(!g_bus.next_model_locked||g_bus.next_model_count<=0)return snprintf(buffer,(size_t)length,"--");int index=hb_next_upcoming_event(hb_next_phase(hb_clip_playhead()));if(index<0)return snprintf(buffer,(size_t)length,"--");return hb_format_harmony(buffer,length,g_bus.next_model[index].harmony);}
+if(!strcmp(key,"next_reset"))return snprintf(buffer,(size_t)length,"Off");
 if(!strcmp(key,"next_predict"))return snprintf(buffer,(size_t)length,"%s",NEXT_PREDICT_OPTS[g_bus.next_predict?1:0]);
 if(!strcmp(key,"next_lookahead")){int index=g_bus.next_lookahead;if(index<0||index>6)index=3;return snprintf(buffer,(size_t)length,"%s",NEXT_LOOKAHEAD_OPTS[index]);}
 if(!strcmp(key,"next_model"))return snprintf(buffer,(size_t)length,"%s",!g_bus.next_predict?"Off":(g_bus.next_model_locked?"Locked":"Learning"));
