@@ -69,6 +69,8 @@ jobs:
         run: |
           clang -std=c11 -O2 tests/harmony_core_test.c src/harmony_core.c -o /tmp/harmony_core_test
           /tmp/harmony_core_test
+          clang -std=c11 -O2 tests/hb_virtual_bank_test.c src/hb_virtual_bank.c -o /tmp/hb_virtual_bank_test
+          /tmp/hb_virtual_bank_test
 
       - name: Build ARM64 HarmonyBus
         run: |
