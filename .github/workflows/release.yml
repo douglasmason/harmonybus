@@ -64,7 +64,8 @@ jobs:
           assert 'next_learning_progress_beats' in source
           assert 'A full loop LENGTH of observation covers every circular clip phase' in source
           assert source.count('hb_next_update_playhead(frames,sample_rate);') == 1
-          assert source.count('if(!strcmp(key,"next_lookahead"))') == 1
+          getp=source[source.index('static int get_param('):]
+          assert getp.count('if(!strcmp(key,"next_lookahead"))') == 1
           assert 'static void hb_commit_observed_harmony' in source
           assert 'learned_boundary=hb_next_effective_boundary' in source
           assert 'hb_harmony_t committed=hb_observed_read();' in source
