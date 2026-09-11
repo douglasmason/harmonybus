@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.83",
-  "abbrev": "HB283",
-  "version": "0.2.83",
+  "name": "Harmony Bus 0.2.84",
+  "abbrev": "HB284",
+  "version": "0.2.84",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.83 \u2014 scale ornaments independent of Content; monotonic Closest Split",
+  "description": "Harmony Bus v0.2.84 \u2014 scale ornaments independent of Content; seven-degree monotonic Closest Split",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.83",
+          "name": "Harmony Bus 0.2.84",
           "params": [
             {
               "key": "version",

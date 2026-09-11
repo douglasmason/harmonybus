@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.83 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.83"
+/* Harmony Bus v0.2.84 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.84"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1302,12 +1302,12 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
         allowed_by_degree[degree]=(unsigned int)(preferred?preferred:legal);
     }
 
-    /* Old Closest Split solved every source degree independently. That can
-       collapse two degrees onto one pitch or even invert adjacent degrees
-       (e.g. 4 and 6 both below 5). Solve the seven-degree mapping as one
-       ordered ladder instead: every degree is distinct and degree order is
-       strictly monotonic while each degree stays as close as possible to its
-       normal target and honors its split side whenever that side is legal. */
+    /* Solve the seven follower degrees jointly.  For the explicit 135/2467
+       and 1357/246 splits, the preferred masks partition the seven-note
+       chord-scale, so closest_split.h assigns every scale pitch class exactly
+       once while keeping rendered MIDI pitches strictly ascending.  Only when
+       Content removes too many pitch classes do we permit octave-repeated
+       pitch classes; MIDI-note ordering remains strict in all cases. */
     if(!hb_build_monotonic_degree_ladder(nominal_by_degree,allowed_by_degree,output_by_degree))
         return hb_map_note(source_note,reference_root(instance),content_target,HB_MAP_NEAREST);
     return output_by_degree[source_degree];
