@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.81 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.81"
+/* Harmony Bus v0.2.83 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.83"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -36,6 +36,8 @@ extern int close(int);
 #include "schwung_midi_api.h"
 #include "../../../src/harmony_core.h"
 #include "../../../src/approach_state.h"
+#include "../../../src/closest_split.h"
+#include "../../../src/approach_pitch.h"
 
 struct host_api_v1 {
     uint32_t api_version;
@@ -1239,57 +1241,76 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
     uint16_t parent_scale=hb_explicit_scale_mask(source_root,parent_scale_index);
     int source_degree=hb_source_degree_from_parent_scale(mod12(source_note-source_root),
                                                           source_root,parent_scale);
+    if(source_degree<0)source_degree=0;
+    if(source_degree>6)source_degree=6;
+
     uint16_t chord_scale=parent_scale;
     if(!parent_scale||(parent_scale&(1u<<mod12(detected.root_pc)))==0)
         chord_scale=hb_scale_mask(detected);
 
-    uint16_t inferred_chord_mask=hb_harmony_chord_mask(detected);
-    uint16_t on_mask=0,off_mask=0;
-    int source_is_on=0;
-    int split=g_bus.follower_split_map;
+    uint16_t legal=(uint16_t)(content_target.pitch_mask&0x0FFFu);
+    if(!legal)return source_note;
 
-    if(split==1){
-        unsigned on_bits=(1u<<0)|(1u<<2)|(1u<<4);             /* 135 / 2467 */
-        on_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,on_bits);
-        off_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,0x7Fu&~on_bits);
-        source_is_on=(on_bits&(1u<<source_degree))!=0;
-    }else if(split==2){
-        unsigned on_bits=(1u<<0)|(1u<<2)|(1u<<4)|(1u<<6);     /* 1357 / 246 */
-        on_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,on_bits);
-        off_mask=hb_scale_degree_mask(chord_scale,detected.root_pc,0x7Fu&~on_bits);
-        source_is_on=(on_bits&(1u<<source_degree))!=0;
-    }else if(split==3){
-        /* Act. / Out: the ON side is the literal currently active conductor
-           pitch classes, before diads are expanded or complex voicings are
-           simplified by harmony inference. OUT is the remainder of the
-           detected chord-scale. */
-        uint8_t active_notes[64];
-        int active_count=hb_observed_notes(0,active_notes,64);
-        uint16_t active_mask=0;
+    uint16_t inferred_chord_mask=hb_harmony_chord_mask(detected);
+    uint8_t active_notes[64];
+    int active_count=0;
+    uint16_t active_mask=0;
+    if(g_bus.follower_split_map==3){
+        active_count=hb_observed_notes(0,active_notes,64);
         for(int index=0;index<active_count;index++)
             active_mask|=(uint16_t)(1u<<mod12(active_notes[index]));
-        on_mask=active_mask;
-        off_mask=(uint16_t)(chord_scale&(uint16_t)(~active_mask)&0x0FFFu);
-        int degree_interval=hb_nth_scale_interval_from_root(chord_scale,detected.root_pc,source_degree);
-        int degree_pc=mod12(detected.root_pc+degree_interval);
-        source_is_on=(active_mask&(1u<<degree_pc))!=0;
-    }else{
-        /* Harm. / Out: use the inferred harmony mask. This intentionally uses
-           the normalized harmony, so a diad may be expanded to its inferred
-           triad and a complex voicing may be simplified before the split. */
-        on_mask=inferred_chord_mask;
-        off_mask=(uint16_t)(chord_scale&(uint16_t)(~inferred_chord_mask)&0x0FFFu);
-        int degree_interval=hb_nth_scale_interval_from_root(chord_scale,detected.root_pc,source_degree);
-        int degree_pc=mod12(detected.root_pc+degree_interval);
-        source_is_on=(inferred_chord_mask&(1u<<degree_pc))!=0;
     }
 
-    uint16_t legal=(uint16_t)(content_target.pitch_mask&0x0FFFu);
-    uint16_t preferred=(uint16_t)(legal&(source_is_on?on_mask:off_mask));
-    hb_harmony_t target=content_target;
-    target.pitch_mask=preferred?preferred:legal;
-    if(!target.pitch_mask)return source_note;
-    return hb_map_note(source_note,reference_root(instance),target,HB_MAP_NEAREST);
+    unsigned int allowed_by_degree[HB_CLOSEST_SPLIT_DEGREES];
+    int nominal_by_degree[HB_CLOSEST_SPLIT_DEGREES];
+    int output_by_degree[HB_CLOSEST_SPLIT_DEGREES];
+
+    unsigned on_bits_135=(1u<<0)|(1u<<2)|(1u<<4);
+    unsigned on_bits_1357=on_bits_135|(1u<<6);
+    uint16_t on_mask_135=hb_scale_degree_mask(chord_scale,detected.root_pc,on_bits_135);
+    uint16_t off_mask_135=hb_scale_degree_mask(chord_scale,detected.root_pc,0x7Fu&~on_bits_135);
+    uint16_t on_mask_1357=hb_scale_degree_mask(chord_scale,detected.root_pc,on_bits_1357);
+    uint16_t off_mask_1357=hb_scale_degree_mask(chord_scale,detected.root_pc,0x7Fu&~on_bits_1357);
+
+    int source_degree_interval=hb_nth_scale_interval_from_root(parent_scale,source_root,source_degree);
+    int source_root_note=source_note-source_degree_interval;
+    source_root_note=hb_note_near_pc(source_root_note,source_root);
+    int target_root_note=hb_note_near_pc(source_root_note,detected.root_pc);
+
+    for(int degree=0;degree<HB_CLOSEST_SPLIT_DEGREES;degree++){
+        int target_interval=hb_nth_scale_interval_from_root(chord_scale,detected.root_pc,degree);
+        int degree_pc=mod12(detected.root_pc+target_interval);
+        nominal_by_degree[degree]=target_root_note+target_interval;
+
+        uint16_t preferred=0;
+        int split=g_bus.follower_split_map;
+        if(split==1){
+            int is_on=(on_bits_135&(1u<<degree))!=0;
+            preferred=(uint16_t)(legal&(is_on?on_mask_135:off_mask_135));
+        }else if(split==2){
+            int is_on=(on_bits_1357&(1u<<degree))!=0;
+            preferred=(uint16_t)(legal&(is_on?on_mask_1357:off_mask_1357));
+        }else if(split==3){
+            int is_on=(active_mask&(1u<<degree_pc))!=0;
+            uint16_t out_mask=(uint16_t)(chord_scale&(uint16_t)(~active_mask)&0x0FFFu);
+            preferred=(uint16_t)(legal&(is_on?active_mask:out_mask));
+        }else{
+            int is_on=(inferred_chord_mask&(1u<<degree_pc))!=0;
+            uint16_t out_mask=(uint16_t)(chord_scale&(uint16_t)(~inferred_chord_mask)&0x0FFFu);
+            preferred=(uint16_t)(legal&(is_on?inferred_chord_mask:out_mask));
+        }
+        allowed_by_degree[degree]=(unsigned int)(preferred?preferred:legal);
+    }
+
+    /* Old Closest Split solved every source degree independently. That can
+       collapse two degrees onto one pitch or even invert adjacent degrees
+       (e.g. 4 and 6 both below 5). Solve the seven-degree mapping as one
+       ordered ladder instead: every degree is distinct and degree order is
+       strictly monotonic while each degree stays as close as possible to its
+       normal target and honors its split side whenever that side is legal. */
+    if(!hb_build_monotonic_degree_ladder(nominal_by_degree,allowed_by_degree,output_by_degree))
+        return hb_map_note(source_note,reference_root(instance),content_target,HB_MAP_NEAREST);
+    return output_by_degree[source_degree];
 }
 static int hb_map_follower_note_now(Inst *instance,int source_note){
     hb_harmony_t detected=bus_read();
@@ -1324,20 +1345,19 @@ static int hb_active_approach(const Inst *instance){
     return hb_approach_effective(g_bus.approach_control,instance->approach_pad_armed);
 }
 static int hb_apply_approach(Inst *instance,int mapped,int approach){
-    if(approach==0){
+    if(approach==HB_APPROACH_CHROM_BELOW){
         return mapped>0?mapped-1:0;
     }
-    if(approach==2){
+    if(approach==HB_APPROACH_SCALE_ABOVE){
         hb_harmony_t detected=bus_read();
         if(!detected.valid)return mapped;
-        hb_harmony_t scale_target=hb_follower_scale_target(instance,detected);
-        uint16_t scale_mask=(uint16_t)(scale_target.pitch_mask&0x0FFFu);
+        int source_root=0;
+        if(!hb_resolve_follower_reference_root(instance,&source_root))
+            source_root=detected.root_pc;
+        int parent_scale_index=hb_parent_scale_index(instance,detected);
+        uint16_t scale_mask=hb_explicit_scale_mask(source_root,parent_scale_index);
         if(!scale_mask)scale_mask=(uint16_t)(hb_scale_mask(detected)&0x0FFFu);
-        for(int semitones=1;semitones<=12;semitones++){
-            int candidate=mapped+semitones;
-            if(candidate>127)break;
-            if(scale_mask&(1u<<mod12(candidate)))return candidate;
-        }
+        return hb_next_scale_pitch_above(mapped,(unsigned int)scale_mask);
     }
     return mapped;
 }
