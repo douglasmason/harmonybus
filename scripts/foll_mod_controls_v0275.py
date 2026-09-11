@@ -35,6 +35,11 @@ def main() -> None:
     hierarchy["levels"]["root"]["name"] = "Harmony Bus 0.2.75"
     chain_params: list[dict[str, object]] = caps["chain_params"]
 
+    # The installed Schwung host is treating as_page canvas metadata as an ordinary
+    # one-cell canvas param ("Touch Perf --") rather than a canvas page. Remove the
+    # param entirely for this release so it cannot be orphan-swept into that bogus page.
+    chain_params[:] = [param for param in chain_params if param.get("key") != "follower_mod_canvas"]
+
     upsert(chain_params, {"key": "foll_mod_blank2", "name": "", "type": "string", "access": "read"})
     upsert(chain_params, {"key": "foll_mod_blank5", "name": "", "type": "string", "access": "read"})
     upsert(chain_params, {
@@ -78,9 +83,8 @@ def main() -> None:
         "approach_scale_next",
         "approach_chrom_next",
     ]
-    canvas_param = params_by_key["follower_mod_canvas"]
     panel["knobs"] = standard_keys
-    panel["params"] = [dict(params_by_key[key]) for key in standard_keys] + [dict(canvas_param)]
+    panel["params"] = [dict(params_by_key[key]) for key in standard_keys]
 
     MODULE.write_text(json.dumps(module, indent=2) + "\n")
 
@@ -128,7 +132,6 @@ static int hb_apply_approach''',
         raise RuntimeError("expected follower modifier getters not found")
     source = source.replace(old_get, new_get, 1)
 
-    # Empty standard-panel cells must stay inert readouts.
     version_marker = 'if(!strcmp(key,"version"))return snprintf(buffer,(size_t)length,"%s",HB_VERSION);'
     if 'foll_mod_blank2' not in source:
         source = source.replace(
