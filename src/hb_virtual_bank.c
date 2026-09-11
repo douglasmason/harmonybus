@@ -58,6 +58,9 @@ int hb_virtual_bank_make_harmonybus_state(
     if (track->render_channel < -1 || track->render_channel > 15) {
         return -1;
     }
+    if (track->monitor_channel < -1 || track->monitor_channel > 15) {
+        return -1;
+    }
 
     /*
      * HarmonyBus hb15 state fields, in order:
@@ -67,15 +70,24 @@ int hb_virtual_bank_make_harmonybus_state(
      * retrigger_held, anticipation, boundary_buffer_ms, analysis_release_ms,
      * content_map, travel_map, follower_scale, quant_timing.
      *
-     * These match a fresh HarmonyBus instance/global bus. Movy's private chains
-     * deliver their internal MIDI as channel 1 (status-channel nibble zero), so
-     * Source Channel is explicitly channel 1 (zero-based value 0). This avoids
-     * HarmonyBus' native Move-track ownership fallback entirely for tracks 5-8.
+     * On a Conductor, render_channel is repurposed as an unchanged monitor
+     * destination. On a Follower it keeps its existing transformed-render
+     * meaning. Keeping one persisted field means the Movy profile does not need
+     * a second routing abstraction merely for the source bank.
+     *
+     * Movy's private chains deliver internal MIDI as channel 1 (status-channel
+     * nibble zero), so Source Channel is explicitly channel 1 (zero-based 0).
+     * This avoids HarmonyBus' native Move-track ownership fallback for tracks
+     * 5-8.
      */
+    const int output_channel = track->role == HB_VIRTUAL_ROLE_CONDUCTOR
+        ? track->monitor_channel
+        : track->render_channel;
+
     return snprintf(
         buffer,
         buffer_size,
         "hb15,%d,0,0,25,2,0,0,0,0,0,0,%d,0,0,0,1,0,0,0,20,60,0,0,0,0",
         (int)track->role,
-        track->render_channel);
+        output_channel);
 }
