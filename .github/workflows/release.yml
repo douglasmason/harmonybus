@@ -18,12 +18,12 @@ jobs:
 
       - name: Apply current HarmonyBus normalization
         run: |
-          python3 scripts/release_v0283.py
+          python3 scripts/release_v0284.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.83 source'
+            git commit -m 'Normalize HarmonyBus v0.2.84 source'
             git push origin main
           fi
 
@@ -38,9 +38,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.83'
+          assert module['version']=='0.2.84'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.83'
+          assert levels['root']['name']=='Harmony Bus 0.2.84'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -70,6 +70,9 @@ jobs:
           closest=source[source.index('static int hb_map_follower_note_closest_split'):source.index('static int hb_map_follower_note_now')]
           assert 'hb_build_monotonic_degree_ladder' in closest
           assert 'output_by_degree[source_degree]' in closest
+          header=Path('src/closest_split.h').read_text()
+          assert 'hb_cs_search_unique' in header
+          assert 'used_pitch_classes' in header
           PY
 
       - name: Install build tools
@@ -101,7 +104,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.83'
+          assert module['version']==os.environ['VERSION']=='0.2.84'
           params={p.get('key'):p for p in module['capabilities']['chain_params']}
           for key in ('approach_reset','approach_scale_next','approach_chrom_next'):
               assert params[key].get('access')=='write'
