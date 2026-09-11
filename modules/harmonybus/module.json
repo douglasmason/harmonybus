@@ -134,6 +134,10 @@
             },
             {
               "level": "follower_source",
+              "label": "Foll Map"
+            },
+            {
+              "level": "follower_root",
               "label": "Foll Root"
             },
             {
@@ -169,7 +173,7 @@
           ]
         },
         "follower_source": {
-          "name": "Foll Root",
+          "name": "Follower Map",
           "params": [
             {
               "key": "content_map",
@@ -236,51 +240,6 @@
               "default": "Harm. / Out"
             },
             {
-              "key": "follower_root_policy",
-              "name": "Root Policy",
-              "type": "enum",
-              "options": [
-                "Infer Input",
-                "Infer Notes",
-                "Explicit"
-              ],
-              "options_as_string": true,
-              "default": "Infer Input"
-            },
-            {
-              "key": "follower_explicit_root",
-              "name": "Explicit Root",
-              "type": "enum",
-              "options": [
-                "C",
-                "C#",
-                "D",
-                "Eb",
-                "E",
-                "F",
-                "F#",
-                "G",
-                "Ab",
-                "A",
-                "Bb",
-                "B"
-              ],
-              "options_as_string": true,
-              "default": "C"
-            },
-            {
-              "key": "inferred_root",
-              "name": "Inferred Root",
-              "type": "string",
-              "access": "read"
-            },
-            {
-              "key": "used_root",
-              "name": "Used Root",
-              "type": "string",
-              "access": "read"
-            },
-            {
               "key": "approach",
               "name": "Approach",
               "type": "enum",
@@ -319,11 +278,10 @@
             "content_map",
             "follower_scale",
             "travel_map",
-            "retrigger_held",
+            "split_map",
             "approach",
             "approach_mode",
-            "follower_root_policy",
-            "follower_explicit_root"
+            "retrigger_held"
           ]
         },
         "conductor_this": {
@@ -638,6 +596,62 @@
             "diag_note_ons",
             "note_off_count",
             "raw_track_match"
+          ]
+        },
+        "follower_root": {
+          "name": "Follower Root",
+          "params": [
+            {
+              "key": "follower_root_policy",
+              "name": "Root Policy",
+              "type": "enum",
+              "options": [
+                "Infer Input",
+                "Infer Notes",
+                "Explicit"
+              ],
+              "options_as_string": true,
+              "default": "Infer Input"
+            },
+            {
+              "key": "follower_explicit_root",
+              "name": "Explicit Root",
+              "type": "enum",
+              "options": [
+                "C",
+                "C#",
+                "D",
+                "Eb",
+                "E",
+                "F",
+                "F#",
+                "G",
+                "Ab",
+                "A",
+                "Bb",
+                "B"
+              ],
+              "options_as_string": true,
+              "default": "C"
+            },
+            {
+              "key": "inferred_root",
+              "name": "Inferred Root",
+              "type": "string",
+              "access": "read"
+            },
+            {
+              "key": "used_root",
+              "name": "Used Root",
+              "type": "string",
+              "access": "read"
+            }
+          ],
+          "knobs": [
+            "follower_root_policy",
+            "follower_explicit_root",
+            "inferred_root",
+            "used_root"
           ]
         }
       },
