@@ -1,0 +1,31 @@
+diff --git a/src/track/focus.ts b/src/track/focus.ts
+--- a/src/track/focus.ts
++++ b/src/track/focus.ts
+@@
+ import { GROUP_SIZE, TRACK_COUNT, trackGroup, trackRef } from './ref.js';
++
++/* HarmonyBus overlay exposes exactly two quartets:
++ *   group 0 = native Move tracks 1-4
++ *   group 1 = HarmonyBus source tracks 5-8
++ * Keep TRACK_COUNT at 16 because the Movy engine/status ABI still owns sixteen
++ * tracks; this is only a UI/focus boundary. */
++const HB_VISIBLE_TRACK_COUNT = 8;
+@@
+ export function selectTrack(index: number): void {
+-    if (index < 0 || index >= TRACK_COUNT) return;
++    if (index < 0 || index >= HB_VISIBLE_TRACK_COUNT) return;
+@@
+ export function focusGroupStep(dir: number): boolean {
+     const g = appState.focusGroup + dir;
+-    if (g < 0 || g * GROUP_SIZE >= TRACK_COUNT) return false;
++    if (g < 0 || g * GROUP_SIZE >= HB_VISIBLE_TRACK_COUNT) return false;
+     appState.focusGroup = g;
+     return true;
+ }
+@@
+ export function groupStep(dir: number): number {
+     const g = appState.focusGroup + dir;
+-    if (g < 0 || g * GROUP_SIZE >= TRACK_COUNT) return -1;
++    if (g < 0 || g * GROUP_SIZE >= HB_VISIBLE_TRACK_COUNT) return -1;
+     return g * GROUP_SIZE;
+ }
