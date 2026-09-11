@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.63",
-  "abbrev": "HB263",
-  "version": "0.2.63",
+  "name": "Harmony Bus 0.2.64",
+  "abbrev": "HB264",
+  "version": "0.2.64",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.63 \u2014 split mapping distinguishes inferred harmony tones from literal active conductor tones",
+  "description": "Harmony Bus v0.2.64 \u2014 one-shot/held chromatic-below and scale-above follower approach modifiers",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.63",
+          "name": "Harmony Bus 0.2.64",
           "params": [
             {
               "key": "version",
@@ -236,6 +236,29 @@
               "default": "Harm. / Out"
             },
             {
+              "key": "approach",
+              "name": "Approach",
+              "type": "enum",
+              "options": [
+                "Chrom Below",
+                "Off",
+                "Scale Above"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
+              "key": "approach_mode",
+              "name": "Approach Mode",
+              "type": "enum",
+              "options": [
+                "Next",
+                "Held"
+              ],
+              "options_as_string": true,
+              "default": "Next"
+            },
+            {
               "key": "retrigger_held",
               "name": "Retrigger Held",
               "type": "enum",
@@ -297,10 +320,10 @@
             "follower_scale",
             "travel_map",
             "retrigger_held",
+            "approach",
+            "approach_mode",
             "follower_root_policy",
-            "follower_explicit_root",
-            "inferred_root",
-            "used_root"
+            "follower_explicit_root"
           ]
         },
         "conductor_this": {
@@ -1568,6 +1591,22 @@
         "name": "Used Root",
         "type": "string",
         "access": "read"
+      },
+      {
+        "key": "approach_below_pad",
+        "name": "Approach Below Pad",
+        "type": "int",
+        "min": 0,
+        "max": 1,
+        "step": 1
+      },
+      {
+        "key": "approach_above_pad",
+        "name": "Approach Above Pad",
+        "type": "int",
+        "min": 0,
+        "max": 1,
+        "step": 1
       }
     ],
     "pre_capable": 1
