@@ -37,8 +37,8 @@ its audio and hear the same live/clip MIDI through the native destination track.
 
 ## Fresh-set behavior
 
-The dedicated HarmonyBus/Movy overlay creates the source bank automatically for
-a fresh set:
+The dedicated HarmonyBus/Movy integration creates the source bank automatically
+for a fresh set:
 
 - tracks 1-4 are forced to the native/Schwung host,
 - tracks 5-8 are Movy-hosted source tracks,
@@ -50,31 +50,37 @@ a fresh set:
 Existing Movy sets are not silently rewritten. The standalone profile generator
 remains available when an existing set should be converted deliberately.
 
-## Integration artifacts
+## Canonical integration mechanism
 
-- `scripts/prepare_movy_harmonybus.sh` applies all Movy overlays to a clean Movy
-  checkout and runs its TypeScript typecheck.
-- `scripts/make_movy_harmonybus_profile.py` merges tracks 5-8 into an existing
-  Movy `ui-state.json` without replacing unrelated chains.
-- `patches/harmonybus-conductor-monitor.patch` makes Conductor `Render To Ch`
-  mean monitor destination.
-- `patches/schwung-movy-hb-source-audio-mute.patch` makes Mute on tracks 5-8
-  toggle Movy's chain mixer audio mute instead of sequencer MIDI mute.
-- `patches/schwung-movy-hb-two-bank-navigation.patch` exposes only the 1-4 and
-  5-8 track groups. Movy's existing Session/Clip `+/-` routing already changes
-  groups, so no new hardware-button mapping is introduced.
-- `patches/schwung-movy-hb-auto-source-bank.patch` seeds a fresh set with the
-  four HarmonyBus source chains and keeps tracks 1-4 native.
+The integration intentionally uses exact, idempotent source transformations
+instead of carrying a fork or maintaining line-number-sensitive patch files.
+If either upstream codebase changes an integration seam, the transform fails
+loudly rather than modifying a nearby block heuristically.
 
-The first source-audio-mute prototype intentionally does not put those mute
+- `scripts/apply_movy_harmonybus.py` transforms the three Movy seams:
+  source-track audio-only mute, two-bank 1-4 <-> 5-8 navigation, and fresh-set
+  source-bank creation.
+- `scripts/prepare_movy_harmonybus.sh` applies that transform to a clean Movy
+  checkout, installs dependencies, typechecks, and builds the device bundle.
+- `scripts/apply_conductor_monitor.py` adds the Conductor monitor injection to a
+  HarmonyBus DSP source copy. `Render To Ch` is the monitor destination when the
+  instance role is Conductor; Followers keep transformed-render semantics.
+- `scripts/make_movy_harmonybus_profile.py` converts an existing Movy
+  `ui-state.json` deliberately without replacing unrelated chains.
+
+CI clones current upstream Movy, applies the integration transform twice to prove
+idempotence, runs TypeScript typecheck, and completes `build:device`. It also
+applies the conductor transform twice against the current HarmonyBus DSP.
+
+The first source-audio-mute implementation intentionally does not put those mute
 gestures into Movy's undo history. The mixer mute itself persists through the
 existing chain `mix` state. Undo should be added only with an explicit cache
 update hook so audio state and Mute LEDs cannot diverge.
 
 ## First hardware test
 
-1. Build/install the HarmonyBus module with the conductor-monitor hook applied.
-2. Prepare/build the dedicated Movy overlay using `scripts/prepare_movy_harmonybus.sh`.
+1. Build/install the HarmonyBus module with the conductor-monitor transform applied.
+2. Prepare/build the dedicated Movy integration using `scripts/prepare_movy_harmonybus.sh`.
 3. Open a fresh set and verify `+/-` in Clip/Session view switches only 1-4 <-> 5-8.
 4. Verify tracks 1-4 remain native and tracks 5-8 appear already populated.
 5. Select source track 6, unmute 6, mute native track 2, and record C-D-E-F.
