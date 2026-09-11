@@ -47,21 +47,21 @@ static void test_generated_harmonybus_states(void) {
     assert(written > 0 && (size_t)written < sizeof(state));
     assert(strcmp(
         state,
-        "hb15,0,0,0,25,2,0,0,0,0,0,0,-1,-1,0,0,1,0,0,0,20,60,0,0,0,0") == 0);
+        "hb15,0,0,0,25,2,0,0,0,0,0,0,-1,0,0,0,1,0,0,0,20,60,0,0,0,0") == 0);
 
     written = hb_virtual_bank_make_harmonybus_state(&tracks[1], state, sizeof(state));
     assert(written > 0 && (size_t)written < sizeof(state));
     assert(strcmp(
         state,
-        "hb15,1,0,0,25,2,0,0,0,0,0,0,1,-1,0,0,1,0,0,0,20,60,0,0,0,0") == 0);
+        "hb15,1,0,0,25,2,0,0,0,0,0,0,1,0,0,0,1,0,0,0,20,60,0,0,0,0") == 0);
 
     written = hb_virtual_bank_make_harmonybus_state(&tracks[2], state, sizeof(state));
     assert(written > 0 && (size_t)written < sizeof(state));
-    assert(strstr(state, ",2,-1,0,0,1,") != NULL);
+    assert(strstr(state, ",2,0,0,0,1,") != NULL);
 
     written = hb_virtual_bank_make_harmonybus_state(&tracks[3], state, sizeof(state));
     assert(written > 0 && (size_t)written < sizeof(state));
-    assert(strstr(state, ",3,-1,0,0,1,") != NULL);
+    assert(strstr(state, ",3,0,0,0,1,") != NULL);
 }
 
 int main(void) {
