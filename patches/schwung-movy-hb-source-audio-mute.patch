@@ -1,0 +1,92 @@
+diff --git a/src/mixer/track-mutes.ts b/src/mixer/track-mutes.ts
+--- a/src/mixer/track-mutes.ts
++++ b/src/mixer/track-mutes.ts
+@@
+ import { seqToast } from '../seq/render.js';
+ import { mlog } from '../log.js';
++import { MIX_KEY, packMixValue, parseMixValue, readMix } from './mix-io.js';
++import { portFor } from '../track/registry.js';
+@@
+ const solo: boolean[] = new Array(TRACK_COUNT).fill(false) as boolean[];
+ let base: boolean[] | null = null;   /* user's own mutes, held while a solo is up */
++
++/* HarmonyBus source bank: Movy indices 4..7 == user tracks 5..8.
++ * Their Mute button is deliberately AUDIO ONLY. Sequenced/live MIDI must keep
++ * traversing the chain so HarmonyBus can continue rendering native tracks. */
++const HB_SOURCE_FIRST = 4;
++const HB_SOURCE_LAST = 7;
++const sourceAudioMuted: boolean[] = new Array(TRACK_COUNT).fill(false) as boolean[];
++
++function isHbSourceTrack(track: number): boolean {
++    return track >= HB_SOURCE_FIRST && track <= HB_SOURCE_LAST;
++}
+@@
+ export function isSoloed(track: number): boolean { return solo[track] === true; }
+ export function anySolo(): boolean { return anySoloOn(); }
+ /* What the user asked for, ignoring solo — the state a mute toggle flips. */
+ export function isMuted(track: number): boolean {
++    if (isHbSourceTrack(track)) return sourceAudioMuted[track];
+     return base ? base[track] : seqState.muted[track];
+ }
++
++function setSourceAudioMute(track: number, want: boolean): void {
++    const mix = readMix(track);
++    if (mix.muted === want && sourceAudioMuted[track] === want) return;
++    mix.muted = want;
++    /* Prototype source-bank mute is intentionally outside Movy's sequencer
++     * undo domain: write the chain mixer directly so undo can never restore
++     * the audio bit while leaving our LED/cache stale. The mix value itself is
++     * still captured by chain persistence on save. */
++    portFor(track).setParam(MIX_KEY, packMixValue(mix));
++    sourceAudioMuted[track] = want;
++    markUiStateDirty();
++}
+@@
+ export function toggleMute(track: number): void {
+     if (track < 0 || track >= TRACK_COUNT) return;
++    if (isHbSourceTrack(track)) {
++        const next = !sourceAudioMuted[track];
++        setSourceAudioMute(track, next);
++        mlog('source audio mute t=' + track + ' -> ' + (next ? 1 : 0));
++        seqToast('T' + (track + 1) + (next ? ' SRC MUTED' : ' SRC UNMUTED'));
++        return;
++    }
+     asOneEdit(isMuted(track) ? 'UNMUTE' : 'MUTE', trackLabel(track), () => {
+@@
+ export function resetTrackMutes(): void {
+     for (let t = 0; t < TRACK_COUNT; t++) solo[t] = false;
++    for (let t = HB_SOURCE_FIRST; t <= HB_SOURCE_LAST; t++) sourceAudioMuted[t] = false;
+     base = null;
+ }
++
++/** Restore the source-bank mute mirror from the same persisted chain mix that
++ * the engine will restore. No engine read is needed, so LED painting remains
++ * non-blocking. */
++export function restoreSourceAudioMutes(chains: unknown): void {
++    for (let t = HB_SOURCE_FIRST; t <= HB_SOURCE_LAST; t++) sourceAudioMuted[t] = false;
++    if (!Array.isArray(chains)) return;
++    for (const chain of chains) {
++        if (!chain || typeof chain !== 'object') continue;
++        const track = (chain as { t?: unknown }).t;
++        const rawMix = (chain as { mix?: unknown }).mix;
++        if (typeof track !== 'number' || !isHbSourceTrack(track) || typeof rawMix !== 'string') continue;
++        sourceAudioMuted[track] = parseMixValue(rawMix).muted;
++    }
++}
+diff --git a/src/seq/ui-state.ts b/src/seq/ui-state.ts
+--- a/src/seq/ui-state.ts
++++ b/src/seq/ui-state.ts
+@@
+-import { mutesSnapshot, restoreMutes, resetTrackMutes } from '../mixer/track-mutes.js';
++import {
++    mutesSnapshot,
++    restoreMutes,
++    resetTrackMutes,
++    restoreSourceAudioMutes,
++} from '../mixer/track-mutes.js';
+@@
+         loadSetHostChoice(o.flags && typeof o.flags === 'object' ? o.flags : {});
++        /* Seed the non-blocking source-mute LED/cache from the exact mixer
++         * values the chain restore below is about to apply. */
++        restoreSourceAudioMutes(o.chains);
+         /* Then the chains, before anything cosmetic: the loads are queued one
