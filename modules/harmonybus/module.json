@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.69",
-  "abbrev": "HB269",
-  "version": "0.2.69",
+  "name": "Harmony Bus 0.2.70",
+  "abbrev": "HB270",
+  "version": "0.2.70",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.69 \u2014 simplified Foll Mod panel and corrected modifier off/reset state",
+  "description": "Harmony Bus v0.2.70 \u2014 Follower Scale moved from Foll Map to Foll Root",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.69",
+          "name": "Harmony Bus 0.2.70",
           "params": [
             {
               "key": "version",
@@ -198,25 +198,6 @@
               "default": "In Chord"
             },
             {
-              "key": "follower_scale",
-              "name": "Follower Scale",
-              "type": "enum",
-              "options": [
-                "Infer",
-                "Major",
-                "Natural Minor",
-                "Dorian",
-                "Phrygian",
-                "Lydian",
-                "Mixolydian",
-                "Locrian",
-                "Harmonic Minor",
-                "Melodic Minor"
-              ],
-              "options_as_string": true,
-              "default": "Infer"
-            },
-            {
               "key": "travel_map",
               "name": "Follower Travel",
               "type": "enum",
@@ -257,7 +238,6 @@
           ],
           "knobs": [
             "content_map",
-            "follower_scale",
             "travel_map",
             "split_map",
             "retrigger_held"
@@ -614,6 +594,25 @@
               "default": "C"
             },
             {
+              "key": "follower_scale",
+              "name": "Follower Scale",
+              "type": "enum",
+              "options": [
+                "Infer",
+                "Major",
+                "Natural Minor",
+                "Dorian",
+                "Phrygian",
+                "Lydian",
+                "Mixolydian",
+                "Locrian",
+                "Harmonic Minor",
+                "Melodic Minor"
+              ],
+              "options_as_string": true,
+              "default": "Infer"
+            },
+            {
               "key": "inferred_root",
               "name": "Inferred Root",
               "type": "string",
@@ -629,6 +628,7 @@
           "knobs": [
             "follower_root_policy",
             "follower_explicit_root",
+            "follower_scale",
             "inferred_root",
             "used_root"
           ]
