@@ -16,18 +16,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply one-time follower root control reorder
+      - name: Apply one-time follower modifier migration
         run: |
-          if test -f scripts/reorder_follower_root_controls.py; then
-            python3 scripts/reorder_follower_root_controls.py
+          if test -f scripts/add_follower_modifier_panel.py; then
+            python3 scripts/add_follower_modifier_panel.py
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add modules/harmonybus/module.json
+            git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
             if ! git diff --cached --quiet; then
-              git commit -m 'Move follower root controls after Follower Split'
+              git commit -m 'Add follower modifier performance panel'
               git push origin main
             fi
           fi
+
+      - name: Resolve version
+        run: |
+          VERSION=$(python3 -c 'import json; print(json.load(open("modules/harmonybus/module.json"))["version"])')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "HB=dist/harmonybus-v${VERSION}-module.tar.gz" >> "$GITHUB_ENV"
 
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y clang lld file
@@ -43,23 +49,23 @@ jobs:
 
       - name: Verify HarmonyBus package
         run: |
-          HB=dist/harmonybus-v0.2.64-module.tar.gz
           gzip -t "$HB"
           rm -rf /tmp/hb-verify
           mkdir -p /tmp/hb-verify
           tar -xzf "$HB" -C /tmp/hb-verify
           test -f /tmp/hb-verify/harmonybus/module.json
           test -f /tmp/hb-verify/harmonybus/dsp.so
-          python3 -c 'import json; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == "0.2.64"'
+          python3 -c 'import json, os; assert json.load(open("/tmp/hb-verify/harmonybus/module.json"))["version"] == os.environ["VERSION"]'
 
-      - name: Publish v0.2.64 release
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.2.64 >/dev/null 2>&1; then
-            gh release upload v0.2.64 dist/harmonybus-v0.2.64-module.tar.gz --clobber
+          TAG="v${VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$HB" --clobber
           else
-            gh release create v0.2.64 dist/harmonybus-v0.2.64-module.tar.gz \
-              --title "Harmony Bus v0.2.64" \
+            gh release create "$TAG" "$HB" \
+              --title "Harmony Bus ${TAG}" \
               --notes "HarmonyBus MIDI FX for Ableton Move."
           fi
