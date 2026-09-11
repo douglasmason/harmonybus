@@ -17,10 +17,10 @@ from pathlib import Path
 from typing import Any
 
 MAP_USER_TRACK_TO_RENDER_CHANNEL: dict[int, int] = {
-    5: -1,  # Conductor. Monitor routing is host-side/configurable.
-    6: 1,   # User MIDI channel 2, zero-based HarmonyBus value.
-    7: 2,   # User MIDI channel 3.
-    8: 3,   # User MIDI channel 4.
+    5: 2,   # Conductor monitor -> user MIDI channel 3.
+    6: 1,   # Follower render -> user MIDI channel 2.
+    7: 2,   # Follower render -> user MIDI channel 3.
+    8: 3,   # Follower render -> user MIDI channel 4.
 }
 
 
