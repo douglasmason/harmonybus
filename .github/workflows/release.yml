@@ -21,11 +21,12 @@ jobs:
           python3 scripts/cleanup_foll_mod_v0276.py
           python3 scripts/foll_mod_buttons_v0277.py
           python3 scripts/ui_test_as_page_v0278.py
+          python3 scripts/fix_scale_controls_v0279.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c modules/harmonybus/canvas.js
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.78 source'
+            git commit -m 'Normalize HarmonyBus v0.2.79 source'
             git push origin main
           fi
 
@@ -40,7 +41,13 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
+          assert module['version']=='0.2.79'
           levels=module['capabilities']['ui_hierarchy']['levels']
+          assert levels['follower_source']['name']=='Foll Map'
+          assert levels['follower_root']['name']=='Foll Root'
+          assert levels['follower_mod']['name']=='Foll Mod'
+          assert levels['follower_this']['name']=='Foll Trk'
+          assert levels['follower_all']['name']=='Foll All'
           panel=levels['follower_mod']
           assert panel['knobs']==[
               'approach','foll_mod_blank2','mod_scale_above','mod_chrom_below',
@@ -66,9 +73,11 @@ jobs:
           canvas=Path('modules/harmonybus/canvas.js').read_text()
           assert 'ui_test:' in canvas
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
+          assert 'instance->approach_pad_armed=2;g_bus.approach_mode=0' in source
+          assert 'instance->approach_pad_armed=0;g_bus.approach_mode=0' in source
+          assert 'g_bus.approach_control=2;instance->approach_pad_armed=1' in source
           blank='if(!strcmp(key,"foll_mod_blank3")||!strcmp(key,"foll_mod_blank4")||!strcmp(key,"foll_mod_blank5"))return snprintf(buffer,(size_t)length,"");'
           assert source.count(blank)==1
-          assert '"Off");}if(!strcmp(key,"approach"))' not in source
           PY
 
       - name: Install build tools
@@ -96,7 +105,6 @@ jobs:
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
           assert module['version']==os.environ['VERSION']
           params={p.get('key'):p for p in module['capabilities']['chain_params']}
-          assert 'follower_mod_canvas' not in params
           for key in ('approach_reset','approach_scale_next','approach_chrom_next'):
               assert params[key].get('access')=='write'
           assert params['ui_test_canvas'].get('as_page') is True
