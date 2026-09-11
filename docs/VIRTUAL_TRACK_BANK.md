@@ -90,12 +90,15 @@ sequenced MIDI. The integration should instead use its chain-mixer audio mute
 `src/hb_virtual_bank.[ch]` owns the default logical mapping. MIDI channels are
 stored zero-based to match HarmonyBus' existing `render_channel` representation.
 
+For Followers, `render_channel` means transformed render destination. For the
+Conductor, the same field means unchanged monitor destination. This keeps the
+persisted HarmonyBus state and the Movy profile to one routing field.
+
 `src/hb_virtual_router.[ch]` owns the routing invariant that source audio mute
 and HarmonyBus MIDI processing are independent.
 
-The first implementation should keep the existing HarmonyBus `render_channel`
-parameter as the follower routing control instead of introducing another
-routing abstraction.
+`src/hb_virtual_midi.[ch]` owns the four-byte injected USB-MIDI packet format so
+the conductor-monitor and follower-render paths share the same wire contract.
 
 ## Sequencer reuse boundary
 
@@ -114,16 +117,42 @@ Preferred integration order:
 5. Restrict the HarmonyBus-facing bank navigation to 1-4 <-> 5-8.
 6. Only if these seams prove insufficient, vendor the minimal Movy components.
 
+## Implementation artifacts
+
+The `hb-virtual-tracks` branch currently carries the integration as small,
+separable pieces:
+
+- `scripts/make_movy_harmonybus_profile.py` -- merges source tracks 5-8 into a
+  Movy `ui-state.json` without replacing unrelated chains.
+- `patches/harmonybus-conductor-monitor.patch` -- gives a Conductor instance the
+  same injected-note output mechanism Followers already use, with no harmonic
+  remapping of the conductor note.
+- `patches/schwung-movy-hb-source-audio-mute.patch` -- changes Mute on tracks
+  5-8 to Movy's hosted-chain mixer mute, leaving sequencer MIDI running.
+- `patches/schwung-movy-hb-two-bank-navigation.patch` -- limits user-facing
+  focus/navigation to two groups of four without changing Movy's 16-track engine
+  ABI.
+
+The first source-audio-mute prototype intentionally does not put source-bank
+mute gestures into Movy's undo history. The mixer mute itself is persisted in
+the chain `mix` value and restored on set load. Undo can be added after hardware
+routing is validated, with an explicit cache-update hook rather than risking an
+undo operation that changes audio while leaving the Mute LED stale.
+
 ## First hardware acceptance test
 
-1. Select virtual track 6.
-2. Unmute 6 and mute native track 2.
-3. Record C-D-E-F; hear track 6's source instrument and confirm the notes land
+1. Confirm Movy's first four tracks are still hosted by Schwung/native Move.
+2. Apply the three overlay patches and generate/merge the source-bank profile.
+3. Select virtual track 6.
+4. Unmute 6 and mute native track 2.
+5. Record C-D-E-F; hear track 6's source instrument and confirm the notes land
    in the track-6 clip.
-4. Stop recording, mute 6, and unmute 2.
-5. Play the clip; HarmonyBus renders the stored notes into MIDI channel 2 and
+6. Stop recording, mute 6, and unmute 2.
+7. Play the clip; HarmonyBus renders the stored notes into MIDI channel 2 and
    Move track 2 sounds them.
-6. With 6 still source-audio-muted, play live on it; rendered notes must sound
+8. With 6 still source-audio-muted, play live on it; rendered notes must sound
    on track 2 immediately.
-7. Switch clips on track 6; rendered musical content changes.
-8. Switch clips on track 2; its native overdubs/automation change independently.
+9. Switch clips on track 6; rendered musical content changes.
+10. Switch clips on track 2; its native overdubs/automation change independently.
+11. Select source track 5 and verify its accepted conductor notes also monitor
+    unchanged on MIDI channel 3 while harmony inference continues normally.
