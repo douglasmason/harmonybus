@@ -676,30 +676,6 @@
               "access": "read"
             },
             {
-              "key": "chord_quality",
-              "name": "Chord Quality",
-              "type": "enum",
-              "options": ["Auto", "Major", "Minor", "Dim", "Aug", "Maj7", "Dom7", "Min7", "Half Dim7", "Dim7"],
-              "options_as_string": true,
-              "default": "Auto"
-            },
-            {
-              "key": "chromatic_quality",
-              "name": "Chromatic Keys",
-              "type": "enum",
-              "options": ["Scale", "Major / Maj7", "Major / Dom7", "Dim / Dim7"],
-              "options_as_string": true,
-              "default": "Scale"
-            },
-            {
-              "key": "chord_dim_next",
-              "name": "Chromatic Below",
-              "type": "enum",
-              "options": ["Off", "Arm"],
-              "options_as_string": true,
-              "default": "Off"
-            },
-            {
               "key": "dominant_scale",
               "name": "Dominant Scale",
               "type": "enum",
@@ -1034,6 +1010,30 @@
               ],
               "options_as_string": true,
               "default": "Infer"
+            },
+            {
+              "key": "chord_quality",
+              "name": "Chord Quality",
+              "type": "enum",
+              "options": ["Auto", "Major", "Minor", "Dim", "Aug", "Maj7", "Dom7", "Min7", "Half Dim7", "Dim7"],
+              "options_as_string": true,
+              "default": "Auto"
+            },
+            {
+              "key": "chromatic_quality",
+              "name": "Chromatic Keys",
+              "type": "enum",
+              "options": ["Scale", "Major / Maj7", "Major / Dom7", "Dim / Dim7"],
+              "options_as_string": true,
+              "default": "Scale"
+            },
+            {
+              "key": "chord_dim_next",
+              "name": "Chromatic Below",
+              "type": "enum",
+              "options": ["Off", "Arm"],
+              "options_as_string": true,
+              "default": "Off"
             },
             {
               "key": "dominant_scale",
