@@ -178,10 +178,10 @@ The substitution follows the effective harmony, including positive or negative l
 
 Arp / Strum has an **Arp Phase** knob, separate from pitch register and inversion.
 
-| Phase | Start | Subsequent steps |
-| --- | --- | --- |
-| Free (default) | Immediately when the gesture reaches the chord player | Relative to that start |
-| Auto | The root on the next Arp Rate grid division | Locked to transport beat divisions |
+| Phase | Timing |
+| --- | --- |
+| Free (default) | Starts immediately when the gesture reaches the chord player. Subsequent steps are relative to that start. |
+| Auto | Starts on the root at the next Arp Rate grid division. Subsequent steps stay locked to transport beat divisions. |
 
 With a 1/16 rate, a gesture received at beat 0.10 starts at beat 0.25 in Auto. A gesture exactly on a division starts on the following division. Inverted and spread chords start on their actual root, even when it is above the bass. Raw-note arpeggios use the most recently played available root. The selected order continues from that position; Random starts with the root and randomizes subsequent steps.
 
