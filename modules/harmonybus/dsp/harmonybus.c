@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.107 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.107"
+/* Harmony Bus v0.2.108 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.108"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1734,6 +1734,11 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
                 /* Full ownership table rejects the new gesture without stealing
                    an existing voice. Its eventual OFF is harmless. */
                 hb_cp_on(&instance->player,source_note,channel,velocity,pitches,voice_count);
+                for(int owner=0;owner<HB_CP_KEYS;owner++){
+                    hb_cp_key *key=&instance->player.keys[owner];
+                    if(key->used&&key->source==source_note&&key->channel==channel)
+                        key->root_pc=instance->player.config.mode==2?harmony.root_pc:mod12(source_note+g_bus.global_transpose);
+                }
                 double delay=target_beat>=0.0?target_beat-instance->follower_queue_arrival_beat[index]:0.0;
                 instance->follower_note_delay_beats[source_note]=delay>0.0?delay:0.0;
             }else{
@@ -2777,6 +2782,7 @@ static const char *CP_CHORD_MODE[]={"Off","Scale Root","Conductor Chord"};
 static const char *CP_CHORD_FORM[]={"Auto","Power","Triad","Seventh","Ninth","Add9","Sixth","6/9","Eleventh","Thirteenth","Sus2","Sus4"};
 static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth"};
 static const char *CP_CHORD_VOICING[]={"Close","Root + Fifth Low","Alternate Up","Shell"};
+static const char *CP_ARP_PHASE[]={"Free","Auto"};
 static const char *CP_ARP_PLAYBACK[]={"Together","Repeat Arp","Once"};
 static const char *CP_ARP_HOLD[]={"Momentary","Latch"};
 static const char *CP_ARP_ORDER[]={"Up","Down","Up-Down","Played","Random"};
@@ -2838,6 +2844,11 @@ if(!strcmp(key,"arp_hold")){
 if(!strcmp(key,"arp_order")){
     int selected=enum_index(parameter,CP_ARP_ORDER,5,instance->player.config.order);
     if(selected!=instance->player.config.order){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.order=selected;}
+    return;
+}
+if(!strcmp(key,"arp_phase")){
+    int selected=enum_index(parameter,CP_ARP_PHASE,2,instance->player.config.phase);
+    if(selected!=instance->player.config.phase){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.phase=selected;}
     return;
 }
 if(!strcmp(key,"arp_rate")){
@@ -3123,16 +3134,19 @@ static void hb_restore_state(Inst *instance,const char *state){
            parsed_config.order>=0&&parsed_config.order<5&&parsed_config.rate>=0&&parsed_config.rate<8&&
            parsed_config.gate>=0&&parsed_config.gate<4&&parsed_config.spread>=-8&&parsed_config.spread<=1000)config=parsed_config;
     }
-    if(config.mode!=instance->player.config.mode||config.size!=instance->player.config.size||config.inversion!=instance->player.config.inversion||config.voicing!=instance->player.config.voicing||config.playback!=instance->player.config.playback||config.latch!=instance->player.config.latch||config.order!=instance->player.config.order||config.rate!=instance->player.config.rate||config.gate!=instance->player.config.gate||config.spread!=instance->player.config.spread){
+    const char *phase_suffix=strstr(state,";ph1,");
+    int phase=0;
+    if(phase_suffix&&sscanf(phase_suffix,";ph1,%d",&phase)==1&&phase>=0&&phase<2)config.phase=phase;
+    if(config.phase!=instance->player.config.phase||config.mode!=instance->player.config.mode||config.size!=instance->player.config.size||config.inversion!=instance->player.config.inversion||config.voicing!=instance->player.config.voicing||config.playback!=instance->player.config.playback||config.latch!=instance->player.config.latch||config.order!=instance->player.config.order||config.rate!=instance->player.config.rate||config.gate!=instance->player.config.gate||config.spread!=instance->player.config.spread){
         hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config=config;
     }
     if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}
 }
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();
-if(!strcmp(key,"state")&&(instance->dominant_scale||instance->player.config.mode!=0||instance->player.config.size!=0||instance->player.config.inversion!=0||instance->player.config.voicing!=0||instance->player.config.playback!=0||instance->player.config.latch!=0||instance->player.config.order!=0||instance->player.config.rate!=2||instance->player.config.gate!=1||instance->player.config.spread!=0)){
+if(!strcmp(key,"state")&&(instance->player.config.phase||instance->dominant_scale||instance->player.config.mode!=0||instance->player.config.size!=0||instance->player.config.inversion!=0||instance->player.config.voicing!=0||instance->player.config.playback!=0||instance->player.config.latch!=0||instance->player.config.order!=0||instance->player.config.rate!=2||instance->player.config.gate!=1||instance->player.config.spread!=0)){
     int used=get_param(value,"base_state",buffer,length);
     if(used<0||used>=length)return used;
-    return used+snprintf(buffer+used,(size_t)(length-used),";cp1,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d;ds1,%d",instance->player.config.mode,instance->player.config.size,instance->player.config.inversion,instance->player.config.voicing,instance->player.config.playback,instance->player.config.latch,instance->player.config.order,instance->player.config.rate,instance->player.config.gate,instance->player.config.spread,instance->dominant_scale);
+    return used+snprintf(buffer+used,(size_t)(length-used),";cp1,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d;ds1,%d;ph1,%d",instance->player.config.mode,instance->player.config.size,instance->player.config.inversion,instance->player.config.voicing,instance->player.config.playback,instance->player.config.latch,instance->player.config.order,instance->player.config.rate,instance->player.config.gate,instance->player.config.spread,instance->dominant_scale,instance->player.config.phase);
 }
 if(!strcmp(key,"dominant_scale"))return snprintf(buffer,(size_t)length,"%s",DOMINANT_SCALE_OPTS[instance->dominant_scale]);
 if(!strcmp(key,"chord_mode"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_MODE[instance->player.config.mode]);
@@ -3142,6 +3156,7 @@ if(!strcmp(key,"chord_voicing"))return snprintf(buffer,(size_t)length,"%s",CP_CH
 if(!strcmp(key,"arp_playback"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_PLAYBACK[instance->player.config.playback]);
 if(!strcmp(key,"arp_hold"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_HOLD[instance->player.config.latch]);
 if(!strcmp(key,"arp_order"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_ORDER[instance->player.config.order]);
+if(!strcmp(key,"arp_phase"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_PHASE[instance->player.config.phase]);
 if(!strcmp(key,"arp_rate"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_RATE[instance->player.config.rate]);
 if(!strcmp(key,"arp_gate"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_GATE[instance->player.config.gate]);
 if(!strcmp(key,"strum_spread")){int spread=instance->player.config.spread;return spread<0?snprintf(buffer,(size_t)length,"%s",BUFFER_DIVISIONS[-spread-1]):snprintf(buffer,(size_t)length,"%d ms",spread);}

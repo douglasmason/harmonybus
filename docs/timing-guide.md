@@ -4,7 +4,7 @@
 
 Recovery release: the DSP uses 0.2.105 behavior. Conductor chord generation, rendered-chord recording and new quality overrides are temporarily withdrawn.
 
-**HarmonyBus 0.2.107 / Movy 0.34.1-hbclean.29.** Choose a release time first. At release, map the source note using the effective harmony then available. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.108 / Movy 0.34.1-hbclean.29.** Choose a release time first. At release, map the source note using the effective harmony then available. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -172,3 +172,17 @@ The substitution follows the effective harmony, including positive or negative l
 **Canonical files:** this Markdown and the editable SVGs in `docs/timing/`. The PDF is generated from these files; do not edit a PDF copy as documentation source. Run `python3 scripts/build_timing_guide.py` after installing `scripts/docs-requirements.txt`. CI builds and attaches the PDF to the HB release. Runtime behavior is covered by the native buffer, boundary, learning and Movy clip-edit tests; documentation still needs review when semantics change.
 
 **Implementation:** [boundary selection](../src/follower_timing.h), [harmony and follower release](../modules/harmonybus/dsp/harmonybus.c), and [Movy integration](https://github.com/douglasmason/harmonybus-movy). The tests use host callbacks; physical Move behavior still needs device verification.
+
+
+## Arpeggio phase
+
+Arp / Strum has an **Arp Phase** knob, separate from pitch register and inversion.
+
+| Phase | Start | Subsequent steps |
+| --- | --- | --- |
+| Free (default) | Immediately when the gesture reaches the chord player | Relative to that start |
+| Auto | The root on the next Arp Rate grid division | Locked to transport beat divisions |
+
+With a 1/16 rate, a gesture received at beat 0.10 starts at beat 0.25 in Auto. A gesture exactly on a division starts on the following division. Inverted and spread chords start on their actual root, even when it is above the bass. Raw-note arpeggios use the most recently played available root. The selected order continues from that position; Random starts with the root and randomizes subsequent steps.
+
+Follower buffering still happens before chord generation and arpeggiation. Auto anchors to the next division after release from that buffer. Releasing all momentary keys before that division cancels the pending start; latch retains it. Phase affects Repeat Arp; Together and Once retain their existing behavior. Existing presets load as Free.
