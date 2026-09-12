@@ -16,20 +16,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply current HarmonyBus normalization
-        run: |
-          python3 scripts/release_v0292.py
-          python3 scripts/add_conductor_render_v0293.py
-          python3 scripts/add_role_change_flush_v0294.py
-          python3 scripts/add_global_transpose_v0295.py
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
-          if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.95 source'
-            git push origin main
-          fi
-
       - name: Resolve and validate version/UI
         run: |
           VERSION=$(python3 -c 'import json; print(json.load(open("modules/harmonybus/module.json"))["version"])')
@@ -41,9 +27,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.95'
+          assert module['version']=='0.2.96'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.95'
+          assert levels['root']['name']=='Harmony Bus 0.2.96'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -126,6 +112,17 @@ jobs:
       - name: Build ARM64 HarmonyBus
         run: bash scripts/build_harmonybus_move.sh
 
+      - name: Verify complete module loading and preset restoration
+        run: |
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 -fPIC -shared \
+            -include sys/mman.h -include unistd.h -Wl,-z,defs \
+            modules/harmonybus/dsp/harmonybus.c src/harmony_core.c \
+            -lm -o /tmp/harmonybus-native.so
+          clang -std=c11 -O2 tests/module_load_test.c -ldl -o /tmp/harmonybus-load-test
+          /tmp/harmonybus-load-test /tmp/harmonybus-native.so
+          readelf --dyn-syms --wide build/move/harmonybus-dsp.so | \
+            awk '$7 == "UND" && $8 ~ /^hb_/ { print; bad=1 } END { exit bad }'
+
       - name: Verify HarmonyBus package
         run: |
           gzip -t "$HB"
@@ -138,7 +135,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.95'
+          assert module['version']==os.environ['VERSION']=='0.2.96'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -157,7 +154,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" --clobber
           else
-            gh release create "$TAG" "$HB" --title "Harmony Bus ${TAG}" --notes "Adds a Global Transpose panel with pre-transpose root, final root, and final harmony readouts. The master transpose now also applies to conductor Render To Ch and Direct follower rendering so every rendered destination moves together."
+            gh release create "$TAG" "$HB" --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Fixes a stale quant-grid function reference that prevented eager module loading. Restores complete hb15 preset compatibility. Releases now build committed source directly and verify native library loading plus preset restoration before publishing."
           fi
 
       - name: Update Module Store metadata

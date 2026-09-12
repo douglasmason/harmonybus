@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.95 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.95"
+/* Harmony Bus v0.2.96 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.96"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -177,7 +177,6 @@ static int hb_resolve_follower_reference_root(Inst *instance,int *root_out);
 static hb_harmony_t hb_follower_scale_target(Inst *instance,hb_harmony_t harmony);
 static int hb_parent_scale_index(Inst *instance,hb_harmony_t harmony);
 static double hb_chord_grid_beats(void);
-static double hb_quant_grid_beats(void);
 static double hb_quant_grid_beats_for(const Inst *instance);
 static double hb_anticipation_beats(void);
 static double hb_ms_to_beats(int milliseconds);
@@ -1086,7 +1085,7 @@ static int hb_queue_follower_event(Inst *instance,int note,int velocity,int is_o
                 beat,
                 hb_chord_grid_beats(),
                 hb_anticipation_beats(),
-                hb_quant_grid_beats(),
+                hb_quant_grid_beats_for(instance),
                 capture);
         }
         instance->follower_queue_target_beat[slot]=target;
@@ -2599,11 +2598,11 @@ static void hb_restore_state(Inst *instance,const char *state){
         &values[12],&values[13],&values[14],&values[15],&values[16],&values[17],
         &values[18],&values[19],&values[20],&values[21],&values[22],&values[23],&values[24]);
     int is_hb16=(parsed==25);
-    if(!is_hb16)parsed=sscanf(state,"hb15,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    if(!is_hb16)parsed=sscanf(state,"hb15,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],
         &values[6],&values[7],&values[8],&values[9],&values[10],&values[11],
         &values[12],&values[13],&values[14],&values[15],&values[16],&values[17],
-        &values[18],&values[19],&values[20],&values[21],&values[22],&values[23]);
+        &values[18],&values[19],&values[20],&values[21],&values[22],&values[23],&values[24]);
     int is_hb15=(!is_hb16&&parsed==25);
     if(!is_hb16&&!is_hb15)parsed=sscanf(state,"hb14,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         &values[0],&values[1],&values[2],&values[3],&values[4],&values[5],

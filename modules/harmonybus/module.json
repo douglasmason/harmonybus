@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.95",
-  "abbrev": "HB295",
-  "version": "0.2.95",
+  "name": "Harmony Bus 0.2.96",
+  "abbrev": "HB296",
+  "version": "0.2.96",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.95 \u2014 global transpose with explicit final harmony/root",
+  "description": "Harmony Bus v0.2.96 \u2014 fixes hosted module loading and preset restoration",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.95",
+          "name": "Harmony Bus 0.2.96",
           "params": [
             {
               "key": "version",
