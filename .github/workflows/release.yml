@@ -63,7 +63,7 @@ jobs:
           assert any(item.get('level')=='global_transpose' for item in levels['root']['params'])
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
           assert 'static void hb_render_conductor_event' in source
-          assert 'rendered_note=note+g_bus.global_transpose' in source
+          assert 'rendered_note=note+(instance->movy_passthrough?0:g_bus.global_transpose)' in source
           assert 'render_pitch=source_note+g_bus.global_transpose' in source
           assert 'int direct=source_note+g_bus.global_transpose' in source
           assert 'if(!strcmp(key,"pretranspose_root"))' in source
