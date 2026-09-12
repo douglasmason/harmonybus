@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.96",
-  "abbrev": "HB296",
-  "version": "0.2.96",
+  "name": "Harmony Bus 0.2.97",
+  "abbrev": "HB297",
+  "version": "0.2.97",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.96 \u2014 fixes hosted module loading and preset restoration",
+  "description": "Harmony Bus v0.2.97 \u2014 Lookahead defaults to Off",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.96",
+          "name": "Harmony Bus 0.2.97",
           "params": [
             {
               "key": "version",
@@ -776,7 +776,7 @@
                 "1 Bar"
               ],
               "options_as_string": true,
-              "default": "1/8"
+              "default": "Off"
             },
             {
               "key": "next_model",
@@ -1974,7 +1974,7 @@
           "1 Bar"
         ],
         "options_as_string": true,
-        "default": "1/8"
+        "default": "Off"
       },
       {
         "key": "next_model",

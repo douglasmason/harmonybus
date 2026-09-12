@@ -27,9 +27,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.96'
+          assert module['version']=='0.2.97'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.96'
+          assert levels['root']['name']=='Harmony Bus 0.2.97'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -135,7 +135,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.96'
+          assert module['version']==os.environ['VERSION']=='0.2.97'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -154,7 +154,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" --clobber
           else
-            gh release create "$TAG" "$HB" --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Fixes a stale quant-grid function reference that prevented eager module loading. Restores complete hb15 preset compatibility. Releases now build committed source directly and verify native library loading plus preset restoration before publishing."
+            gh release create "$TAG" "$HB" --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Lookahead now defaults to Off in the DSP and both UI parameter definitions. Lookahead can still be enabled manually."
           fi
 
       - name: Update Module Store metadata

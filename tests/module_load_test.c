@@ -26,6 +26,12 @@ int main(int argument_count, char **arguments) {
         assert(instance);
         api->set_param(instance, "state", states[variant]);
         char value[512];
+        assert(api->get_param(instance, "next_lookahead", value, sizeof(value)) > 0);
+        assert(strcmp(value, "Off") == 0);
+        api->set_param(instance, "next_lookahead", "1/8");
+        assert(api->get_param(instance, "next_lookahead", value, sizeof(value)) > 0);
+        assert(strcmp(value, "1/8") == 0);
+        api->set_param(instance, "next_lookahead", "Off");
         assert(api->get_param(instance, "role", value, sizeof(value)) > 0);
         assert(strcmp(value, "Follower") == 0);
         assert(api->get_param(instance, "render_channel", value, sizeof(value)) > 0);
