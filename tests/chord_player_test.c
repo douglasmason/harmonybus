@@ -317,7 +317,7 @@ static void chord_qualities(void){
     API.destroy_instance(copy);API.destroy_instance(instance);
     instance=fixture();API.set_param(instance,"chord_mode","Scale Root");
     API.set_param(instance,"chord_form","Seventh");
-    API.set_param(instance,"chord_dim_next","Arm");
+    API.set_param(instance,"approach_chrom_next","1");
     assert(instance->approach_pad_armed==HB_APPROACH_CHROM_BELOW);
     midi(instance,1,62);assert(advance(instance,0,64)==4);
     const int below_dim7[]={61,64,67,70};
@@ -329,4 +329,34 @@ static void chord_qualities(void){
     expect_notes((int[]){output[0][1],output[1][1],output[2][1],output[3][1]},regular_dmin7,4);
     API.destroy_instance(instance);
 }
-int main(void){phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void generated_degree_progression(void){
+    Inst *instance=fixture();API.set_param(instance,"role","Conductor");
+    API.set_param(instance,"chord_mode","Scale Degree");
+    const int roots[]={65,62,67,64};
+    const int thirds[]={4,3,4,3};
+    for(int inversion=0;inversion<3;inversion++)for(int pass=0;pass<2;pass++)for(int index=0;index<4;index++){
+        API.set_param(instance,"chord_inversion",inversion==0?"Root":inversion==1?"First":"Second");
+        midi(instance,1,roots[index]);assert(advance(instance,0,64)==3);
+        int root=roots[index]%12;
+        unsigned expected=(1u<<root)|(1u<<((root+thirds[index])%12))|(1u<<((root+7)%12));
+        unsigned emitted=0;for(int voice=0;voice<3;voice++)emitted|=1u<<(output[voice][1]%12);
+        assert(emitted==expected);
+        hb_harmony_t detected=bus_read();
+        assert(detected.root_pc==root);
+        assert(hb_harmony_chord_mask(detected)==expected);
+        char label[64],candidate[64],expected_label[64];
+        API.get_param(instance,"harmony",label,sizeof(label));
+        API.get_param(instance,"candidate_harmony",candidate,sizeof(candidate));
+        snprintf(expected_label,sizeof(expected_label),"%s%s",hb_pc_name(root),thirds[index]==3?"m":"");
+        if(inversion==0){assert(!strcmp(label,expected_label));assert(!strcmp(candidate,expected_label));}
+        else {assert(!strncmp(label,expected_label,strlen(expected_label)));assert(strchr(label,'/'));}
+
+        midi(instance,0,roots[index]);assert(advance(instance,pass?100:0,64)==3);
+    }
+    API.set_param(instance,"chord_mode","Off");
+    API.set_param(instance,"chord_mode","Scale Root");
+    char name[64];API.get_param(instance,"chord_mode",name,sizeof(name));
+    assert(!strcmp(name,"Scale Degree"));
+    API.destroy_instance(instance);
+}
+int main(void){generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

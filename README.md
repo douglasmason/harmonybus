@@ -1,4 +1,4 @@
-> Release 0.2.109 restores conductor chord generation, rendered-chord recording and quality controls. Pair with Movy hbclean.31 for recording. Arp phase remains available; the experimental UI Test page is removed.
+> Release 0.2.110 fixes generated-chord detection across F-Dm-G-Em and renames Scale Root to Scale Degree. Use Chromatic Below on Foll Mod for diminished leading-tone chords; the duplicate Auto Chord button is removed. Compatible with Movy hbclean.31.
 
 # Harmony Bus
 
@@ -21,7 +21,7 @@ Manager reads `release.json` and downloads the release asset.
 
 ## Timing and current release
 
-HarmonyBus **0.2.109** makes Follower Buffer global with a **1/16-note** default for
+HarmonyBus **0.2.110** makes Follower Buffer global with a **1/16-note** default for
 fresh settings. Millisecond choices are 0, 25, 50, then 100 to 1000 in 50 ms steps. The same control also offers tempo-relative durations from 1/64
 to 2 Bars. Existing saved values survive; the first restored legacy copy becomes
 the shared value. Change it once and save to make all snapshots agree.
@@ -49,7 +49,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.109-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.110-module.tar.gz`.
 
 ## License
 
@@ -57,9 +57,9 @@ MIT.
 
 HB 0.2.104 adds negative lookahead (late harmony) with the capture window before the shifted boundary, and resolves recognized two-note Movy voicings before due followers. Lookahead stays Off by default; new sets use a 1/16-note global buffer. See the [timing guide](https://github.com/douglasmason/harmonybus/blob/main/docs/timing-guide.md).
 
-### Auto Chord and Arp / Strum (0.2.109)
+### Auto Chord and Arp / Strum (0.2.110)
 
-Per-track Auto Chord provides Off, Scale Root and Conductor Chord, with selectable power, triad, seventh, ninth, add9, sixth, 6/9, eleventh, thirteenth and suspended forms, key-selected or explicit inversion, and Close / Root + Fifth Low / Alternate Up / Shell voicings. Arp / Strum provides Together, Repeat Arp and Once; Momentary/Latch; five orders; musical rates and gate lengths; and ms or musical strum spreads. Both generators are inactive by default. Use Movy hbclean.31 to record and replay rendered conductor chords.
+Per-track Auto Chord provides Off, Scale Degree and Conductor Chord, with selectable power, triad, seventh, ninth, add9, sixth, 6/9, eleventh, thirteenth and suspended forms, key-selected or explicit inversion, and Close / Root + Fifth Low / Alternate Up / Shell voicings. Arp / Strum provides Together, Repeat Arp and Once; Momentary/Latch; five orders; musical rates and gate lengths; and ms or musical strum spreads. Both generators are inactive by default. Use Movy hbclean.31 to record and replay rendered conductor chords.
 
 Generation happens after follower-buffer release, before arpeggiation. Generated gestures keep their initial voicing until released or replaced. Chord Mode Off with an active arp uses raw input pitches, plus transpose; existing Content/Travel/Approach mapping applies when both generators are inactive. See the [canonical guide](docs/timing-guide.md) for inversion examples, control locations, latch and cancellation semantics.
 

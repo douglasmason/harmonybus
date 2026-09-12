@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.109 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.109"
+/* Harmony Bus v0.2.110 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.110"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2645,7 +2645,13 @@ static int hb_tick_conductor(Inst *instance,int frames,int sample_rate){
 
     hb_harmony_t committed=hb_observed_read();
     hb_harmony_t committed_sensor=hb_transpose_harmony(committed,-g_bus.global_transpose);
-    hb_harmony_t candidate=hb_infer_harmony_contextual(notes,count,committed_sensor);
+    /* Generated chord gestures are complete evidence. Reusing the previous
+       root turns F -> Dm into F -> F6, and G -> Em into G -> G6, because
+       the previous root and third are shared. Raw performance input retains
+       contextual interpretation for partial/rolling voicings. */
+    hb_harmony_t candidate=instance->player.config.mode!=0
+        ?hb_infer_harmony(notes,count)
+        :hb_infer_harmony_contextual(notes,count,committed_sensor);
     candidate=hb_transpose_harmony(candidate,g_bus.global_transpose);
 
     /* Candidate display distinguishes a lone pitch from a major triad: F?
@@ -2864,7 +2870,7 @@ static int hb_context_to_legacy_stability(int context){
     return 2;
 }
 static const char *DOMINANT_SCALE_OPTS[]={"Off","Harmonic Minor","Melodic Minor","Altered V"};
-static const char *CP_CHORD_MODE[]={"Off","Scale Root","Conductor Chord"};
+static const char *CP_CHORD_MODE[]={"Off","Scale Degree","Conductor Chord"};
 static const char *CP_CHORD_FORM[]={"Auto","Power","Triad","Seventh","Ninth","Add9","Sixth","6/9","Eleventh","Thirteenth","Sus2","Sus4"};
 static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth"};
 static const char *CP_CHORD_VOICING[]={"Close","Root + Fifth Low","Alternate Up","Shell"};
@@ -2900,6 +2906,7 @@ if(!strcmp(key,"dominant_scale")){
     return;
 }
 if(!strcmp(key,"chord_mode")){
+    if(!strcmp(parameter,"Scale Root"))parameter="Scale Degree"; /* Legacy presets/scripts. */
     int selected=enum_index(parameter,CP_CHORD_MODE,3,instance->player.config.mode);
     if(selected!=instance->player.config.mode){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.mode=selected;}
     return;
@@ -2912,11 +2919,6 @@ if(!strcmp(key,"chord_quality")){
 if(!strcmp(key,"chromatic_quality")){
     int selected=enum_index(parameter,CP_CHROMATIC_QUALITY,4,instance->player.config.chromatic_quality);
     if(selected!=instance->player.config.chromatic_quality){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.chromatic_quality=selected;}
-    return;
-}
-if(!strcmp(key,"chord_dim_next")){
-    if(parameter[0]=='1'||!strcmp(parameter,"Arm"))instance->approach_pad_armed=HB_APPROACH_CHROM_BELOW;
-    else if(!strcmp(parameter,"Off")||!strcmp(parameter,"Clear"))instance->approach_pad_armed=HB_APPROACH_OFF;
     return;
 }
 if(!strcmp(key,"chord_form")){
@@ -3268,7 +3270,6 @@ if(!strcmp(key,"dominant_scale"))return snprintf(buffer,(size_t)length,"%s",DOMI
 if(!strcmp(key,"chord_mode"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_MODE[instance->player.config.mode]);
 if(!strcmp(key,"chord_quality"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_QUALITY[instance->player.config.quality]);
 if(!strcmp(key,"chromatic_quality"))return snprintf(buffer,(size_t)length,"%s",CP_CHROMATIC_QUALITY[instance->player.config.chromatic_quality]);
-if(!strcmp(key,"chord_dim_next"))return snprintf(buffer,(size_t)length,"%s",instance->approach_pad_armed==HB_APPROACH_CHROM_BELOW?"Arm":"Off");
 if(!strcmp(key,"chord_form"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_FORM[instance->player.config.size]);
 if(!strcmp(key,"chord_inversion"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_INVERSION[instance->player.config.inversion]);
 if(!strcmp(key,"chord_voicing"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_VOICING[instance->player.config.voicing]);
