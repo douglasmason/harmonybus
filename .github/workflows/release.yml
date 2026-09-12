@@ -27,9 +27,12 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.102'
+          assert module['version']=='0.2.103'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.102'
+          buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
+          assert buffer['options']==[f'{ms} ms' for ms in [0,25,*range(50,1001,50)]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars']
+          assert buffer['default']=='350 ms'
+          assert levels['root']['name']=='Harmony Bus 0.2.103'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -155,7 +158,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.102'
+          assert module['version']==os.environ['VERSION']=='0.2.103'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -174,7 +177,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Global Follower Buffer defaults to 350 ms and supports musical durations. Preserve exact-grid arrivals, including shifted learned boundaries. Saved values survive migration. Canonical timing documentation is Markdown plus editable SVG, with this PDF generated from the same sources. Movy hbclean.24 adds Quantize + Fill Gaps."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Simplify Follower Buffer choices to 0, 25, 50, then 100-1000 ms in 50 ms steps. Retain the 350 ms default, musical divisions and saved values. Update canonical Markdown and generated PDF. Compatible with Movy hbclean.24; no Movy update required."
           fi
 
       - name: Update Module Store metadata

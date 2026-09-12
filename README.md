@@ -19,8 +19,8 @@ Manager reads `release.json` and downloads the release asset.
 
 ## Timing and current release
 
-HarmonyBus **0.2.102** makes Follower Buffer global with a **350 ms** default for
-fresh settings. The same control also offers tempo-relative durations from 1/64
+HarmonyBus **0.2.103** makes Follower Buffer global with a **350 ms** default for
+fresh settings. Millisecond choices are 0, 25, 50, then 100 to 1000 in 50 ms steps. The same control also offers tempo-relative durations from 1/64
 to 2 Bars. Existing saved values survive; the first restored legacy copy becomes
 the shared value. Change it once and save to make all snapshots agree.
 
@@ -47,7 +47,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.102-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.103-module.tar.gz`.
 
 ## License
 

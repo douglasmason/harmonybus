@@ -2,13 +2,13 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.102 / Movy 0.34.1-hbclean.24.** Choose a release time first. At release, map the source note using the effective harmony then available. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.103 / Movy 0.34.1-hbclean.24.** Choose a release time first. At release, map the source note using the effective harmony then available. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
 **Example:** the conductor changes from C to D at 2000 ms. A locked model with 1/8-note lookahead makes D effective at 1750 ms. A keypress at 1600 ms falls inside the 350 ms pre-boundary window and waits until 1750 ms. The eighth-note Quant Grid also lands there. The follower uses D at release.
 
-**Defaults and scope:** Follower Buffer is global, initially **350 ms**. Changing it on any HB instance changes all followers. Lookahead defaults to **Off**. Quant Grid remains per follower. Musical buffer choices run from 1/64 through 2 Bars; millisecond choices run from 0 to 1000 ms in 5 ms steps.
+**Defaults and scope:** Follower Buffer is global, initially **350 ms**. Changing it on any HB instance changes all followers. Lookahead defaults to **Off**. Quant Grid remains per follower. Musical buffer choices run from 1/64 through 2 Bars; millisecond choices are 0, 25, 50, then 100 to 1000 ms in 50 ms steps.
 
 **Saved sets:** saved buffer values survive the update. For older sets containing conflicting per-instance buffers, the first restored copy becomes the shared value. Set the desired global value once, then save the set; new snapshots store the same value in every instance.
 
