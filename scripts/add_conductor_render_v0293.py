@@ -23,6 +23,14 @@ def main() -> None:
     source = source.replace("Harmony Bus v0.2.92", "Harmony Bus v0.2.93")
     source = source.replace('#define HB_VERSION "0.2.92"', '#define HB_VERSION "0.2.93"')
 
+    source = replace_once(
+        source,
+        "static double hb_quant_grid_beats(void);\n",
+        "static double hb_quant_grid_beats(void);\n"
+        "static double hb_quant_grid_beats_for(const Inst *instance);\n",
+        "quant-grid forward declaration",
+    )
+
     follower_helper = "static void hb_render_follower_event(Inst *instance,int mapped_note,int velocity,int is_on,int is_off,int recv_channel){\n"
     conductor_helper = (
         "static void hb_render_conductor_event(Inst *instance,int note,int velocity,int is_on,int is_off,int recv_channel){\n"
