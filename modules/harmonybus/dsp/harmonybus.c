@@ -178,6 +178,7 @@ static hb_harmony_t hb_follower_scale_target(Inst *instance,hb_harmony_t harmony
 static int hb_parent_scale_index(Inst *instance,hb_harmony_t harmony);
 static double hb_chord_grid_beats(void);
 static double hb_quant_grid_beats(void);
+static double hb_quant_grid_beats_for(const Inst *instance);
 static double hb_anticipation_beats(void);
 static double hb_ms_to_beats(int milliseconds);
 static double hb_current_beat(void);
@@ -908,6 +909,7 @@ static void hb_next_begin_relearning(void){
     g_bus.next_learning_count=0;
     g_bus.next_learning_progress_beats=0.0;
     g_bus.next_learning_started=0;
+    g_bus.next_learning_progress_beats=0.0;
 }
 static void hb_commit_observed_harmony(hb_harmony_t harmony){
     double phase=hb_next_record_phase();
