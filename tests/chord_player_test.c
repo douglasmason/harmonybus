@@ -22,6 +22,7 @@ static uint8_t output[64][3];static int lengths[64];
 static Inst *fixture(void){
     g_init=0;g_global_shared=&globals;memset(&globals,0,sizeof(globals));
     memset(g_movy_clips,0,sizeof(g_movy_clips));g_movy_present=g_movy_blocked=0;
+    g_movy_revision=14695981039346656037ULL;
     position=0;tempo=120;transport=2;render_count=recorded_count=0;
     move_midi_fx_init(&host);
     Inst *instance=API.create_instance("",NULL);
@@ -359,4 +360,80 @@ static void generated_degree_progression(void){
     assert(!strcmp(name,"Scale Degree"));
     API.destroy_instance(instance);
 }
-int main(void){generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void split_seventh(void){
+    Inst *instance=fixture();
+    instance->travel_map=3;instance->follower_split_map=1;
+    uint8_t triad[3]={60,64,67};hb_effective_write(hb_infer_harmony(triad,3));
+    instance->content_map=0;
+    int seventh=hb_map_follower_note_now(instance,71);
+    fprintf(stderr,"135/2467, Chord, C triad: B -> %d\n",seventh);
+    assert(seventh==71);
+    const int notes[7]={60,62,64,65,67,69,71};
+    for(int content=0;content<=8;content++)for(int split=1;split<=2;split++){
+        instance->content_map=content;instance->follower_split_map=split;
+        unsigned on=(1u<<0)|(1u<<4)|(1u<<7)|(split==2?(1u<<11):0);
+        unsigned off=0xAB5u&~on;
+        for(int degree=0;degree<7;degree++){
+            int is_on=degree==0||degree==2||degree==4||(split==2&&degree==6);
+            int mapped=hb_map_follower_note_now(instance,notes[degree]);
+            assert((is_on?on:off)&(1u<<(mapped%12)));
+        }
+    }
+    API.destroy_instance(instance);
+}
+static void predicted_capture(void){
+    for(int late=0;late<2;late++)for(int quant=0;quant<2;quant++){
+        Inst *instance=fixture();
+        API.set_param(instance,"boundary_buffer_ms","1/16");
+        API.set_param(instance,"quant_timing",quant?"1/8":"Off");
+        g_bus.next_lookahead=late?10:3; // -quarter or +eighth
+        hb_next_update_playhead(0,48000);
+        g_bus.next_model_locked=1;g_bus.next_model_count=2;
+        uint8_t c[3]={60,64,67},d[3]={62,66,69};
+        g_bus.next_model[0].phase=0;g_bus.next_model[0].harmony=hb_infer_harmony(c,3);
+        g_bus.next_model[1].phase=2;g_bus.next_model[1].harmony=hb_infer_harmony(d,3);
+        double boundary=late?3.0:1.5;
+        position=boundary-0.3;hb_next_apply_effective(hb_clip_playhead());
+        midi(instance,1,60);assert(advance(instance,0,64)==1&&output[0][1]==60);
+        midi(instance,0,60);assert(advance(instance,0,64)==1);
+        position=boundary-0.2;hb_next_apply_effective(hb_clip_playhead());
+        assert(bus_read().root_pc==0);
+        midi(instance,1,60);
+        int count=advance(instance,0,64);
+        if(quant){assert(count==0);position=boundary;count=advance(instance,0,64);}
+        assert(count==1&&output[0][1]==62);
+        assert(rendered[render_count-1][2]==62);
+        assert(bus_read().root_pc==0&&!instance->render_harmony_active);
+        position+=0.05;midi(instance,0,60);count=advance(instance,0,64);
+        if(quant){assert(count==0);position+=0.2;count=advance(instance,0,64);}
+        assert(count==1&&output[0][0]==0x80&&output[0][1]==62);
+        API.destroy_instance(instance);
+    }
+    // Future harmony also feeds chord generation, without changing the bus.
+    Inst *instance=fixture();
+    API.set_param(instance,"chord_mode","Conductor Chord");
+    g_bus.next_lookahead=3;hb_next_update_playhead(0,48000);g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    uint8_t c[3]={60,64,67},d[3]={62,66,69};
+    g_bus.next_model[0].phase=0;g_bus.next_model[0].harmony=hb_infer_harmony(c,3);
+    g_bus.next_model[1].phase=2;g_bus.next_model[1].harmony=hb_infer_harmony(d,3);
+    position=1.3;hb_next_apply_effective(hb_clip_playhead());
+    midi(instance,1,62);assert(advance(instance,0,64)==3);
+    assert(output[0][1]==62&&output[1][1]==66&&output[2][1]==69);
+    assert(bus_read().root_pc==0);
+    midi(instance,0,62);assert(advance(instance,0,64)==3);
+    // Invalidation while queued falls back to the physical boundary.
+    API.set_param(instance,"chord_mode","Off");
+    midi(instance,1,60);g_bus.next_model_locked=0;
+    assert(advance(instance,0,64)==0);
+    position=1.5;hb_effective_write(hb_infer_harmony(d,3));
+    assert(advance(instance,0,64)==1&&output[0][1]==62);
+    const char *labels[]={"Chord","Scale","Free","135","1357","12357","12356","Non-Avoid","123567"};
+    for(int index=0;index<9;index++){
+        char old[32],value[32];snprintf(old,sizeof(old),"In %s",labels[index]);
+        API.set_param(instance,"content_map",old);API.get_param(instance,"content_map",value,sizeof(value));
+        assert(instance->content_map==index&&!strcmp(value,labels[index]));
+        API.set_param(instance,"content_map",labels[index]);assert(instance->content_map==index);
+    }
+    API.destroy_instance(instance);
+}
+int main(void){split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

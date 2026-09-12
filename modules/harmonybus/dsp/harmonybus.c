@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.111 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.111"
+/* Harmony Bus v0.2.112 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.112"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -165,7 +165,7 @@ typedef struct {
 } hb_loop_harmony_event_t;
 typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int sensor_sources; int chord_timescale; int stability; int chord_timing; int quant_timing; int anticipation; int boundary_buffer_ms; int analysis_release_ms; int follower_content_map; int follower_travel_map; int follower_scale; int follower_split_map; int approach_control; int approach_mode; int inference_window_ms; int context; int accidentals; int auto_spell_sharps; int auto_spell_locked; int clip_track; int clip_slot; int clip_valid; int clip_note_count; int clip_stage; int clip_context; int last_clock_status; double clip_loop_start; double clip_loop_end; unsigned long clip_clock_ticks; unsigned clip_refresh_counter; double last_clip_playhead; int have_last_clip_playhead; int next_predict; int next_lookahead; int next_model_locked; int next_shift_active; int next_learning_count; int next_model_count; double next_last_playhead; int next_have_playhead; int next_learning_started; double next_learning_progress_beats; hb_harmony_t observed_harmony; hb_loop_harmony_event_t next_learning[HB_MAX_LOOP_HARMONIES]; hb_loop_harmony_event_t next_model[HB_MAX_LOOP_HARMONIES]; unsigned cache_rev; unsigned sense_rev; int last_sense_count; uint8_t last_sense_notes[64]; unsigned global_process_count; unsigned global_note_event_count; unsigned global_accepted_note_count; unsigned global_tick_count; int global_last_status; int global_last_note; int global_last_channel; int global_last_instance; int follower_root_policy; int follower_explicit_root; hb_clip_note_t clip_notes[HB_MAX_CLIP_NOTES]; } SharedBus;
 static SharedBus g_bus={.approach_control=HB_APPROACH_OFF,.approach_mode=0}; static int g_init=0;
-typedef struct { hb_chord_player player; int dominant_scale; int used,role,mode,content_map,travel_map,follower_scale,follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],passthrough_held[128]; } Inst;
+typedef struct { hb_chord_player player; int dominant_scale; int used,role,mode,content_map,travel_map,follower_scale,follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_quant_beat[64]; double follower_queue_harmony_beat[64]; hb_harmony_t render_harmony; int render_harmony_active; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],passthrough_held[128]; } Inst;
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
 static uint16_t hb_scale_mask(hb_harmony_t harmony);
 static uint16_t hb_explicit_scale_mask(int root_pc,int scale_index);
@@ -1100,7 +1100,7 @@ static void hb_next_update_playhead(int frames,int sample_rate){
     hb_next_apply_effective(hb_clip_playhead());
 }
 static double hb_next_effective_boundary(double absolute_beat){
-    if(!g_bus.next_predict||hb_next_lookahead_beats()==0.0||!g_bus.next_model_locked||g_bus.next_model_count<=0)return -1.0;
+    if(g_movy_blocked||!g_bus.next_predict||hb_next_lookahead_beats()==0.0||!g_bus.next_model_locked||g_bus.next_model_count<=0)return -1.0;
     double length=hb_next_loop_length();
     if(length<=0.0)return -1.0;
     double phase=hb_next_phase(hb_clip_playhead());
@@ -1114,6 +1114,21 @@ static double hb_next_effective_boundary(double absolute_beat){
         if(distance<best)best=distance;
     }
     return best<1e98?absolute_beat+best:-1.0;
+}
+
+/* A predicted note uses a private harmony context, never a speculative bus write. */
+static int hb_prediction_ready(void){
+    return g_bus.next_predict && hb_next_lookahead_beats()!=0.0 &&
+        g_bus.next_model_locked && g_bus.next_model_count>0 &&
+        !g_movy_blocked && hb_next_loop_length()>0.0;
+}
+static double hb_follower_playback_target(Inst *instance,int slot){
+    if(instance->follower_queue_harmony_beat[slot]>=0.0 && hb_prediction_ready())
+        return instance->follower_queue_quant_beat[slot];
+    return instance->follower_queue_target_beat[slot];
+}
+static hb_harmony_t hb_render_harmony(Inst *instance){
+    return instance->render_harmony_active?instance->render_harmony:bus_read();
 }
 
 static void hb_render_conductor_event(Inst *instance,int note,int velocity,int is_on,int is_off,int recv_channel){
@@ -1174,6 +1189,8 @@ static int hb_queue_follower_event(Inst *instance,int note,int velocity,int is_o
     instance->follower_queue_on[slot]=(uint8_t)(is_on?1:0);
     instance->follower_queue_channel[slot]=(uint8_t)(channel&0x0F);
     instance->follower_queue_target_beat[slot]=-1.0;
+    instance->follower_queue_quant_beat[slot]=-1.0;
+    instance->follower_queue_harmony_beat[slot]=-1.0;
     instance->follower_queue_arrival_beat[slot]=beat;
 
     if(is_on){
@@ -1184,9 +1201,12 @@ static int hb_queue_follower_event(Inst *instance,int note,int velocity,int is_o
             /* Prediction owns the harmonic boundary; Quant Grid remains an
                independent follower-only capture source. */
             target=hb_follower_capture_target(beat,0.0,0.0,hb_quant_grid_beats_for(instance),capture);
+            instance->follower_queue_quant_beat[slot]=target;
             double distance=learned_boundary-beat;
-            if(distance>=-1e-6&&distance<=capture+1e-6&&
-               (target<0.0||learned_boundary<target))target=learned_boundary;
+            if(distance>=-1e-6&&distance<=capture+1e-6){
+                instance->follower_queue_harmony_beat[slot]=learned_boundary;
+                if(target<0.0||learned_boundary<target)target=learned_boundary;
+            }
         }else{
             target=hb_follower_capture_target(
                 beat,
@@ -1204,8 +1224,9 @@ static int hb_queue_follower_event(Inst *instance,int note,int velocity,int is_o
         double delay=instance->follower_note_delay_beats[note];
         for(int index=instance->follower_queue_count-2;index>=0;index--){
             if(instance->follower_queue_note[index]!=note||!instance->follower_queue_on[index])continue;
-            if(instance->follower_queue_target_beat[index]>=0.0){
-                double queued_delay=instance->follower_queue_target_beat[index]-instance->follower_queue_arrival_beat[index];
+            double pending_target=hb_follower_playback_target(instance,index);
+            if(pending_target>=0.0){
+                double queued_delay=pending_target-instance->follower_queue_arrival_beat[index];
                 if(queued_delay>delay)delay=queued_delay;
             }
             break;
@@ -1392,20 +1413,20 @@ static int hb_map_scale_degree_relative(Inst *instance,int source_note,hb_harmon
     return mapped;
 }
 static hb_harmony_t hb_follower_content_target(Inst *instance,hb_harmony_t harmony,int content_map){
-    /* Intermediate content modes are "In Chord + guaranteed scale degrees".
+    /* Intermediate content modes are "Chord + guaranteed scale degrees".
        Start with the normal inferred chord-tone set, then fill requested roles
        from the chord-scale implied by the follower parent scale.
 
        Internal content codes preserve legacy persistence:
-         0 In Chord
-         1 In Scale
+         0 Chord
+         1 Scale
          2 Free
-         3 In 135
-         4 In 1357
-         5 In 12357
-         6 In 12356
-         7 In Non-Avoid
-         8 In 123567
+         3 135
+         4 1357
+         5 12357
+         6 12356
+         7 Non-Avoid
+         8 123567
     */
     hb_harmony_t target=hb_mapping_target(harmony,0);
     if(content_map<3||content_map>8)return target;
@@ -1573,10 +1594,14 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
         int split=instance->follower_split_map;
         if(split==1){
             int is_on=(on_bits_135&(1u<<degree))!=0;
-            preferred=(uint16_t)(legal&(is_on?on_mask_135:off_mask_135));
+            uint16_t pool=is_on?on_mask_135:off_mask_135;
+            preferred=(uint16_t)(legal&pool);
+            if(!preferred)preferred=pool; /* explicit split must not cross groups */
         }else if(split==2){
             int is_on=(on_bits_1357&(1u<<degree))!=0;
-            preferred=(uint16_t)(legal&(is_on?on_mask_1357:off_mask_1357));
+            uint16_t pool=is_on?on_mask_1357:off_mask_1357;
+            preferred=(uint16_t)(legal&pool);
+            if(!preferred)preferred=pool;
         }else if(split==3){
             int is_on=(active_mask&(1u<<degree_pc))!=0;
             uint16_t out_mask=(uint16_t)(chord_scale&(uint16_t)(~active_mask)&0x0FFFu);
@@ -1597,7 +1622,7 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
     return output_by_degree[source_degree];
 }
 static int hb_map_follower_note_now(Inst *instance,int source_note){
-    hb_harmony_t detected=bus_read();
+    hb_harmony_t detected=hb_render_harmony(instance);
     int content_map=instance->content_map;
     if(!detected.valid)return source_note;
 
@@ -1638,7 +1663,7 @@ static int hb_apply_approach(Inst *instance,int mapped,int approach){
         return mapped>0?mapped-1:0;
     }
     if(approach==HB_APPROACH_SCALE_ABOVE){
-        hb_harmony_t detected=bus_read();
+        hb_harmony_t detected=hb_render_harmony(instance);
         if(!detected.valid)return mapped;
         int source_root=0;
         if(!hb_resolve_follower_reference_root(instance,&source_root))
@@ -1676,7 +1701,7 @@ static void hb_prepare_conductors(int frames,int sample_rate);
    been established yet; subsequent gestures can voice the recognized chord. */
 static void hb_player_note_on(Inst *instance,int source_note,int channel,int velocity){
     hb_chord_player *player=&instance->player;
-    hb_harmony_t harmony=bus_read();
+    hb_harmony_t harmony=hb_render_harmony(instance);
     hb_harmony_t untransposed=hb_transpose_harmony(harmony,-g_bus.global_transpose);
     int scale_root=untransposed.root_pc;
     hb_resolve_follower_reference_root(instance,&scale_root);
@@ -1770,7 +1795,7 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
                Leave it intact for the next tick. */
             continue;
         }
-        double target_beat=instance->follower_queue_target_beat[index];
+        double target_beat=hb_follower_playback_target(instance,index);
         if(target_beat>=0.0&&hb_current_beat()+1e-6<target_beat){
             continue;
         }
@@ -1781,6 +1806,18 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
         if(hb_follower_needs_same_tick_barrier(
                target_beat, age, frames, hb_conductor_pending_for_follow())){
             continue;
+        }
+        instance->render_harmony_active=0;
+        double harmony_beat=instance->follower_queue_harmony_beat[index];
+        if(harmony_beat>=0.0 && hb_prediction_ready()){
+            double now=hb_current_beat();
+            if(harmony_beat<now)harmony_beat=now;
+            double phase=hb_next_phase(hb_clip_playhead()+harmony_beat-now+1e-7);
+            int event=hb_next_model_event_for_phase(phase,1);
+            if(event>=0){
+                instance->render_harmony=g_bus.next_model[event].harmony;
+                instance->render_harmony_active=1;
+            }
         }
         int source_note=instance->follower_queue_note[index];
         int velocity=instance->follower_queue_velocity[index];
@@ -1795,6 +1832,7 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
                 hb_cp_off(&instance->player,source_note,channel);
                 instance->follower_note_delay_beats[source_note]=0.0;
             }
+            instance->render_harmony_active=0;
             instance->follower_queue_age_frames[index]=-2147483647;
             continue;
         }
@@ -1821,8 +1859,8 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
             }
             instance->mapped[source_note]=mapped;
             instance->follower_sounding[source_note]=1;
-            double delay=instance->follower_queue_target_beat[index]>=0.0
-                ?instance->follower_queue_target_beat[index]-instance->follower_queue_arrival_beat[index]:0.0;
+            double delay=target_beat>=0.0
+                ?target_beat-instance->follower_queue_arrival_beat[index]:0.0;
             instance->follower_note_delay_beats[source_note]=delay>0.0?delay:0.0;
             instance->source_seen[source_note%12]=1;
         }else{
@@ -1839,6 +1877,7 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
         emitted++;
         if(instance->render_channel>=0)
             hb_render_follower_event(instance,mapped,velocity,is_on,!is_on,instance->follower_queue_channel[index]);
+        instance->render_harmony_active=0;
         /* Mark released; compaction below drops it. */
         instance->follower_queue_age_frames[index]=-2147483647;
     }
@@ -1852,6 +1891,8 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
             instance->follower_queue_channel[write]=instance->follower_queue_channel[index];
             instance->follower_queue_age_frames[write]=instance->follower_queue_age_frames[index];
             instance->follower_queue_target_beat[write]=instance->follower_queue_target_beat[index];
+            instance->follower_queue_quant_beat[write]=instance->follower_queue_quant_beat[index];
+            instance->follower_queue_harmony_beat[write]=instance->follower_queue_harmony_beat[index];
             instance->follower_queue_arrival_beat[write]=instance->follower_queue_arrival_beat[index];
         }
         write++;
@@ -2065,7 +2106,7 @@ static uint16_t hb_explicit_scale_mask(int root_pc,int scale_index){
 static hb_harmony_t hb_follower_scale_target(Inst *instance,hb_harmony_t harmony){
     if(!harmony.valid)return harmony;
 
-    /* Follower Content = In Scale defines a LEGAL OUTPUT SET around the
+    /* Follower Content = Scale defines a LEGAL OUTPUT SET around the
        DETECTED harmony. The follower root/scale describes source-role
        semantics and the parent pitch collection; it must not re-root the
        output target back onto the follower root.
@@ -2888,7 +2929,7 @@ static const char CHAIN_PARAMS[]="["
 "{\\\"key\\\":\\\"mode\\\",\\\"name\\\":\\\"Follow Mode\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Transpose\\\",\\\"Chord\\\",\\\"Nearest\\\"],\\\"options_as_string\\\":true},"
 "{\\\"key\\\":\\\"root_policy\\\",\\\"name\\\":\\\"Root Policy\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Explicit\\\",\\\"Current Input Root\\\",\\\"Auto-Infer\\\"],\\\"options_as_string\\\":true},"
 "{\\\"key\\\":\\\"explicit_root\\\",\\\"name\\\":\\\"Explicit Root\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"C\\\",\\\"C#\\\",\\\"D\\\",\\\"Eb\\\",\\\"E\\\",\\\"F\\\",\\\"F#\\\",\\\"G\\\",\\\"Ab\\\",\\\"A\\\",\\\"Bb\\\",\\\"B\\\"],\\\"options_as_string\\\":true},"
-"{\\\"key\\\":\\\"content_map\\\",\\\"name\\\":\\\"Follower Content\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"In Chord\\\",\\\"In Scale\\\",\\\"Free\\\"],\\\"options_as_string\\\":true,\\\"default\\\":\\\"In Chord\\\"},"
+"{\\\"key\\\":\\\"content_map\\\",\\\"name\\\":\\\"Follower Content\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Chord\\\",\\\"Scale\\\",\\\"Free\\\"],\\\"options_as_string\\\":true,\\\"default\\\":\\\"Chord\\\"},"
 "{\\\"key\\\":\\\"travel_map\\\",\\\"name\\\":\\\"Follower Travel\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Relative\\\",\\\"Closest\\\",\\\"Up\\\"],\\\"options_as_string\\\":true,\\\"default\\\":\\\"Relative\\\"},"
 "{\\\"key\\\":\\\"follower_scale\\\",\\\"name\\\":\\\"Follower Scale\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Infer\\\",\\\"Major\\\",\\\"Natural Minor\\\",\\\"Dorian\\\",\\\"Phrygian\\\",\\\"Lydian\\\",\\\"Mixolydian\\\",\\\"Locrian\\\",\\\"Harmonic Minor\\\",\\\"Melodic Minor\\\"],\\\"options_as_string\\\":true,\\\"default\\\":\\\"Infer\\\"},"
 "{\\\"key\\\":\\\"quant_timing\\\",\\\"name\\\":\\\"Quant Grid\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Off\\\",\\\"1/16\\\",\\\"1/8\\\",\\\"1/4\\\",\\\"1/2\\\",\\\"1 Bar\\\",\\\"2 Bars\\\"],\\\"options_as_string\\\":true,\\\"default\\\":\\\"Off\\\"},"
@@ -3028,16 +3069,17 @@ if(!strcmp(key,"track_role")||!strcmp(key,"role")){
     }
     if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}
 }else if(!strcmp(key,"clip_slot")){g_bus.clip_slot=enum_index(parameter,CLIP_SLOT_OPTS,9,g_bus.clip_slot);if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}}else if(!strcmp(key,"sensor_sources")){g_bus.sensor_sources=0;instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"clip_context")){g_bus.clip_context=0;g_bus.sensor_sources=0;instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"retrigger_held")){instance->retrigger_held=enum_index(parameter,RETRIGGER_OPTS,2,instance->retrigger_held);}else if(!strcmp(key,"follow_lookahead_ms")){int parsed=parse_i(parameter,instance->follow_lookahead_ms);if(parsed<0)parsed=0;if(parsed>100)parsed=100;instance->follow_lookahead_ms=parsed;}else if(!strcmp(key,"follower_root_policy")||!strcmp(key,"follower_source_policy")){hb_set_global_root_policy(enum_index(parameter,FOLLOWER_SOURCE_POLICY_OPTS,3,hb_global_root_policy()));}else if(!strcmp(key,"follower_explicit_root")||!strcmp(key,"follower_source_root")){hb_set_global_explicit_root(enum_index(parameter,PC_OPTS,12,hb_global_explicit_root()));}else if(!strcmp(key,"mode")){instance->mode=enum_index(parameter,MODE_OPTS,3,instance->mode);instance->follower_bus_seq=0;}else if(!strcmp(key,"content_map")){
+    if(!strncmp(parameter,"In ",3))parameter+=3; /* legacy label alias */
     int value=instance->content_map;
-    if(!strcmp(parameter,"In Chord"))value=0;
-    else if(!strcmp(parameter,"In Scale"))value=1;
+    if(!strcmp(parameter,"Chord"))value=0;
+    else if(!strcmp(parameter,"Scale"))value=1;
     else if(!strcmp(parameter,"Free"))value=2;
-    else if(!strcmp(parameter,"In 135"))value=3;
-    else if(!strcmp(parameter,"In 1357"))value=4;
-    else if(!strcmp(parameter,"In 12357"))value=5;
-    else if(!strcmp(parameter,"In 12356"))value=6;
-    else if(!strcmp(parameter,"In Non-Avoid"))value=7;
-    else if(!strcmp(parameter,"In 123567"))value=8;
+    else if(!strcmp(parameter,"135"))value=3;
+    else if(!strcmp(parameter,"1357"))value=4;
+    else if(!strcmp(parameter,"12357"))value=5;
+    else if(!strcmp(parameter,"12356"))value=6;
+    else if(!strcmp(parameter,"Non-Avoid"))value=7;
+    else if(!strcmp(parameter,"123567"))value=8;
     instance->content_map=value;
 }else if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward","Direct"};instance->travel_map=enum_index(parameter,opts,6,instance->travel_map);}else if(!strcmp(key,"split_map")){static const char *opts[]={"Harm. / Out","135 / 2467","1357 / 246","Act. / Out"};instance->follower_split_map=enum_index(parameter,opts,4,instance->follower_split_map);}else if(!strcmp(key,"approach")){instance->approach_control=enum_index(parameter,APPROACH_OPTS,3,HB_APPROACH_OFF);instance->approach_pad_armed=HB_APPROACH_OFF;}else if(!strcmp(key,"approach_mode")){instance->approach_mode=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"quant_timing")){/* follower-render timing only */instance->quant_timing=enum_index(parameter,QUANT_GRID_OPTS,7,instance->quant_timing);}else if(!strcmp(key,"chord_timing")){/* follower-render timing only */g_bus.chord_timing=enum_index(parameter,TIMING_OPTS,7,g_bus.chord_timing);g_bus.chord_timescale=0;}else if(!strcmp(key,"anticipation")){/* follower-render timing only */g_bus.anticipation=enum_index(parameter,ANTICIPATION_OPTS,6,g_bus.anticipation);}else if(!strcmp(key,"boundary_buffer_ms")){/* follower-render capture window only */int parsed=parse_i(parameter,g_bus.boundary_buffer_ms);for(int division=0;division<8;division++)if(!strcmp(parameter,BUFFER_DIVISIONS[division]))parsed=-division-1;if(parsed< -8)parsed=0;if(parsed>1000)parsed=1000;g_bus.boundary_buffer_ms=parsed;g_buffer_restored=1;}else if(!strcmp(key,"analysis_release_ms")){int parsed=parse_i(parameter,g_bus.analysis_release_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.analysis_release_ms=parsed;}else if(!strcmp(key,"follower_scale")){instance->follower_scale=enum_index(parameter,FOLLOWER_SCALE_OPTS,10,instance->follower_scale);}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;g_bus.global_transpose=parsed;}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,g_bus.inference_window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.inference_window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
 static void hb_restore_state(Inst *instance,const char *state){
@@ -3336,7 +3378,7 @@ if(!strcmp(key,"follower_role_3"))return snprintf(buffer,(size_t)length,"%s",hb_
 if(!strcmp(key,"follower_role_4"))return snprintf(buffer,(size_t)length,"%s",hb_follower_analysis_role_name(instance,3));
 if(!strcmp(key,"follower_active_count"))return snprintf(buffer,(size_t)length,"%d",hb_follower_analysis_count(instance));if(!strcmp(key,"state")||!strcmp(key,"base_state"))return snprintf(buffer,(size_t)length,"hb16,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",instance->role,instance->mode,instance->map_target,g_bus.inference_window_ms,hb_global_root_policy(),hb_global_explicit_root(),g_bus.global_input_root,g_bus.global_transpose,instance->follower_split_map,g_bus.stability,g_bus.accidentals,instance->render_channel,instance->source_channel,g_bus.chord_timing,g_bus.context,g_bus.clip_context,instance->follow_lookahead_ms,instance->retrigger_held,g_bus.anticipation,g_bus.boundary_buffer_ms,g_bus.analysis_release_ms,instance->content_map,instance->travel_map,instance->follower_scale,instance->quant_timing);if(!strcmp(key,"track_role")||!strcmp(key,"role"))return snprintf(buffer,(size_t)length,"%s",ROLE_OPTS[instance->role]);if(!strcmp(key,"clip_slot"))return snprintf(buffer,(size_t)length,"%s",CLIP_SLOT_OPTS[g_bus.clip_slot]);if(!strcmp(key,"sensor_sources"))return snprintf(buffer,(size_t)length,"%s","Realtime");if(!strcmp(key,"realtime_route"))return snprintf(buffer,(size_t)length,"%s","Set Track MIDI Out -> Schwung");if(!strcmp(key,"clip_context"))return snprintf(buffer,(size_t)length,"%s","Realtime Only");if(!strcmp(key,"mode"))return snprintf(buffer,(size_t)length,"%s",MODE_OPTS[instance->mode]);
 if(!strcmp(key,"content_map")){
-    static const char *opts[]={"In Chord","In Scale","Free","In 135","In 1357","In 12357","In 12356","In Non-Avoid","In 123567"};
+    static const char *opts[]={"Chord","Scale","Free","135","1357","12357","12356","Non-Avoid","123567"};
     return snprintf(buffer,(size_t)length,"%s",opts[instance->content_map]);
 }
 if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward","Direct"};int travel=instance->travel_map;if(travel<0||travel>5)travel=0;return snprintf(buffer,(size_t)length,"%s",opts[travel]);}if(!strcmp(key,"split_map")){static const char *opts[]={"Harm. / Out","135 / 2467","1357 / 246","Act. / Out"};int split=instance->follower_split_map;if(split<0||split>3)split=0;return snprintf(buffer,(size_t)length,"%s",opts[split]);}

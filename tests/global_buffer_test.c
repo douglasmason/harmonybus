@@ -63,11 +63,11 @@ int main(void){
     }
     shared.follower_root_policy=2;shared.follower_explicit_root=0;
     uint8_t out[16][3];int lengths[16];
-    assert(hb_release_follower_queue(second,64,48000,out,lengths,16)==0);
+    assert(hb_release_follower_queue(second,64,48000,out,lengths,16)==1);
+    assert(out[0][1]==62&&bus_read().root_pc==0); /* immediate predicted D, private context */
     position=5.0;hb_next_apply_effective(position);
     assert(bus_read().root_pc==2);
-    assert(hb_release_follower_queue(second,64,48000,out,lengths,16)==1);
-    assert(out[0][1]==62);
+    assert(hb_release_follower_queue(second,64,48000,out,lengths,16)==0);
     /* Exact shifted boundary is immediate; wrap preserves the previous chord. */
     second->follower_queue_count=0;hb_queue_follower_event(second,64,100,1,0);
     assert(second->follower_queue_target_beat[0]==5.0);

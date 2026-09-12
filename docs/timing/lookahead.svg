@@ -33,9 +33,9 @@
 <line x1="382.75" y1="180.00" x2="467.50" y2="180.00" stroke="#c16a13"/>
 <line x1="462.50" y1="177.00" x2="467.50" y2="180.00" stroke="#c16a13"/>
 <line x1="462.50" y1="183.00" x2="467.50" y2="180.00" stroke="#c16a13"/>
-<text x="385.75" y="173.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">release at 1750</text>
-<circle cx="467.50" cy="180" r="3" fill="#7756ae"/>
-<text x="472.50" y="197.00" font-family="DejaVuSans" font-size="9" fill="#7756ae">D</text>
+<text x="385.75" y="173.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">play now; lookup 1750</text>
+<circle cx="382.75" cy="180" r="3" fill="#7756ae"/>
+<text x="387.75" y="197.00" font-family="DejaVuSans" font-size="9" fill="#7756ae">D</text>
 <text x="0.00" y="220.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Both enabled</text>
 <line x1="185.00" y1="216.00" x2="750.00" y2="216.00" stroke="#dfe7ed"/>
 <rect x="185.00" y="206.00" width="282.50" height="20" rx="3" fill="#007f83"/>
@@ -45,7 +45,7 @@
 <line x1="382.75" y1="246.00" x2="467.50" y2="246.00" stroke="#c16a13"/>
 <line x1="462.50" y1="243.00" x2="467.50" y2="246.00" stroke="#c16a13"/>
 <line x1="462.50" y1="249.00" x2="467.50" y2="246.00" stroke="#c16a13"/>
-<text x="385.75" y="239.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">release at 1750</text>
-<circle cx="467.50" cy="246" r="3" fill="#7756ae"/>
-<text x="472.50" y="263.00" font-family="DejaVuSans" font-size="9" fill="#7756ae">D</text>
+<text x="385.75" y="239.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">play now; lookup 1750</text>
+<circle cx="382.75" cy="246" r="3" fill="#7756ae"/>
+<text x="387.75" y="263.00" font-family="DejaVuSans" font-size="9" fill="#7756ae">D</text>
 </svg>

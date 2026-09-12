@@ -29,10 +29,11 @@
 <text x="534.125" y="211" font-family="DejaVuSans" font-size="8" fill="#13283c">2375</text>
 <text x="598.75" y="211" font-family="DejaVuSans" font-size="8" fill="#13283c">2500</text>
 <text x="0" y="248" font-family="DejaVuSans" font-size="10" fill="#13283c">Follower note</text>
+<circle cx="552.25" cy="244" r="3" fill="#2865ad"/>
 <line x1="552.25" y1="244" x2="608.75" y2="244" stroke="#c16a13"/>
 <line x1="603.75" y1="241" x2="608.75" y2="244" stroke="#c16a13"/>
 <line x1="603.75" y1="247" x2="608.75" y2="244" stroke="#c16a13"/>
-<text x="514.25" y="234" font-family="DejaVuSans" font-size="9" fill="#13283c">press 2400</text>
-<text x="614.75" y="248" font-family="DejaVuSans" font-size="9" fill="#2865ad">release: D</text>
+<text x="514.25" y="234" font-family="DejaVuSans" font-size="9" fill="#13283c">play D at 2400</text>
+<text x="614.75" y="248" font-family="DejaVuSans" font-size="9" fill="#2865ad">lookup: D</text>
 <text x="185" y="274" font-family="DejaVuSans" font-size="10" fill="#13283c">Lookahead -1/4: effective boundary = bar line + 500 ms</text>
 </svg>
