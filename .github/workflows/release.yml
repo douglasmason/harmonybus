@@ -19,11 +19,12 @@ jobs:
       - name: Apply current HarmonyBus normalization
         run: |
           python3 scripts/release_v0292.py
+          python3 scripts/add_conductor_render_v0293.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.92 source'
+            git commit -m 'Normalize HarmonyBus v0.2.93 source'
             git push origin main
           fi
 
@@ -38,9 +39,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.92'
+          assert module['version']=='0.2.93'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.92'
+          assert levels['root']['name']=='Harmony Bus 0.2.93'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -55,6 +56,8 @@ jobs:
               'next_position','next_harmony','next_reset'
           ]
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
+          assert 'static void hb_render_conductor_event' in source
+          assert 'hb_render_conductor_event(instance,note,length>=3?input[2]:0,is_on,is_off,input_channel);' in source
           # Shared harmony/prediction semantics remain global.
           assert 'static double hb_chord_grid_beats(void)' in source
           assert 'static double hb_anticipation_beats(void)' in source
@@ -119,7 +122,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.92'
+          assert module['version']==os.environ['VERSION']=='0.2.93'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -135,7 +138,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" --clobber
           else
-            gh release create "$TAG" "$HB" --title "Harmony Bus ${TAG}" --notes "Independent per-follower Content, Travel, Split, Scale, modifiers, Quant Grid and Follower Buffer; shared harmony/lookahead semantics retained."
+            gh release create "$TAG" "$HB" --title "Harmony Bus ${TAG}" --notes "Adds conductor pass-through monitoring via Render To Ch while retaining transformed follower rendering and existing harmony behavior."
           fi
 
       - name: Update Module Store metadata
