@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.92 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.92"
+/* Harmony Bus v0.2.93 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.93"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1006,6 +1006,22 @@ static double hb_next_effective_boundary(double absolute_beat){
         if(distance<best)best=distance;
     }
     return best<1e98?absolute_beat+best:-1.0;
+}
+
+static void hb_render_conductor_event(Inst *instance,int note,int velocity,int is_on,int is_off,int recv_channel){
+    if(!instance||instance->role!=0||instance->render_channel<0||!g_host||!g_host->midi_inject_to_move)return;
+    if(instance->render_channel==recv_channel)return; /* avoid self-echo loops */
+    if(!(is_on||is_off)||note<0||note>127)return;
+    /* Conductor rendering is monitoring only: mirror the original played pitch
+       while the local event continues through normal harmony inference. */
+    uint8_t packet[4];
+    packet[0]=(uint8_t)(0x20 | (is_on?0x09:0x08));
+    packet[1]=(uint8_t)((is_on?0x90:0x80) | (instance->render_channel & 0x0F));
+    packet[2]=(uint8_t)(note & 0x7F);
+    packet[3]=(uint8_t)(is_on?velocity:0);
+    int sent=g_host->midi_inject_to_move(packet,4);
+    if(sent==4){instance->render_count++;instance->render_last_note=note;}
+    else instance->render_fail_count++;
 }
 
 static void hb_render_follower_event(Inst *instance,int mapped_note,int velocity,int is_on,int is_off,int recv_channel){
@@ -2129,6 +2145,8 @@ if(status==0xB0&&length>=3&&(input[1]==120||input[1]==123)){
     return pass(input,length,output,lengths,max_output);
 }
 if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note=input[1]&0x7F,mapped;int input_channel=input[0]&0x0F;if(instance->role==2)return pass(input,length,output,lengths,max_output);if(!hb_source_channel_matches(instance,input_channel))return pass(input,length,output,lengths,max_output);g_bus.global_accepted_note_count++;instance->last_status=input[0];instance->last_note=note;instance->last_velocity=length>=3?input[2]:0;hb_trace_note_event(instance,note,is_on,input_channel);if(is_on){instance->note_on_count++;instance->active_count++;}else if(is_off){instance->note_off_count++;if(instance->active_count>0)instance->active_count--;}if(instance->role==0){
+    if(instance->render_channel>=0)
+        hb_render_conductor_event(instance,note,length>=3?input[2]:0,is_on,is_off,input_channel);
     if(is_on){
         if(instance->held_count[note]<255)instance->held_count[note]++;
         instance->held_now[note]=instance->held_count[note]>0;
