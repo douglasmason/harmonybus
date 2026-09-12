@@ -27,9 +27,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.99'
+          assert module['version']=='0.2.100'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.99'
+          assert levels['root']['name']=='Harmony Bus 0.2.100'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -140,7 +140,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.99'
+          assert module['version']==os.environ['VERSION']=='0.2.100'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -159,7 +159,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" --clobber
           else
-            gh release create "$TAG" "$HB" --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Fix frozen Lookahead position and reversed stop detection. Use shared transport beat availability as the authority for Movy private chains, with correct Schwung clock status constants for older hosts. Regression tests now exercise the MIDI FX tick entry point and verify position, upcoming harmony, stop/resume and stale private-chain status."
+            gh release create "$TAG" "$HB" --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Use Movy conductor clip metadata to learn the combined repeat cycle in integer musical ticks. Preserve actual launch offsets and invalidate on active clip edits, launches, stops and role changes. Requires HarmonyBus Movy hbclean.22 for the runtime clip bridge. Non-repeating patterns and capacity limits are reported rather than silently truncated."
           fi
 
       - name: Update Module Store metadata

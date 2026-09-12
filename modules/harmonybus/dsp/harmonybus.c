@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.99 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.99"
+/* Harmony Bus v0.2.100 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.100"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -39,6 +39,7 @@ extern int close(int);
 #include "../../../src/closest_split.h"
 #include "../../../src/approach_pitch.h"
 #include "../../../src/follower_timing.h"
+#include "../../../src/movy_loop.h"
 
 struct host_api_v1 {
     uint32_t api_version;
@@ -186,6 +187,12 @@ static int hb_read_active_set(char *uuid,int uuid_len,char *name,int name_len);
 static int hb_find_conductor_track(const char *uuid);
 static char *hb_read_text_file(const char *path,long *size_out);
 static Inst g_pool[HB_MAX_INSTANCES];
+static hb_movy_clip_t g_movy_clips[HB_MAX_INSTANCES];
+static int g_movy_present, g_movy_running, g_movy_blocked;
+static hb_tick_t g_movy_tick, g_movy_period, g_movy_origin, g_movy_revision;
+static unsigned g_movy_ppqn=96;
+static void hb_movy_refresh(void);
+
 static int mod12(int value){value%=12;return value<0?value+12:value;}
 static int parse_i(const char *value,int fallback){char *end;long parsed;if(!value||!*value)return fallback;end=0;parsed=strtol(value,&end,10);return end==value?fallback:(int)parsed;}
 static void hb_monitor_open(void){
@@ -561,6 +568,7 @@ static void hb_clear_clip_cache(void){
     __atomic_add_fetch(&g_bus.seq,1,__ATOMIC_RELEASE);
 }
 static int hb_clock_status(void){
+    if(g_movy_present)return g_movy_running?MOVE_CLOCK_STATUS_RUNNING:MOVE_CLOCK_STATUS_STOPPED;
     /* The shared beat callback is authoritative when present: negative means
        stopped. A private Movy chain may never receive local realtime bytes,
        so its get_clock_status can disagree with the active shared transport. */
@@ -569,6 +577,11 @@ static int hb_clock_status(void){
     return (g_host&&g_host->get_clock_status)?g_host->get_clock_status():MOVE_CLOCK_STATUS_UNAVAILABLE;
 }
 static double hb_clip_playhead(void){
+    if(g_movy_present){
+        if(!g_movy_period)return 0.0;
+        hb_tick_t phase=(g_movy_tick%g_movy_period+g_movy_period-g_movy_origin%g_movy_period)%g_movy_period;
+        return (double)phase/g_movy_ppqn;
+    }
     double beat=(g_host&&g_host->get_beat_position)?g_host->get_beat_position():(double)g_bus.clip_clock_ticks/24.0;
     if(beat<0.0)beat=(double)g_bus.clip_clock_ticks/24.0;
     double length=g_bus.clip_loop_end-g_bus.clip_loop_start;
@@ -829,13 +842,14 @@ static double hb_next_lookahead_beats(void){
     return (index>=0&&index<7)?beats[index]:0.0;
 }
 static double hb_next_loop_length(void){
+    if(g_movy_present)return (double)g_movy_period/g_movy_ppqn;
     double length=g_bus.clip_loop_end-g_bus.clip_loop_start;
     return length>1e-6?length:0.0;
 }
 static double hb_next_phase(double playhead){
     double length=hb_next_loop_length();
     if(length<=0.0)return 0.0;
-    double phase=playhead-g_bus.clip_loop_start;
+    double phase=playhead-(g_movy_present?0.0:g_bus.clip_loop_start);
     while(phase>=length)phase-=length;
     while(phase<0.0)phase+=length;
     return phase;
@@ -873,6 +887,7 @@ static hb_harmony_t next_pending;
 static double next_pending_beat, next_pending_phase;
 static int next_pending_active;
 static double hb_next_transport_beat(void){
+    if(g_movy_present)return (double)g_movy_tick/g_movy_ppqn;
     double beat=(g_host&&g_host->get_beat_position)?g_host->get_beat_position():-1.0;
     return beat>=0.0?beat:(double)g_bus.clip_clock_ticks/24.0;
 }
@@ -894,14 +909,42 @@ static void hb_next_reset_knowledge(void){
     g_bus.next_learning_started=0;
     g_bus.next_learning_progress_beats=0.0;
 }
+static void hb_commit_observed_harmony(hb_harmony_t harmony);
+static void hb_movy_refresh(void){
+    int present=0,running=0,blocked=0,count=0;
+    hb_tick_t tick=0,period=0,origin=0,revision=14695981039346656037ULL;
+    unsigned ppqn=96;
+    for(int index=0;index<HB_MAX_INSTANCES;index++){
+        hb_movy_clip_t *clip=&g_movy_clips[index];
+        if(!g_pool[index].used||!clip->present)continue;
+        present=1;tick=clip->tick;running=clip->running;ppqn=clip->ppqn;
+        if(g_pool[index].role!=0||!clip->active)continue;
+        if(!count){period=clip->period;origin=clip->origin;}
+        else if(!hb_tick_lcm(period,clip->period,&period))blocked=2;
+        if(clip->active==2)blocked=3;
+        count++;
+        hb_tick_t values[]={(hb_tick_t)index,clip->period,clip->origin,clip->revision,clip->active};
+        for(unsigned value=0;value<sizeof(values)/sizeof(values[0]);value++)revision=(revision^values[value])*1099511628211ULL;
+    }
+    if(present&&!count)blocked=1;
+    if(revision==g_movy_revision&&g_movy_blocked==4)blocked=4;
+    g_movy_tick=tick;g_movy_running=running;
+    if(present!=g_movy_present||revision!=g_movy_revision||blocked!=g_movy_blocked){
+        g_movy_present=present;g_movy_period=period;g_movy_origin=origin;g_movy_ppqn=ppqn;
+        g_movy_revision=revision;g_movy_blocked=blocked;
+        hb_next_reset_knowledge();
+        if(!blocked&&hb_next_is_harmony(g_bus.observed_harmony))hb_commit_observed_harmony(g_bus.observed_harmony);
+    }
+}
 static void hb_next_record_observed(hb_harmony_t harmony){
+    if(g_movy_present&&g_movy_blocked)return;
     if(!hb_next_is_harmony(harmony)||g_bus.next_model_locked)return;
     double phase=next_pending_phase;
     if(g_bus.next_learning_count>0){
         hb_loop_harmony_event_t *last=&g_bus.next_learning[g_bus.next_learning_count-1];
         if(hb_harmony_equal_effective(last->harmony,harmony))return;
     }
-    if(g_bus.next_learning_count>=HB_MAX_LOOP_HARMONIES)return;
+    if(g_bus.next_learning_count>=HB_MAX_LOOP_HARMONIES){g_movy_blocked=4;return;}
     hb_loop_harmony_event_t *event=&g_bus.next_learning[g_bus.next_learning_count++];
     event->phase=phase;
     event->harmony=harmony;
@@ -993,7 +1036,7 @@ static int hb_next_upcoming_event(double phase){
 static void hb_next_promote_learning(void){
     /* A full loop LENGTH of observation covers every circular clip phase even
        when learning started mid-loop. No explicit playhead-wrap event needed. */
-    if(g_bus.next_model_locked)return;
+    if(g_bus.next_model_locked||g_movy_blocked)return;
     if(g_bus.next_learning_count<=0&&hb_next_is_harmony(g_bus.observed_harmony)){
         g_bus.next_learning[0].phase=0.0;
         g_bus.next_learning[0].harmony=g_bus.observed_harmony;
@@ -1025,9 +1068,10 @@ static void hb_next_apply_effective(double playhead){
 }
 static void hb_next_update_playhead(int frames,int sample_rate){
     (void)frames;(void)sample_rate;
+    if(g_movy_present&&g_movy_blocked){hb_effective_write(g_bus.observed_harmony);return;}
     double beat=hb_next_transport_beat();
     double length=hb_next_loop_length();
-    if(next_configuration!=hb_next_configuration()||next_cache_revision!=g_bus.cache_rev||next_loop_start!=g_bus.clip_loop_start||next_loop_end!=g_bus.clip_loop_end){
+    if(next_configuration!=hb_next_configuration()||(!g_movy_present&&(next_cache_revision!=g_bus.cache_rev||next_loop_start!=g_bus.clip_loop_start||next_loop_end!=g_bus.clip_loop_end))){
         hb_next_reset_knowledge();
         if(hb_next_is_harmony(g_bus.observed_harmony))hb_commit_observed_harmony(g_bus.observed_harmony);
     }
@@ -2068,7 +2112,7 @@ static int local_conductor_notes(const Inst *instance,uint8_t *output,int max_no
 }
 static int infer_reference_root(Inst *instance){static const int major[7]={0,2,4,5,7,9,11};static const int minor[7]={0,2,3,5,7,8,10};int pitch_classes=0,best=-999,best_root=instance->resolved_root;for(int index=0;index<12;index++)pitch_classes+=instance->source_seen[index]?1:0;if(!pitch_classes)return instance->resolved_root;for(int root=0;root<12;root++)for(int scale=0;scale<2;scale++){int score=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(instance->source_seen[pitch_class]){int relative=mod12(pitch_class-root),inside=0;for(int degree=0;degree<7;degree++)if(relative==(scale?minor[degree]:major[degree])){inside=1;break;}score+=inside?5:-4;}if(instance->source_seen[root])score+=3;if(score>best){best=score;best_root=root;}}instance->resolved_confidence=pitch_classes>=4?80:(pitch_classes>=3?65:45);return best_root;}
 static int reference_root(Inst *instance){if(g_bus.global_root_policy==0)return mod12(g_bus.global_explicit_root);if(g_bus.global_root_policy==1)return mod12(g_bus.global_input_root);instance->resolved_root=infer_reference_root(instance);return mod12(instance->resolved_root);}
-static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];memset(instance,0,sizeof(*instance));instance->used=1;instance->role=2;instance->mode=0;instance->content_map=0;instance->travel_map=0;instance->follower_scale=0;instance->follower_split_map=0;instance->quant_timing=0;instance->boundary_buffer_ms=20;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=0;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}return instance;}return 0;}
+static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];memset(&g_movy_clips[index],0,sizeof(g_movy_clips[index]));memset(instance,0,sizeof(*instance));instance->used=1;instance->role=2;instance->mode=0;instance->content_map=0;instance->travel_map=0;instance->follower_scale=0;instance->follower_split_map=0;instance->quant_timing=0;instance->boundary_buffer_ms=20;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=0;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}return instance;}return 0;}
 static void destroy_inst(void *value){Inst *instance=(Inst*)value;if(instance)instance->used=0;}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
@@ -2246,7 +2290,7 @@ static int hb_format_trace_event(const Inst *instance,int ordinal,char *buffer,i
     return snprintf(buffer,(size_t)length,"%s %s Ch%d",instance->trace_on[index]?"ON":"OFF",note_name,(int)instance->trace_channel[index]+1);
 }
 static int pass(const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){if(!input||length<1||length>3||max_output<1)return 0;memcpy(output[0],input,(size_t)length);lengths[0]=length;return 1;}
-static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;g_bus.global_process_count++;g_bus.global_last_status=input[0];g_bus.global_last_instance=hb_instance_index(instance);
+static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;hb_movy_refresh();g_bus.global_process_count++;g_bus.global_last_status=input[0];g_bus.global_last_instance=hb_instance_index(instance);
 if(input[0]==0xFC){
     hb_clear_instance_note_state(instance);
     instance->resolved_source_channel=-1;
@@ -2315,6 +2359,7 @@ return 0;}
 static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int max_output){
     Inst *instance=(Inst*)value;
     if(!instance)return 0;
+    hb_movy_refresh();
     g_bus.global_tick_count++;
     /* set_param cannot return local MIDI, so role-change OFFs are drained on
        the next audio tick before the new role can synthesize anything. */
@@ -2322,7 +2367,7 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
     if(role_flush_emitted>0)return role_flush_emitted;
     if(instance->role==1)hb_sync_from_monitor(instance);
     else if(instance->role==0)hb_sync_conductor_from_monitor(instance);
-    if(g_host&&(g_host->get_clock_status||g_host->get_beat_position)){
+    if(g_movy_present||(g_host&&(g_host->get_clock_status||g_host->get_beat_position))){
         int clock_status=hb_clock_status();
         int is_playing=(clock_status==MOVE_CLOCK_STATUS_RUNNING);
         if(instance->last_transport_playing&&!is_playing){
@@ -2382,7 +2427,7 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
         if(instance->recent_live_age[i]>live_pair_window)instance->recent_live_valid[i]=0;
     }
 
-    if(g_host&&(g_host->get_clock_status||g_host->get_beat_position)){
+    if(g_movy_present||(g_host&&(g_host->get_clock_status||g_host->get_beat_position))){
         int clock_status=hb_clock_status();
         if(clock_status==MOVE_CLOCK_STATUS_RUNNING){
             double playhead=hb_clip_playhead();
@@ -2579,6 +2624,7 @@ static double hb_ms_to_beats(int milliseconds){
     return ((double)milliseconds*bpm)/(60000.0);
 }
 static double hb_current_beat(void){
+    if(g_movy_present)return (double)g_movy_tick/g_movy_ppqn;
     if(g_host&&g_host->get_beat_position){
         double beat=g_host->get_beat_position();
         if(beat>=0.0)return beat;
@@ -2608,6 +2654,13 @@ static const char CHAIN_PARAMS[]="["
 "{\\\"key\\\":\\\"confidence\\\",\\\"name\\\":\\\"Confidence\\\",\\\"type\\\":\\\"int\\\",\\\"min\\\":0,\\\"max\\\":100,\\\"access\\\":\\\"read\\\"}"
 "]";
 static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
+if(!strcmp(key,"hb_movy_clip")){
+    hb_movy_clip_t clip={0};
+    if(sscanf(parameter,"%llu,%llu,%llu,%llu,%u,%u,%u",&clip.tick,&clip.period,&clip.origin,&clip.revision,&clip.active,&clip.running,&clip.ppqn)==7&&clip.ppqn==96&&clip.active<=2&&clip.running<=1&&(!clip.active||clip.period>0)&&clip.period<=9007199254740991ULL){
+        clip.present=1;g_movy_clips[instance-g_pool]=clip;
+    }
+    return;
+}
 if(!strcmp(key,"next_predict")){g_bus.next_predict=enum_index(parameter,NEXT_PREDICT_OPTS,2,g_bus.next_predict);if(!g_bus.next_predict){g_bus.next_shift_active=0;hb_effective_write(g_bus.observed_harmony);}else if(g_bus.next_model_locked)hb_next_apply_effective(hb_clip_playhead());return;}
 if(!strcmp(key,"next_lookahead")){g_bus.next_lookahead=enum_index(parameter,NEXT_LOOKAHEAD_OPTS,7,g_bus.next_lookahead);if(g_bus.next_predict&&g_bus.next_model_locked)hb_next_apply_effective(hb_clip_playhead());return;}
 if(!strcmp(key,"next_reset")){if(parameter[0]=='1'||!strcmp(parameter,"Reset")){hb_next_reset_knowledge();hb_effective_write(g_bus.observed_harmony);}return;}
@@ -2844,7 +2897,7 @@ if(!strcmp(key,"final_root")){
 }
 if(!strcmp(key,"final_harmony"))return hb_format_harmony(buffer,length,bus_read());
 if(!strcmp(key,"next_lookahead")){int index=g_bus.next_lookahead;if(index<0||index>6)index=0;return snprintf(buffer,(size_t)length,"%s",NEXT_LOOKAHEAD_OPTS[index]);}
-if(!strcmp(key,"next_model"))return snprintf(buffer,(size_t)length,"%s",g_bus.next_model_locked?"Locked":"Learning");
+if(!strcmp(key,"next_model"))return snprintf(buffer,(size_t)length,"%s",g_movy_blocked==1?"No clips":g_movy_blocked==2?"Cycle too long":g_movy_blocked==3?"Non-repeating":g_movy_blocked==4?"Too many changes":g_bus.next_model_locked?"Locked":"Learning");
 if(!strcmp(key,"next_shift"))return snprintf(buffer,(size_t)length,"%s",g_bus.next_shift_active?"Early":"Live");
 if(!strcmp(key,"next_loop_length")){double beats=hb_next_loop_length();if(beats<=0.0)return snprintf(buffer,(size_t)length,"--");if(((long)(beats+0.5))%4==0&&beats>=4.0)return snprintf(buffer,(size_t)length,"%.2f Bars",beats/4.0);return snprintf(buffer,(size_t)length,"%.2f Beats",beats);}
 if(!strcmp(key,"next_position")){double beats=hb_next_loop_length();if(beats<=0.0||!g_bus.have_last_clip_playhead)return snprintf(buffer,(size_t)length,"--");double phase=hb_next_phase(g_bus.last_clip_playhead);if(((long)(beats+0.5))%4==0&&beats>=4.0)return snprintf(buffer,(size_t)length,"%.2f / %.2f Bars",phase/4.0,beats/4.0);return snprintf(buffer,(size_t)length,"%.2f / %.2f Beats",phase,beats);}

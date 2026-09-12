@@ -16,6 +16,9 @@ static hb_global_shared_t test_globals;
 static void reset_fixture(void){
     memset(&g_bus,0,sizeof(g_bus));
     memset(g_pool,0,sizeof(g_pool));
+    memset(g_movy_clips,0,sizeof(g_movy_clips));
+    g_movy_present=g_movy_blocked=g_movy_running=0;
+    g_movy_revision=14695981039346656037ULL;
     for(int conductor=0;conductor<4;conductor++)g_pool[conductor].used=1;
     test_clock_status=2;
     test_transport_active=1;
@@ -162,6 +165,44 @@ int main(void){
     g_bus.global_transpose=2;
     advance(0.2);
     assert(!g_bus.next_model_locked);
+    reset_fixture();
+    // Host metadata uses the same protocol sent through Movy's chain host.
+    API.set_param(&g_pool[0],"hb_movy_clip","0,1152,0,123,1,1,96");
+    API.set_param(&g_pool[1],"hb_movy_clip","0,1536,384,456,1,1,96");
+    advance(0.0);
+    assert(g_movy_period==4608); // 3 and 4 bars -> 12 bars
+    API.get_param(&g_pool[0],"next_loop_length",position,sizeof(position));
+    assert(strcmp(position,"12.00 Bars")==0);
+    API.set_param(&g_pool[0],"hb_movy_clip","2016,1152,0,123,1,1,96");
+    API.set_param(&g_pool[1],"hb_movy_clip","2016,1536,384,456,1,1,96");
+    advance(0.0); // Host beat is irrelevant: Movy owns the playback phase.
+    API.get_param(&g_pool[0],"next_position",position,sizeof(position));
+    assert(strcmp(position,"5.25 / 12.00 Bars")==0);
+    hb_commit_observed_harmony(tonic);
+    g_bus.next_learning[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=tonic};
+    g_bus.next_learning_count=1;
+    hb_next_promote_learning();
+    advance(0.0);
+    assert(g_bus.next_model_locked); // unchanged metadata keeps the model
+    API.set_param(&g_pool[1],"hb_movy_clip","2016,1536,384,457,1,1,96");
+    advance(0.0);
+    assert(!g_bus.next_model_locked); // edit invalidates it
+    API.set_param(&g_pool[0],"hb_movy_clip","2016,1152,0,123,0,1,96");
+    advance(0.0);
+    assert(g_movy_period==1536&&g_movy_origin==384);
+    API.get_param(&g_pool[0],"next_position",position,sizeof(position));
+    assert(strcmp(position,"0.25 / 4.00 Bars")==0);
+    // A follower's clip length never enters the conductor LCM.
+    g_pool[0].role=1;
+    API.set_param(&g_pool[0],"hb_movy_clip","2016,2688,0,123,1,1,96");
+    advance(0.0);
+    assert(g_movy_period==1536);
+    API.set_param(&g_pool[1],"hb_movy_clip","2016,1536,384,457,2,1,96");
+    advance(0.0);
+    assert(g_movy_blocked==3&&!g_bus.next_model_locked);
+    hb_tick_t combined;
+    assert(hb_tick_lcm(288,384,&combined)&&combined==1152); // fractional bars
+    assert(!hb_tick_lcm(9007199254740991ULL,2,&combined));
     puts("loop_learning_test: MIDI FX ticks, position, next harmony, stop/resume, private-chain status and learning pass");
     return 0;
 }
