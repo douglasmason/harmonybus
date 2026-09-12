@@ -27,9 +27,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.100'
+          assert module['version']=='0.2.101'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.100'
+          assert levels['root']['name']=='Harmony Bus 0.2.101'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -114,6 +114,11 @@ jobs:
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/loop_learning_test.c src/harmony_core.c -lm -o /tmp/loop_learning_test
           /tmp/loop_learning_test
 
+      - name: Verify follower boundary mapping and conductor ordering
+        run: |
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/follower_boundary_test.c src/harmony_core.c -lm -o /tmp/follower_boundary_test
+          /tmp/follower_boundary_test
+
       - name: Build ARM64 HarmonyBus
         run: bash scripts/build_harmonybus_move.sh
 
@@ -140,7 +145,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.100'
+          assert module['version']==os.environ['VERSION']=='0.2.101'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -159,7 +164,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" --clobber
           else
-            gh release create "$TAG" "$HB" --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Use Movy conductor clip metadata to learn the combined repeat cycle in integer musical ticks. Preserve actual launch offsets and invalidate on active clip edits, launches, stops and role changes. Requires HarmonyBus Movy hbclean.22 for the runtime clip bridge. Non-repeating patterns and capacity limits are reported rather than silently truncated."
+            gh release create "$TAG" "$HB" --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Resolve conductor MIDI before releasing follower notes at grid boundaries. New voicings exclude already released conductor notes; delayed note-offs retain the emitted pitch. Movy hbclean.23 adds an explicit conductor phase before rendering; older hosts flush pending conductor analysis before follower mapping."
           fi
 
       - name: Update Module Store metadata
