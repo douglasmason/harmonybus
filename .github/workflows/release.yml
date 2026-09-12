@@ -21,11 +21,12 @@ jobs:
           python3 scripts/release_v0292.py
           python3 scripts/add_conductor_render_v0293.py
           python3 scripts/add_role_change_flush_v0294.py
+          python3 scripts/add_global_transpose_v0295.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modules/harmonybus/module.json modules/harmonybus/dsp/harmonybus.c
           if ! git diff --cached --quiet; then
-            git commit -m 'Normalize HarmonyBus v0.2.94 source'
+            git commit -m 'Normalize HarmonyBus v0.2.95 source'
             git push origin main
           fi
 
@@ -40,9 +41,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.94'
+          assert module['version']=='0.2.95'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.94'
+          assert levels['root']['name']=='Harmony Bus 0.2.95'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -56,8 +57,19 @@ jobs:
               'next_lookahead','next_model','next_shift','next_loop_length',
               'next_position','next_harmony','next_reset'
           ]
+          assert levels['global_transpose']['name']=='Global'
+          assert levels['global_transpose']['knobs']==[
+              'transpose','pretranspose_root','final_root','final_harmony'
+          ]
+          assert any(item.get('level')=='global_transpose' for item in levels['root']['params'])
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
           assert 'static void hb_render_conductor_event' in source
+          assert 'rendered_note=note+g_bus.global_transpose' in source
+          assert 'render_pitch=source_note+g_bus.global_transpose' in source
+          assert 'int direct=source_note+g_bus.global_transpose' in source
+          assert 'if(!strcmp(key,"pretranspose_root"))' in source
+          assert 'if(!strcmp(key,"final_root"))' in source
+          assert 'if(!strcmp(key,"final_harmony"))' in source
           assert 'hb_render_conductor_event(instance,note,length>=3?input[2]:0,is_on,is_off,input_channel);' in source
           assert 'static void hb_prepare_role_change_flush' in source
           assert 'hb_prepare_role_change_flush(instance);' in source
@@ -126,12 +138,15 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.94'
+          assert module['version']==os.environ['VERSION']=='0.2.95'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
           assert next_panel['knobs'][0]=='next_lookahead'
           assert next_panel['knobs'][-1]=='next_reset'
+          global_panel=module['capabilities']['ui_hierarchy']['levels']['global_transpose']
+          assert global_panel['knobs'][0]=='transpose'
+          assert global_panel['knobs'][2]=='final_root'
           PY
 
       - name: Publish release
@@ -142,7 +157,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" --clobber
           else
-            gh release create "$TAG" "$HB" --title "Harmony Bus ${TAG}" --notes "Flushes sounding local/render voices with note-offs whenever Role changes, while retaining conductor monitoring and follower rendering."
+            gh release create "$TAG" "$HB" --title "Harmony Bus ${TAG}" --notes "Adds a Global Transpose panel with pre-transpose root, final root, and final harmony readouts. The master transpose now also applies to conductor Render To Ch and Direct follower rendering so every rendered destination moves together."
           fi
 
       - name: Update Module Store metadata
