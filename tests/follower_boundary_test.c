@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include "../modules/harmonybus/dsp/harmonybus.c"
 static double test_beat;
+static int dyad;
 static double beat_position(void){return test_beat;}
 static float bpm(void){return 120.0f;}
 static int clock_status(void){return 2;}
@@ -19,7 +20,7 @@ static int advance(void *instance){return API.tick(instance,64,48000,output,leng
 static void chord(void *instance,int root,int on){
     midi(instance,on?0x90:0x80,root,on?100:0);
     midi(instance,on?0x90:0x80,root+4,on?100:0);
-    midi(instance,on?0x90:0x80,root+7,on?100:0);
+    if(!dyad)midi(instance,on?0x90:0x80,root+7,on?100:0);
 }
 static void scenario(int follower_first,int captured,int staged,int travel){
     int source_note=travel?61:60;
@@ -35,7 +36,10 @@ static void scenario(int follower_first,int captured,int staged,int travel){
     API.set_param(conductor,"source_channel","1");API.set_param(follower,"source_channel","1");
     API.set_param(follower,"boundary_buffer_ms","20");
     follower->travel_map=travel;follower->content_map=0;follower->quant_timing=3;
-    test_beat=0.0;chord(conductor,60,1);advance(conductor);
+    test_beat=0.0;chord(conductor,60,1);
+    if(dyad)midi(conductor,0x90,67,100);
+    if(dyad)API.set_param(conductor,"hb_movy_block","0,64,48000");
+    advance(conductor);
     assert(bus_read().root_pc==0);
     // Outside the pre-boundary window, keep immediate mapping to C.
     test_beat=0.8;midi(follower,0x90,source_note,100);
@@ -46,7 +50,9 @@ static void scenario(int follower_first,int captured,int staged,int travel){
     midi(follower,0x90,source_note,100);
     if(captured){assert(advance(follower)==0);assert(follower->mapped[source_note]==-1);}
     test_beat=1.0;
-    chord(conductor,60,0);chord(conductor,62,1);
+    chord(conductor,60,0);
+    if(dyad)midi(conductor,0x80,67,0);
+    chord(conductor,62,1);
     if(staged)API.set_param(conductor,"hb_movy_block","1,64,48000");
     if(!follower_first)advance(conductor);
     int count=advance(follower);
@@ -72,5 +78,7 @@ static void scenario(int follower_first,int captured,int staged,int travel){
 }
 int main(void){
     for(int travel=0;travel<2;travel++)for(int staged=0;staged<2;staged++)for(int order=0;order<2;order++)for(int capture=0;capture<2;capture++)scenario(order,capture,staged,travel);
+    dyad=1;
+    for(int order=0;order<2;order++)for(int capture=0;capture<2;capture++)scenario(order,capture,1,0);
     puts("follower_boundary_test: current-boundary harmony and paired note-offs pass in both callback orders");
 }

@@ -18,7 +18,7 @@ int main(void){
     host_api_v1_t host={.sample_rate=48000,.get_bpm=bpm,.get_beat_position=beat,.get_clock_status=clock_state};
     move_midi_fx_init(&host);
     Inst *first=API.create_instance("",NULL),*second=API.create_instance("",NULL);
-    expect(first,"350 ms");expect(second,"350 ms");
+    expect(first,"1/16");expect(second,"1/16");
     API.set_param(first,"boundary_buffer_ms","1/8");expect(second,"1/8");
     char state[512];API.get_param(second,"state",state,sizeof(state));
     API.set_param(second,"state","hb16,1,0,0,25,2,0,0,0,0,0,0,3,0,0,0,0,0,0,0,20,60,0,0,0,3");
@@ -40,11 +40,51 @@ int main(void){
     g_bus.next_lookahead=3;g_bus.next_model_locked=1;g_bus.next_model_count=1;
     g_bus.next_model[0].phase=1.5;g_bus.clip_loop_start=0;g_bus.clip_loop_end=4;
     assert(fabs(hb_next_effective_boundary(1.0)-1.0)<1e-9);
+    /* Negative lookahead moves BOTH harmony and its pre-boundary capture.
+       C at beat 0, D at beat 4; -1/4 shifts their boundaries to 1 and 5. */
+    uint8_t c_notes[3]={60,64,67},d_notes[3]={62,66,69};
+    hb_harmony_t c=hb_infer_harmony(c_notes,3),d=hb_infer_harmony(d_notes,3);
+    g_bus.clip_loop_end=8;g_bus.next_model_count=2;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=c};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=4,.harmony=d};
+    API.set_param(first,"next_lookahead","-1/4");
+    char label[32];API.get_param(second,"next_lookahead",label,sizeof(label));
+    assert(!strcmp(label,"-1/4"));
+    API.set_param(first,"boundary_buffer_ms","1/16");
+    second->quant_timing=0;g_bus.chord_timing=5;
+    position=4.74;hb_next_apply_effective(position);
+    assert(bus_read().root_pc==0);
+    second->follower_queue_count=0;hb_queue_follower_event(second,60,100,1,0);
+    assert(second->follower_queue_target_beat[0]<0);
+    for(int trial=0;trial<2;trial++){
+        tempo=trial?60:180;position=4.75;
+        second->follower_queue_count=0;hb_queue_follower_event(second,60,100,1,0);
+        assert(fabs(second->follower_queue_target_beat[0]-5.0)<1e-9);
+    }
+    shared.follower_root_policy=2;shared.follower_explicit_root=0;
+    uint8_t out[16][3];int lengths[16];
+    assert(hb_release_follower_queue(second,64,48000,out,lengths,16)==0);
+    position=5.0;hb_next_apply_effective(position);
+    assert(bus_read().root_pc==2);
+    assert(hb_release_follower_queue(second,64,48000,out,lengths,16)==1);
+    assert(out[0][1]==62);
+    /* Exact shifted boundary is immediate; wrap preserves the previous chord. */
+    second->follower_queue_count=0;hb_queue_follower_event(second,64,100,1,0);
+    assert(second->follower_queue_target_beat[0]==5.0);
+    hb_next_apply_effective(0.75);assert(bus_read().root_pc==2);
+    hb_next_apply_effective(1.0);assert(bus_read().root_pc==0);
+    /* Quant Grid competes independently, even inside the late-harmony window. */
+    position=4.7;second->quant_timing=1;second->follower_queue_count=0;
+    hb_queue_follower_event(second,60,100,1,0);
+    assert(second->follower_queue_target_beat[0]==4.75);
+    g_bus.observed_harmony=d;API.set_param(first,"next_predict","Off");
+    hb_next_apply_effective(1.0);assert(bus_read().root_pc==2);
+    assert(hb_next_effective_boundary(1.0)<0);
     g_bus.next_lookahead=0;g_bus.next_model_locked=0;
     API.destroy_instance(first);API.destroy_instance(second);
     first=API.create_instance("",NULL);API.set_param(first,"state",state);expect(first,"1/8");
     API.destroy_instance(first);
-    first=API.create_instance("",NULL);expect(first,"350 ms");
+    first=API.create_instance("",NULL);expect(first,"1/16");
     API.set_param(first,"state","hb16,1,0,0,25,2,0,0,0,0,0,0,3,0,0,0,0,0,0,0,20,60,0,0,0,3");
     expect(first,"20 ms");API.destroy_instance(first);
     puts("global buffer: defaults, restore, shared edits, BPM and exact-grid capture pass");

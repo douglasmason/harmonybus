@@ -26,6 +26,7 @@ static void reset_fixture(void){
     g_global_shared=&test_globals;
     g_bus.clip_loop_end=4.0;
     g_bus.inference_window_ms=25;
+    g_bus.next_predict=1;
     test_beat=0.0;
     hb_next_reset_knowledge();
 }

@@ -2,13 +2,13 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.103 / Movy 0.34.1-hbclean.24.** Choose a release time first. At release, map the source note using the effective harmony then available. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.104 / Movy 0.34.1-hbclean.25.** Choose a release time first. At release, map the source note using the effective harmony then available. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
 **Example:** the conductor changes from C to D at 2000 ms. A locked model with 1/8-note lookahead makes D effective at 1750 ms. A keypress at 1600 ms falls inside the 350 ms pre-boundary window and waits until 1750 ms. The eighth-note Quant Grid also lands there. The follower uses D at release.
 
-**Defaults and scope:** Follower Buffer is global, initially **350 ms**. Changing it on any HB instance changes all followers. Lookahead defaults to **Off**. Quant Grid remains per follower. Musical buffer choices run from 1/64 through 2 Bars; millisecond choices are 0, 25, 50, then 100 to 1000 ms in 50 ms steps.
+**Defaults and scope:** Follower Buffer is global, initially **1/16 note** (125 ms at 120 BPM), following tempo. The early-lookahead diagrams explicitly use a 350 ms example buffer to illustrate wider capture windows. Changing it on any HB instance changes all followers. Lookahead defaults to **Off**. Quant Grid remains per follower. Musical buffer choices run from 1/64 through 2 Bars; millisecond choices are 0, 25, 50, then 100 to 1000 ms in 50 ms steps.
 
 **Saved sets:** saved buffer values survive the update. For older sets containing conflicting per-instance buffers, the first restored copy becomes the shared value. Set the desired global value once, then save the set; new snapshots store the same value in every instance.
 
@@ -40,13 +40,25 @@ The examples use C to D at 2000 ms, a keypress at 1600 ms, a 350 ms buffer, Chor
 
 Only contributing conductor clips enter the prediction cycle. A 3-bar and a 4-bar conductor jointly repeat after 12 bars, including their launch phases and effective playback speeds. Editing content or changing contributing clips invalidates the model; unchanged loops retain it. Non-repeating conditional clips and unsupported cycle sizes fall back to observed harmony.
 
+## Negative lookahead moves the buffer window too
+
+**Lookahead = -1/4, Follower Buffer = 1/16, Quant Grid = Off.** The conductor changes C to D at the bar line (2000 ms). The learned effective harmony changes at 2500 ms, one quarter note later. This shifts harmony selection; it does not postpone the conductor MIDI.
+
+![Negative lookahead shifts harmony to one quarter note after the bar line, with the buffer immediately before that shifted boundary](timing/negative-lookahead.svg)
+
+The capture window is **2375 to 2500 ms**, or **3/16 to 1/4 note after the bar line**. A note arriving at 2300 ms plays with C without intentional delay. A note arriving at 2400 ms waits until 2500 ms and uses D. A note arriving exactly at 2500 ms plays with D immediately. Quant Grid, if enabled, can still supply an earlier eligible release point.
+
+Positive values advance each learned harmony transition; negative values postpone it. Choices are 1/32, 1/16, 1/8, 1/4, 1/2 and 1 Bar in either direction, plus Off. The same signed shift applies around loop wrap. The Shift display reads Early, Late or Live according to the effective schedule.
+
+Both directions require a usable learned model. During learning or after invalidation, HB uses observed harmony and the ordinary Chord Grid / Anticipation capture schedule. Lookahead remains Off by default.
+
 ## At release: conductors first, followers second
 
 This example uses Chord Grid = 1 Bar, Quant Grid = Off, Lookahead = Off, buffer = 350 ms and held-note harmonic retrigger = Off.
 
 ![Raw note-on and note-off shifted equally, with conductor harmony resolved before rendered note-on](timing/note-off.svg)
 
-At the boundary, Movy delivers the complete conductor MIDI batch, updates the shared harmony, and then releases and maps due follower notes before chain audio rendering. Track index and local audio mute do not change this order. A new voicing excludes already released conductor notes.
+At the boundary, Movy delivers the complete conductor MIDI batch, updates the shared harmony, and then releases and maps due follower notes before chain audio rendering. Track index and local audio mute do not change this order. A new voicing excludes already released conductor notes. Recognized two-note voicings in the completed Movy batch also commit before due followers; a lone unresolved pitch keeps the last recognized harmony.
 
 **Articulation survives the delay:** the raw note lasts 125 ms, from 1750 to 1875 ms. Delaying its note-on by 250 ms also delays its note-off by 250 ms, producing 2000 to 2125 ms. Releasing the key before its queued note-on does not cancel the note.
 
@@ -70,12 +82,14 @@ The clip-edit grid is distinct from HB Quant Grid: a clip edit can move starts e
 
 | Control or signal | Scope and purpose |
 | --- | --- |
-| Follower Buffer | Global width of pre-boundary capture; 350 ms for new settings. |
+| Follower Buffer | Global width of pre-boundary capture; 1/16 note for new settings (tempo-relative). |
 | Quant Grid | Per-follower periodic release points, independent of the clip-edit grid. |
 | Chord Grid / Anticipation | Global periodic chord capture schedule when prediction is unavailable or Off. |
-| Lookahead | Global learned-harmony advance; Off by default. |
+| Lookahead | Global signed learned-harmony shift (early or late); Off by default. |
 | Harmony persistence | Normal behavior: retain the last recognized harmony through gaps. |
 | Timing diagnostic | Recommended future addition: arrival, chosen target/reason, actual delay and harmony at release. |
+
+**Fixed in 0.2.104:** recognized two-note Movy voicings no longer wait for live grouping/confirmation while a due follower maps to the previous harmony. Tests cover both callback orders and paired note-offs.
 
 **Fixed in 0.2.102:** a buffer wider than a grid interval no longer pushes an exactly aligned note to the following grid point. This applies to regular grids and shifted learned boundaries. Conductor-first processing still applies to notes released immediately on the boundary.
 

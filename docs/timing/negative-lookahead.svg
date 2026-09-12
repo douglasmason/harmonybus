@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="766" height="280" viewBox="0 0 766 280">
+<title>Negative lookahead and its pre-boundary buffer</title>
+<text x="185" y="18" font-family="DejaVuSans" font-size="10" fill="#13283c">Time (ms) at 120 BPM; 4/4</text>
+<line x1="185" y1="35" x2="750" y2="35" stroke="#93a5b3"/>
+<line x1="185.0" y1="31" x2="185.0" y2="39" stroke="#93a5b3"/>
+<text x="173.0" y="52" font-family="DejaVuSans" font-size="8" fill="#13283c">1750</text>
+<line x1="326.25" y1="31" x2="326.25" y2="39" stroke="#93a5b3"/>
+<text x="314.25" y="52" font-family="DejaVuSans" font-size="8" fill="#13283c">2000</text>
+<line x1="467.5" y1="31" x2="467.5" y2="39" stroke="#93a5b3"/>
+<text x="455.5" y="52" font-family="DejaVuSans" font-size="8" fill="#13283c">2250</text>
+<line x1="608.75" y1="31" x2="608.75" y2="39" stroke="#93a5b3"/>
+<text x="596.75" y="52" font-family="DejaVuSans" font-size="8" fill="#13283c">2500</text>
+<line x1="750.0" y1="31" x2="750.0" y2="39" stroke="#93a5b3"/>
+<text x="738.0" y="52" font-family="DejaVuSans" font-size="8" fill="#13283c">2750</text>
+<text x="0" y="94" font-family="DejaVuSans" font-size="10" fill="#13283c">Conductor MIDI</text>
+<rect x="185" y="80" width="141.25" height="20" fill="#007f83"/>
+<rect x="326.25" y="80" width="423.75" height="20" fill="#2865ad"/>
+<text x="190" y="93" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<text x="331.25" y="93" font-family="DejaVuSans" font-size="9" fill="white">D</text>
+<text x="0" y="144" font-family="DejaVuSans" font-size="10" fill="#13283c">Effective harmony</text>
+<rect x="185" y="130" width="423.75" height="20" fill="#007f83"/>
+<rect x="608.75" y="130" width="141.25" height="20" fill="#2865ad"/>
+<text x="190" y="143" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<text x="613.75" y="143" font-family="DejaVuSans" font-size="9" fill="white">D</text>
+<line x1="326.25" y1="65" x2="326.25" y2="157" stroke="#93a5b3"/>
+<text x="306.25" y="72" font-family="DejaVuSans" font-size="8" fill="#13283c">bar line</text>
+<text x="0" y="190" font-family="DejaVuSans" font-size="10" fill="#13283c">1/16 capture window</text>
+<rect x="538.125" y="175" width="70.625" height="20" fill="#f4d5b3"/>
+<text x="534.125" y="211" font-family="DejaVuSans" font-size="8" fill="#13283c">2375</text>
+<text x="598.75" y="211" font-family="DejaVuSans" font-size="8" fill="#13283c">2500</text>
+<text x="0" y="248" font-family="DejaVuSans" font-size="10" fill="#13283c">Follower note</text>
+<line x1="552.25" y1="244" x2="608.75" y2="244" stroke="#c16a13"/>
+<line x1="603.75" y1="241" x2="608.75" y2="244" stroke="#c16a13"/>
+<line x1="603.75" y1="247" x2="608.75" y2="244" stroke="#c16a13"/>
+<text x="514.25" y="234" font-family="DejaVuSans" font-size="9" fill="#13283c">press 2400</text>
+<text x="614.75" y="248" font-family="DejaVuSans" font-size="9" fill="#2865ad">release: D</text>
+<text x="185" y="274" font-family="DejaVuSans" font-size="10" fill="#13283c">Lookahead -1/4: effective boundary = bar line + 500 ms</text>
+</svg>
