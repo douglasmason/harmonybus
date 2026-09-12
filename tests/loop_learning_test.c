@@ -85,14 +85,14 @@ int main(void){
     }
     char position[64];
     API.get_param(&g_pool[0],"next_position",position,sizeof(position));
-    assert(strcmp(position,"0.75 / 1.00 Bars")==0);
+    assert(strcmp(position,"0.75 Bars")==0);
     char harmony_before[64], harmony_after[64];
     API.get_param(&g_pool[0],"next_harmony",harmony_before,sizeof(harmony_before));
     advance(16.0);
     API.get_param(&g_pool[0],"next_harmony",harmony_after,sizeof(harmony_after));
     assert(strcmp(harmony_before,harmony_after)!=0);
     API.get_param(&g_pool[0],"next_position",position,sizeof(position));
-    assert(strcmp(position,"0.00 / 1.00 Bars")==0);
+    assert(strcmp(position,"0.00 Bars")==0);
     /* Stop freezes displayed position and clears held notes exactly at stop. */
     g_pool[0].held_count[60]=1;
     test_clock_status=1;
@@ -100,17 +100,17 @@ int main(void){
     advance(16.5);
     assert(g_pool[0].held_count[60]==0);
     API.get_param(&g_pool[0],"next_position",position,sizeof(position));
-    assert(strcmp(position,"0.00 / 1.00 Bars")==0);
+    assert(strcmp(position,"0.00 Bars")==0);
     test_clock_status=2;
     test_transport_active=1;
     advance(16.75);
     API.get_param(&g_pool[0],"next_position",position,sizeof(position));
-    assert(strcmp(position,"0.19 / 1.00 Bars")==0);
+    assert(strcmp(position,"0.19 Bars")==0);
     /* Movy private-chain status can be stale while shared transport runs. */
     test_clock_status=1;
     advance(17.0);
     API.get_param(&g_pool[0],"next_position",position,sizeof(position));
-    assert(strcmp(position,"0.25 / 1.00 Bars")==0);
+    assert(strcmp(position,"0.25 Bars")==0);
     assert(g_pool[0].last_transport_playing);
     test_clock_status=0;
     advance(17.25);
@@ -178,7 +178,7 @@ int main(void){
     API.set_param(&g_pool[1],"hb_movy_clip","2016,1536,384,456,1,1,96");
     advance(0.0); // Host beat is irrelevant: Movy owns the playback phase.
     API.get_param(&g_pool[0],"next_position",position,sizeof(position));
-    assert(strcmp(position,"5.25 / 12.00 Bars")==0);
+    assert(strcmp(position,"5.25 Bars")==0);
     hb_commit_observed_harmony(tonic);
     g_bus.next_learning[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=tonic};
     g_bus.next_learning_count=1;
@@ -192,7 +192,7 @@ int main(void){
     advance(0.0);
     assert(g_movy_period==1536&&g_movy_origin==384);
     API.get_param(&g_pool[0],"next_position",position,sizeof(position));
-    assert(strcmp(position,"0.25 / 4.00 Bars")==0);
+    assert(strcmp(position,"0.25 Bars")==0);
     // A follower's clip length never enters the conductor LCM.
     g_pool[0].role=1;
     API.set_param(&g_pool[0],"hb_movy_clip","2016,2688,0,123,1,1,96");
