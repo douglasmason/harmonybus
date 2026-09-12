@@ -40,6 +40,13 @@ int main(void) {
        never be held AFTER its boundary by conductor-pending state. */
     assert(!hb_follower_needs_same_tick_barrier(4.0, 64, 64, 1));
 
+    /* A wide window must not advance an exactly aligned note. */
+    assert(nearly_equal(hb_follower_capture_target(1.0, 4.0, 0.0, 0.5, 0.7), 1.0));
+    assert(nearly_equal(hb_follower_capture_target(3.5, 4.0, 0.5, 0.0, 8.0), 3.5));
+    assert(nearly_equal(hb_follower_capture_target(0.0, 4.0, 0.0, 0.5, 0.7), 0.0));
+    assert(nearly_equal(hb_follower_capture_target(1.0001, 4.0, 0.0, 0.5, 0.7), 1.5));
+    assert(nearly_equal(hb_follower_capture_target(3.4, 4.0, 0.0, 0.5, 0.7), 3.5));
+
     printf("follower_timing_test: ok\n");
     return 0;
 }

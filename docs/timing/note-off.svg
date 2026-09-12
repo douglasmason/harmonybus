@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="766" height="231" viewBox="0 0 766 231">
+<title>Matched delays preserve the note duration</title>
+<text x="185.00" y="18.00" font-family="DejaVuSans" font-size="9" fill="#13283c">Time (ms) at 120 BPM</text>
+<line x1="185.00" y1="35.00" x2="750.00" y2="35.00" stroke="#93a5b3"/>
+<line x1="185.00" y1="31.00" x2="185.00" y2="39.00" stroke="#93a5b3"/>
+<text x="174.00" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1500</text>
+<line x1="361.56" y1="31.00" x2="361.56" y2="39.00" stroke="#93a5b3"/>
+<text x="350.56" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1750</text>
+<line x1="538.12" y1="31.00" x2="538.12" y2="39.00" stroke="#93a5b3"/>
+<text x="527.12" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">2000</text>
+<line x1="714.69" y1="31.00" x2="714.69" y2="39.00" stroke="#93a5b3"/>
+<text x="703.69" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">2250</text>
+<text x="0.00" y="87.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Conductor harmony</text>
+<line x1="185.00" y1="83.00" x2="750.00" y2="83.00" stroke="#dfe7ed"/>
+<rect x="185.00" y="73.00" width="353.12" height="20" rx="3" fill="#007f83"/>
+<text x="190.00" y="86.00" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<rect x="538.12" y="73.00" width="70.62" height="20" rx="3" fill="#2865ad"/>
+<text x="543.12" y="86.00" font-family="DejaVuSans" font-size="9" fill="white">D</text>
+<rect x="608.75" y="73.00" width="141.25" height="20" rx="3" fill="#7756ae"/>
+<text x="613.75" y="86.00" font-family="DejaVuSans" font-size="9" fill="white">E</text>
+<text x="0.00" y="129.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Raw note</text>
+<line x1="185.00" y1="125.00" x2="750.00" y2="125.00" stroke="#dfe7ed"/>
+<rect x="361.56" y="115.00" width="88.28" height="20" rx="3" fill="#13283c"/>
+<text x="366.56" y="128.00" font-family="DejaVuSans" font-size="9" fill="white">125 ms</text>
+<line x1="361.56" y1="153.00" x2="538.12" y2="153.00" stroke="#c16a13"/>
+<line x1="533.12" y1="150.00" x2="538.12" y2="153.00" stroke="#c16a13"/>
+<line x1="533.12" y1="156.00" x2="538.12" y2="153.00" stroke="#c16a13"/>
+<text x="364.56" y="146.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">note-on delay: 250 ms</text>
+<text x="0.00" y="185.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Rendered note</text>
+<line x1="185.00" y1="181.00" x2="750.00" y2="181.00" stroke="#dfe7ed"/>
+<rect x="538.12" y="171.00" width="88.28" height="20" rx="3" fill="#2865ad"/>
+<text x="543.12" y="184.00" font-family="DejaVuSans" font-size="9" fill="white">125 ms</text>
+<line x1="449.84" y1="220.00" x2="626.41" y2="220.00" stroke="#c16a13"/>
+<line x1="621.41" y1="217.00" x2="626.41" y2="220.00" stroke="#c16a13"/>
+<line x1="621.41" y1="223.00" x2="626.41" y2="220.00" stroke="#c16a13"/>
+<text x="452.84" y="213.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">note-off inherits 250 ms</text>
+</svg>

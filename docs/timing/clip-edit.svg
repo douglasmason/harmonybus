@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="766" height="218" viewBox="0 0 766 218">
+<title>Quantize recorded starts then fill durations</title>
+<text x="185.00" y="18.00" font-family="DejaVuSans" font-size="9" fill="#13283c">Time (ms) at 120 BPM</text>
+<line x1="185.00" y1="35.00" x2="750.00" y2="35.00" stroke="#93a5b3"/>
+<line x1="185.00" y1="31.00" x2="185.00" y2="39.00" stroke="#93a5b3"/>
+<text x="174.00" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">0</text>
+<line x1="255.62" y1="31.00" x2="255.62" y2="39.00" stroke="#93a5b3"/>
+<text x="244.62" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">250</text>
+<line x1="326.25" y1="31.00" x2="326.25" y2="39.00" stroke="#93a5b3"/>
+<text x="315.25" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">500</text>
+<line x1="396.88" y1="31.00" x2="396.88" y2="39.00" stroke="#93a5b3"/>
+<text x="385.88" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">750</text>
+<line x1="467.50" y1="31.00" x2="467.50" y2="39.00" stroke="#93a5b3"/>
+<text x="456.50" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1000</text>
+<line x1="538.12" y1="31.00" x2="538.12" y2="39.00" stroke="#93a5b3"/>
+<text x="527.12" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1250</text>
+<line x1="608.75" y1="31.00" x2="608.75" y2="39.00" stroke="#93a5b3"/>
+<text x="597.75" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1500</text>
+<line x1="679.38" y1="31.00" x2="679.38" y2="39.00" stroke="#93a5b3"/>
+<text x="668.38" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1750</text>
+<line x1="750.00" y1="31.00" x2="750.00" y2="39.00" stroke="#93a5b3"/>
+<text x="739.00" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">2000</text>
+<text x="0.00" y="89.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Recorded chord groups</text>
+<line x1="185.00" y1="85.00" x2="750.00" y2="85.00" stroke="#dfe7ed"/>
+<rect x="213.25" y="75.00" width="39.55" height="20" rx="3" fill="#007f83"/>
+<text x="218.25" y="88.00" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<rect x="348.85" y="75.00" width="36.72" height="20" rx="3" fill="#2865ad"/>
+<text x="353.85" y="88.00" font-family="DejaVuSans" font-size="9" fill="white">F</text>
+<rect x="487.28" y="75.00" width="31.07" height="20" rx="3" fill="#7756ae"/>
+<text x="492.28" y="88.00" font-family="DejaVuSans" font-size="9" fill="white">G</text>
+<rect x="625.70" y="75.00" width="42.38" height="20" rx="3" fill="#007f83"/>
+<text x="630.70" y="88.00" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<text x="0.00" y="143.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Quantize to 1/8</text>
+<line x1="185.00" y1="139.00" x2="750.00" y2="139.00" stroke="#dfe7ed"/>
+<rect x="185.00" y="129.00" width="39.55" height="20" rx="3" fill="#007f83"/>
+<text x="190.00" y="142.00" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<rect x="326.25" y="129.00" width="36.73" height="20" rx="3" fill="#2865ad"/>
+<text x="331.25" y="142.00" font-family="DejaVuSans" font-size="9" fill="white">F</text>
+<rect x="467.50" y="129.00" width="31.08" height="20" rx="3" fill="#7756ae"/>
+<text x="472.50" y="142.00" font-family="DejaVuSans" font-size="9" fill="white">G</text>
+<rect x="608.75" y="129.00" width="42.38" height="20" rx="3" fill="#007f83"/>
+<text x="613.75" y="142.00" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<text x="0.00" y="197.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Then Fill Gaps</text>
+<line x1="185.00" y1="193.00" x2="750.00" y2="193.00" stroke="#dfe7ed"/>
+<rect x="185.00" y="183.00" width="141.25" height="20" rx="3" fill="#007f83"/>
+<text x="190.00" y="196.00" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<rect x="326.25" y="183.00" width="141.25" height="20" rx="3" fill="#2865ad"/>
+<text x="331.25" y="196.00" font-family="DejaVuSans" font-size="9" fill="white">F</text>
+<rect x="467.50" y="183.00" width="141.25" height="20" rx="3" fill="#7756ae"/>
+<text x="472.50" y="196.00" font-family="DejaVuSans" font-size="9" fill="white">G</text>
+<rect x="608.75" y="183.00" width="141.25" height="20" rx="3" fill="#007f83"/>
+<text x="613.75" y="196.00" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+</svg>

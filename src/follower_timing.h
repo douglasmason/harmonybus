@@ -1,13 +1,13 @@
 #ifndef HARMONYBUS_FOLLOWER_TIMING_H
 #define HARMONYBUS_FOLLOWER_TIMING_H
 
-/* Return the first boundary strictly after beat for the sequence
+/* Return the first boundary at or after beat for the sequence
  * n * grid - anticipation. A non-positive grid disables the boundary. */
 static inline double hb_ft_next_boundary(double beat, double grid, double anticipation) {
     if (grid <= 0.0) return -1.0;
     long cycle = (long)((beat + anticipation) / grid);
     double boundary = (double)cycle * grid - anticipation;
-    while (boundary <= beat + 1e-9) boundary += grid;
+    while (boundary < beat - 1e-9) boundary += grid;
     return boundary;
 }
 

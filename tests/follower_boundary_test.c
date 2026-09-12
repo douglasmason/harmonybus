@@ -33,6 +33,7 @@ static void scenario(int follower_first,int captured,int staged,int travel){
     Inst *follower=follower_first?first:second,*conductor=follower_first?second:first;
     API.set_param(conductor,"role","Conductor");API.set_param(follower,"role","Follower");
     API.set_param(conductor,"source_channel","1");API.set_param(follower,"source_channel","1");
+    API.set_param(follower,"boundary_buffer_ms","20");
     follower->travel_map=travel;follower->content_map=0;follower->quant_timing=3;
     test_beat=0.0;chord(conductor,60,1);advance(conductor);
     assert(bus_read().root_pc==0);

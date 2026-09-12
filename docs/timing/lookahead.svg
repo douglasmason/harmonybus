@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="766" height="277" viewBox="0 0 766 277">
+<title>Anticipation and lookahead are not additive</title>
+<text x="185.00" y="18.00" font-family="DejaVuSans" font-size="9" fill="#13283c">Time (ms) at 120 BPM</text>
+<line x1="185.00" y1="35.00" x2="750.00" y2="35.00" stroke="#93a5b3"/>
+<line x1="185.00" y1="31.00" x2="185.00" y2="39.00" stroke="#93a5b3"/>
+<text x="174.00" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1250</text>
+<line x1="326.25" y1="31.00" x2="326.25" y2="39.00" stroke="#93a5b3"/>
+<text x="315.25" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1500</text>
+<line x1="467.50" y1="31.00" x2="467.50" y2="39.00" stroke="#93a5b3"/>
+<text x="456.50" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1750</text>
+<line x1="608.75" y1="31.00" x2="608.75" y2="39.00" stroke="#93a5b3"/>
+<text x="597.75" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">2000</text>
+<line x1="750.00" y1="31.00" x2="750.00" y2="39.00" stroke="#93a5b3"/>
+<text x="739.00" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">2250</text>
+<text x="0.00" y="88.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Anticipation 1/8 Early</text>
+<line x1="185.00" y1="84.00" x2="750.00" y2="84.00" stroke="#dfe7ed"/>
+<rect x="185.00" y="74.00" width="423.75" height="20" rx="3" fill="#007f83"/>
+<text x="190.00" y="87.00" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<rect x="608.75" y="74.00" width="141.25" height="20" rx="3" fill="#2865ad"/>
+<text x="613.75" y="87.00" font-family="DejaVuSans" font-size="9" fill="white">D</text>
+<line x1="382.75" y1="114.00" x2="467.50" y2="114.00" stroke="#c16a13"/>
+<line x1="462.50" y1="111.00" x2="467.50" y2="114.00" stroke="#c16a13"/>
+<line x1="462.50" y1="117.00" x2="467.50" y2="114.00" stroke="#c16a13"/>
+<text x="385.75" y="107.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">release at 1750</text>
+<circle cx="467.50" cy="114" r="3" fill="#007f83"/>
+<text x="472.50" y="131.00" font-family="DejaVuSans" font-size="9" fill="#007f83">C</text>
+<text x="0.00" y="154.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Lookahead 1/8</text>
+<line x1="185.00" y1="150.00" x2="750.00" y2="150.00" stroke="#dfe7ed"/>
+<rect x="185.00" y="140.00" width="282.50" height="20" rx="3" fill="#007f83"/>
+<text x="190.00" y="153.00" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<rect x="467.50" y="140.00" width="282.50" height="20" rx="3" fill="#7756ae"/>
+<text x="472.50" y="153.00" font-family="DejaVuSans" font-size="9" fill="white">D</text>
+<line x1="382.75" y1="180.00" x2="467.50" y2="180.00" stroke="#c16a13"/>
+<line x1="462.50" y1="177.00" x2="467.50" y2="180.00" stroke="#c16a13"/>
+<line x1="462.50" y1="183.00" x2="467.50" y2="180.00" stroke="#c16a13"/>
+<text x="385.75" y="173.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">release at 1750</text>
+<circle cx="467.50" cy="180" r="3" fill="#7756ae"/>
+<text x="472.50" y="197.00" font-family="DejaVuSans" font-size="9" fill="#7756ae">D</text>
+<text x="0.00" y="220.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Both enabled</text>
+<line x1="185.00" y1="216.00" x2="750.00" y2="216.00" stroke="#dfe7ed"/>
+<rect x="185.00" y="206.00" width="282.50" height="20" rx="3" fill="#007f83"/>
+<text x="190.00" y="219.00" font-family="DejaVuSans" font-size="9" fill="white">C</text>
+<rect x="467.50" y="206.00" width="282.50" height="20" rx="3" fill="#7756ae"/>
+<text x="472.50" y="219.00" font-family="DejaVuSans" font-size="9" fill="white">D</text>
+<line x1="382.75" y1="246.00" x2="467.50" y2="246.00" stroke="#c16a13"/>
+<line x1="462.50" y1="243.00" x2="467.50" y2="246.00" stroke="#c16a13"/>
+<line x1="462.50" y1="249.00" x2="467.50" y2="246.00" stroke="#c16a13"/>
+<text x="385.75" y="239.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">release at 1750</text>
+<circle cx="467.50" cy="246" r="3" fill="#7756ae"/>
+<text x="472.50" y="263.00" font-family="DejaVuSans" font-size="9" fill="#7756ae">D</text>
+</svg>
