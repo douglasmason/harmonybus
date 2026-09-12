@@ -82,7 +82,7 @@ The clip-edit grid is distinct from HB Quant Grid: a clip edit can move starts e
 
 ## Auto Chord: root, inversion and register
 
-Open **Auto Chord** in the HB menu on a follower. Chord Mode defaults to Off. **Scale Root** treats the played note as the literal root and builds the selected Chord Form upward from the parent scale selected by HB's Foll Root / Follower Scale controls. A detected chord alone does not uniquely identify a parent scale; select one explicitly when needed. A chromatic played root stays unchanged; upper voices use every second scale tone above it. Global transpose moves the completed voicing as a unit.
+Open **Auto Chord** in the HB menu on a conductor or follower. Chord Mode defaults to Off. **Scale Root** treats the played note as the literal root and builds the selected Chord Form upward from the parent scale selected by HB's Foll Root / Follower Scale controls. A detected chord alone does not uniquely identify a parent scale; select one explicitly when needed. A chromatic played root stays unchanged; Chromatic Quality chooses its family, with Scale retaining the original scale-stacking behavior. Global transpose moves the completed voicing as a unit.
 
 **Conductor Chord** uses the recognized effective conductor chord, including its quality and implied tones. Chord Form Auto preserves it; other forms select degrees while retaining recognized third/fifth/seventh alterations and taking added extensions from the parent scale. The played key supplies the desired bass pitch and register. Auto inversion snaps to the nearest chord-tone bass (ties downward); exact chord tones select their inversions directly. With Cmaj7, C3 produces C3-E3-G3-B3, E3 produces E3-G3-B3-C4, and E4 produces E4-G4-B4-C5.
 
@@ -100,7 +100,7 @@ Auto-chords are constructed **when the follower buffer releases the input**, usi
 
 ## Chord forms and shell examples
 
-Chord Form chooses the degree set. The conductor chord and active parent scale determine alterations; these are scale-compatible forms, not fixed major/minor interval presets. For example, Sixth in natural minor uses the scale's lowered sixth. Use Melodic Minor when you want the raised sixth of that collection. Auto means Triad in Scale Root, and the recognized chord in Conductor Chord.
+Chord Form chooses the degree set. With Quality set to Auto, the conductor chord and active parent scale determine alterations; these are scale-compatible forms, not fixed major/minor interval presets. For example, Sixth in natural minor uses the scale's lowered sixth. Use Melodic Minor when you want the raised sixth of that collection. Auto means Triad in Scale Root, and the recognized chord in Conductor Chord.
 
 | Chord Form | Degrees before inversion and voicing |
 | --- | --- |
@@ -119,7 +119,7 @@ The form is built first, inversion selects the bass second, voicing distributes 
 
 ## Arpeggiation, latch and trigger strums
 
-Open **Arp / Strum** on the follower. Playback defaults to Together, Hold to Momentary, Rate to 1/16, Gate to 50%, and Strum Spread to 0 ms. All chord/player controls are per instance.
+Open **Arp / Strum** on a conductor or follower. Playback defaults to Together, Hold to Momentary, Rate to 1/16, Gate to 50%, and Strum Spread to 0 ms. All chord/player controls are per instance.
 
 ![Chord generation at release followed by a trigger strum, with cancellation at the source release](timing/chord-player.svg)
 
@@ -129,13 +129,13 @@ Open **Arp / Strum** on the follower. Playback defaults to Together, Hold to Mom
 
 **Order:** Up, Down, Up-Down, Played or Random. Up-Down repeats without doubling the endpoints; in Once it makes one ascending pass so each voice starts only once. Played follows source gesture arrival order, with generated chord tones low-to-high inside each gesture. Random chooses each repeated pitch independently, or shuffles a Once group.
 
-**Momentary** follows source releases. **Latch** holds the pool; after all keys release, the next gesture replaces it. Overlapping held keys add pitches. Clear Notes, Stop, role/routing changes and player-control changes release the voices; edits require a fresh gesture. Recorded clips and conductor synth keys are unaffected.
+**Momentary** follows source releases. **Latch** holds the pool; after all keys release, the next gesture replaces it. Overlapping held keys add pitches. Clear Notes, Stop, role/routing changes and player-control changes release the voices; edits require a fresh gesture. Existing stored clip notes are unchanged; currently generated synth voices are released.
 
-The arp starts at the follower release target. Musical intervals follow tempo; ms spreads use audio time. Stopped playback uses a free-running tempo clock; rewind clears the gesture. Buffered note-offs retain their inherited delay. Capacity is 16 source keys with up to 12 tones each; excess keys are ignored. Physical device timing needs verification.
+In Free phase, a follower arp starts at buffer release and a conductor arp starts at note-down. Auto waits for the next arp-rate division. Musical intervals follow tempo; ms spreads use audio time. Stopped playback uses a free-running tempo clock; rewind clears the gesture. Buffered note-offs retain their inherited delay. Capacity is 16 source keys with up to 12 tones each; excess keys are ignored. Physical device timing needs verification.
 
 ## Dominant scale substitution
 
-**Dominant Scale** appears in Foll Root and Auto Chord. It is per follower and defaults to Off. It changes the output pitch collection used by ordinary follower scale/extension mapping and by auto-chord construction. It does not change the source-root policy, the input key's degree label, or the conductor's recognized chord.
+**Dominant Scale** appears in Foll Root and Auto Chord. It is per instance and defaults to Off. It changes the output pitch collection used by ordinary follower scale/extension mapping and by auto-chord construction. It does not change the source-root policy, the input key's degree label, or the conductor's recognized chord.
 
 The trigger is a major-third V chord without a major seventh, or a diminished leading-tone chord rooted a semitone below the configured tonic. In C minor, G major/G7 and B diminished qualify. G minor, Gmaj7, Bb major and Bb7 do not. This first implementation recognizes V and raised-vii function relative to the configured tonic; it does not infer secondary dominants or backdoor cadences.
 
@@ -201,3 +201,5 @@ With Movy hbclean.31, recording stores the emitted conductor chord voices and th
 | Dim Next | Arms the existing one-shot Chromatic Below modifier for a follower chord gesture: lower the input by one semitone and use diminished quality. The next unmodified gesture returns to normal. |
 
 The experimental UI Test page is no longer exposed. Existing Foll Mod controls remain available. A broader momentary knob-touch interface has not been added in this release.
+
+In Movy hbclean.31, touching a knob shows its full parameter name and current value in a highlighted header. Releasing it restores the page header; when several knobs are held, releasing the most recent returns to the previous held knob. Touching alone does not edit a setting or arm a modifier.
