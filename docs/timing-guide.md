@@ -1,8 +1,8 @@
 # HarmonyBus timing guide
 
-> Recovery release: the DSP uses 0.2.105 behavior. Conductor chord generation, rendered-chord recording and new quality overrides are temporarily withdrawn.
-
 ## Which time determines the rendered note?
+
+Recovery release: the DSP uses 0.2.105 behavior. Conductor chord generation, rendered-chord recording and new quality overrides are temporarily withdrawn.
 
 **HarmonyBus 0.2.107 / Movy 0.34.1-hbclean.29.** Choose a release time first. At release, map the source note using the effective harmony then available. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
 
