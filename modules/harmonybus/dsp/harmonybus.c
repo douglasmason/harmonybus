@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.98 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.98"
+/* Harmony Bus v0.2.99 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.99"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -559,6 +559,14 @@ static void hb_clear_clip_cache(void){
     g_bus.clip_track=-1;g_bus.clip_valid=0;g_bus.clip_note_count=0;
     g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;
     __atomic_add_fetch(&g_bus.seq,1,__ATOMIC_RELEASE);
+}
+static int hb_clock_status(void){
+    /* The shared beat callback is authoritative when present: negative means
+       stopped. A private Movy chain may never receive local realtime bytes,
+       so its get_clock_status can disagree with the active shared transport. */
+    if(g_host&&g_host->get_beat_position)
+        return g_host->get_beat_position()>=0.0?MOVE_CLOCK_STATUS_RUNNING:MOVE_CLOCK_STATUS_STOPPED;
+    return (g_host&&g_host->get_clock_status)?g_host->get_clock_status():MOVE_CLOCK_STATUS_UNAVAILABLE;
 }
 static double hb_clip_playhead(void){
     double beat=(g_host&&g_host->get_beat_position)?g_host->get_beat_position():(double)g_bus.clip_clock_ticks/24.0;
@@ -2314,9 +2322,9 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
     if(role_flush_emitted>0)return role_flush_emitted;
     if(instance->role==1)hb_sync_from_monitor(instance);
     else if(instance->role==0)hb_sync_conductor_from_monitor(instance);
-    if(g_host&&g_host->get_clock_status){
-        int clock_status=g_host->get_clock_status();
-        int is_playing=(clock_status==1);
+    if(g_host&&(g_host->get_clock_status||g_host->get_beat_position)){
+        int clock_status=hb_clock_status();
+        int is_playing=(clock_status==MOVE_CLOCK_STATUS_RUNNING);
         if(instance->last_transport_playing&&!is_playing){
             /* Pause/stop is a safe one-way boundary: bias toward extra note-offs
                by clearing all held state rather than allowing stuck notes. */
@@ -2374,9 +2382,9 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
         if(instance->recent_live_age[i]>live_pair_window)instance->recent_live_valid[i]=0;
     }
 
-    if(g_host&&g_host->get_clock_status){
-        int clock_status=g_host->get_clock_status();
-        if(clock_status==1){
+    if(g_host&&(g_host->get_clock_status||g_host->get_beat_position)){
+        int clock_status=hb_clock_status();
+        if(clock_status==MOVE_CLOCK_STATUS_RUNNING){
             double playhead=hb_clip_playhead();
             g_bus.last_clip_playhead=playhead;
             g_bus.have_last_clip_playhead=1;

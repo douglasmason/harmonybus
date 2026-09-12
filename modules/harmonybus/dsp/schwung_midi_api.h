@@ -11,6 +11,10 @@ extern "C" {
 #endif
 
 typedef struct host_api_v1 host_api_v1_t;
+/* Keep these values aligned with Schwung's host/plugin_api_v1.h. */
+#define MOVE_CLOCK_STATUS_UNAVAILABLE 0
+#define MOVE_CLOCK_STATUS_STOPPED 1
+#define MOVE_CLOCK_STATUS_RUNNING 2
 #define MIDI_FX_API_VERSION 1
 #define MIDI_FX_MAX_OUT_MSGS 16
 
