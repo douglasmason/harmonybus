@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.104",
+  "name": "Harmony Bus 0.2.105",
   "abbrev": "HB2101",
-  "version": "0.2.104",
+  "version": "0.2.105",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.104 \u2014 Conductor-first follower boundary mapping",
+  "description": "Harmony Bus v0.2.105 \u2014 Conductor-first follower boundary mapping",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.104",
+          "name": "Harmony Bus 0.2.105",
           "params": [
             {
               "key": "version",
@@ -60,6 +60,14 @@
                 "16"
               ],
               "options_as_string": true
+            },
+            {
+              "level": "arp_player",
+              "label": "Arp / Strum"
+            },
+            {
+              "level": "chord_player",
+              "label": "Auto Chord"
             },
             {
               "key": "quant_timing",
@@ -666,6 +674,19 @@
               "name": "Used Root",
               "type": "string",
               "access": "read"
+            },
+            {
+              "key": "dominant_scale",
+              "name": "Dominant Scale",
+              "type": "enum",
+              "options": [
+                "Off",
+                "Harmonic Minor",
+                "Melodic Minor",
+                "Altered V"
+              ],
+              "options_as_string": true,
+              "default": "Off"
             }
           ],
           "knobs": [
@@ -673,7 +694,8 @@
             "follower_explicit_root",
             "follower_scale",
             "inferred_root",
-            "used_root"
+            "used_root",
+            "dominant_scale"
           ]
         },
         "follower_mod": {
@@ -902,6 +924,245 @@
             "pretranspose_root",
             "final_root",
             "final_harmony"
+          ]
+        },
+        "chord_player": {
+          "name": "Auto Chord",
+          "params": [
+            {
+              "key": "chord_mode",
+              "name": "Chord Mode",
+              "type": "enum",
+              "options": [
+                "Off",
+                "Scale Root",
+                "Conductor Chord"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
+              "key": "chord_form",
+              "name": "Chord Form",
+              "type": "enum",
+              "options": [
+                "Auto",
+                "Power",
+                "Triad",
+                "Seventh",
+                "Ninth",
+                "Add9",
+                "Sixth",
+                "6/9",
+                "Eleventh",
+                "Thirteenth",
+                "Sus2",
+                "Sus4"
+              ],
+              "options_as_string": true,
+              "default": "Auto"
+            },
+            {
+              "key": "chord_inversion",
+              "name": "Inversion",
+              "type": "enum",
+              "options": [
+                "Auto",
+                "Root",
+                "First",
+                "Second",
+                "Third",
+                "Fourth",
+                "Fifth",
+                "Sixth"
+              ],
+              "options_as_string": true,
+              "default": "Auto"
+            },
+            {
+              "key": "chord_voicing",
+              "name": "Voicing",
+              "type": "enum",
+              "options": [
+                "Close",
+                "Root + Fifth Low",
+                "Alternate Up",
+                "Shell"
+              ],
+              "options_as_string": true,
+              "default": "Close"
+            },
+            {
+              "key": "follower_scale",
+              "name": "Follower Scale",
+              "type": "enum",
+              "options": [
+                "Infer",
+                "Major",
+                "Natural Minor",
+                "Dorian",
+                "Phrygian",
+                "Lydian",
+                "Mixolydian",
+                "Locrian",
+                "Harmonic Minor",
+                "Melodic Minor"
+              ],
+              "options_as_string": true,
+              "default": "Infer"
+            },
+            {
+              "key": "dominant_scale",
+              "name": "Dominant Scale",
+              "type": "enum",
+              "options": [
+                "Off",
+                "Harmonic Minor",
+                "Melodic Minor",
+                "Altered V"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            }
+          ],
+          "knobs": [
+            "chord_mode",
+            "chord_form",
+            "chord_inversion",
+            "chord_voicing",
+            "follower_scale",
+            "dominant_scale"
+          ]
+        },
+        "arp_player": {
+          "name": "Arp / Strum",
+          "params": [
+            {
+              "key": "arp_playback",
+              "name": "Playback",
+              "type": "enum",
+              "options": [
+                "Together",
+                "Repeat Arp",
+                "Once"
+              ],
+              "options_as_string": true,
+              "default": "Together"
+            },
+            {
+              "key": "arp_hold",
+              "name": "Hold",
+              "type": "enum",
+              "options": [
+                "Momentary",
+                "Latch"
+              ],
+              "options_as_string": true,
+              "default": "Momentary"
+            },
+            {
+              "key": "arp_order",
+              "name": "Order",
+              "type": "enum",
+              "options": [
+                "Up",
+                "Down",
+                "Up-Down",
+                "Played",
+                "Random"
+              ],
+              "options_as_string": true,
+              "default": "Up"
+            },
+            {
+              "key": "arp_rate",
+              "name": "Arp Rate",
+              "type": "enum",
+              "options": [
+                "1/64",
+                "1/32",
+                "1/16",
+                "1/8",
+                "1/4",
+                "1/2",
+                "1 Bar",
+                "2 Bars"
+              ],
+              "options_as_string": true,
+              "default": "1/16"
+            },
+            {
+              "key": "arp_gate",
+              "name": "Arp Gate",
+              "type": "enum",
+              "options": [
+                "25%",
+                "50%",
+                "75%",
+                "90%"
+              ],
+              "options_as_string": true,
+              "default": "50%"
+            },
+            {
+              "key": "strum_spread",
+              "name": "Strum Spread",
+              "type": "enum",
+              "options": [
+                "0 ms",
+                "25 ms",
+                "50 ms",
+                "100 ms",
+                "150 ms",
+                "200 ms",
+                "250 ms",
+                "300 ms",
+                "350 ms",
+                "400 ms",
+                "450 ms",
+                "500 ms",
+                "550 ms",
+                "600 ms",
+                "650 ms",
+                "700 ms",
+                "750 ms",
+                "800 ms",
+                "850 ms",
+                "900 ms",
+                "950 ms",
+                "1000 ms",
+                "1/64",
+                "1/32",
+                "1/16",
+                "1/8",
+                "1/4",
+                "1/2",
+                "1 Bar",
+                "2 Bars"
+              ],
+              "options_as_string": true,
+              "default": "0 ms"
+            },
+            {
+              "key": "arp_clear",
+              "name": "Clear Notes",
+              "type": "enum",
+              "options": [
+                "Ready",
+                "Clear"
+              ],
+              "options_as_string": true,
+              "default": "Ready"
+            }
+          ],
+          "knobs": [
+            "arp_playback",
+            "arp_hold",
+            "arp_order",
+            "arp_rate",
+            "arp_gate",
+            "strum_spread",
+            "arp_clear"
           ]
         }
       },
@@ -2085,6 +2346,199 @@
         "options": [
           "Off",
           "Reset"
+        ],
+        "options_as_string": true,
+        "default": "Off"
+      },
+      {
+        "key": "chord_mode",
+        "name": "Chord Mode",
+        "type": "enum",
+        "options": [
+          "Off",
+          "Scale Root",
+          "Conductor Chord"
+        ],
+        "options_as_string": true,
+        "default": "Off"
+      },
+      {
+        "key": "chord_form",
+        "name": "Chord Form",
+        "type": "enum",
+        "options": [
+          "Auto",
+          "Power",
+          "Triad",
+          "Seventh",
+          "Ninth",
+          "Add9",
+          "Sixth",
+          "6/9",
+          "Eleventh",
+          "Thirteenth",
+          "Sus2",
+          "Sus4"
+        ],
+        "options_as_string": true,
+        "default": "Auto"
+      },
+      {
+        "key": "chord_inversion",
+        "name": "Inversion",
+        "type": "enum",
+        "options": [
+          "Auto",
+          "Root",
+          "First",
+          "Second",
+          "Third",
+          "Fourth",
+          "Fifth",
+          "Sixth"
+        ],
+        "options_as_string": true,
+        "default": "Auto"
+      },
+      {
+        "key": "chord_voicing",
+        "name": "Voicing",
+        "type": "enum",
+        "options": [
+          "Close",
+          "Root + Fifth Low",
+          "Alternate Up",
+          "Shell"
+        ],
+        "options_as_string": true,
+        "default": "Close"
+      },
+      {
+        "key": "arp_playback",
+        "name": "Playback",
+        "type": "enum",
+        "options": [
+          "Together",
+          "Repeat Arp",
+          "Once"
+        ],
+        "options_as_string": true,
+        "default": "Together"
+      },
+      {
+        "key": "arp_hold",
+        "name": "Hold",
+        "type": "enum",
+        "options": [
+          "Momentary",
+          "Latch"
+        ],
+        "options_as_string": true,
+        "default": "Momentary"
+      },
+      {
+        "key": "arp_order",
+        "name": "Order",
+        "type": "enum",
+        "options": [
+          "Up",
+          "Down",
+          "Up-Down",
+          "Played",
+          "Random"
+        ],
+        "options_as_string": true,
+        "default": "Up"
+      },
+      {
+        "key": "arp_rate",
+        "name": "Arp Rate",
+        "type": "enum",
+        "options": [
+          "1/64",
+          "1/32",
+          "1/16",
+          "1/8",
+          "1/4",
+          "1/2",
+          "1 Bar",
+          "2 Bars"
+        ],
+        "options_as_string": true,
+        "default": "1/16"
+      },
+      {
+        "key": "arp_gate",
+        "name": "Arp Gate",
+        "type": "enum",
+        "options": [
+          "25%",
+          "50%",
+          "75%",
+          "90%"
+        ],
+        "options_as_string": true,
+        "default": "50%"
+      },
+      {
+        "key": "strum_spread",
+        "name": "Strum Spread",
+        "type": "enum",
+        "options": [
+          "0 ms",
+          "25 ms",
+          "50 ms",
+          "100 ms",
+          "150 ms",
+          "200 ms",
+          "250 ms",
+          "300 ms",
+          "350 ms",
+          "400 ms",
+          "450 ms",
+          "500 ms",
+          "550 ms",
+          "600 ms",
+          "650 ms",
+          "700 ms",
+          "750 ms",
+          "800 ms",
+          "850 ms",
+          "900 ms",
+          "950 ms",
+          "1000 ms",
+          "1/64",
+          "1/32",
+          "1/16",
+          "1/8",
+          "1/4",
+          "1/2",
+          "1 Bar",
+          "2 Bars"
+        ],
+        "options_as_string": true,
+        "default": "0 ms"
+      },
+      {
+        "key": "arp_clear",
+        "name": "Clear Notes",
+        "type": "enum",
+        "options": [
+          "Ready",
+          "Clear"
+        ],
+        "options_as_string": true,
+        "default": "Ready"
+      },
+      {
+        "key": "dominant_scale",
+        "name": "Dominant Scale",
+        "type": "enum",
+        "options": [
+          "Off",
+          "Harmonic Minor",
+          "Melodic Minor",
+          "Altered V"
         ],
         "options_as_string": true,
         "default": "Off"

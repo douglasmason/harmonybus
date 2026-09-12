@@ -27,12 +27,22 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.104'
+          assert module['version']=='0.2.105'
           levels=module['capabilities']['ui_hierarchy']['levels']
           buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
           assert buffer['options']==[f'{ms} ms' for ms in [0,25,*range(50,1001,50)]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars']
           assert buffer['default']=='1/16'
-          assert levels['root']['name']=='Harmony Bus 0.2.104'
+          assert levels['root']['name']=='Harmony Bus 0.2.105'
+          assert levels['chord_player']['name']=='Auto Chord'
+          assert levels['arp_player']['name']=='Arp / Strum'
+          for page in ('chord_player','arp_player','follower_root'):
+              assert len(levels[page]['knobs'])<=8
+              for key in levels[page]['knobs']:
+                  assert any(parameter.get('key')==key for parameter in levels[page]['params'])
+          chord_mode=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='chord_mode')
+          assert chord_mode['default']=='Off'
+          dominant=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='dominant_scale')
+          assert dominant['options']==['Off','Harmonic Minor','Melodic Minor','Altered V'] and dominant['default']=='Off'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -127,6 +137,13 @@ jobs:
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/global_buffer_test.c src/harmony_core.c -lm -o /tmp/global_buffer_test
           /tmp/global_buffer_test
 
+      - name: Verify chord player MIDI lifecycle and voicings
+        run: |
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/chord_player_test.c src/harmony_core.c -lm -o /tmp/chord_player_test
+          /tmp/chord_player_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_player_test.c src/harmony_core.c -lm -o /tmp/chord_player_ubsan
+          /tmp/chord_player_ubsan
+
       - name: Build guide from canonical Markdown and SVG
         run: |
           python3 -m pip install -r scripts/docs-requirements.txt
@@ -158,7 +175,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.104'
+          assert module['version']==os.environ['VERSION']=='0.2.105'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -177,7 +194,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Resolve recognized two-note conductor batches before due followers. Add negative lookahead with the buffer before the shifted harmony boundary. Simplify Follower Buffer choices to 0, 25, 50, then 100-1000 ms in 50 ms steps. Default to a tempo-relative 1/16-note follower buffer. Retain musical divisions and saved values. Update canonical Markdown and generated PDF. Movy hbclean.25 supplies the same default in fresh-set presets."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add per-follower Scale Root and Conductor Chord modes, bass-selected inversions, closed, spread and shell voicings, extended chord forms, functional dominant scale substitution, raw/auto-chord arpeggiation, momentary/latch hold, and one-shot strums with ms or musical spread. Preserve release-time harmony, owned note-offs, overlap and panic handling. Generators default off. Includes canonical Markdown/SVG guide and regenerated PDF. Works with Movy hbclean.25."
           fi
 
       - name: Update Module Store metadata

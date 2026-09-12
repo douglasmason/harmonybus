@@ -78,7 +78,7 @@ def main() -> int:
                 assert diagram_path.is_file(), f'Missing SVG: {diagram_path}'
                 diagram = svg2rlg(str(diagram_path))
                 assert diagram is not None
-                scale: float = min(766/diagram.width, (175 if section_count==5 else 215)/diagram.height)
+                scale: float = min(766/diagram.width, (175 if diagram_path.name in ("note-off.svg","chord-player.svg") else 215)/diagram.height)
                 diagram.scale(scale,scale)
                 diagram.width*=scale;diagram.height*=scale
                 story.extend([diagram,Spacer(1,10)])
@@ -92,7 +92,7 @@ def main() -> int:
     arguments.output.parent.mkdir(parents=True,exist_ok=True)
     document: SimpleDocTemplate = SimpleDocTemplate(str(arguments.output),pagesize=(842,595),leftMargin=38,rightMargin=38,topMargin=44,bottomMargin=38,title='HarmonyBus Timing Guide',author='HarmonyBus',invariant=1)
     document.build(story,onFirstPage=footer,onLaterPages=footer)
-    assert section_count==7
+    assert section_count==11
     print(arguments.output)
     return 0
 

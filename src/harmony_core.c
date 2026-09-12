@@ -138,7 +138,8 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
 
     if(best_template<0)return result;
     result.valid=1;result.root_pc=best_root;result.bass_pc=bass%12;result.pitch_mask=input;result.chord_index=best_template;
-    int margin=best_score-second_score;
+    /* A unique candidate has no runner-up; do not subtract INT_MIN. */
+    int margin=second_score==INT_MIN?20:best_score-second_score;
     int confidence=(best_score>=1000)?(90+(margin>5?5:margin)):60+(margin>0?(margin>20?20:margin):0);
     if(confidence<1)confidence=1;if(confidence>100)confidence=100;result.confidence=confidence;
     snprintf(result.name,sizeof(result.name),"%s%s",hb_pc_name(best_root),templates[best_template].suffix);
