@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.93 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.93"
+/* Harmony Bus v0.2.94 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.94"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -161,7 +161,7 @@ typedef struct {
 } hb_loop_harmony_event_t;
 typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int sensor_sources; int chord_timescale; int stability; int chord_timing; int quant_timing; int anticipation; int boundary_buffer_ms; int analysis_release_ms; int follower_content_map; int follower_travel_map; int follower_scale; int follower_split_map; int approach_control; int approach_mode; int inference_window_ms; int context; int accidentals; int auto_spell_sharps; int auto_spell_locked; int clip_track; int clip_slot; int clip_valid; int clip_note_count; int clip_stage; int clip_context; int last_clock_status; double clip_loop_start; double clip_loop_end; unsigned long clip_clock_ticks; unsigned clip_refresh_counter; double last_clip_playhead; int have_last_clip_playhead; int next_predict; int next_lookahead; int next_model_locked; int next_shift_active; int next_learning_count; int next_model_count; double next_last_playhead; int next_have_playhead; int next_learning_started; double next_learning_progress_beats; hb_harmony_t observed_harmony; hb_loop_harmony_event_t next_learning[HB_MAX_LOOP_HARMONIES]; hb_loop_harmony_event_t next_model[HB_MAX_LOOP_HARMONIES]; unsigned cache_rev; unsigned sense_rev; int last_sense_count; uint8_t last_sense_notes[64]; unsigned global_process_count; unsigned global_note_event_count; unsigned global_accepted_note_count; unsigned global_tick_count; int global_last_status; int global_last_note; int global_last_channel; int global_last_instance; int follower_root_policy; int follower_explicit_root; hb_clip_note_t clip_notes[HB_MAX_CLIP_NOTES]; } SharedBus;
 static SharedBus g_bus={.approach_control=HB_APPROACH_OFF,.approach_mode=0}; static int g_init=0;
-typedef struct { int used,role,mode,content_map,travel_map,follower_scale,follower_split_map,quant_timing,boundary_buffer_ms,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; uint8_t local_sense_notes[64]; int global_timing_restored; } Inst;
+typedef struct { int used,role,mode,content_map,travel_map,follower_scale,follower_split_map,quant_timing,boundary_buffer_ms,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; } Inst;
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
 static uint16_t hb_scale_mask(hb_harmony_t harmony);
 static uint16_t hb_explicit_scale_mask(int root_pc,int scale_index);
@@ -2064,6 +2064,58 @@ static void hb_receive_live_vouch(Inst *instance){
     if(note>=0)hb_confirm_live_note(instance,note);
     else if(instance->live_vouch_pending<16)instance->live_vouch_pending++;
 }
+static void hb_inject_note_off_to_render(Inst *instance,int pitch){
+    if(!instance||pitch<0||pitch>127||instance->render_channel<0||!g_host||!g_host->midi_inject_to_move)return;
+    uint8_t packet[4];
+    packet[0]=0x28; /* cable 2 + note-off CIN */
+    packet[1]=(uint8_t)(0x80 | (instance->render_channel & 0x0F));
+    packet[2]=(uint8_t)(pitch & 0x7F);
+    packet[3]=0;
+    int sent=g_host->midi_inject_to_move(packet,4);
+    if(sent==4){instance->render_count++;instance->render_last_note=pitch;}
+    else instance->render_fail_count++;
+}
+static void hb_prepare_role_change_flush(Inst *instance){
+    if(!instance)return;
+    memset(instance->role_flush_pending,0,sizeof(instance->role_flush_pending));
+    instance->role_flush_cursor=0;
+    for(int source_note=0;source_note<128;source_note++){
+        int local_pitch=-1;
+        int render_pitch=-1;
+        if(instance->role==0 && (instance->held_count[source_note]>0 || instance->pending_off_frames[source_note]>0)){
+            local_pitch=instance->mapped[source_note];
+            if(local_pitch<0){
+                local_pitch=source_note+g_bus.global_transpose;
+                if(local_pitch<0)local_pitch=0;
+                if(local_pitch>127)local_pitch=127;
+            }
+            /* Conductor Render To Ch is a pass-through monitor copy. */
+            render_pitch=source_note;
+        }else if(instance->role==1 && instance->follower_sounding[source_note]){
+            local_pitch=instance->mapped[source_note];
+            if(local_pitch<0)local_pitch=source_note;
+            render_pitch=local_pitch;
+        }
+        if(local_pitch>=0&&local_pitch<128)instance->role_flush_pending[local_pitch]=1;
+        if(render_pitch>=0&&render_pitch<128)hb_inject_note_off_to_render(instance,render_pitch);
+    }
+}
+static int hb_emit_role_change_flush(Inst *instance,uint8_t output[][3],int lengths[],int max_output){
+    if(!instance||!output||!lengths||max_output<=0)return 0;
+    int emitted=0;
+    for(int pitch=instance->role_flush_cursor;pitch<128&&emitted<max_output;pitch++){
+        instance->role_flush_cursor=pitch+1;
+        if(!instance->role_flush_pending[pitch])continue;
+        instance->role_flush_pending[pitch]=0;
+        output[emitted][0]=0x80;
+        output[emitted][1]=(uint8_t)pitch;
+        output[emitted][2]=0;
+        lengths[emitted]=3;
+        emitted++;
+    }
+    if(instance->role_flush_cursor>=128)instance->role_flush_cursor=0;
+    return emitted;
+}
 static void hb_clear_instance_note_state(Inst *instance){
     if(!instance)return;
     memset(instance->held_now,0,sizeof(instance->held_now));memset(instance->held_count,0,sizeof(instance->held_count));
@@ -2199,6 +2251,10 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
     Inst *instance=(Inst*)value;
     if(!instance)return 0;
     g_bus.global_tick_count++;
+    /* set_param cannot return local MIDI, so role-change OFFs are drained on
+       the next audio tick before the new role can synthesize anything. */
+    int role_flush_emitted=hb_emit_role_change_flush(instance,output,lengths,max_output);
+    if(role_flush_emitted>0)return role_flush_emitted;
     if(instance->role==1)hb_sync_from_monitor(instance);
     else if(instance->role==0)hb_sync_conductor_from_monitor(instance);
     if(g_host&&g_host->get_clock_status){
@@ -2501,6 +2557,10 @@ if(!strcmp(key,"approach_chrom_next")){if(parameter[0]=='1'||!strcmp(parameter,"
 if(!strcmp(key,"track_role")||!strcmp(key,"role")){
     int new_role=enum_index(parameter,ROLE_OPTS,3,instance->role);
     if(new_role!=instance->role){
+        /* Role changes are a hard voice boundary. Flush what the OLD role
+           actually sounded before clearing its ledgers, otherwise an ON can
+           survive after the instance becomes Follower/Conductor/Off. */
+        hb_prepare_role_change_flush(instance);
         hb_clear_instance_note_state(instance);
         memset(instance->source_seen,0,sizeof(instance->source_seen));
         instance->role=new_role;

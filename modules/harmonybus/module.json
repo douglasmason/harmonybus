@@ -2,7 +2,7 @@
   "id": "harmonybus",
   "name": "Harmony Bus 0.2.92",
   "abbrev": "HB292",
-  "version": "0.2.93",
+  "version": "0.2.94",
   "api_version": 2,
   "description": "Harmony Bus v0.2.92 \u2014 independent follower behavior per track",
   "author": "Douglas Mason / OpenAI prototype",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.93",
+          "name": "Harmony Bus 0.2.94",
           "params": [
             {
               "key": "version",
