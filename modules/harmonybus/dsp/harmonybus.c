@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.94 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.94"
+/* Harmony Bus v0.2.95 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.95"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1014,15 +1014,18 @@ static void hb_render_conductor_event(Inst *instance,int note,int velocity,int i
     if(!instance||instance->role!=0||instance->render_channel<0||!g_host||!g_host->midi_inject_to_move)return;
     if(instance->render_channel==recv_channel)return; /* avoid self-echo loops */
     if(!(is_on||is_off)||note<0||note>127)return;
-    /* Conductor rendering is monitoring only: mirror the original played pitch
-       while the local event continues through normal harmony inference. */
+    /* Global Transpose is the master musical transpose, so every rendered
+       destination must hear the same pitch shift as the local conductor. */
+    int rendered_note=note+g_bus.global_transpose;
+    if(rendered_note<0)rendered_note=0;
+    if(rendered_note>127)rendered_note=127;
     uint8_t packet[4];
     packet[0]=(uint8_t)(0x20 | (is_on?0x09:0x08));
     packet[1]=(uint8_t)((is_on?0x90:0x80) | (instance->render_channel & 0x0F));
-    packet[2]=(uint8_t)(note & 0x7F);
+    packet[2]=(uint8_t)(rendered_note & 0x7F);
     packet[3]=(uint8_t)(is_on?velocity:0);
     int sent=g_host->midi_inject_to_move(packet,4);
-    if(sent==4){instance->render_count++;instance->render_last_note=note;}
+    if(sent==4){instance->render_count++;instance->render_last_note=rendered_note;}
     else instance->render_fail_count++;
 }
 
@@ -1481,7 +1484,12 @@ static int hb_map_follower_note_now(Inst *instance,int source_note){
     }
 
     int travel=instance->travel_map;
-    if(travel==5)return source_note;
+    if(travel==5){
+        int direct=source_note+g_bus.global_transpose;
+        if(direct<0)direct=0;
+        if(direct>127)direct=127;
+        return direct;
+    }
     if(travel==0)
         return hb_map_follower_note_relative(instance,source_note,detected,target,content_map);
     if(travel==3)
@@ -2089,8 +2097,10 @@ static void hb_prepare_role_change_flush(Inst *instance){
                 if(local_pitch<0)local_pitch=0;
                 if(local_pitch>127)local_pitch=127;
             }
-            /* Conductor Render To Ch is a pass-through monitor copy. */
-            render_pitch=source_note;
+            /* Match the globally transposed conductor render note exactly. */
+            render_pitch=source_note+g_bus.global_transpose;
+            if(render_pitch<0)render_pitch=0;
+            if(render_pitch>127)render_pitch=127;
         }else if(instance->role==1 && instance->follower_sounding[source_note]){
             local_pitch=instance->mapped[source_note];
             if(local_pitch<0)local_pitch=source_note;
@@ -2767,6 +2777,17 @@ static void hb_restore_state(Inst *instance,const char *state){
     if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}
 }
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();
+if(!strcmp(key,"pretranspose_root")){
+    hb_harmony_t final_harmony=bus_read();
+    if(!final_harmony.valid)return snprintf(buffer,(size_t)length,"--");
+    hb_harmony_t pre=hb_transpose_harmony(final_harmony,-g_bus.global_transpose);
+    return snprintf(buffer,(size_t)length,"%s",hb_pc_display(pre.root_pc,pre));
+}
+if(!strcmp(key,"final_root")){
+    hb_harmony_t final_harmony=bus_read();
+    return snprintf(buffer,(size_t)length,"%s",final_harmony.valid?hb_pc_display(final_harmony.root_pc,final_harmony):"--");
+}
+if(!strcmp(key,"final_harmony"))return hb_format_harmony(buffer,length,bus_read());
 if(!strcmp(key,"next_lookahead")){int index=g_bus.next_lookahead;if(index<0||index>6)index=3;return snprintf(buffer,(size_t)length,"%s",NEXT_LOOKAHEAD_OPTS[index]);}
 if(!strcmp(key,"next_model"))return snprintf(buffer,(size_t)length,"%s",g_bus.next_model_locked?"Locked":"Learning");
 if(!strcmp(key,"next_shift"))return snprintf(buffer,(size_t)length,"%s",g_bus.next_shift_active?"Early":"Live");
