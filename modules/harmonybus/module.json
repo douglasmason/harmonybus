@@ -1153,6 +1153,17 @@
               ],
               "options_as_string": true,
               "default": "Ready"
+            },
+            {
+              "key": "arp_phase",
+              "name": "Arp Phase",
+              "type": "enum",
+              "options": [
+                "Free",
+                "Auto"
+              ],
+              "options_as_string": true,
+              "default": "Free"
             }
           ],
           "knobs": [
@@ -1162,7 +1173,8 @@
             "arp_rate",
             "arp_gate",
             "strum_spread",
-            "arp_clear"
+            "arp_clear",
+            "arp_phase"
           ]
         }
       },
@@ -2542,6 +2554,17 @@
         ],
         "options_as_string": true,
         "default": "Off"
+      },
+      {
+        "key": "arp_phase",
+        "name": "Arp Phase",
+        "type": "enum",
+        "options": [
+          "Free",
+          "Auto"
+        ],
+        "options_as_string": true,
+        "default": "Free"
       }
     ],
     "pre_capable": 1

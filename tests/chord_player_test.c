@@ -191,4 +191,32 @@ static void release_harmony_and_state(void){
     int count=advance(instance,0,1);while(instance->player.sounding_count)count+=advance(instance,0,1);assert(count==3);
     API.destroy_instance(copy);API.destroy_instance(instance);
 }
-int main(void){voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();puts("chord player: voicings, ownership, mirrored rendering, strum, arp/latch, release harmony, state and panic pass");}
+static void phase_grid(void){
+    hb_chord_player player={0};hb_cp_defaults(&player.config);
+    player.config.playback=1;player.config.phase=1;
+    int notes[3]={64,67,72};
+    player.beat=.10;hb_cp_on(&player,60,0,100,notes,3);
+    assert(hb_cp_tick(&player,output,lengths,64)==0);
+    player.beat=.249;assert(hb_cp_tick(&player,output,lengths,64)==0);
+    player.beat=.251;assert(hb_cp_tick(&player,output,lengths,64)==1&&output[0][1]==72);
+    assert(player.next_beat==.5);
+    player.beat=.4;hb_cp_tick(&player,output,lengths,64);
+    player.beat=.501;assert(hb_cp_tick(&player,output,lengths,64)==1&&output[0][1]==64);
+    assert(player.next_beat==.75);
+    hb_cp_off(&player,60,0);hb_cp_tick(&player,output,lengths,64);
+    player.beat=.6;hb_cp_on(&player,60,0,100,notes,3);
+    assert(hb_cp_tick(&player,output,lengths,64)==0);
+    hb_cp_off(&player,60,0);player.beat=.75;
+    assert(hb_cp_tick(&player,output,lengths,64)==0);
+    player.config.phase=0;player.beat=.81;
+    hb_cp_on(&player,60,0,100,notes,3);
+    assert(hb_cp_tick(&player,output,lengths,64)==1&&output[0][1]==64);
+    Inst *instance=fixture();char state[512],value[64];
+    API.get_param(instance,"arp_phase",value,sizeof(value));assert(!strcmp(value,"Free"));
+    API.set_param(instance,"arp_phase","Auto");
+    API.get_param(instance,"state",state,sizeof(state));assert(strstr(state,";ph1,1"));
+    API.set_param(instance,"arp_phase","Free");API.set_param(instance,"state",state);
+    assert(instance->player.config.phase==1);
+    API.destroy_instance(instance);
+}
+int main(void){phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();puts("chord player: voicings, ownership, mirrored rendering, strum, arp/latch, release harmony, state and panic pass");}

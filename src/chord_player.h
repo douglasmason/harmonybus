@@ -5,10 +5,10 @@
 #define HB_CP_KEYS 16
 #define HB_CP_VOICES 12
 typedef struct {
-    int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread;
+    int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread, phase;
 } hb_cp_config;
 typedef struct {
-    int used, held, source, channel, velocity, count, fresh;
+    int used, held, source, channel, velocity, count, fresh, root_pc;
     unsigned sequence;
     int notes[HB_CP_VOICES];
     double due[HB_CP_VOICES];
@@ -25,6 +25,9 @@ typedef struct {
 } hb_chord_player;
 static int hb_cp_mod(int value){value%=12;return value<0?value+12:value;}
 static int hb_cp_abs(int value){return value<0?-value:value;}
+static double hb_cp_floor(double value){
+    long long whole=(long long)value;return (double)whole-(value<(double)whole);
+}
 static double hb_cp_division(int index){return 0.0625*(1u<<index);}
 static int hb_cp_nearest(int note,unsigned mask){
     for(int distance=0;distance<128;distance++){
@@ -165,7 +168,7 @@ static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,
     }
     memset(key,0,sizeof(*key));
     key->used=key->held=key->fresh=1;key->source=source;key->channel=channel;
-    key->velocity=velocity;key->count=count;key->sequence=++player->sequence;
+    key->root_pc=hb_cp_mod(source);key->velocity=velocity;key->count=count;key->sequence=++player->sequence;
     for(int index=0;index<count;index++)key->notes[index]=notes[index];
     return 1;
 }
@@ -241,22 +244,38 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
             if(!seen)entries[unique++]=entries[index];
         }
         count=unique;
+        double rate=hb_cp_division(player->config.rate);
         if(!count)player->running=0;
-        else if(!player->running||player->beat+1e-9>=player->next_beat){
+        if(count&&!player->running&&player->config.phase){
+            player->step=0;
+            /* Rotate the ordered cycle to the newest gesture's actual root,
+               which is not necessarily the bass of an inverted voicing. */
+            unsigned newest=0;int root=-1;
+            for(int index=0;index<count;index++){
+                hb_cp_key *owner=&player->keys[entries[index].key];
+                if(hb_cp_mod(entries[index].pitch)==owner->root_pc&&owner->sequence>newest){
+                    newest=owner->sequence;root=index;
+                }
+            }
+            if(root>=0)player->step=root;
+            player->next_beat=(hb_cp_floor(player->beat/rate)+1.0)*rate;
+            player->running=2; /* Armed, no sounding note yet. */
+        }
+        if(count&&(!player->running||player->beat+1e-9>=player->next_beat)){
             if(!player->running)player->step=0;
             int cycle=player->config.order==2&&count>1?2*count-2:count;
             int ordinal=player->step%cycle;if(ordinal>=count)ordinal=cycle-ordinal;
-            if(player->config.order==4){player->random=player->random*1664525u+1013904223u;ordinal=(int)(player->random%(unsigned)count);}
+            if(player->config.order==4&&player->running!=2){player->random=player->random*1664525u+1013904223u;ordinal=(int)(player->random%(unsigned)count);}
             hb_cp_entry entry=entries[ordinal];
             repeat_same=player->sounding[entry.channel][entry.pitch]!=0;
             player->arp_note=entry.pitch;player->arp_channel=entry.channel;
-            double rate=hb_cp_division(player->config.rate);
             static const double gates[4]={0.25,0.5,0.75,0.9};
-            player->gate_beat=player->beat+rate*gates[player->config.gate];
-            player->next_beat=player->beat+rate;player->step=(player->step+1)%384;
+            double onset=player->config.phase?hb_cp_floor((player->beat+1e-9)/rate)*rate:player->beat;
+            player->gate_beat=onset+rate*gates[player->config.gate];
+            player->next_beat=onset+rate;player->step=(player->step+1)%384;
             player->running=1;
         }
-        if(player->running&&!repeat_same&&player->beat<player->gate_beat){
+        if(player->running==1&&!repeat_same&&player->beat<player->gate_beat){
             for(int index=0;index<count;index++)if(entries[index].pitch==player->arp_note&&entries[index].channel==player->arp_channel)
                 desired[player->arp_channel][player->arp_note]=(uint8_t)player->keys[entries[index].key].velocity;
         }
