@@ -188,8 +188,9 @@ jobs:
           assert next_panel['knobs'][0]=='next_lookahead'
           assert next_panel['knobs'][-1]=='next_reset'
           global_panel=module['capabilities']['ui_hierarchy']['levels']['global_transpose']
-          assert global_panel['knobs'][0]=='transpose'
-          assert global_panel['knobs'][2]=='final_root'
+          assert global_panel['knobs'][0]=='master_transpose'
+          assert global_panel['knobs'][1]=='transpose'
+          assert global_panel['knobs'][3]=='final_root'
           PY
 
       - name: Publish release
