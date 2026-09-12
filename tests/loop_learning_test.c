@@ -42,7 +42,27 @@ static hb_harmony_t chord(int root){
     uint8_t notes[3]={(uint8_t)(60+root),(uint8_t)(64+root),(uint8_t)(67+root)};
     return hb_infer_harmony(notes,3);
 }
+static void extended_offsets(void){
+    static const char *labels[]={"3/8","3/4","1.5 Bars","-3/8","-3/4","-1.5 Bars","2 Bars","3 Bars","-2 Bars","-3 Bars"};
+    static const double offsets[]={1.5,3.0,6.0,-1.5,-3.0,-6.0,8.0,12.0,-8.0,-12.0};
+    for(int length=4;length<=16;length+=12){
+    reset_fixture();g_bus.clip_loop_end=length;g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0)};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=length/2,.harmony=chord(2)};
+    for(int i=0;i<10;i++){
+        char label[32];API.set_param(&g_pool[0],"next_lookahead",labels[i]);
+        API.get_param(&g_pool[0],"next_lookahead",label,sizeof(label));
+        assert(!strcmp(label,labels[i])&&hb_next_lookahead_beats()==offsets[i]);
+        for(int cycle=0;cycle<2;cycle++){
+            double boundary=length/2-offsets[i]+cycle*length;
+            hb_next_apply_effective(boundary-0.001);assert(bus_read().root_pc==0);
+            hb_next_apply_effective(boundary);assert(bus_read().root_pc==2);
+        }
+    }
+    }
+}
 int main(void){
+    extended_offsets();
     hb_harmony_t tonic=chord(0), dominant=chord(7), other=chord(2);
     hb_harmony_t unknown={0}, unresolved={.valid=1,.chord_index=-1};
     assert(tonic.valid&&dominant.valid&&other.valid);

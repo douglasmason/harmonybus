@@ -2,21 +2,21 @@
 
 ## Which time determines the rendered note?
 
-Conductor and follower chord modes, rendered conductor recording and chord-quality controls are restored. Movy preserves the existing Render To route and separately captures private recording messages. UI Test is removed from the module menu.
-
-**HarmonyBus 0.2.113 / Movy 0.34.1-hbclean.31.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.114 / Movy 0.34.1-hbclean.31.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
 **Example:** the conductor changes from C to D at 2000 ms. A locked model with 1/8-note lookahead makes D effective at 1750 ms. A keypress at 1600 ms falls inside the 350 ms pre-boundary window and waits until 1750 ms. This wait is caused by the eighth-note Quant Grid. With Quant Grid Off, the same keypress plays D immediately at 1600 ms, looking up the harmony at 1750 ms.
 
-**Defaults and scope:** Follower Buffer is global, initially **1/16 note** (125 ms at 120 BPM), following tempo. The early-lookahead diagrams explicitly use a 350 ms example buffer to illustrate wider capture windows. Changing it on any HB instance changes all followers. Lookahead defaults to **Off**. Quant Grid remains per follower. Musical buffer choices run from 1/64 through 2 Bars; millisecond choices are 0, 25, 50, then 100 to 1000 ms in 50 ms steps.
+**Defaults and scope:** Follower Buffer is global, initially **1/16 note** (124 ms capture at 120 BPM), following tempo. The early-lookahead diagrams explicitly use a 350 ms example buffer to illustrate wider capture windows. Changing it on any HB instance changes all followers. Lookahead defaults to **Off**. Quant Grid remains per follower. Musical buffer choices run from 1/64 through 2 Bars; millisecond choices are 0, 25, 50, then 100 to 1000 ms in 50 ms steps.
 
 **Saved sets:** saved buffer values survive the update. For older sets containing conflicting per-instance buffers, the first restored copy becomes the shared value. Set the desired global value once, then save the set; new snapshots store the same value in every instance.
 
 ## Follower Buffer chooses among boundaries
 
 While lookahead is off or learning, the buffer is a pre-boundary capture window, not a fixed delay. Candidate release points come from the chord schedule and the follower's Quant Grid. **The earliest eligible boundary wins.** A boundary exactly at arrival is eligible and does not defer the note to the next point.
+
+**Musical-window margin:** division-based buffers subtract 1 ms, excluding their nominal leading edge. This applies to every schedule. Grid targets and millisecond buffers stay exact. Already-on-grid notes stay there.
 
 ![Chord-only capture, an earlier competing quant boundary and immediate release outside the window](timing/buffer.svg)
 
@@ -25,8 +25,6 @@ While lookahead is off or learning, the buffer is a pre-boundary capture window,
 **B: add Quant Grid = 1/8.** The same keypress waits only 50 ms for 1750 ms. That earlier point wins, so the note still maps using C. A finer Quant Grid does not guarantee alignment to the next chord.
 
 **C: outside the window.** With Quant Grid Off, 1500 ms is outside the 350 ms window before 2000 ms; the note plays without intentional musical delay. With no enabled grids and no usable active lookahead schedule, the buffer causes no grid capture.
-
-At 120 BPM, a quarter note is 500 ms and an eighth note is 250 ms. A 350 ms buffer therefore covers the entire interval between eighth-note grid points. Off-grid notes wait for the next point, but **already-on-grid notes stay there**. Musical durations scale with BPM; millisecond durations do not.
 
 ## Anticipation and lookahead do different jobs
 
@@ -48,9 +46,9 @@ Only contributing conductor clips enter the prediction cycle. A 3-bar and a 4-ba
 
 ![Negative lookahead shifts harmony to one quarter note after the bar line, with the buffer immediately before that shifted boundary](timing/negative-lookahead.svg)
 
-The capture window is **2375 to 2500 ms**, or **3/16 to 1/4 note after the bar line**. A note arriving at 2300 ms plays with C without intentional delay. A note arriving at 2400 ms plays immediately using D from the 2500 ms boundary. A note arriving exactly at 2500 ms plays with D immediately. Quant Grid, if enabled, still delays to its eligible grid point; harmony selection uses the later of that playback time and the captured harmonic boundary.
+The capture window is **2376 to 2500 ms**: the nominal 2375 ms leading edge is shortened by 1 ms. A note arriving at 2300 ms plays with C without intentional delay. A note arriving at 2400 ms plays immediately using D from the 2500 ms boundary. A note arriving exactly at 2500 ms plays with D immediately. Quant Grid, if enabled, still delays to its eligible grid point; harmony selection uses the later of that playback time and the captured harmonic boundary.
 
-Positive values advance each learned harmony transition; negative values postpone it. Choices are 1/32, 1/16, 1/8, 1/4, 1/2 and 1 Bar in either direction, plus Off. The same signed shift applies around loop wrap. The Shift display reads Early, Late or Live according to the effective schedule.
+Positive values advance each learned harmony transition; negative values postpone it. Choices are 1/32, 1/16, 1/8, 1/4, 3/8, 1/2, 3/4, 1 Bar, 1.5 Bars, 2 Bars and 3 Bars in either direction, plus Off. In 4/4, 3/8 is 1.5 beats, 3/4 is 3 beats, 1.5 Bars is 6 beats, 2 Bars is 8 beats, and 3 Bars is 12 beats. Positive values bring the next harmony forward; negative values retain the previous harmony longer for late phrasing. The same signed shift applies around loop wrap. The Shift display reads Early, Late or Live according to the effective schedule.
 
 Both directions require a usable learned model. During learning or after invalidation, HB uses observed harmony and the ordinary Chord Grid / Anticipation capture schedule. Lookahead remains Off by default.
 

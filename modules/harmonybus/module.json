@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.113",
+  "name": "Harmony Bus 0.2.114",
   "abbrev": "HB2101",
-  "version": "0.2.113",
+  "version": "0.2.114",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.113 \u2014 Conductor-first follower boundary mapping",
+  "description": "Harmony Bus v0.2.114 \u2014 Conductor-first follower boundary mapping",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.113",
+          "name": "Harmony Bus 0.2.114",
           "params": [
             {
               "key": "version",
@@ -799,14 +799,24 @@
                 "1/16",
                 "1/8",
                 "1/4",
+                "3/8",
                 "1/2",
+                "3/4",
                 "1 Bar",
+                "1.5 Bars",
+                "2 Bars",
+                "3 Bars",
                 "-1/32",
                 "-1/16",
                 "-1/8",
                 "-1/4",
+                "-3/8",
                 "-1/2",
-                "-1 Bar"
+                "-3/4",
+                "-1 Bar",
+                "-1.5 Bars",
+                "-2 Bars",
+                "-3 Bars"
               ],
               "options_as_string": true,
               "default": "Off"
@@ -2333,14 +2343,24 @@
           "1/16",
           "1/8",
           "1/4",
+          "3/8",
           "1/2",
+          "3/4",
           "1 Bar",
+          "1.5 Bars",
+          "2 Bars",
+          "3 Bars",
           "-1/32",
           "-1/16",
           "-1/8",
           "-1/4",
+          "-3/8",
           "-1/2",
-          "-1 Bar"
+          "-3/4",
+          "-1 Bar",
+          "-1.5 Bars",
+          "-2 Bars",
+          "-3 Bars"
         ],
         "options_as_string": true,
         "default": "Off"

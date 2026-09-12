@@ -13,6 +13,34 @@ static void expect(Inst *instance,const char *expected){
     char value[512];API.get_param(instance,"boundary_buffer_ms",value,sizeof(value));
     assert(!strcmp(value,expected));
 }
+static void musical_leading_edges(Inst *instance){
+    for(int bpm_index=0;bpm_index<3;bpm_index++)for(int division=0;division<8;division++)
+    for(int schedule=0;schedule<14;schedule++){
+        tempo=bpm_index==0?60:(bpm_index==1?120:180);
+        double width=0.0625*(1u<<division);
+        g_bus.boundary_buffer_ms=-division-1;g_bus.anticipation=0;
+        g_bus.chord_timing=schedule==0?6:0;instance->quant_timing=schedule==1?6:0;
+        static const int offsets[]={0,0,3,10,13,14,15,16,17,18,19,20,21,22};
+        g_bus.next_predict=1;g_bus.next_lookahead=offsets[schedule];
+        g_bus.next_model_locked=schedule>=2;g_bus.next_model_count=1;
+        g_bus.clip_loop_start=0;g_bus.clip_loop_end=32;
+        double target=schedule>=2?16:8;
+        g_bus.next_model[0].phase=target+hb_next_lookahead_beats();
+        for(int edge=0;edge<3;edge++){
+            /* At the stated edge and 0.5 ms inside it: no future capture.
+               1.5 ms inside it: capture the unchanged target. */
+            position=target-width+hb_ms_to_beats(edge==0?0:edge==1?1:3)/2;
+            instance->follower_queue_count=0;hb_queue_follower_event(instance,60,100,1,0);
+            double actual=instance->follower_queue_target_beat[0];
+            if(edge<2)assert(actual<0||fabs(actual-position)<1e-6);
+            else assert(fabs(actual-target)<1e-6);
+        }
+        position=target;instance->follower_queue_count=0;
+        hb_queue_follower_event(instance,60,100,1,0);
+        assert(fabs(instance->follower_queue_target_beat[0]-target)<1e-6);
+    }
+    g_bus.next_model_locked=0;g_bus.next_lookahead=0;
+}
 int main(void){
     hb_global_shared_t shared={0};g_global_shared=&shared;
     host_api_v1_t host={.sample_rate=48000,.get_bpm=bpm,.get_beat_position=beat,.get_clock_status=clock_state};
@@ -59,6 +87,9 @@ int main(void){
     for(int trial=0;trial<2;trial++){
         tempo=trial?60:180;position=4.75;
         second->follower_queue_count=0;hb_queue_follower_event(second,60,100,1,0);
+        assert(second->follower_queue_target_beat[0]<0); /* nominal leading edge is excluded */
+        position=4.76;
+        second->follower_queue_count=0;hb_queue_follower_event(second,60,100,1,0);
         assert(fabs(second->follower_queue_target_beat[0]-5.0)<1e-9);
     }
     shared.follower_root_policy=2;shared.follower_explicit_root=0;
@@ -81,6 +112,7 @@ int main(void){
     hb_next_apply_effective(1.0);assert(bus_read().root_pc==2);
     assert(hb_next_effective_boundary(1.0)<0);
     g_bus.next_lookahead=0;g_bus.next_model_locked=0;
+    musical_leading_edges(second);
     API.destroy_instance(first);API.destroy_instance(second);
     first=API.create_instance("",NULL);API.set_param(first,"state",state);expect(first,"1/8");
     API.destroy_instance(first);

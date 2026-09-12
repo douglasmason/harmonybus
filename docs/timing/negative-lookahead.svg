@@ -25,8 +25,8 @@
 <line x1="326.25" y1="65" x2="326.25" y2="157" stroke="#93a5b3"/>
 <text x="306.25" y="72" font-family="DejaVuSans" font-size="8" fill="#13283c">bar line</text>
 <text x="0" y="190" font-family="DejaVuSans" font-size="10" fill="#13283c">1/16 capture window</text>
-<rect x="538.125" y="175" width="70.625" height="20" fill="#f4d5b3"/>
-<text x="534.125" y="211" font-family="DejaVuSans" font-size="8" fill="#13283c">2375</text>
+<rect x="538.69" y="175" width="70.06" height="20" fill="#f4d5b3"/>
+<text x="534.125" y="211" font-family="DejaVuSans" font-size="8" fill="#13283c">2376</text>
 <text x="598.75" y="211" font-family="DejaVuSans" font-size="8" fill="#13283c">2500</text>
 <text x="0" y="248" font-family="DejaVuSans" font-size="10" fill="#13283c">Follower note</text>
 <circle cx="552.25" cy="244" r="3" fill="#2865ad"/>
