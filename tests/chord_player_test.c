@@ -360,6 +360,63 @@ static void generated_degree_progression(void){
     assert(!strcmp(name,"Scale Degree"));
     API.destroy_instance(instance);
 }
+static void split2_and_master(void){
+    Inst *instance=fixture();
+    const char *scales[]={"Major","Natural Minor","Harmonic Minor"};
+    for(int root=0;root<12;root+=5)for(int scale=0;scale<3;scale++){
+        globals.follower_explicit_root=root;
+        API.set_param(instance,"follower_scale",scales[scale]);
+        uint8_t notes[3]={60,64,67};hb_harmony_t harmony=hb_infer_harmony(notes,3);
+        hb_effective_write(harmony);
+        uint16_t parent=hb_explicit_scale_mask(root,hb_parent_scale_index(instance,harmony));
+        for(int split=0;split<4;split++)for(int pitch=48;pitch<84;pitch++){
+            instance->follower_split_map=split;instance->content_map=1;
+            API.set_param(instance,"travel_map","Closest Split");
+            int normal=hb_map_follower_note_now(instance,pitch);
+            if(parent&(1u<<mod12(pitch))){
+                API.set_param(instance,"travel_map","Closest Split 2");
+                assert(hb_map_follower_note_now(instance,pitch)==normal);
+            }else{
+                int next=pitch+1;while(!(parent&(1u<<mod12(next))))next++;
+                int resolution=hb_map_follower_note_now(instance,next);
+                API.set_param(instance,"travel_map","Closest Split 2");
+                assert(hb_map_follower_note_now(instance,pitch)==resolution-1);
+                assert(hb_map_follower_note_now(instance,next)==resolution);
+            }
+        }
+    }
+    char state[8192],label[64];
+    API.get_param(instance,"state",state,sizeof(state));
+    API.set_param(instance,"travel_map","Relative");API.set_param(instance,"state",state);
+    API.get_param(instance,"travel_map",label,sizeof(label));assert(!strcmp(label,"Closest Split 2"));
+    globals.follower_explicit_root=0;instance->follower_split_map=1;
+    API.set_param(instance,"follower_scale","Major");
+    for(int pitch=61;pitch<=62;pitch++){
+        midi(instance,1,pitch);assert(advance(instance,0,64)==1&&output[0][1]==pitch);
+        assert(rendered[render_count-1][2]==pitch);
+        midi(instance,0,pitch);assert(advance(instance,0,64)==1&&output[0][1]==pitch);
+    }
+    for(int reference=0;reference<12;reference++)for(int destination=0;destination<12;destination++){
+        globals.follower_explicit_root=reference;
+        API.set_param(instance,"master_transpose",MASTER_ROOT_OPTS[destination+1]);
+        assert(mod12(reference+g_bus.global_transpose)==destination);
+        API.get_param(instance,"master_transpose",label,sizeof(label));
+        assert(!strcmp(label,reference==destination?"As Played":MASTER_ROOT_OPTS[destination+1]));
+    }
+    API.set_param(instance,"master_transpose","As Played");assert(g_bus.global_transpose==0);
+    globals.follower_explicit_root=0;instance->travel_map=0;instance->content_map=0;
+    uint8_t c[3]={60,64,67};hb_effective_write(hb_infer_harmony(c,3));
+    midi(instance,1,60);assert(advance(instance,0,64)==1&&output[0][1]==60);
+    g_bus.next_model_locked=1;g_bus.next_model_count=1;
+    g_bus.next_model[0].harmony=hb_infer_harmony(c,3);
+    API.set_param(instance,"master_transpose","D");
+    assert(g_bus.next_model_locked&&g_bus.next_model[0].harmony.root_pc==2);
+    API.set_param(instance,"master_transpose","E"); // quick knob turns retain pending OFF
+    assert(advance(instance,0,64)==1&&output[0][0]==0x80&&output[0][1]==60);
+    midi(instance,1,60);assert(advance(instance,0,64)==1&&output[0][1]==64);
+    midi(instance,0,60);assert(advance(instance,0,64)==1&&output[0][1]==64);
+    API.destroy_instance(instance);
+}
 static void split_seventh(void){
     Inst *instance=fixture();
     instance->travel_map=3;instance->follower_split_map=1;
@@ -436,4 +493,4 @@ static void predicted_capture(void){
     }
     API.destroy_instance(instance);
 }
-int main(void){split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+int main(void){split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

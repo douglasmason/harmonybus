@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.112",
+  "name": "Harmony Bus 0.2.113",
   "abbrev": "HB2101",
-  "version": "0.2.112",
+  "version": "0.2.113",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.112 \u2014 Conductor-first follower boundary mapping",
+  "description": "Harmony Bus v0.2.113 \u2014 Conductor-first follower boundary mapping",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.112",
+          "name": "Harmony Bus 0.2.113",
           "params": [
             {
               "key": "version",
@@ -253,7 +253,8 @@
                 "Upward",
                 "Closest Split",
                 "Downward",
-                "Direct"
+                "Direct",
+                "Closest Split 2"
               ],
               "options_as_string": true,
               "default": "Relative"
@@ -866,6 +867,28 @@
           "name": "Global",
           "params": [
             {
+              "key": "master_transpose",
+              "name": "Master Transpose",
+              "type": "enum",
+              "options": [
+                "As Played",
+                "C",
+                "C# / Db",
+                "D",
+                "D# / Eb",
+                "E",
+                "F",
+                "F# / Gb",
+                "G",
+                "G# / Ab",
+                "A",
+                "A# / Bb",
+                "B"
+              ],
+              "options_as_string": true,
+              "default": "As Played"
+            },
+            {
               "key": "transpose",
               "name": "Global Xpose",
               "type": "int",
@@ -894,6 +917,7 @@
             }
           ],
           "knobs": [
+            "master_transpose",
             "transpose",
             "pretranspose_root",
             "final_root",
@@ -1246,7 +1270,8 @@
           "Upward",
           "Closest Split",
           "Downward",
-          "Direct"
+          "Direct",
+          "Closest Split 2"
         ],
         "options_as_string": true,
         "default": "Relative"
@@ -2564,6 +2589,28 @@
         ],
         "options_as_string": true,
         "default": "Free"
+      },
+      {
+        "key": "master_transpose",
+        "name": "Master Transpose",
+        "type": "enum",
+        "options": [
+          "As Played",
+          "C",
+          "C# / Db",
+          "D",
+          "D# / Eb",
+          "E",
+          "F",
+          "F# / Gb",
+          "G",
+          "G# / Ab",
+          "A",
+          "A# / Bb",
+          "B"
+        ],
+        "options_as_string": true,
+        "default": "As Played"
       }
     ],
     "pre_capable": 1
