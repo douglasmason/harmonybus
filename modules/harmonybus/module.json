@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.108",
+  "name": "Harmony Bus 0.2.109",
   "abbrev": "HB2101",
-  "version": "0.2.108",
+  "version": "0.2.109",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.108 \u2014 Conductor-first follower boundary mapping",
+  "description": "Harmony Bus v0.2.109 \u2014 Conductor-first follower boundary mapping",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.108",
+          "name": "Harmony Bus 0.2.109",
           "params": [
             {
               "key": "version",
@@ -189,10 +189,6 @@
             {
               "level": "next_harm",
               "label": "Next Harm"
-            },
-            {
-              "level": "ui_test",
-              "label": "UI Test"
             },
             {
               "level": "conductor_this",
@@ -789,28 +785,6 @@
             "approach_chrom_next"
           ]
         },
-        "ui_test": {
-          "name": "UI Test",
-          "params": [
-            {
-              "key": "content_map"
-            },
-            {
-              "key": "travel_map"
-            },
-            {
-              "key": "split_map"
-            },
-            {
-              "key": "ui_test_canvas"
-            }
-          ],
-          "knobs": [
-            "content_map",
-            "travel_map",
-            "split_map"
-          ]
-        },
         "next_harm": {
           "name": "Next Harm",
           "params": [
@@ -1012,6 +986,49 @@
               "default": "Infer"
             },
             {
+              "key": "chord_quality",
+              "name": "Chord Quality",
+              "type": "enum",
+              "options": [
+                "Auto",
+                "Major",
+                "Minor",
+                "Dim",
+                "Aug",
+                "Maj7",
+                "Dom7",
+                "Min7",
+                "Half Dim7",
+                "Dim7"
+              ],
+              "options_as_string": true,
+              "default": "Auto"
+            },
+            {
+              "key": "chromatic_quality",
+              "name": "Chromatic Keys",
+              "type": "enum",
+              "options": [
+                "Scale",
+                "Major / Maj7",
+                "Major / Dom7",
+                "Dim / Dim7"
+              ],
+              "options_as_string": true,
+              "default": "Scale"
+            },
+            {
+              "key": "chord_dim_next",
+              "name": "Chromatic Below",
+              "type": "enum",
+              "options": [
+                "Off",
+                "Arm"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
               "key": "dominant_scale",
               "name": "Dominant Scale",
               "type": "enum",
@@ -1028,10 +1045,12 @@
           "knobs": [
             "chord_mode",
             "chord_form",
+            "chord_quality",
+            "chromatic_quality",
             "chord_inversion",
             "chord_voicing",
             "follower_scale",
-            "dominant_scale"
+            "chord_dim_next"
           ]
         },
         "arp_player": {
@@ -2290,14 +2309,6 @@
         ],
         "options_as_string": true,
         "access": "write"
-      },
-      {
-        "key": "ui_test_canvas",
-        "name": "UI Test",
-        "type": "canvas",
-        "canvas_script": "canvas.js",
-        "canvas_overlay": "ui_test",
-        "as_page": true
       },
       {
         "key": "next_lookahead",

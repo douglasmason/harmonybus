@@ -1,14 +1,15 @@
 #ifndef HB_CHORD_PLAYER_H
 #define HB_CHORD_PLAYER_H
 /* Allocation-free chord voicing and owned-note playback. Times are supplied
-   by the host adapter; this module never changes conductor or input notes. */
+   by the host adapter; the adapter decides which role owns the output. */
 #define HB_CP_KEYS 16
 #define HB_CP_VOICES 12
 typedef struct {
     int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread, phase;
+    int quality, chromatic_quality;
 } hb_cp_config;
 typedef struct {
-    int used, held, source, channel, velocity, count, fresh, root_pc;
+    int used, held, source, channel, velocity, count, fresh, root_pc, recordable;
     unsigned sequence;
     int notes[HB_CP_VOICES];
     double due[HB_CP_VOICES];
@@ -59,6 +60,9 @@ static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
     if(degree<7){static const int major[7]={0,2,4,5,7,9,11};for(int index=1;index<7;index++)tones[index]=hb_cp_mod(root+major[index]);}
     unsigned relative_scale=0;for(int interval=0;interval<12;interval++)if(scale&(1u<<hb_cp_mod(root+interval)))relative_scale|=1u<<interval;
     if(relative_scale==0x55Bu){static const int altered[7]={0,1,4,6,6,8,10};for(int index=0;index<7;index++)tones[index]=hb_cp_mod(root+altered[index]);}
+    int recognized_seventh=config.mode==2&&
+        ((chord&(1u<<hb_cp_mod(root+9)))||(chord&(1u<<hb_cp_mod(root+10)))||
+         (chord&(1u<<hb_cp_mod(root+11))));
     if(config.mode==2){
         /* Preserve the recognized chord's defining third, fifth and seventh;
            fill newly requested extensions from its parent scale. */
@@ -67,6 +71,24 @@ static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
         for(int role=0;role<3;role++)for(int choice=0;choice<4;choice++){
             int interval=choices[role][choice];
             if(interval>=0&&(chord&(1u<<hb_cp_mod(root+interval)))){tones[roles[role]]=hb_cp_mod(root+interval);break;}
+        }
+    }
+    /* Quality overrides apply to Scale Root gestures. Chromatic keys use a
+       selectable triad/seventh family instead of an arbitrary rotated scale.
+       Parent-scale upper extensions remain available to Ninth/Add9 etc. */
+    if(config.mode==1||config.quality){
+        int quality=config.quality;
+        if(config.mode==1&&!quality&&!(scale&(1u<<hb_cp_mod(input)))){
+            static const int chromatic_qualities[]={0,5,6,9};
+            quality=chromatic_qualities[config.chromatic_quality];
+        }
+        if(quality){
+            static const int third[]={0,4,3,3,4,4,4,3,3,3};
+            static const int fifth[]={0,7,7,6,8,7,7,7,6,6};
+            static const int seventh[]={0,11,10,9,10,11,10,10,10,9};
+            tones[2]=hb_cp_mod(root+third[quality]);
+            tones[4]=hb_cp_mod(root+fifth[quality]);
+            tones[6]=hb_cp_mod(root+seventh[quality]);
         }
     }
     /* Form: Auto, Power, Triad, Seventh, Ninth, Add9, Sixth, 6/9,
@@ -78,7 +100,7 @@ static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
         {0,2,4,6,1,3,5},{0,1,4,-1,-1,-1,-1},{0,3,4,-1,-1,-1,-1}
     };
     unsigned selected=0;
-    if(config.mode==2&&config.size==0){
+    if(config.mode==2&&config.size==0&&!config.quality){
         static const int order[7]={0,2,4,6,1,3,5};
         for(int index=0;index<7;index++){
             int pitch=tones[order[index]];
@@ -89,7 +111,13 @@ static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
             if((chord&(1u<<pitch))&&!(selected&(1u<<pitch))){ordered[count++]=pitch;selected|=1u<<pitch;}
         }
     }else for(int index=0;index<7;index++){
-        int role=forms[config.size][index];if(role<0)break;
+        /* Auto on a recognized seventh keeps four voices when changing its
+           quality; an explicit form always chooses its own degree set. */
+        int form=config.size;
+        if(config.mode==2&&config.quality&&form==0){
+            form=recognized_seventh?3:2;
+        }
+        int role=forms[form][index];if(role<0)break;
         int pitch=tones[role];
         if(!(selected&(1u<<pitch))){ordered[count++]=pitch;selected|=1u<<pitch;}
     }

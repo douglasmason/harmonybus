@@ -27,13 +27,14 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.108'
+          assert module['version']=='0.2.109'
           levels=module['capabilities']['ui_hierarchy']['levels']
           buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
           assert buffer['options']==[f'{ms} ms' for ms in [0,25,*range(50,1001,50)]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars']
           assert buffer['default']=='1/16'
-          assert levels['root']['name']=='Harmony Bus 0.2.108'
+          assert levels['root']['name']=='Harmony Bus 0.2.109'
           assert levels['chord_player']['name']=='Auto Chord'
+          assert 'ui_test' not in levels
           assert levels['arp_player']['name']=='Arp / Strum'
           for page in ('chord_player','arp_player','follower_root'):
               assert len(levels[page]['knobs'])<=8
@@ -63,7 +64,7 @@ jobs:
           assert any(item.get('level')=='global_transpose' for item in levels['root']['params'])
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
           assert 'static void hb_render_conductor_event' in source
-          assert 'rendered_note=note+g_bus.global_transpose' in source
+          assert 'rendered_note=note+(instance->movy_passthrough?0:g_bus.global_transpose)' in source
           assert 'render_pitch=source_note+g_bus.global_transpose' in source
           assert 'int direct=source_note+g_bus.global_transpose' in source
           assert 'if(!strcmp(key,"pretranspose_root"))' in source
@@ -175,7 +176,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.108'
+          assert module['version']==os.environ['VERSION']=='0.2.109'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -194,7 +195,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Recovery release: restore the 0.2.105 DSP after reports of silence. Pair with Movy hbclean.29. Temporarily withdraw conductor chord generation/recording and new quality overrides; retain follower chord/arp and timing behavior."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Recovery release: restore the 0.2.105 DSP after reports of silence. Pair with Movy hbclean.31. Temporarily withdraw conductor chord generation/recording and new quality overrides; retain follower chord/arp and timing behavior."
           fi
 
       - name: Update Module Store metadata

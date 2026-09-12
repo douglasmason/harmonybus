@@ -2,9 +2,9 @@
 
 ## Which time determines the rendered note?
 
-Recovery release: the DSP uses 0.2.105 behavior. Conductor chord generation, rendered-chord recording and new quality overrides are temporarily withdrawn.
+Conductor and follower chord modes, rendered conductor recording and chord-quality controls are restored. Movy preserves the existing Render To route and separately captures private recording messages. UI Test is removed from the module menu.
 
-**HarmonyBus 0.2.108 / Movy 0.34.1-hbclean.29.** Choose a release time first. At release, map the source note using the effective harmony then available. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.109 / Movy 0.34.1-hbclean.31.** Choose a release time first. At release, map the source note using the effective harmony then available. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -186,3 +186,18 @@ Arp / Strum has an **Arp Phase** knob, separate from pitch register and inversio
 With a 1/16 rate, a gesture received at beat 0.10 starts at beat 0.25 in Auto. A gesture exactly on a division starts on the following division. Inverted and spread chords start on their actual root, even when it is above the bass. Raw-note arpeggios use the most recently played available root. The selected order continues from that position; Random starts with the root and randomizes subsequent steps.
 
 Follower buffering still happens before chord generation and arpeggiation. Auto anchors to the next division after release from that buffer. Releasing all momentary keys before that division cancels the pending start; latch retains it. Phase affects Repeat Arp; Together and Once retain their existing behavior. Existing presets load as Free.
+
+
+## Conductor recording and chord quality
+
+Auto Chord and Arp / Strum work on both conductor and follower tracks. A conductor publishes the complete generated harmonic gesture to the bus while arpeggiating individual voices. Local monitoring and Render To receive the generated output.
+
+With Movy hbclean.31, recording stores the emitted conductor chord voices and their timing. Those voices are marked as already rendered, so playback does not generate a chord for every saved note. Changing chord form afterward does not expand previously recorded chords. Older, unmarked notes retain ordinary processing. Save and reload preserve this distinction.
+
+| Control | Behavior |
+| --- | --- |
+| Quality | Auto, Major, Minor, Dim, Aug, Maj7, Dom7, Min7, Half Dim7 or Dim7. Overrides apply in both chord modes; Form still chooses the included degrees. |
+| Chromatic Quality | In Scale Root mode, out-of-scale keys use Scale, Major / Maj7, Major / Dom7 or Dim / Dim7. An explicit Quality overrides this choice. |
+| Dim Next | Arms the existing one-shot Chromatic Below modifier for a follower chord gesture: lower the input by one semitone and use diminished quality. The next unmodified gesture returns to normal. |
+
+The experimental UI Test page is no longer exposed. Existing Foll Mod controls remain available. A broader momentary knob-touch interface has not been added in this release.

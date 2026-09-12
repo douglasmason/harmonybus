@@ -7,17 +7,22 @@ static double position;
 static float tempo=120;
 static int transport=2,render_count;
 static uint8_t rendered[512][4];
+static uint8_t recorded[512][4];static int recorded_count;
 static double test_beat(void){return position;}
 static float test_bpm(void){return tempo;}
 static int test_clock(void){return transport;}
-static int test_inject(const uint8_t *packet,int length){assert(length==4);if(render_count<512)memcpy(rendered[render_count++],packet,4);return 4;}
+static int test_inject(const uint8_t *packet,int length){assert(length==4);
+    if((packet[0]&0xf0)==0x30){if(recorded_count<512)memcpy(recorded[recorded_count++],packet,4);}
+    else if(render_count<512)memcpy(rendered[render_count++],packet,4);
+    return 4;
+}
 static host_api_v1_t host={.sample_rate=48000,.get_beat_position=test_beat,.get_bpm=test_bpm,.get_clock_status=test_clock,.midi_inject_to_move=test_inject};
 static hb_global_shared_t globals;
 static uint8_t output[64][3];static int lengths[64];
 static Inst *fixture(void){
     g_init=0;g_global_shared=&globals;memset(&globals,0,sizeof(globals));
     memset(g_movy_clips,0,sizeof(g_movy_clips));g_movy_present=g_movy_blocked=0;
-    position=0;tempo=120;transport=2;render_count=0;
+    position=0;tempo=120;transport=2;render_count=recorded_count=0;
     move_midi_fx_init(&host);
     Inst *instance=API.create_instance("",NULL);
     API.set_param(instance,"role","Follower");API.set_param(instance,"source_channel","1");
@@ -219,4 +224,109 @@ static void phase_grid(void){
     assert(instance->player.config.phase==1);
     API.destroy_instance(instance);
 }
-int main(void){phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();puts("chord player: voicings, ownership, mirrored rendering, strum, arp/latch, release harmony, state and panic pass");}
+static void conductor_chords(void){
+    Inst *instance=fixture();API.set_param(instance,"role","Conductor");
+    instance->movy_track=2;
+    API.set_param(instance,"chord_mode","Scale Root");
+    API.set_param(instance,"follower_scale","Major");
+    int before=render_count;
+    midi(instance,1,62);assert(render_count==before); /* no raw D echo */
+    int count=advance(instance,0,64);
+    assert(count==3&&output[0][1]==62&&output[1][1]==65&&output[2][1]==69);
+    assert(render_count==before+3);
+    assert(recorded_count==3&&recorded[0][1]==0x92&&recorded[0][2]==62);
+    for(int index=0;index<3;index++)assert(rendered[before+index][2]==output[index][1]);
+    assert(instance->held_count[62]&&instance->held_count[65]&&instance->held_count[69]);
+    assert(bus_read().root_pc==2); /* followers see generated D minor, not raw D */
+    midi(instance,0,62);assert(advance(instance,0,64)==3);
+    assert(recorded_count==6&&recorded[3][1]==0x82);
+    for(int index=0;index<3;index++)assert(output[index][0]==0x80);
+    assert(!instance->held_count[62]&&!instance->held_count[65]&&!instance->held_count[69]);
+    /* Source note chooses the bass and inversion of the recognized harmony. */
+    API.set_param(instance,"chord_mode","Conductor Chord");
+    midi(instance,1,65);count=advance(instance,0,64);
+    assert(count==3&&output[0][1]==65&&output[1][1]==69&&output[2][1]==74);
+    midi(instance,0,65);assert(advance(instance,0,64)==3);
+    /* A saved chord voice is accepted directly, without doubling on replay. */
+    API.set_param(instance,"hb_movy_playback","1");
+    API.set_param(instance,"hb_movy_passthrough","1");
+    before=render_count;int prior_recorded=recorded_count;
+    midi(instance,1,72);assert(instance->held_count[72]);
+    assert(advance(instance,0,64)==0);
+    assert(render_count==before+1&&rendered[before][2]==72);
+    midi(instance,0,72);assert(advance(instance,0,64)==0);
+    assert(recorded_count==prior_recorded);
+    API.set_param(instance,"hb_movy_passthrough","0");
+    API.set_param(instance,"hb_movy_playback","0");
+    /* The arp publishes its full harmonic gesture while sounding one note. */
+    API.set_param(instance,"chord_mode","Scale Root");
+    API.set_param(instance,"arp_playback","Repeat Arp");
+    midi(instance,1,60);count=advance(instance,0,64);
+    assert(count==1&&output[0][1]==60);
+    assert(instance->held_count[60]&&instance->held_count[64]&&instance->held_count[67]);
+    assert(bus_read().root_pc==0);
+    midi(instance,0,60);assert(advance(instance,0,64)==1&&output[0][0]==0x80);
+    API.destroy_instance(instance);
+    /* Empty bus still accepts the first Conductor Chord gesture. */
+    instance=fixture();API.set_param(instance,"role","Conductor");
+    API.set_param(instance,"follower_scale","Major");
+    API.set_param(instance,"chord_mode","Conductor Chord");
+    memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));
+    hb_effective_write(g_bus.observed_harmony);
+    midi(instance,1,60);assert(advance(instance,0,64)==3);
+    assert(output[0][1]==60&&output[1][1]==64&&output[2][1]==67);
+    assert(bus_read().valid&&bus_read().root_pc==0);
+    midi(instance,0,60);assert(advance(instance,0,64)==3);
+    API.destroy_instance(instance);
+}
+static void chord_qualities(void){
+    hb_cp_config config;hb_cp_defaults(&config);config.mode=1;config.size=3;
+    unsigned major=0xAB5;int pitches[HB_CP_VOICES];
+    config.chromatic_quality=1;
+    const int major_seventh[]={61,65,68,72};
+    assert(hb_cp_voice(config,61,0,0,major,pitches)==4);
+    expect_notes(pitches,major_seventh,4);
+    config.chromatic_quality=2;
+    const int dominant_seventh[]={61,65,68,71};
+    assert(hb_cp_voice(config,61,0,0,major,pitches)==4);
+    expect_notes(pitches,dominant_seventh,4);
+    config.chromatic_quality=3;
+    const int diminished_seventh[]={61,64,67,70};
+    assert(hb_cp_voice(config,61,0,0,major,pitches)==4);
+    expect_notes(pitches,diminished_seventh,4);
+    config.quality=5;
+    assert(hb_cp_voice(config,60,0,0,major,pitches)==4);
+    const int overriding_seventh[]={60,64,67,71};
+    expect_notes(pitches,overriding_seventh,4);
+    config.mode=2;config.size=0;config.quality=9;
+    unsigned recognized=(1u<<0)|(1u<<4)|(1u<<7)|(1u<<11);
+    assert(hb_cp_voice(config,60,0,recognized,major,pitches)==4);
+    const int override_detected[]={60,63,66,69};
+    expect_notes(pitches,override_detected,4);
+    Inst *instance=fixture();API.set_param(instance,"role","Conductor");
+    API.set_param(instance,"chord_mode","Scale Root");
+    API.set_param(instance,"chord_form","Seventh");
+    API.set_param(instance,"chromatic_quality","Dim / Dim7");
+    midi(instance,1,61);assert(advance(instance,0,64)==4);
+    expect_notes((int[]){output[0][1],output[1][1],output[2][1],output[3][1]},diminished_seventh,4);
+    midi(instance,0,61);assert(advance(instance,0,64)==4);
+    char state[512];API.get_param(instance,"state",state,sizeof(state));
+    assert(strstr(state,";cq1,0,3"));
+    Inst *copy=API.create_instance("",NULL);API.set_param(copy,"state",state);
+    assert(copy->player.config.chromatic_quality==3);
+    API.destroy_instance(copy);API.destroy_instance(instance);
+    instance=fixture();API.set_param(instance,"chord_mode","Scale Root");
+    API.set_param(instance,"chord_form","Seventh");
+    API.set_param(instance,"chord_dim_next","Arm");
+    assert(instance->approach_pad_armed==HB_APPROACH_CHROM_BELOW);
+    midi(instance,1,62);assert(advance(instance,0,64)==4);
+    const int below_dim7[]={61,64,67,70};
+    expect_notes((int[]){output[0][1],output[1][1],output[2][1],output[3][1]},below_dim7,4);
+    assert(instance->approach_pad_armed==HB_APPROACH_OFF);
+    midi(instance,0,62);assert(advance(instance,0,64)==4);
+    midi(instance,1,62);assert(advance(instance,0,64)==4);
+    const int regular_dmin7[]={62,65,69,72};
+    expect_notes((int[]){output[0][1],output[1][1],output[2][1],output[3][1]},regular_dmin7,4);
+    API.destroy_instance(instance);
+}
+int main(void){phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
