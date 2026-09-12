@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.97 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.97"
+/* Harmony Bus v0.2.98 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.98"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -848,7 +848,35 @@ static double hb_next_record_phase(void){
     long nearest=(long)(shifted+0.5);
     return hb_next_normalize_phase((double)nearest*grid-anticipation);
 }
+/* Predictor bookkeeping follows the shared transport, never instance ticks. */
+static unsigned next_cache_revision, next_configuration;
+static unsigned hb_next_configuration(void){
+    /* Controls that alter observed harmonies or their recorded phase. */
+    unsigned signature=0;
+    int controls[]={g_bus.context,g_bus.sensor_sources,g_bus.clip_context,g_bus.clip_slot,
+        g_bus.global_transpose,g_bus.chord_timing,g_bus.anticipation,
+        g_bus.chord_timescale,g_bus.stability,g_bus.inference_window_ms};
+    for(unsigned index=0;index<sizeof(controls)/sizeof(controls[0]);index++)
+        signature=signature*31u+(unsigned)controls[index];
+    return signature;
+}
+static double next_loop_start, next_loop_end;
+static hb_harmony_t next_pending;
+static double next_pending_beat, next_pending_phase;
+static int next_pending_active;
+static double hb_next_transport_beat(void){
+    double beat=(g_host&&g_host->get_beat_position)?g_host->get_beat_position():-1.0;
+    return beat>=0.0?beat:(double)g_bus.clip_clock_ticks/24.0;
+}
+static int hb_next_is_harmony(hb_harmony_t harmony){
+    return harmony.valid&&harmony.chord_index>=0;
+}
 static void hb_next_reset_knowledge(void){
+    next_pending_active=0;
+    next_cache_revision=g_bus.cache_rev;
+    next_configuration=hb_next_configuration();
+    next_loop_start=g_bus.clip_loop_start;
+    next_loop_end=g_bus.clip_loop_end;
     g_bus.next_model_locked=0;
     g_bus.next_shift_active=0;
     g_bus.next_learning_count=0;
@@ -859,9 +887,8 @@ static void hb_next_reset_knowledge(void){
     g_bus.next_learning_progress_beats=0.0;
 }
 static void hb_next_record_observed(hb_harmony_t harmony){
-    g_bus.observed_harmony=harmony;
-    if(!harmony.valid)return;
-    double phase=hb_next_record_phase();
+    if(!hb_next_is_harmony(harmony)||g_bus.next_model_locked)return;
+    double phase=next_pending_phase;
     if(g_bus.next_learning_count>0){
         hb_loop_harmony_event_t *last=&g_bus.next_learning[g_bus.next_learning_count-1];
         if(hb_harmony_equal_effective(last->harmony,harmony))return;
@@ -899,25 +926,35 @@ static int hb_next_model_accepts_observed(hb_harmony_t harmony,double phase){
     return 0;
 }
 static void hb_next_begin_relearning(void){
-    /* Preserve clip bounds/playhead, but immediately stop predictive shifting
-       and throw away stale musical knowledge. The contradicting committed
-       harmony becomes the first event of the new learning pass. */
-    g_bus.next_model_locked=0;
-    g_bus.next_shift_active=0;
-    g_bus.next_model_count=0;
-    g_bus.next_learning_count=0;
-    g_bus.next_learning_progress_beats=0.0;
-    g_bus.next_learning_started=0;
-    g_bus.next_learning_progress_beats=0.0;
+    hb_next_reset_knowledge();
 }
 static void hb_commit_observed_harmony(hb_harmony_t harmony){
-    double phase=hb_next_record_phase();
+    /* Unknown pitches and gaps cannot replace the last established harmony. */
+    if(!hb_next_is_harmony(harmony))return;
+    g_bus.observed_harmony=harmony;
+    if(!next_pending_active||!hb_harmony_equal_effective(next_pending,harmony)){
+        next_pending=harmony;
+        next_pending_beat=hb_next_transport_beat();
+        next_pending_phase=hb_next_record_phase();
+        next_pending_active=1;
+    }
+    if(hb_next_lookahead_beats()<=0.0||!g_bus.next_model_locked)hb_effective_write(harmony);
+}
+static void hb_next_confirm_observed(double beat){
+    if(!next_pending_active)return;
+    double bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
+    if(bpm<=0.0)bpm=120.0;
+    /* Confirm for at least 25ms; retain the original transition phase. */
+    double confirmation=(g_bus.inference_window_ms>25?g_bus.inference_window_ms:25)*bpm/60000.0;
+    if(beat-next_pending_beat+1e-9<confirmation)return;
+    hb_harmony_t harmony=next_pending;
+    double phase=next_pending_phase;
     if(g_bus.next_model_locked&&!hb_next_model_accepts_observed(harmony,phase)){
         hb_next_begin_relearning();
-        hb_effective_write(harmony);
+        next_pending_phase=phase;
     }
     hb_next_record_observed(harmony);
-    if(hb_next_lookahead_beats()<=0.0||!g_bus.next_model_locked)hb_effective_write(harmony);
+    next_pending_active=0;
 }
 static int hb_next_model_event_for_phase(double phase,int shifted){
     if(!g_bus.next_model_locked||g_bus.next_model_count<=0)return -1;
@@ -948,7 +985,8 @@ static int hb_next_upcoming_event(double phase){
 static void hb_next_promote_learning(void){
     /* A full loop LENGTH of observation covers every circular clip phase even
        when learning started mid-loop. No explicit playhead-wrap event needed. */
-    if(g_bus.next_learning_count<=0&&g_bus.observed_harmony.valid){
+    if(g_bus.next_model_locked)return;
+    if(g_bus.next_learning_count<=0&&hb_next_is_harmony(g_bus.observed_harmony)){
         g_bus.next_learning[0].phase=0.0;
         g_bus.next_learning[0].harmony=g_bus.observed_harmony;
         g_bus.next_learning_count=1;
@@ -978,20 +1016,30 @@ static void hb_next_apply_effective(double playhead){
     g_bus.next_shift_active=(lookahead>0.0&&ahead>1e-6&&ahead<=lookahead+1e-6)?1:0;
 }
 static void hb_next_update_playhead(int frames,int sample_rate){
-    double playhead=hb_clip_playhead();
-    g_bus.next_last_playhead=playhead;
-    g_bus.next_have_playhead=1;
+    (void)frames;(void)sample_rate;
+    double beat=hb_next_transport_beat();
     double length=hb_next_loop_length();
-    if(length>0.0&&frames>0&&sample_rate>0){
-        double bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
-        if(bpm<=0.0)bpm=120.0;
-        g_bus.next_learning_progress_beats += ((double)frames*bpm)/(60.0*(double)sample_rate);
-        if(g_bus.next_learning_progress_beats+1e-6>=length){
-            hb_next_promote_learning();
-            while(g_bus.next_learning_progress_beats>=length)g_bus.next_learning_progress_beats-=length;
-        }
+    if(next_configuration!=hb_next_configuration()||next_cache_revision!=g_bus.cache_rev||next_loop_start!=g_bus.clip_loop_start||next_loop_end!=g_bus.clip_loop_end){
+        hb_next_reset_knowledge();
+        if(hb_next_is_harmony(g_bus.observed_harmony))hb_commit_observed_harmony(g_bus.observed_harmony);
     }
-    hb_next_apply_effective(playhead);
+    double delta=g_bus.next_have_playhead?beat-g_bus.next_last_playhead:0.0;
+    /* A backward seek/restart is not elapsed playback. Keep a locked model,
+       but discard an incomplete pass rather than promoting missing phases. */
+    if(delta<0.0||delta>length){
+        if(!g_bus.next_model_locked)hb_next_reset_knowledge();
+        next_pending_active=0;
+        delta=0.0;
+    }
+    hb_next_confirm_observed(beat);
+    if(!g_bus.next_model_locked&&length>0.0&&g_bus.next_learning_count>0){
+        if(g_bus.next_learning_started)g_bus.next_learning_progress_beats+=delta;
+        g_bus.next_learning_started=1;
+        if(g_bus.next_learning_progress_beats+1e-6>=length)hb_next_promote_learning();
+    }
+    g_bus.next_last_playhead=beat;
+    g_bus.next_have_playhead=1;
+    hb_next_apply_effective(hb_clip_playhead());
 }
 static double hb_next_effective_boundary(double absolute_beat){
     if(hb_next_lookahead_beats()<=0.0||!g_bus.next_model_locked||g_bus.next_model_count<=0)return -1.0;

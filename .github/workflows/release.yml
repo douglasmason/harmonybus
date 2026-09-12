@@ -27,9 +27,9 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.97'
+          assert module['version']=='0.2.98'
           levels=module['capabilities']['ui_hierarchy']['levels']
-          assert levels['root']['name']=='Harmony Bus 0.2.97'
+          assert levels['root']['name']=='Harmony Bus 0.2.98'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert levels['follower_mod']['name']=='Foll Mod'
@@ -109,6 +109,11 @@ jobs:
           clang -std=c11 -O2 tests/follower_timing_test.c -o /tmp/follower_timing_test
           /tmp/follower_timing_test
 
+      - name: Verify loop learning with four conductor callbacks
+        run: |
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/loop_learning_test.c src/harmony_core.c -lm -o /tmp/loop_learning_test
+          /tmp/loop_learning_test
+
       - name: Build ARM64 HarmonyBus
         run: bash scripts/build_harmonybus_move.sh
 
@@ -135,7 +140,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.97'
+          assert module['version']==os.environ['VERSION']=='0.2.98'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -154,7 +159,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" --clobber
           else
-            gh release create "$TAG" "$HB" --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Lookahead now defaults to Off in the DSP and both UI parameter definitions. Lookahead can still be enabled manually."
+            gh release create "$TAG" "$HB" --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Lookahead retains valid harmonies through gaps and rejects unresolved pitches. Stable learned loops are retained; shared transport timing prevents multiple conductors from shortening learning. Confirmed musical changes, clip changes and inference settings invalidate stale knowledge. Lookahead still defaults to Off."
           fi
 
       - name: Update Module Store metadata
