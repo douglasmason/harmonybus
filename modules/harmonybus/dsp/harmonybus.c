@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.120 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.120"
+/* Harmony Bus v0.2.121 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.121"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1820,6 +1820,17 @@ static void hb_player_note_on(Inst *instance,int source_note,int channel,int vel
     int voice_count=hb_cp_voice(config,modified_note+(scale_mode?0:g_bus.global_transpose),
         harmony.root_pc,harmony.valid?hb_harmony_chord_mask(harmony):0,
         (instance->role==0||harmony.valid)?scale:0,pitches);
+    if(instance->role==1&&config.mode==0){
+        /* Raw-note arps use the ordinary follower mapper before scheduling.
+           Its result already includes master transpose. Keep the physical
+           source key as owner so release still finds the remapped voice. */
+        pitches[0]=hb_map_follower_note_now(instance,source_note);voice_count=1;
+        int approach=hb_approach_effective(instance->approach_control,instance->approach_pad_armed);
+        if(approach!=HB_APPROACH_OFF){
+            pitches[0]=hb_apply_approach(instance,pitches[0],approach);
+            instance->approach_pad_armed=HB_APPROACH_OFF;
+        }
+    }
     if(scale_mode&&voice_count){
         for(int voice=0;voice<voice_count;voice++)pitches[voice]+=g_bus.global_transpose;
         while(pitches[0]<0)for(int voice=0;voice<voice_count;voice++)pitches[voice]+=12;
@@ -1829,7 +1840,7 @@ static void hb_player_note_on(Inst *instance,int source_note,int channel,int vel
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
         if(key->used&&key->source==source_note&&key->channel==channel){
-            key->root_pc=config.mode==2?harmony.root_pc:mod12(modified_note+g_bus.global_transpose);
+            key->root_pc=config.mode==0?mod12(pitches[0]):(config.mode==2?harmony.root_pc:mod12(modified_note+g_bus.global_transpose));
             key->recordable=instance->role==0&&!instance->movy_playback;
             key->harmony_sequence=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);
             key->harmony_root=harmony.valid?harmony.root_pc:-1;
@@ -1999,7 +2010,7 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
 /* Revoice chord-player owners through the same path as their original press.
    The player's owned-note diff drains OFFs before ONs, even at small capacity. */
 static void hb_reharmonize_held_chords(Inst *instance){
-    if(instance->player.config.mode!=2)return;
+    if(instance->player.config.mode!=2&&!(instance->player.config.mode==0&&instance->player.config.playback))return;
     /* Pending input owns its future onset, not the harmony of existing owners.
        Due input is released before this call; remaining queued notes must not
        block revoicing the held chord before this tick's arp step is emitted. */
