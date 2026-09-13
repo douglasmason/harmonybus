@@ -11,7 +11,8 @@ typedef struct {
 typedef struct {
     int used, held, source, channel, velocity, count, fresh, root_pc, recordable;
     unsigned sequence, harmony_mask, harmony_sequence;
-    int harmony_root;
+    int harmony_root, playback_origin, range;
+    unsigned transform_revision;
     int notes[HB_CP_VOICES];
     double due[HB_CP_VOICES];
     unsigned started;
@@ -234,11 +235,21 @@ static int hb_cp_diff(hb_chord_player *player,uint8_t desired[16][128],
 typedef struct {int key,voice,pitch,channel;} hb_cp_entry;
 static int hb_cp_entries(hb_chord_player *player,hb_cp_entry *entries,int fresh){
     int count=0;
+    uint8_t seen[16][128]={{0}};
     for(int key=0;key<HB_CP_KEYS;key++){
         hb_cp_key *owner=&player->keys[key];
         if(!owner->used||(fresh&&!owner->fresh))continue;
         for(int voice=0;voice<owner->count;voice++){
-            entries[count++]=(hb_cp_entry){key,voice,owner->notes[voice],owner->channel};
+            int octaves=player->config.playback==1?hb_cp_clamp(owner->range,1,4):1;
+            for(int octave=0;octave<octaves;octave++){
+                int pitch=owner->notes[voice]+12*octave;
+                if(pitch>127)continue;
+                if(player->config.playback==1){
+                    if(seen[owner->channel][pitch])continue;
+                    seen[owner->channel][pitch]=1;
+                }
+                entries[count++]=(hb_cp_entry){key,voice,pitch,owner->channel};
+            }
         }
     }
     for(int index=1;index<count;index++){
@@ -262,17 +273,9 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
         if(!player->sounding_count)player->flushing=0;
         return emitted;
     }
-    hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES];
+    hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
     if(player->config.playback==1){
         int count=hb_cp_entries(player,entries,0);
-        /* Collapse shared output pitches before arpeggiation. */
-        int unique=0;
-        for(int index=0;index<count;index++){
-            int seen=0;for(int prior=0;prior<unique;prior++)
-                if(entries[prior].pitch==entries[index].pitch&&entries[prior].channel==entries[index].channel)seen=1;
-            if(!seen)entries[unique++]=entries[index];
-        }
-        count=unique;
         double rate=hb_cp_division(player->config.rate);
         if(!count)player->running=0;
         if(count&&!player->running&&player->config.phase==1){

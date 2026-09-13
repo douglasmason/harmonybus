@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.124 / Movy 0.34.1-hbclean.32.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.125 / Movy 0.34.1-hbclean.40.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -233,7 +233,7 @@ Changing master transpose releases sounding voices at their previous pitches and
 
 ## Receiver tracks and MIDI routing
 
-**HarmonyBus 0.2.124 / Movy hbclean.32.** On the main panel choose Role: Conductor / Follower / Receiver / Off. Set Role to Receiver, then set Receive Channel (immediately after Render To Ch) to the source's Render To channel. Put an instrument after HB and unmute the destination's local audio. Receivers deliver already-rendered notes without applying chord mode, harmony mapping, quantization, or another render broadcast. Raw pad notes on a Receiver are consumed; use a Conductor or Follower to generate input.
+**HarmonyBus 0.2.125 / Movy hbclean.32.** On the main panel choose Role: Conductor / Follower / Receiver / Off. Set Role to Receiver, then set Receive Channel (immediately after Render To Ch) to the source's Render To channel. Put an instrument after HB and unmute the destination's local audio. Receivers deliver already-rendered notes without applying chord mode, harmony mapping, quantization, or another render broadcast. Raw pad notes on a Receiver are consumed; use a Conductor or Follower to generate input.
 
 **Fresh Movy sets:** tracks 1–12 retain three conductor/follower quartets with Plaits. Tracks 13, 14, 15 and 16 receive channels 1, 2, 3 and 4 respectively and have no instrument loaded. All local outputs still start muted. Load an instrument and unmute each destination you want to hear. Existing saved sets retain their chains and settings; configure Receiver manually there.
 
@@ -249,7 +249,7 @@ Four-bar timing is available for Quant Grid, Chord Grid, Follower Buffer, Lookah
 
 ## Master transpose across live and recorded tracks
 
-HarmonyBus 0.2.124 applies master transpose to rendered conductor playback as well as live and recorded follower input. Render To channels and HB Receivers hear the same final pitches as local monitoring. Follower pads keep their reference-scale roles: playing 1-3-5 continues to follow the detected conductor harmony after transposition.
+HarmonyBus 0.2.125 applies master transpose to rendered conductor playback as well as live and recorded follower input. Render To channels and HB Receivers hear the same final pitches as local monitoring. Follower pads keep their reference-scale roles: playing 1-3-5 continues to follow the detected conductor harmony after transposition.
 
 Recorded conductor voices bypass chord generation, so changing chord mode does not regenerate an existing recording. They still pass through master transpose. New conductor chord recordings store their rendered voicing in the reference key; the current master transpose is applied on playback. Harmony detection uses that same reference basis and applies transpose once. Changing transpose releases old sounding pitches before new notes use the new setting.
 
@@ -274,7 +274,7 @@ Input still passes through the conductor-first audio queue. At a conductor chang
 Ordinary follower notes and Trigger Strum retain their existing buffer behavior. This bypass applies to Repeat Arp.
 
 
-## Held arps and pressure (0.2.124)
+## Held arps and pressure (0.2.125)
 
 Retrigger Held defaults to On for new instances and prepared Movy tracks. Existing saved Off choices remain Off. Harmony changes replace the held arp mapping before the due hit without restarting Auto or moving the running grid. Repeated pitches emit OFF then ON in the same callback when output capacity allows.
 
@@ -282,3 +282,32 @@ Polyphonic aftertouch sets subsequent Repeat Arp hit velocities for the original
 
 
 Movy hbclean.39 also records note-relative pressure curves during normal follower recording. Playback sends the original follower note and its pressure curve through HB, so arp velocities reproduce the gesture while pitches continue following the current conductor. Curves follow note onset quantization, clip speed, transposition, copies, and loop wraps. Legacy clips have no pressure curves. Retrospective Capture remains note-only.
+
+## Foll Play: harmony-aware phrase transformations
+
+Foll Play changes playback without rewriting clip notes or recorded pressure. Its eight controls are:
+
+| Knob | Control | Behavior / default |
+| --- | --- | --- |
+| K1 | Tone Rotate | -24 to +24 permitted-tone steps; 0 |
+| K2 | Wrap Octave | Keep the result within the source's harmony-rooted octave; Off |
+| K3 | Mirror | Reverse tone positions around the root before rotation; Off |
+| K4 | Octave | -3 to +3 octaves after the tone transform; 0 |
+| K5 | Arp Range | Repeat the finished voicing over 1–4 octaves; 1 Oct |
+| K6 | Apply To | Both, Clip or Live; Both |
+| K7 | Bypass | Temporarily disable these transformations; Off |
+| K8 | Reset | Restore the panel's neutral settings |
+
+For raw follower notes, Follower Content supplies the permitted tones. Closest Split retains the input's assigned group. Closest Split 2 first transforms the next diatonic input's resolution, then places the chromatic approach one semitone below it. Manual approaches are applied after the transform. Auto Chord rotates through the generated chord's tones, retaining its chosen quality and extensions. With no valid harmony, harmonic transforms pass notes through.
+
+For a C-major triad, rotation +1 sends C4, E4, G4 to E4, G4, C5. Wrap Octave instead makes the last result C4. Scale content uses the scale's tone sequence; Free content uses chromatic steps. Mirror reverses the tone index before rotation. At MIDI limits, octave adjustment preserves the resulting pitch class.
+
+Voicing and Arp Range do different jobs: voicing constructs the chord and inversion; range repeats that finished set in octaves. Repeat Arp deduplicates overlapping pitches and omits pitches above MIDI 127. Range also works for conductor arps; the harmonic phrase transforms apply to followers. Together and Once playback retain their existing voice count.
+
+Clip/Live distinguishes Movy's playback marker from live input. The marker stays attached to queued notes and held owners, so deferred notes and later revoicing keep the same scope. On hosts without that marker, input is treated as Live. New transform values reach held arps without restarting their phase; sustained non-arp notes follow Retrigger Held. Original source keys still own note-offs and pressure. Existing saved sets load with neutral transformations.
+
+## Performance-touch response
+
+Movy hbclean.40 sends an owned toggle's Off before normal view lookup and automation bookkeeping, including after navigating away from its original page. While a performance toggle is held, module-contract reloads, parameter polling and periodic autosave wait. Forced saves during teardown remain enabled. Parameter refresh resumes after a short 100 ms release quiet period; that period does not delay the Off write.
+
+Foll Play Bypass uses the same touch-On/release-Off behavior as Chrom Below and Scale Above. Reset is a one-shot touch action. Native and controller tests verify event ordering and absence of parameter reads during the held gesture; physical Move response time still requires an on-device check.

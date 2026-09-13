@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.124",
+  "name": "Harmony Bus 0.2.125",
   "abbrev": "HB2101",
-  "version": "0.2.124",
+  "version": "0.2.125",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.124 \u2014 Conductor-first follower boundary mapping",
+  "description": "Harmony Bus v0.2.125 \u2014 Conductor-first follower boundary mapping",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.124",
+          "name": "Harmony Bus 0.2.125",
           "params": [
             {
               "key": "version",
@@ -195,6 +195,10 @@
             {
               "level": "follower_mod",
               "label": "Foll Mod"
+            },
+            {
+              "level": "follower_play",
+              "label": "Foll Play"
             },
             {
               "level": "global_transpose",
@@ -1249,6 +1253,108 @@
             "strum_spread",
             "arp_phase",
             "arp_note_phase"
+          ]
+        },
+        "follower_play": {
+          "name": "Foll Play",
+          "params": [
+            {
+              "key": "play_rotate",
+              "name": "Tone Rotate",
+              "type": "int",
+              "min": -24,
+              "max": 24,
+              "step": 1,
+              "default": 0
+            },
+            {
+              "key": "play_wrap",
+              "name": "Wrap Octave",
+              "type": "enum",
+              "options": [
+                "Off",
+                "On"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
+              "key": "play_mirror",
+              "name": "Mirror",
+              "type": "enum",
+              "options": [
+                "Off",
+                "On"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
+              "key": "play_octave",
+              "name": "Octave",
+              "type": "int",
+              "min": -3,
+              "max": 3,
+              "step": 1,
+              "default": 0
+            },
+            {
+              "key": "play_range",
+              "name": "Arp Range",
+              "type": "enum",
+              "options": [
+                "1 Oct",
+                "2 Oct",
+                "3 Oct",
+                "4 Oct"
+              ],
+              "options_as_string": true,
+              "default": "1 Oct"
+            },
+            {
+              "key": "play_scope",
+              "name": "Apply To",
+              "type": "enum",
+              "options": [
+                "Both",
+                "Clip",
+                "Live"
+              ],
+              "options_as_string": true,
+              "default": "Both"
+            },
+            {
+              "key": "play_bypass",
+              "name": "Bypass",
+              "type": "enum",
+              "options": [
+                "Off",
+                "On"
+              ],
+              "options_as_string": true,
+              "default": "Off"
+            },
+            {
+              "key": "play_reset",
+              "name": "Reset",
+              "type": "enum",
+              "options": [
+                "-",
+                "Reset"
+              ],
+              "options_as_string": true,
+              "access": "write"
+            }
+          ],
+          "knobs": [
+            "play_rotate",
+            "play_wrap",
+            "play_mirror",
+            "play_octave",
+            "play_range",
+            "play_scope",
+            "play_bypass",
+            "play_reset"
           ]
         }
       },
@@ -2696,6 +2802,93 @@
         "max": 256,
         "step": 1,
         "default": 0
+      },
+      {
+        "key": "play_rotate",
+        "name": "Tone Rotate",
+        "type": "int",
+        "min": -24,
+        "max": 24,
+        "step": 1,
+        "default": 0
+      },
+      {
+        "key": "play_wrap",
+        "name": "Wrap Octave",
+        "type": "enum",
+        "options": [
+          "Off",
+          "On"
+        ],
+        "options_as_string": true,
+        "default": "Off"
+      },
+      {
+        "key": "play_mirror",
+        "name": "Mirror",
+        "type": "enum",
+        "options": [
+          "Off",
+          "On"
+        ],
+        "options_as_string": true,
+        "default": "Off"
+      },
+      {
+        "key": "play_octave",
+        "name": "Octave",
+        "type": "int",
+        "min": -3,
+        "max": 3,
+        "step": 1,
+        "default": 0
+      },
+      {
+        "key": "play_range",
+        "name": "Arp Range",
+        "type": "enum",
+        "options": [
+          "1 Oct",
+          "2 Oct",
+          "3 Oct",
+          "4 Oct"
+        ],
+        "options_as_string": true,
+        "default": "1 Oct"
+      },
+      {
+        "key": "play_scope",
+        "name": "Apply To",
+        "type": "enum",
+        "options": [
+          "Both",
+          "Clip",
+          "Live"
+        ],
+        "options_as_string": true,
+        "default": "Both"
+      },
+      {
+        "key": "play_bypass",
+        "name": "Bypass",
+        "type": "enum",
+        "options": [
+          "Off",
+          "On"
+        ],
+        "options_as_string": true,
+        "default": "Off"
+      },
+      {
+        "key": "play_reset",
+        "name": "Reset",
+        "type": "enum",
+        "options": [
+          "-",
+          "Reset"
+        ],
+        "options_as_string": true,
+        "access": "write"
       }
     ],
     "pre_capable": 1

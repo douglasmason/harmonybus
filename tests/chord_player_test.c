@@ -893,4 +893,103 @@ static void retrigger_default(void){
     assert(instance->retrigger_held==0);
     API.destroy_instance(instance);
 }
-int main(void){pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void follower_play_transform(void){
+    unsigned triad=(1u<<0)|(1u<<4)|(1u<<7);
+    hb_fp_config config={.rotate=1};
+    assert(hb_fp_note(config,60,0,triad)==64);
+    assert(hb_fp_note(config,64,0,triad)==67);
+    assert(hb_fp_note(config,67,0,triad)==72);
+    config.wrap=1;assert(hb_fp_note(config,67,0,triad)==60);
+    config.wrap=0;config.rotate=-1;assert(hb_fp_note(config,60,0,triad)==55);
+    config.rotate=0;config.mirror=1;assert(hb_fp_note(config,64,0,triad)==55);
+    config.bypass=1;assert(hb_fp_note(config,64,0,triad)==64);
+    for(int root=0;root<12;root++)for(int note=0;note<128;note++)for(int rotate=-24;rotate<=24;rotate++){
+        config=(hb_fp_config){.rotate=rotate,.octave=rotate%4};
+        int mapped=hb_fp_note(config,note,root,triad);
+        assert(mapped>=0&&mapped<=127);
+        if(rotate)assert(triad&(1u<<(mapped%12)));
+    }
+    Inst *instance=fixture();
+    API.set_param(instance,"content_map","Chord");
+    int baseline=hb_map_follower_note_now(instance,60);
+    API.set_param(instance,"play_rotate","1");
+    assert(hb_map_follower_note_now(instance,60)!=baseline);
+    API.set_param(instance,"play_scope","Clip");
+    assert(hb_map_follower_note_now(instance,60)==baseline);
+    instance->movy_playback=1;
+    assert(hb_map_follower_note_now(instance,60)!=baseline);
+    API.set_param(instance,"play_bypass","On");
+    assert(hb_map_follower_note_now(instance,60)==baseline);
+    API.set_param(instance,"play_bypass","Off");
+    API.set_param(instance,"travel_map","Closest Split 2");
+    API.set_param(instance,"split_map","135 / 2467");
+    for(int note=48;note<84;note++)if(!(0xAB5u&(1u<<(note%12)))){
+        int next=note+1;while(!(0xAB5u&(1u<<(next%12))))next++;
+        assert(hb_map_follower_note_now(instance,note)+1==hb_map_follower_note_now(instance,next));
+    }
+    API.set_param(instance,"play_range","4 Oct");API.set_param(instance,"play_octave","-2");
+    char state[8192];API.get_param(instance,"state",state,sizeof(state));
+    API.set_param(instance,"play_reset","Reset");assert(instance->play.rotate==0&&instance->play.range==0);
+    API.set_param(instance,"state",state);
+    assert(instance->play.rotate==1&&instance->play.range==3&&instance->play.octave==-2&&instance->play.scope==1);
+    API.get_param(instance,"base_state",state,sizeof(state));API.set_param(instance,"state",state);
+    assert(instance->play.rotate==0&&instance->play.range==0);
+    API.destroy_instance(instance);
+}
+static void follower_play_ownership(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"arp_playback","Repeat Arp");
+    API.set_param(instance,"play_scope","Clip");
+    API.set_param(instance,"play_range","2 Oct");
+    API.set_param(instance,"play_rotate","1");
+    instance->movy_playback=1;midi(instance,1,60);instance->movy_playback=0;
+    advance(instance,1,64);
+    hb_cp_key *owner=NULL;
+    for(int index=0;index<HB_CP_KEYS;index++)if(instance->player.keys[index].used)owner=&instance->player.keys[index];
+    assert(owner&&owner->playback_origin==1&&owner->range==2&&owner->notes[0]==64);
+    double next=instance->player.next_beat;
+    API.set_param(instance,"play_rotate","2");advance(instance,1,64);
+    assert(owner->notes[0]==67&&owner->playback_origin==1&&instance->player.next_beat==next);
+    hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
+    int count=hb_cp_entries(&instance->player,entries,0);
+    assert(count==2&&entries[0].pitch==67&&entries[1].pitch==79);
+    uint8_t pressure[3]={0xA0,60,47};API.process_midi(instance,pressure,3,output,lengths,64);
+    assert(owner->velocity==47);
+    position=next;API.tick(instance,48,48000,output,lengths,64);
+    assert(instance->player.next_beat>next);
+    midi(instance,0,60);advance(instance,1,64);
+    assert(!owner->used&&instance->player.sounding_count==0);
+    API.destroy_instance(instance);
+    /* Ordinary delayed notes retain clip scope through their queue as well. */
+    instance=fixture();API.set_param(instance,"play_scope","Clip");API.set_param(instance,"play_rotate","1");
+    instance->movy_playback=1;midi(instance,1,60);instance->movy_playback=0;advance(instance,1,64);
+    assert(instance->mapped[60]==64&&instance->follower_origin[60]==1);
+    API.set_param(instance,"retrigger_held","On");API.set_param(instance,"play_rotate","2");advance(instance,1,64);
+    assert(instance->mapped[60]==67);
+    midi(instance,0,60);advance(instance,1,64);assert(instance->mapped[60]==-1);
+    API.destroy_instance(instance);
+}
+
+static void conductor_arp_range_recording(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"role","Conductor");instance->movy_track=0;
+    API.set_param(instance,"chord_mode","Scale Degree");
+    API.set_param(instance,"arp_playback","Repeat Arp");
+    API.set_param(instance,"play_range","2 Oct");
+    midi(instance,1,60);
+    for(int tick=0;tick<8;tick++)advance(instance,125,64);
+    int upper=0;
+    for(int index=0;index<recorded_count;index++)
+        if((recorded[index][1]&0xF0)==0x90&&recorded[index][2]>=72)upper++;
+    assert(upper>0);
+    double next=instance->player.next_beat;
+    API.set_param(instance,"play_range","1 Oct");advance(instance,1,64);
+    assert(instance->player.next_beat==next);
+    for(int owner=0;owner<HB_CP_KEYS;owner++)if(instance->player.keys[owner].used)
+        assert(instance->player.keys[owner].range==1);
+    midi(instance,0,60);advance(instance,1,64);
+    assert(instance->player.sounding_count==0);
+    API.destroy_instance(instance);
+}
+
+int main(void){conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
