@@ -205,12 +205,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Preserve due arp hits across harmony changes and emit repeated pitches without a callback gap. Add per-source poly pressure for subsequent arp velocities. Default Retrigger Held to On while preserving saved Off choices. Pair with Movy hbclean.38 for pad pressure forwarding."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Preserve due arp hits across harmony changes and emit repeated pitches without a callback gap. Add per-source poly pressure for subsequent arp velocities. Default Retrigger Held to On while preserving saved Off choices. Pair with Movy hbclean.39 for pad pressure forwarding."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Preserve due arp hits across harmony changes and emit repeated pitches without a callback gap. Add per-source poly pressure for subsequent arp velocities. Default Retrigger Held to On while preserving saved Off choices. Pair with Movy hbclean.38 for pad pressure forwarding." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Preserve due arp hits across harmony changes and emit repeated pitches without a callback gap. Add per-source poly pressure for subsequent arp velocities. Default Retrigger Held to On while preserving saved Off choices. Pair with Movy hbclean.39 for pad pressure forwarding." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

@@ -855,6 +855,31 @@ static void arp_pressure(void){
         API.destroy_instance(instance);
     }
 }
+static void pressure_recording_and_replay(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"role","Conductor");instance->movy_track=0;
+    API.set_param(instance,"chord_mode","Scale Degree");
+    API.set_param(instance,"arp_playback","Repeat Arp");
+    midi(instance,1,60);advance(instance,0,64);
+    assert(recorded_count==1&&recorded[0][3]==100);
+    uint8_t pressure[3]={0xA0,60,43};
+    API.process_midi(instance,pressure,3,output,lengths,64);
+    position=0.25;advance(instance,0,64);
+    assert(recorded[recorded_count-1][1]==0x90&&recorded[recorded_count-1][3]==43);
+    API.destroy_instance(instance);
+    instance=fixture();API.set_param(instance,"arp_playback","Repeat Arp");
+    for(int loop=0;loop<2;loop++){
+        midi(instance,1,60);
+        /* Sequencer emits ON before same-tick stored pressure, before HB ticks. */
+        API.process_midi(instance,pressure,3,output,lengths,64);
+        int count=advance(instance,0,64);
+        assert(count==1&&output[0][0]==0x90&&output[0][2]==43);
+        position+=0.25;count=advance(instance,0,64);
+        assert(count==2&&output[1][0]==0x90&&output[1][2]==43);
+        midi(instance,0,60);advance(instance,0,64);position+=0.25;
+    }
+    API.destroy_instance(instance);
+}
 static void retrigger_default(void){
     Inst *instance=fixture();
     API.destroy_instance(instance);
@@ -868,4 +893,4 @@ static void retrigger_default(void){
     assert(instance->retrigger_held==0);
     API.destroy_instance(instance);
 }
-int main(void){arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+int main(void){pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
