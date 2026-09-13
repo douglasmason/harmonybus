@@ -6,7 +6,7 @@
 #define HB_CP_VOICES 12
 typedef struct {
     int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread, phase;
-    int quality, chromatic_quality;
+    int quality, chromatic_quality, note_phase;
 } hb_cp_config;
 typedef struct {
     int used, held, source, channel, velocity, count, fresh, root_pc, recordable;
@@ -26,6 +26,7 @@ typedef struct {
     double seconds, beat, next_beat, gate_beat;
 } hb_chord_player;
 static int hb_cp_mod(int value){value%=12;return value<0?value+12:value;}
+static int hb_cp_clamp(int value,int low,int high){return value<low?low:value>high?high:value;}
 static int hb_cp_abs(int value){return value<0?-value:value;}
 static double hb_cp_floor(double value){
     long long whole=(long long)value;return (double)whole-(value<(double)whole);
@@ -160,7 +161,7 @@ static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
     return output[0]>=0?count:0;
 }
 static void hb_cp_defaults(hb_cp_config *config){
-    memset(config,0,sizeof(*config));config->rate=2;config->gate=1;
+    memset(config,0,sizeof(*config));config->rate=2;config->gate=1;config->phase=1;
 }
 static int hb_cp_enabled(const hb_chord_player *player){
     return player->config.mode||player->config.playback;
@@ -275,7 +276,7 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
         count=unique;
         double rate=hb_cp_division(player->config.rate);
         if(!count)player->running=0;
-        if(count&&!player->running&&player->config.phase){
+        if(count&&!player->running&&player->config.phase==1){
             player->step=0;
             /* Rotate the ordered cycle to the newest gesture's actual root,
                which is not necessarily the bass of an inverted voicing. */
@@ -287,21 +288,32 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
                 }
             }
             if(root>=0)player->step=root;
+            player->step-=player->config.note_phase;
             player->next_beat=(hb_cp_floor(player->beat/rate)+1.0)*rate;
             player->running=2; /* Armed, no sounding note yet. */
         }
         if(count&&(!player->running||player->beat+1e-9>=player->next_beat)){
-            if(!player->running)player->step=0;
+            int first=!player->running;
+            if(first)player->step=-player->config.note_phase;
             int cycle=player->config.order==2&&count>1?2*count-2:count;
-            int ordinal=player->step%cycle;if(ordinal>=count)ordinal=cycle-ordinal;
+            /* Preserve the first-hit anchor in Free, including late callbacks.
+               Other modes use transport grid after their opening note. */
+            double onset=first?player->beat:player->next_beat;
+            if(!first){
+                int missed=(int)hb_cp_floor((player->beat-onset+1e-9)/rate);
+                if(missed>0){onset+=missed*rate;player->step+=missed;}
+            }
+            int ordinal=player->step%cycle;if(ordinal<0)ordinal+=cycle;
+            if(ordinal>=count)ordinal=cycle-ordinal;
             if(player->config.order==4&&player->running!=2){player->random=player->random*1664525u+1013904223u;ordinal=(int)(player->random%(unsigned)count);}
             hb_cp_entry entry=entries[ordinal];
             repeat_same=player->sounding[entry.channel][entry.pitch]!=0;
             player->arp_note=entry.pitch;player->arp_channel=entry.channel;
             static const double gates[4]={0.25,0.5,0.75,0.9};
-            double onset=player->config.phase?hb_cp_floor((player->beat+1e-9)/rate)*rate:player->beat;
             player->gate_beat=onset+rate*gates[player->config.gate];
-            player->next_beat=onset+rate;player->step=(player->step+1)%384;
+            player->next_beat=first&&player->config.phase==2?
+                (hb_cp_floor(player->beat/rate)+1.0)*rate:onset+rate;
+            player->step=(player->step+1)%cycle;
             player->running=1;
         }
         if(player->running==1&&!repeat_same&&player->beat<player->gate_beat){

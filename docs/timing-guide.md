@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.122 / Movy 0.34.1-hbclean.32.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.123 / Movy 0.34.1-hbclean.32.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -129,7 +129,7 @@ Open **Arp / Strum** on a conductor or follower. Playback defaults to Together, 
 
 **Momentary** follows source releases. **Latch** holds the pool; after all keys release, the next gesture replaces it. Overlapping held keys add pitches. Clear Notes, Stop, role/routing changes and player-control changes release the voices; edits require a fresh gesture. Existing stored clip notes are unchanged; currently generated synth voices are released.
 
-In Free phase, a follower arp starts at buffer release and a conductor arp starts at note-down. Auto waits for the next arp-rate division. Musical intervals follow tempo; ms spreads use audio time. Stopped playback uses a free-running tempo clock; rewind clears the gesture. Buffered note-offs retain their inherited delay. Capacity is 16 source keys with up to 12 tones each; excess keys are ignored. Physical device timing needs verification.
+In Free mode, Repeat Arp starts at note-down on both followers and conductors and bypasses Follower Buffer. Auto waits for the next arp-rate division. Musical intervals follow tempo; ms spreads use audio time. Stopped playback uses a free-running tempo clock; rewind clears the gesture. Buffered non-arp note-offs retain their inherited delay. Capacity is 16 source keys with up to 12 tones each; excess keys are ignored. Physical device timing needs verification.
 
 ## Dominant scale substitution
 
@@ -174,16 +174,21 @@ The substitution follows the effective harmony, including positive or negative l
 
 ## Arpeggio phase
 
-Arp / Strum has an **Arp Phase** knob, separate from pitch register and inversion.
+Arp Start controls timing; Note Phase controls which note occupies each step. The **Arp / Strum** panel has exactly eight knobs: Playback, Hold, Order, Rate, Gate, Strum, Arp Start, and Note Phase. Clear Notes has been removed from the panel.
 
-| Phase | Timing |
+| Start mode | Timing for a 1/16 arp hit at beat 0.10 |
 | --- | --- |
-| Free (default) | Starts immediately when the gesture reaches the chord player. Subsequent steps are relative to that start. |
-| Auto | Starts on the root at the next Arp Rate grid division. Subsequent steps stay locked to transport beat divisions. |
+| Auto (default) | First note at 0.25, then 0.50, 0.75, 1.00. |
+| Free | First note at 0.10, then 0.35, 0.60, 0.85. The entire pattern retains the first-hit offset. |
+| 1st Note Free | First note at 0.10, then 0.25, 0.50, 0.75. Only the opening note is off-grid. |
 
-With a 1/16 rate, a gesture received at beat 0.10 starts at beat 0.25 in Auto. A gesture exactly on a division starts on the following division. Inverted and spread chords start on their actual root, even when it is above the bass. Raw-note arpeggios use the most recently played available root. The selected order continues from that position; Random starts with the root and randomizes subsequent steps.
+Additional held keys join the pool without resetting its clock. Late callbacks skip expired steps while preserving the original clock anchor. Retrigger Held on a harmony change deliberately restarts according to the selected start mode. Auto starts strictly on the next division, including when the key arrives exactly on a division.
 
-Follower buffering still happens before chord generation and arpeggiation. Auto anchors to the next division after release from that buffer. Releasing all momentary keys before that division cancels the pending start; latch retains it. Phase affects Repeat Arp; Together and Once retain their existing behavior. Existing presets load as Free.
+**Note Phase** rotates the ordered pattern by whole arp steps. Zero retains the normal opening note; +1 puts that note one step later, and -1 advances the pattern one step. For an ascending C-E-G cycle in Auto, zero starts C-E-G, +1 starts G-C-E, and -1 starts E-G-C. This moves the note pattern, not the beat grid. Auto uses the actual root as its zero-phase starting note even in an inverted voicing; Free and 1st Note Free use the selected order's normal first note. Random order has no repeating note cycle to phase-shift predictably after its opening note.
+
+The effective limit is one Chord Grid interval in either direction, falling back to one 4/4 bar when Chord Grid is Free (no grid). With that one-bar fallback: 1/16 gives -16 to +16, 1/8 gives -8 to +8, and 1/4 gives -4 to +4. The numeric control has a static maximum span of -256 to +256; HB clamps edits to the effective range and clamps the saved offset when Arp Rate or Chord Grid changes. Rates longer than the selected interval allow only zero, since no whole arp step fits inside it. Offset is zero by default.
+
+Repeat Arp bypasses Follower Buffer on presses and releases. Releasing all momentary keys before Auto starts cancels that start; latch retains it. Together and Trigger Strum are unaffected by these phase controls. Explicit saved Free and Auto choices retain their meaning; presets without a phase setting use the new Auto default. Start mode and Note Phase save with the instance.
 
 
 ## Conductor recording and chord quality
@@ -228,7 +233,7 @@ Changing master transpose releases sounding voices at their previous pitches and
 
 ## Receiver tracks and MIDI routing
 
-**HarmonyBus 0.2.122 / Movy hbclean.32.** On the main panel choose Role: Conductor / Follower / Receiver / Off. Set Role to Receiver, then set Receive Channel (immediately after Render To Ch) to the source's Render To channel. Put an instrument after HB and unmute the destination's local audio. Receivers deliver already-rendered notes without applying chord mode, harmony mapping, quantization, or another render broadcast. Raw pad notes on a Receiver are consumed; use a Conductor or Follower to generate input.
+**HarmonyBus 0.2.123 / Movy hbclean.32.** On the main panel choose Role: Conductor / Follower / Receiver / Off. Set Role to Receiver, then set Receive Channel (immediately after Render To Ch) to the source's Render To channel. Put an instrument after HB and unmute the destination's local audio. Receivers deliver already-rendered notes without applying chord mode, harmony mapping, quantization, or another render broadcast. Raw pad notes on a Receiver are consumed; use a Conductor or Follower to generate input.
 
 **Fresh Movy sets:** tracks 1–12 retain three conductor/follower quartets with Plaits. Tracks 13, 14, 15 and 16 receive channels 1, 2, 3 and 4 respectively and have no instrument loaded. All local outputs still start muted. Load an instrument and unmute each destination you want to hear. Existing saved sets retain their chains and settings; configure Receiver manually there.
 
@@ -244,7 +249,7 @@ Four-bar timing is available for Quant Grid, Chord Grid, Follower Buffer, Lookah
 
 ## Master transpose across live and recorded tracks
 
-HarmonyBus 0.2.122 applies master transpose to rendered conductor playback as well as live and recorded follower input. Render To channels and HB Receivers hear the same final pitches as local monitoring. Follower pads keep their reference-scale roles: playing 1-3-5 continues to follow the detected conductor harmony after transposition.
+HarmonyBus 0.2.123 applies master transpose to rendered conductor playback as well as live and recorded follower input. Render To channels and HB Receivers hear the same final pitches as local monitoring. Follower pads keep their reference-scale roles: playing 1-3-5 continues to follow the detected conductor harmony after transposition.
 
 Recorded conductor voices bypass chord generation, so changing chord mode does not regenerate an existing recording. They still pass through master transpose. New conductor chord recordings store their rendered voicing in the reference key; the current master transpose is applied on playback. Harmony detection uses that same reference basis and applies transpose once. Changing transpose releases old sounding pitches before new notes use the new setting.
 

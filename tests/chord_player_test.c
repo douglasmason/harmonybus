@@ -32,6 +32,7 @@ static Inst *fixture(void){
     API.set_param(instance,"follower_scale","Major");
     uint8_t chord[4]={60,64,67,71};hb_harmony_t harmony=hb_infer_harmony(chord,4);
     hb_commit_observed_harmony(harmony);
+    instance->player.config.phase=0; /* Legacy lifecycle fixtures request immediate start explicitly. */
     return instance;
 }
 static void midi(Inst *instance,int on,int note){uint8_t message[3]={(uint8_t)(on?0x90:0x80),(uint8_t)note,(uint8_t)(on?100:0)};API.process_midi(instance,message,3,output,lengths,64);}
@@ -198,6 +199,55 @@ static void release_harmony_and_state(void){
     int count=advance(instance,0,1);while(instance->player.sounding_count)count+=advance(instance,0,1);assert(count==3);
     API.destroy_instance(copy);API.destroy_instance(instance);
 }
+static void arp_start_modes_and_offsets(void){
+    const int notes[3]={60,64,67};
+    for(int mode=0;mode<3;mode++)for(int offset=-1;offset<=1;offset++){
+        hb_chord_player player={0};hb_cp_defaults(&player.config);
+        assert(player.config.phase==1);
+        player.config.playback=1;player.config.phase=mode;player.config.note_phase=offset;
+        player.beat=.10;hb_cp_on(&player,60,0,100,notes,3);
+        int count=hb_cp_tick(&player,output,lengths,64);
+        if(mode==1){assert(count==0);player.beat=.251;count=hb_cp_tick(&player,output,lengths,64);}
+        int ordinal=(-offset+3)%3;
+        assert(count==1&&output[0][0]==0x90&&output[0][1]==notes[ordinal]);
+        double target=mode==0?.35:mode==1?.5:.25;
+        assert(player.next_beat>target-1e-8&&player.next_beat<target+1e-8);
+        // Gate expires; the second note lands on the selected clock.
+        player.beat=target-.01;hb_cp_tick(&player,output,lengths,64);
+        player.beat=target+.003;count=hb_cp_tick(&player,output,lengths,64);
+        assert(count==1&&output[0][1]==notes[(ordinal+1)%3]);
+        assert(player.next_beat>target+.25-1e-8&&player.next_beat<target+.25+1e-8);
+        // Another physical key does not move the established clock.
+        hb_cp_on(&player,72,0,100,notes,3);
+        player.beat=target+.01;hb_cp_tick(&player,output,lengths,64);
+        assert(player.next_beat>target+.25-1e-8&&player.next_beat<target+.25+1e-8);
+        // A late callback skips expired steps without drifting the anchor.
+        player.beat=target+.52;hb_cp_tick(&player,output,lengths,64);
+        assert(player.next_beat>target+.75-1e-8&&player.next_beat<target+.75+1e-8);
+        hb_cp_off(&player,60,0);hb_cp_off(&player,72,0);
+        hb_cp_tick(&player,output,lengths,64);assert(!player.sounding_count);
+    }
+    Inst *instance=fixture();char state[512],value[64];
+    Inst *fresh=API.create_instance("",NULL);assert(fresh->player.config.phase==1);API.destroy_instance(fresh);
+    API.set_param(instance,"arp_phase","1st Note Free");
+    API.set_param(instance,"arp_note_phase","-16");
+    API.get_param(instance,"state",state,sizeof(state));
+    assert(strstr(state,";ph1,2;np1,-16"));
+    API.set_param(instance,"arp_phase","Free");API.set_param(instance,"arp_note_phase","0");
+    API.set_param(instance,"state",state);
+    assert(instance->player.config.phase==2&&instance->player.config.note_phase==-16);
+    API.set_param(instance,"arp_rate","1/8");
+    assert(instance->player.config.note_phase==-8);
+    API.set_param(instance,"arp_note_phase","64");
+    API.get_param(instance,"arp_note_phase",value,sizeof(value));assert(!strcmp(value,"8"));
+    API.set_param(instance,"chord_timing","2 Bars");
+    API.set_param(instance,"arp_note_phase","64");assert(instance->player.config.note_phase==16);
+    API.set_param(instance,"chord_timing","1/4");assert(instance->player.config.note_phase==2);
+    API.set_param(instance,"chord_timing","Free");
+    API.set_param(instance,"arp_note_phase","64");assert(instance->player.config.note_phase==8);
+    API.set_param(instance,"arp_rate","2 Bars");assert(instance->player.config.note_phase==0);
+    API.destroy_instance(instance);
+}
 static void phase_grid(void){
     hb_chord_player player={0};hb_cp_defaults(&player.config);
     player.config.playback=1;player.config.phase=1;
@@ -221,6 +271,7 @@ static void phase_grid(void){
     Inst *instance=fixture();char state[512],value[64];
     API.get_param(instance,"arp_phase",value,sizeof(value));assert(!strcmp(value,"Free"));
     API.set_param(instance,"arp_phase","Auto");
+    API.set_param(instance,"arp_playback","Repeat Arp");
     API.get_param(instance,"state",state,sizeof(state));assert(strstr(state,";ph1,1"));
     API.set_param(instance,"arp_phase","Free");API.set_param(instance,"state",state);
     assert(instance->player.config.phase==1);
@@ -767,4 +818,4 @@ static void raw_arp_relative_mapping(void){
     midi(instance,0,60);assert(advance(instance,0,64)==1&&output[0][1]==57);
     API.destroy_instance(instance);
 }
-int main(void){arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+int main(void){arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

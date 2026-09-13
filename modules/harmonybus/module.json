@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.122",
+  "name": "Harmony Bus 0.2.123",
   "abbrev": "HB2101",
-  "version": "0.2.122",
+  "version": "0.2.123",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.122 \u2014 Conductor-first follower boundary mapping",
+  "description": "Harmony Bus v0.2.123 \u2014 Conductor-first follower boundary mapping",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.122",
+          "name": "Harmony Bus 0.2.123",
           "params": [
             {
               "key": "version",
@@ -1219,26 +1219,25 @@
               "default": "0 ms"
             },
             {
-              "key": "arp_clear",
-              "name": "Clear Notes",
-              "type": "enum",
-              "options": [
-                "Ready",
-                "Clear"
-              ],
-              "options_as_string": true,
-              "default": "Ready"
-            },
-            {
               "key": "arp_phase",
-              "name": "Arp Phase",
+              "name": "Arp Start",
               "type": "enum",
               "options": [
                 "Free",
-                "Auto"
+                "Auto",
+                "1st Note Free"
               ],
               "options_as_string": true,
-              "default": "Free"
+              "default": "Auto"
+            },
+            {
+              "key": "arp_note_phase",
+              "name": "Note Phase",
+              "type": "int",
+              "min": -256,
+              "max": 256,
+              "step": 1,
+              "default": 0
             }
           ],
           "knobs": [
@@ -1248,8 +1247,8 @@
             "arp_rate",
             "arp_gate",
             "strum_spread",
-            "arp_clear",
-            "arp_phase"
+            "arp_phase",
+            "arp_note_phase"
           ]
         }
       },
@@ -2618,17 +2617,6 @@
         "default": "0 ms"
       },
       {
-        "key": "arp_clear",
-        "name": "Clear Notes",
-        "type": "enum",
-        "options": [
-          "Ready",
-          "Clear"
-        ],
-        "options_as_string": true,
-        "default": "Ready"
-      },
-      {
         "key": "dominant_scale",
         "name": "Dominant Scale",
         "type": "enum",
@@ -2643,14 +2631,15 @@
       },
       {
         "key": "arp_phase",
-        "name": "Arp Phase",
+        "name": "Arp Start",
         "type": "enum",
         "options": [
           "Free",
-          "Auto"
+          "Auto",
+          "1st Note Free"
         ],
         "options_as_string": true,
-        "default": "Free"
+        "default": "Auto"
       },
       {
         "key": "master_transpose",
@@ -2698,6 +2687,15 @@
         ],
         "options_as_string": true,
         "default": "1"
+      },
+      {
+        "key": "arp_note_phase",
+        "name": "Note Phase",
+        "type": "int",
+        "min": -256,
+        "max": 256,
+        "step": 1,
+        "default": 0
       }
     ],
     "pre_capable": 1
