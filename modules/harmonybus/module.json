@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.115",
+  "name": "Harmony Bus 0.2.116",
   "abbrev": "HB2101",
-  "version": "0.2.115",
+  "version": "0.2.116",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.115 \u2014 Conductor-first follower boundary mapping",
+  "description": "Harmony Bus v0.2.116 \u2014 Conductor-first follower boundary mapping",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.115",
+          "name": "Harmony Bus 0.2.116",
           "params": [
             {
               "key": "version",
@@ -25,16 +25,13 @@
               "access": "read"
             },
             {
-              "level": "receiver",
-              "label": "Receiver"
-            },
-            {
               "key": "track_role",
               "name": "Role",
               "type": "enum",
               "options": [
                 "Conductor",
                 "Follower",
+                "Receiver",
                 "Off"
               ],
               "options_as_string": true,
@@ -64,6 +61,31 @@
                 "16"
               ],
               "options_as_string": true
+            },
+            {
+              "key": "receive_channel",
+              "name": "Receive Channel",
+              "type": "enum",
+              "options": [
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11",
+                "12",
+                "13",
+                "14",
+                "15",
+                "16"
+              ],
+              "options_as_string": true,
+              "default": "1"
             },
             {
               "level": "arp_player",
@@ -160,21 +182,6 @@
               "default": "1/16"
             },
             {
-              "key": "accidentals",
-              "name": "Accidentals",
-              "type": "enum",
-              "options": [
-                "Auto",
-                "Sharps",
-                "C#D#F#G#Bb",
-                "C#EbF#G#Bb",
-                "C#EbF#AbBb",
-                "DbEbF#AbBb",
-                "Flats"
-              ],
-              "options_as_string": true
-            },
-            {
               "level": "follower_source",
               "label": "Foll Map"
             },
@@ -219,11 +226,11 @@
             "version",
             "track_role",
             "render_channel",
+            "receive_channel",
             "quant_timing",
             "chord_timing",
             "anticipation",
-            "boundary_buffer_ms",
-            "accidentals"
+            "boundary_buffer_ms"
           ]
         },
         "follower_source": {
@@ -928,6 +935,21 @@
               "name": "Final Harmony",
               "type": "string",
               "access": "read"
+            },
+            {
+              "key": "accidentals",
+              "name": "Accidentals",
+              "type": "enum",
+              "options": [
+                "Auto",
+                "Sharps",
+                "C#D#F#G#Bb",
+                "C#EbF#G#Bb",
+                "C#EbF#AbBb",
+                "DbEbF#AbBb",
+                "Flats"
+              ],
+              "options_as_string": true
             }
           ],
           "knobs": [
@@ -935,7 +957,8 @@
             "transpose",
             "pretranspose_root",
             "final_root",
-            "final_harmony"
+            "final_harmony",
+            "accidentals"
           ]
         },
         "chord_player": {
@@ -1221,43 +1244,6 @@
             "arp_clear",
             "arp_phase"
           ]
-        },
-        "receiver": {
-          "name": "Receiver",
-          "params": [
-            {
-              "key": "role"
-            },
-            {
-              "key": "receive_channel",
-              "name": "Receive Channel",
-              "type": "enum",
-              "options": [
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-                "10",
-                "11",
-                "12",
-                "13",
-                "14",
-                "15",
-                "16"
-              ],
-              "options_as_string": true,
-              "default": "1"
-            }
-          ],
-          "knobs": [
-            "role",
-            "receive_channel"
-          ]
         }
       },
       "focus_press_param": "live_press"
@@ -1270,6 +1256,7 @@
         "options": [
           "Conductor",
           "Follower",
+          "Receiver",
           "Off"
         ],
         "options_as_string": true

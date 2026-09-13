@@ -1,4 +1,5 @@
-> Release 0.2.115 adds the Receiver role: select Receive Channel 1–16 to play existing HB render output through a local instrument. Original stock Move/Schwung MIDI broadcasts remain intact. Movy hbclean.32 prepares tracks 13–16 as receivers on channels 1–4, without instruments.
+> Release 0.2.116 integrates Conductor / Follower / Receiver / Off into the main Role selector, places Receive Channel after Render To Ch, and moves Accidentals to Global. Compatible with Movy hbclean.32.
+
 
 
 # Harmony Bus
@@ -23,7 +24,7 @@ Manager reads `release.json` and downloads the release asset.
 
 ## Timing and current release
 
-HarmonyBus **0.2.115** makes Follower Buffer global with a **1/16-note** default for
+HarmonyBus **0.2.116** makes Follower Buffer global with a **1/16-note** default for
 fresh settings. Millisecond choices are 0, 25, 50, then 100 to 1000 in 50 ms steps. The same control also offers tempo-relative durations from 1/64
 to 2 Bars. Existing saved values survive; the first restored legacy copy becomes
 the shared value. Change it once and save to make all snapshots agree.
@@ -51,7 +52,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.115-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.116-module.tar.gz`.
 
 ## License
 
@@ -59,7 +60,7 @@ MIT.
 
 HB 0.2.104 adds negative lookahead (late harmony) with the capture window before the shifted boundary, and resolves recognized two-note Movy voicings before due followers. Lookahead stays Off by default; new sets use a 1/16-note global buffer. See the [timing guide](https://github.com/douglasmason/harmonybus/blob/main/docs/timing-guide.md).
 
-### Auto Chord and Arp / Strum (0.2.115)
+### Auto Chord and Arp / Strum (0.2.116)
 
 Per-track Auto Chord provides Off, Scale Degree and Conductor Chord, with selectable power, triad, seventh, ninth, add9, sixth, 6/9, eleventh, thirteenth and suspended forms, key-selected or explicit inversion, and Close / Root + Fifth Low / Alternate Up / Shell voicings. Arp / Strum provides Together, Repeat Arp and Once; Momentary/Latch; five orders; musical rates and gate lengths; and ms or musical strum spreads. Both generators are inactive by default. Use Movy hbclean.31 to record and replay rendered conductor chords.
 
