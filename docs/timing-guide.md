@@ -274,7 +274,7 @@ Input still passes through the conductor-first audio queue. At a conductor chang
 Ordinary follower notes and Trigger Strum retain their existing buffer behavior. This bypass applies to Repeat Arp.
 
 
-### Held arps and pressure (0.2.124)
+## Held arps and pressure (0.2.124)
 
 Retrigger Held defaults to On for new instances and prepared Movy tracks. Existing saved Off choices remain Off. Harmony changes replace the held arp mapping before the due hit without restarting Auto or moving the running grid. Repeated pitches emit OFF then ON in the same callback when output capacity allows.
 
