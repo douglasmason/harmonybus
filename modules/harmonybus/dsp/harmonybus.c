@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.121 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.121"
+/* Harmony Bus v0.2.122 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.122"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1255,6 +1255,13 @@ static int hb_queue_follower_event(Inst *instance,int note,int velocity,int is_o
     instance->follower_queue_harmony_beat[slot]=-1.0;
     instance->follower_queue_arrival_beat[slot]=beat;
 
+    /* Repeat Arp owns its timing through Rate/Phase. Keep input in the
+       conductor-first audio queue, but never capture either edge to a
+       follower boundary or inherit a delayed note-off. */
+    if(instance->player.config.playback==1){
+        instance->follower_queue_age_frames[slot]=0;
+        return 1;
+    }
     if(is_on){
         double capture=g_bus.boundary_buffer_ms<0 ? (0.0625 * (1u << (-g_bus.boundary_buffer_ms-1))) : hb_ms_to_beats(g_bus.boundary_buffer_ms);
         double target;

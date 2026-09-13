@@ -677,6 +677,34 @@ static void held_conductor_chords(void){
         API.destroy_instance(instance);
     }
 }
+static void arp_buffer_bypass(void){
+    for(int chord_mode=0;chord_mode<2;chord_mode++)for(int phase=0;phase<2;phase++){
+        Inst *instance=fixture();
+        API.set_param(instance,"chord_mode",chord_mode?"Conductor Chord":"Off");
+        API.set_param(instance,"arp_playback","Repeat Arp");
+        API.set_param(instance,"boundary_buffer_ms","350");
+        API.set_param(instance,"quant_timing","1 Bar");
+        instance->player.config.phase=phase;
+        position=3.9;midi(instance,1,60);
+        assert(instance->follower_queue_count==1);
+        assert(instance->follower_queue_target_beat[0]<0.0);
+        int count=advance(instance,0,64);
+        assert(instance->follower_queue_count==0);
+        if(!phase)assert(count>0&&output[0][0]==0x90);
+        else{
+            assert(count==0);
+            position=4.0;count=advance(instance,0,64);
+            assert(count>0&&output[0][0]==0x90);
+        }
+        position+=0.05;midi(instance,0,60);
+        assert(instance->follower_queue_target_beat[0]<0.0);
+        count=advance(instance,0,64);
+        assert(count>0&&output[0][0]==0x80);
+        assert(instance->follower_queue_count==0);
+        position=8.0;assert(advance(instance,0,64)==0);
+        API.destroy_instance(instance);
+    }
+}
 static void arp_harmony_boundary(void){
     const int old_chord[3]={60,64,67},new_chord[3]={62,65,69};
     for(int chord_mode=0;chord_mode<2;chord_mode++)for(int bridge=0;bridge<2;bridge++)for(int phase=0;phase<2;phase++)for(int pending=0;pending<2;pending++){
@@ -690,9 +718,13 @@ static void arp_harmony_boundary(void){
         midi(follower,1,60);
         for(int step=0;step<16;step++){position=step*0.25;advance(follower,0,64);}
         if(pending){
-            // A second physical key is waiting for a later quantization boundary.
+            // Simulate an event captured before switching to Repeat Arp.
+            // Legacy/in-flight queue entries must not block held-note revoicing.
             API.set_param(follower,"quant_timing","4 Bars");API.set_param(follower,"boundary_buffer_ms","4 Bars");
-            position=3.9;midi(follower,1,72);advance(follower,0,64);
+            position=3.9;follower->player.config.playback=0;
+            midi(follower,1,72);
+            follower->player.config.playback=1;
+            advance(follower,0,64);
             assert(follower->follower_queue_count==1);
         }
         position=4.0;
@@ -735,4 +767,4 @@ static void raw_arp_relative_mapping(void){
     midi(instance,0,60);assert(advance(instance,0,64)==1&&output[0][1]==57);
     API.destroy_instance(instance);
 }
-int main(void){raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+int main(void){arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
