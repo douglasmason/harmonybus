@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.116",
+  "name": "Harmony Bus 0.2.117",
   "abbrev": "HB2101",
-  "version": "0.2.116",
+  "version": "0.2.117",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.116 \u2014 Conductor-first follower boundary mapping",
+  "description": "Harmony Bus v0.2.117 \u2014 Conductor-first follower boundary mapping",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.116",
+          "name": "Harmony Bus 0.2.117",
           "params": [
             {
               "key": "version",
@@ -106,7 +106,8 @@
                 "1/4",
                 "1/2",
                 "1 Bar",
-                "2 Bars"
+                "2 Bars",
+                "4 Bars"
               ],
               "options_as_string": true,
               "default": "Off"
@@ -122,7 +123,8 @@
                 "1/4",
                 "1/2",
                 "1 Bar",
-                "2 Bars"
+                "2 Bars",
+                "4 Bars"
               ],
               "options_as_string": true,
               "default": "Free"
@@ -176,7 +178,8 @@
                 "1/4",
                 "1/2",
                 "1 Bar",
-                "2 Bars"
+                "2 Bars",
+                "4 Bars"
               ],
               "options_as_string": true,
               "default": "1/16"
@@ -817,6 +820,7 @@
                 "1.5 Bars",
                 "2 Bars",
                 "3 Bars",
+                "4 Bars",
                 "-1/32",
                 "-1/16",
                 "-1/8",
@@ -827,7 +831,8 @@
                 "-1 Bar",
                 "-1.5 Bars",
                 "-2 Bars",
-                "-3 Bars"
+                "-3 Bars",
+                "-4 Bars"
               ],
               "options_as_string": true,
               "default": "Off"
@@ -1154,7 +1159,8 @@
                 "1/4",
                 "1/2",
                 "1 Bar",
-                "2 Bars"
+                "2 Bars",
+                "4 Bars"
               ],
               "options_as_string": true,
               "default": "1/16"
@@ -1206,7 +1212,8 @@
                 "1/4",
                 "1/2",
                 "1 Bar",
-                "2 Bars"
+                "2 Bars",
+                "4 Bars"
               ],
               "options_as_string": true,
               "default": "0 ms"
@@ -1453,7 +1460,8 @@
           "1/4",
           "1/2",
           "1 Bar",
-          "2 Bars"
+          "2 Bars",
+          "4 Bars"
         ],
         "options_as_string": true,
         "default": "Off"
@@ -1529,7 +1537,8 @@
           "1/4",
           "1/2",
           "1 Bar",
-          "2 Bars"
+          "2 Bars",
+          "4 Bars"
         ],
         "options_as_string": true,
         "default": "Free"
@@ -1583,7 +1592,8 @@
           "1/4",
           "1/2",
           "1 Bar",
-          "2 Bars"
+          "2 Bars",
+          "4 Bars"
         ],
         "options_as_string": true,
         "default": "1/16"
@@ -2378,6 +2388,7 @@
           "1.5 Bars",
           "2 Bars",
           "3 Bars",
+          "4 Bars",
           "-1/32",
           "-1/16",
           "-1/8",
@@ -2388,7 +2399,8 @@
           "-1 Bar",
           "-1.5 Bars",
           "-2 Bars",
-          "-3 Bars"
+          "-3 Bars",
+          "-4 Bars"
         ],
         "options_as_string": true,
         "default": "Off"
@@ -2546,7 +2558,8 @@
           "1/4",
           "1/2",
           "1 Bar",
-          "2 Bars"
+          "2 Bars",
+          "4 Bars"
         ],
         "options_as_string": true,
         "default": "1/16"
@@ -2598,7 +2611,8 @@
           "1/4",
           "1/2",
           "1 Bar",
-          "2 Bars"
+          "2 Bars",
+          "4 Bars"
         ],
         "options_as_string": true,
         "default": "0 ms"

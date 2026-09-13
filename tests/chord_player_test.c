@@ -544,4 +544,32 @@ static void receiver_routing(void){
     for(int i=0;i<3;i++)assert(output[i][0]==0x80);
     API.destroy_instance(source);
 }
-int main(void){receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void four_bar_timing(void){
+    Inst *instance=fixture();
+    const char *keys[]={"quant_timing","chord_timing","boundary_buffer_ms","arp_rate","strum_spread","next_lookahead"};
+    char value[32],state[8192],restored[8192];
+    for(int index=0;index<6;index++){
+        API.set_param(instance,keys[index],"4 Bars");
+        API.get_param(instance,keys[index],value,sizeof(value));assert(!strcmp(value,"4 Bars"));
+    }
+    assert(hb_quant_grid_beats_for(instance)==16.0&&hb_chord_grid_beats()==16.0);
+    assert(hb_next_lookahead_beats()==16.0);
+    assert(hb_cp_division(instance->player.config.rate)==16.0);
+    assert(hb_cp_division(-instance->player.config.spread-1)==16.0);
+    assert(g_bus.boundary_buffer_ms==-9);
+    API.set_param(instance,"next_lookahead","-4 Bars");assert(hb_next_lookahead_beats()==-16.0);
+    API.get_param(instance,"next_lookahead",value,sizeof(value));assert(!strcmp(value,"-4 Bars"));
+    // Legacy lookahead IDs and two-bar durations remain unchanged.
+    API.set_param(instance,"next_lookahead","19");assert(hb_next_lookahead_beats()==8.0);
+    API.set_param(instance,"next_lookahead","21");assert(hb_next_lookahead_beats()==-8.0);
+    API.set_param(instance,"next_lookahead","Off");
+    API.get_param(instance,"state",state,sizeof(state));
+    Inst *copy=API.create_instance("",NULL);API.set_param(copy,"state",state);
+    API.get_param(copy,"state",restored,sizeof(restored));assert(!strcmp(state,restored));
+    assert(copy->quant_timing==7&&copy->player.config.rate==8&&copy->player.config.spread==-9);
+    // A press one beat into the cycle captures to beat 16, not the old beat 8.
+    position=1.0;midi(instance,1,60);
+    assert(instance->follower_queue_count==1&&instance->follower_queue_target_beat[0]==16.0);
+    API.destroy_instance(copy);API.destroy_instance(instance);
+}
+int main(void){four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
