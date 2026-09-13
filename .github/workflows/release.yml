@@ -205,7 +205,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Recovery release: restore the 0.2.105 DSP after reports of silence. Pair with Movy hbclean.31. Temporarily withdraw conductor chord generation/recording and new quality overrides; retain follower chord/arp and timing behavior."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add Auto (default), Free and 1st Note Free arp starts, plus signed note phase relative to Chord Grid. Keep the Arp / Strum panel at eight knobs. Preserve follower buffer bypass and conductor-first reharmonization."
           fi
 
       - name: Update Module Store metadata
