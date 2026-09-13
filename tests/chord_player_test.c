@@ -32,6 +32,7 @@ static Inst *fixture(void){
     API.set_param(instance,"follower_scale","Major");
     uint8_t chord[4]={60,64,67,71};hb_harmony_t harmony=hb_infer_harmony(chord,4);
     hb_commit_observed_harmony(harmony);
+    instance->retrigger_held=0; /* Legacy fixtures explicitly retain Off. */
     instance->player.config.phase=0; /* Legacy lifecycle fixtures request immediate start explicitly. */
     return instance;
 }
@@ -758,13 +759,14 @@ static void arp_buffer_bypass(void){
 }
 static void arp_harmony_boundary(void){
     const int old_chord[3]={60,64,67},new_chord[3]={62,65,69};
-    for(int chord_mode=0;chord_mode<2;chord_mode++)for(int bridge=0;bridge<2;bridge++)for(int phase=0;phase<2;phase++)for(int pending=0;pending<2;pending++){
+    for(int chord_mode=0;chord_mode<2;chord_mode++)for(int bridge=0;bridge<2;bridge++)for(int phase=0;phase<3;phase++)for(int pending=0;pending<2;pending++){
         Inst *follower=fixture(),*conductor=API.create_instance("",NULL);
         API.set_param(conductor,"role","Conductor");API.set_param(conductor,"source_channel","1");
         API.set_param(conductor,"analysis_release_ms","0");
         API.set_param(follower,"chord_mode",chord_mode?"Conductor Chord":"Off");API.set_param(follower,"chord_form","Triad");
         API.set_param(follower,"arp_playback","Repeat Arp");API.set_param(follower,"retrigger_held","On");
         follower->player.config.phase=phase;
+        API.set_param(follower,"travel_map","Relative");
         for(int voice=0;voice<3;voice++)midi(conductor,1,old_chord[voice]);
         midi(follower,1,60);
         for(int step=0;step<16;step++){position=step*0.25;advance(follower,0,64);}
@@ -793,6 +795,11 @@ static void arp_harmony_boundary(void){
                 assert(output[index][1]==62||output[index][1]==65||output[index][1]==69);
                 ons++;
             }
+            /* Each due grid hit must survive the harmony change, including Auto. */
+            if(ons!=step+1)fprintf(stderr,"missing mode=%d bridge=%d phase=%d pending=%d step=%d ons=%d count=%d\n",chord_mode,bridge,phase,pending,step,ons,count);
+            assert(ons==step+1);
+            position+=0.001;
+            assert(advance(follower,0,64)==0);
         }
         assert(ons>0);
         for(int index=before;index<render_count;index++)if((rendered[index][1]&0xf0)==0x90)
@@ -810,7 +817,9 @@ static void raw_arp_relative_mapping(void){
     hb_commit_observed_harmony(hb_infer_harmony(g_chord,3));
     assert(advance(instance,0,64)==0); // retrigger Off freezes the original interpretation
     API.set_param(instance,"retrigger_held","On");
-    assert(advance(instance,0,64)==2&&output[0][1]==65&&output[1][1]==55);
+    assert(advance(instance,0,64)==1&&output[0][0]==0x80&&output[0][1]==65);
+    position=0.25;
+    assert(advance(instance,0,64)==1&&output[0][0]==0x90&&output[0][1]==55);
     assert(rendered[render_count-1][2]==55);
     midi(instance,0,60);assert(advance(instance,0,64)==1&&output[0][0]==0x80&&output[0][1]==55);
     API.set_param(instance,"master_transpose","D");advance(instance,0,64);
@@ -818,4 +827,45 @@ static void raw_arp_relative_mapping(void){
     midi(instance,0,60);assert(advance(instance,0,64)==1&&output[0][1]==57);
     API.destroy_instance(instance);
 }
-int main(void){arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void arp_pressure(void){
+    for(int chord=0;chord<2;chord++)for(int queued=0;queued<2;queued++){
+        Inst *instance=fixture();
+        API.set_param(instance,"arp_playback","Repeat Arp");
+        API.set_param(instance,"retrigger_held","On");
+        if(chord)API.set_param(instance,"chord_mode","Conductor Chord");
+        midi(instance,1,60);
+        if(!queued)assert(advance(instance,0,64)==1&&output[0][2]==100);
+        uint8_t pressure[3]={0xA0,60,37};
+        assert(API.process_midi(instance,pressure,3,output,lengths,64)==0);
+        int count=advance(instance,0,64);
+        if(queued)assert(count==1&&output[0][2]==37);else assert(count==0);
+        double next=instance->player.next_beat;
+        position=next;count=advance(instance,0,64);
+        assert(count==2&&output[1][0]==0x90&&output[1][2]==37);
+        assert(instance->player.next_beat==next+0.25);
+        uint8_t notes[3]={62,65,69};hb_commit_observed_harmony(hb_infer_harmony(notes,3));
+        position=instance->player.next_beat;count=advance(instance,0,64);
+        assert(count==2&&output[1][0]==0x90&&output[1][2]==37);
+        pressure[2]=0;API.process_midi(instance,pressure,3,output,lengths,64);
+        position=instance->player.next_beat;count=advance(instance,0,64);
+        assert(count==2&&output[1][0]==0x90&&output[1][2]==1);
+        midi(instance,0,60);advance(instance,0,64);
+        pressure[2]=127;API.process_midi(instance,pressure,3,output,lengths,64);
+        position+=0.25;assert(advance(instance,0,64)==0);
+        API.destroy_instance(instance);
+    }
+}
+static void retrigger_default(void){
+    Inst *instance=fixture();
+    API.destroy_instance(instance);
+    instance=API.create_instance("",NULL);
+    assert(instance->retrigger_held==1);
+    API.set_param(instance,"retrigger_held","Off");
+    char state[8192];API.get_param(instance,"state",state,sizeof(state));
+    API.destroy_instance(instance);
+    instance=API.create_instance("",NULL);
+    API.set_param(instance,"state",state);
+    assert(instance->retrigger_held==0);
+    API.destroy_instance(instance);
+}
+int main(void){arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

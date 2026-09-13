@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.123 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.123"
+/* Harmony Bus v0.2.124 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.124"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2041,7 +2041,9 @@ static void hb_reharmonize_held_chords(Inst *instance){
         key->held=held;key->sequence=order;changed=1;
     }
     player->config.latch=latch;instance->approach_pad_armed=armed;
-    if(changed){player->running=0;player->step=0;}
+    /* Revoicing is not a new gesture. In particular, resetting Auto at a
+       due division would arm the following division and drop this hit. */
+    if(changed&&player->config.playback!=1){player->running=0;player->step=0;}
 }
 static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int lengths[],int max_output){
     if(!instance||instance->role!=1||!output||!lengths||max_output<=0)return 0;
@@ -2423,7 +2425,7 @@ static int local_conductor_notes(const Inst *instance,uint8_t *output,int max_no
 static int infer_reference_root(Inst *instance){static const int major[7]={0,2,4,5,7,9,11};static const int minor[7]={0,2,3,5,7,8,10};int pitch_classes=0,best=-999,best_root=instance->resolved_root;for(int index=0;index<12;index++)pitch_classes+=instance->source_seen[index]?1:0;if(!pitch_classes)return instance->resolved_root;for(int root=0;root<12;root++)for(int scale=0;scale<2;scale++){int score=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(instance->source_seen[pitch_class]){int relative=mod12(pitch_class-root),inside=0;for(int degree=0;degree<7;degree++)if(relative==(scale?minor[degree]:major[degree])){inside=1;break;}score+=inside?5:-4;}if(instance->source_seen[root])score+=3;if(score>best){best=score;best_root=root;}}instance->resolved_confidence=pitch_classes>=4?80:(pitch_classes>=3?65:45);return best_root;}
 static int reference_root(Inst *instance){if(g_bus.global_root_policy==0)return mod12(g_bus.global_explicit_root);if(g_bus.global_root_policy==1)return mod12(g_bus.global_input_root);instance->resolved_root=infer_reference_root(instance);return mod12(instance->resolved_root);}
 static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int max_output);
-static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];g_conductor_block_ready=0;memset(&g_movy_clips[index],0,sizeof(g_movy_clips[index]));memset(instance,0,sizeof(*instance));instance->used=1;hb_cp_defaults(&instance->player.config);instance->player.render_channel=-1;instance->movy_track=-1;instance->role=2;instance->mode=0;instance->content_map=0;instance->travel_map=0;instance->follower_scale=0;instance->follower_split_map=0;instance->quant_timing=0;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=0;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}return instance;}return 0;}
+static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];g_conductor_block_ready=0;memset(&g_movy_clips[index],0,sizeof(g_movy_clips[index]));memset(instance,0,sizeof(*instance));instance->used=1;hb_cp_defaults(&instance->player.config);instance->player.render_channel=-1;instance->movy_track=-1;instance->role=2;instance->mode=0;instance->content_map=0;instance->travel_map=0;instance->follower_scale=0;instance->follower_split_map=0;instance->quant_timing=0;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=1;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}return instance;}return 0;}
 static void destroy_inst(void *value){Inst *instance=(Inst*)value;
 if(instance){
     hb_cp_clear(&instance->player);
@@ -2632,6 +2634,24 @@ if(status==0xB0&&length>=3&&(input[1]==120||input[1]==123)){
     int control_channel=input[0]&0x0F;
     if(hb_source_channel_matches(instance,control_channel))hb_clear_instance_note_state(instance);
     return pass(input,length,output,lengths,max_output);
+}
+/* Pressure belongs to the original held input, before chord expansion.
+   Update future arp attacks without restarting the clock or current gate. */
+if(status==0xA0&&length>=3&&instance->role<2&&instance->player.config.playback==1&&
+   hb_source_channel_matches(instance,input[0]&15)){
+    int source=input[1]&127,channel=input[0]&15,velocity=input[2]&127;
+    if(velocity==0)velocity=1; /* Never turn a generated note-on into note-off. */
+    int pending=-1;
+    for(int index=0;index<instance->follower_queue_count;index++)
+        if(instance->follower_queue_note[index]==source&&instance->follower_queue_channel[index]==channel)
+            pending=index;
+    if(pending>=0){
+        if(instance->follower_queue_on[pending])instance->follower_queue_velocity[pending]=velocity;
+    }else for(int index=0;index<HB_CP_KEYS;index++){
+        hb_cp_key *key=&instance->player.keys[index];
+        if(key->used&&key->held&&key->source==source&&key->channel==channel)key->velocity=velocity;
+    }
+    return 0;
 }
 if(instance->role==3)return (is_on||is_off)?0:pass(input,length,output,lengths,max_output);
 if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note=input[1]&0x7F,mapped;int input_channel=input[0]&0x0F;if(instance->role==2)return pass(input,length,output,lengths,max_output);if(!hb_source_channel_matches(instance,input_channel))return pass(input,length,output,lengths,max_output);g_bus.global_accepted_note_count++;instance->last_status=input[0];instance->last_note=note;instance->last_velocity=length>=3?input[2]:0;hb_trace_note_event(instance,note,is_on,input_channel);if(is_on){instance->note_on_count++;instance->active_count++;}else if(is_off){instance->note_off_count++;if(instance->active_count>0)instance->active_count--;}if(instance->role==0){

@@ -27,12 +27,12 @@ jobs:
           import json
           from pathlib import Path
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.123'
+          assert module['version']=='0.2.124'
           levels=module['capabilities']['ui_hierarchy']['levels']
           buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
           assert buffer['options']==[f'{ms} ms' for ms in [0,25,*range(50,1001,50)]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars','4 Bars']
           assert buffer['default']=='1/16'
-          assert levels['root']['name']=='Harmony Bus 0.2.123'
+          assert levels['root']['name']=='Harmony Bus 0.2.124'
           master=next(p for p in levels['global_transpose']['params'] if p.get('key')=='master_transpose')
           assert len(master['options'])==13 and master['default']=='As Played'
           assert levels['global_transpose']['knobs'][0]=='master_transpose'
@@ -185,7 +185,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.123'
+          assert module['version']==os.environ['VERSION']=='0.2.124'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -205,12 +205,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add Auto (default), Free and 1st Note Free arp starts, plus signed note phase relative to Chord Grid. Keep the Arp / Strum panel at eight knobs. Preserve follower buffer bypass and conductor-first reharmonization."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Preserve due arp hits across harmony changes and emit repeated pitches without a callback gap. Add per-source poly pressure for subsequent arp velocities. Default Retrigger Held to On while preserving saved Off choices. Pair with Movy hbclean.38 for pad pressure forwarding."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add Auto (default), Free and 1st Note Free arp starts, plus signed note phase relative to Chord Grid. Keep the Arp / Strum panel at eight knobs. Preserve follower buffer bypass and conductor-first reharmonization." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Preserve due arp hits across harmony changes and emit repeated pitches without a callback gap. Add per-source poly pressure for subsequent arp velocities. Default Retrigger Held to On while preserving saved Off choices. Pair with Movy hbclean.38 for pad pressure forwarding." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

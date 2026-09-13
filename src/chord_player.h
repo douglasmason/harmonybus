@@ -265,7 +265,6 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
     hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES];
     if(player->config.playback==1){
         int count=hb_cp_entries(player,entries,0);
-        int repeat_same=0;
         /* Collapse shared output pitches before arpeggiation. */
         int unique=0;
         for(int index=0;index<count;index++){
@@ -307,7 +306,7 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
             if(ordinal>=count)ordinal=cycle-ordinal;
             if(player->config.order==4&&player->running!=2){player->random=player->random*1664525u+1013904223u;ordinal=(int)(player->random%(unsigned)count);}
             hb_cp_entry entry=entries[ordinal];
-            repeat_same=player->sounding[entry.channel][entry.pitch]!=0;
+            if(player->sounding[entry.channel][entry.pitch])player->retrigger[entry.channel][entry.pitch]=1;
             player->arp_note=entry.pitch;player->arp_channel=entry.channel;
             static const double gates[4]={0.25,0.5,0.75,0.9};
             player->gate_beat=onset+rate*gates[player->config.gate];
@@ -316,7 +315,7 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
             player->step=(player->step+1)%cycle;
             player->running=1;
         }
-        if(player->running==1&&!repeat_same&&player->beat<player->gate_beat){
+        if(player->running==1&&player->beat<player->gate_beat){
             for(int index=0;index<count;index++)if(entries[index].pitch==player->arp_note&&entries[index].channel==player->arp_channel)
                 desired[player->arp_channel][player->arp_note]=(uint8_t)player->keys[entries[index].key].velocity;
         }
