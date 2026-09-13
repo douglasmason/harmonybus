@@ -902,6 +902,9 @@ static void follower_play_transform(void){
     config.wrap=1;assert(hb_fp_note(config,67,0,triad)==60);
     config.wrap=0;config.rotate=-1;assert(hb_fp_note(config,60,0,triad)==55);
     config.rotate=0;config.mirror=1;assert(hb_fp_note(config,64,0,triad)==55);
+    unsigned outside=(1u<<2)|(1u<<5)|(1u<<9)|(1u<<11);
+    assert(hb_fp_note(config,62,0,outside)==59);
+    assert(hb_fp_note(config,65,0,outside)==57);
     config.bypass=1;assert(hb_fp_note(config,64,0,triad)==64);
     for(int root=0;root<12;root++)for(int note=0;note<128;note++)for(int rotate=-24;rotate<=24;rotate++){
         config=(hb_fp_config){.rotate=rotate,.octave=rotate%4};

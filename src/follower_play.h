@@ -19,7 +19,9 @@ static int hb_fp_note(hb_fp_config config,int note,int root,unsigned mask){
         int difference=interval-tones[index];if(difference<0)difference=-difference;
         if(difference<distance){distance=difference;degree=index;}
     }
-    int ordinal=(config.mirror?-degree:degree)+config.rotate;
+    /* If the root is excluded (for example the non-chord split), the first
+       tone above it reflects to the last permitted tone below it. */
+    int ordinal=(config.mirror?-degree-(tones[0]!=0):degree)+config.rotate;
     int carry=hb_fp_floor_div(ordinal,count);
     int result=root+12*(register_index+config.octave+(config.wrap?0:carry))+tones[ordinal-carry*count];
     /* Preserve pitch class at MIDI limits instead of clamping to a foreign tone. */
