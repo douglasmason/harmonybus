@@ -209,7 +209,9 @@ jobs:
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
-          gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add Auto (default), Free and 1st Note Free arp starts, plus signed note phase relative to Chord Grid. Keep the Arp / Strum panel at eight knobs. Preserve follower buffer bypass and conductor-first reharmonization."
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add Auto (default), Free and 1st Note Free arp starts, plus signed note phase relative to Chord Grid. Keep the Arp / Strum panel at eight knobs. Preserve follower buffer bypass and conductor-first reharmonization." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+          fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
       - name: Update Module Store metadata
