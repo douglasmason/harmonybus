@@ -1,4 +1,4 @@
-> Release 0.2.129 adds one shared Pads Global panel and rendered-input pad classifications for Movy hbclean.43, including separate lookahead and effective harmony.
+> Release 0.2.130 adds four operation lanes per track and performance controls. Pair with Movy hbclean.44 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
 
 
 
@@ -12,6 +12,9 @@
 # Harmony Bus
 
 Experimental Schwung MIDI FX for Ableton Move.
+
+Unreleased work: [four operation lanes and two shared editors](docs/operations.md).
+The new operations use a global Steps / Perform step-row mode, not knob touch. The published version below remains unchanged.
 
 Harmony Bus uses a **Conductor / Follower / Receiver** model:
 
@@ -59,7 +62,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.129-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.130-module.tar.gz`.
 
 ## License
 

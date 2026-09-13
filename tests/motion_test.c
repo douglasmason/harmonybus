@@ -1,0 +1,205 @@
+/* Reuse the production host fixture; exercise real MIDI processing and state. */
+#define main chord_regression_main
+#include "chord_player_test.c"
+#undef main
+
+static void expect_param(Inst *instance,const char *key,const char *expected){
+    char actual[1024];assert(API.get_param(instance,key,actual,sizeof(actual))>=0);
+    if(strcmp(actual,expected)){fprintf(stderr,"%s: %s != %s\n",key,actual,expected);assert(0);}
+}
+static int send_note(Inst *instance,int on,int pitch){
+    uint8_t message[3]={(uint8_t)(on?0x90:0x80),(uint8_t)pitch,(uint8_t)(on?100:0)};
+    int count=API.process_midi(instance,message,3,output,lengths,64);
+    return count+API.tick(instance,128,48000,output+count,lengths+count,64-count);
+}
+static Inst *motion_fixture(void){
+    Inst *instance=fixture();API.set_param(instance,"boundary_buffer_ms","0 ms");
+    return instance;
+}
+static void controls_and_state(void){
+    Inst *instance=motion_fixture();char legacy[1024],saved[1024],after[1024];
+    API.get_param(instance,"state",legacy,sizeof(legacy));
+    for(int lane=1;lane<=4;lane++){
+        char number[16];snprintf(number,sizeof(number),"%d",lane);
+        API.set_param(instance,"motion_lane",number);
+        API.set_param(instance,"motion_operation",lane==1?"Octave":"Velocity");
+        API.set_param(instance,"motion_amount",number);
+        API.set_param(instance,"motion_pattern","Alternate");
+        API.set_param(instance,"motion_probability","37");
+        API.set_param(instance,"motion_grid","1/16");
+        API.set_param(instance,"motion_cycle","3 Bars");
+        API.set_param(instance,"motion_evolve","Evolve");
+    }
+    API.set_param(instance,"motion_bypass","On");
+    API.get_param(instance,"state",saved,sizeof(saved));
+    API.set_param(instance,"motion_hold_2","On");
+    API.get_param(instance,"state",after,sizeof(after));
+    assert(!strcmp(saved,after)); /* runtime holds are excluded */
+    API.set_param(instance,"state",saved);assert(instance->motion.held==0);
+    for(int lane=1;lane<=4;lane++){
+        char number[16];snprintf(number,sizeof(number),"%d",lane);
+        API.set_param(instance,"motion_lane",number);expect_param(instance,"motion_amount",number);
+        expect_param(instance,"motion_grid","1/16");expect_param(instance,"motion_cycle","3 Bars");
+        expect_param(instance,"motion_probability","37");expect_param(instance,"motion_evolve","Evolve");
+    }
+    Inst *other=API.create_instance("",NULL);expect_param(other,"motion_operation","Off");
+    API.set_param(instance,"state",legacy);assert(!hb_mo_enabled(&instance->motion));
+    expect_param(instance,"motion_lane","1");expect_param(instance,"motion_bypass","Off");
+    API.set_param(instance,"state",saved);API.get_param(instance,"state",after,sizeof(after));assert(!strcmp(saved,after));
+    char small[16];assert(API.get_param(instance,"state",small,sizeof(small))>=16);assert(small[15]==0);
+    hb_mo_restore(&instance->motion,";mo1,0,99,0,0,0,1,3,3,0,100,0,0");
+    assert(!hb_mo_enabled(&instance->motion));
+}
+static void punch_and_release(void){
+    Inst *instance=motion_fixture();
+    API.set_param(instance,"motion_operation","Octave");
+    API.set_param(instance,"motion_enabled","Off");API.set_param(instance,"motion_probability","0");
+    API.set_param(instance,"motion_bypass","On");
+    assert(send_note(instance,1,60)==1&&output[0][1]==60);send_note(instance,0,60);
+    API.set_param(instance,"motion_hold_1","On");
+    assert(send_note(instance,1,60)==1&&output[0][1]==72);
+    assert(rendered[render_count-1][2]==72);
+    API.set_param(instance,"motion_lane","2");API.set_param(instance,"motion_hold_1","Off");
+    assert(send_note(instance,0,60)==1&&output[0][1]==72); /* release uses original pitch */
+    assert(rendered[render_count-1][2]==72&&rendered[render_count-1][1]==0x83);
+    assert(!instance->motion_local.owned&&!instance->motion_render.owned);
+    API.set_param(instance,"motion_lane","1");API.set_param(instance,"motion_enabled","On");
+    API.set_param(instance,"motion_bypass","Off");API.set_param(instance,"motion_probability","100");
+    send_note(instance,1,60);API.set_param(instance,"motion_operation","Off");
+    assert(send_note(instance,0,60)==1&&output[0][1]==72);
+}
+static void lanes_and_patterns(void){
+    Inst *instance=motion_fixture();
+    API.set_param(instance,"motion_operation","Octave");
+    API.set_param(instance,"motion_lane","2");API.set_param(instance,"motion_operation","Octave");
+    assert(send_note(instance,1,60)==1&&output[0][1]==84);send_note(instance,0,60);
+    API.set_param(instance,"motion_operation","Velocity");API.set_param(instance,"motion_amount","-50");
+    assert(send_note(instance,1,60)==1&&output[0][1]==72&&output[0][2]==50);send_note(instance,0,60);
+    API.set_param(instance,"motion_lane","1");API.set_param(instance,"motion_operation","Rotate");
+    assert(send_note(instance,1,60)==1&&output[0][1]==64);send_note(instance,0,60);
+    API.set_param(instance,"motion_operation","Skip");assert(send_note(instance,1,60)==0);assert(send_note(instance,0,60)==0);
+    hb_motion_config config;hb_mo_defaults(&config);config.lanes[0].operation=HB_MO_OCTAVE;config.lanes[0].amount=1;config.lanes[0].pattern=1;
+    double first,second;
+    assert(hb_mo_value(&config,0,0,60,&first)&&first==-1);
+    assert(hb_mo_value(&config,0,0.5,60,&second)&&second==1);
+    config.lanes[0].pattern=6;config.lanes[0].probability=47;
+    for(int step=0;step<100;step++){
+        int accepted=hb_mo_value(&config,0,step*0.5,60,&first);
+        assert(accepted==hb_mo_value(&config,0,step*0.5+4,72,&second));
+        if(accepted)assert(first==second); /* repeated cycle; chord grouping */
+    }
+}
+static void gate_pan_and_stop(void){
+    Inst *instance=motion_fixture();API.set_param(instance,"motion_operation","Gate");
+    API.set_param(instance,"motion_amount","50");
+    assert(send_note(instance,1,60)==1);position=0.26;
+    int count=API.tick(instance,6240,48000,output,lengths,64);
+    assert(count==1&&output[0][0]==0x80&&output[0][1]==60);
+    assert(send_note(instance,0,60)==0);
+    /* A live note must also close its gate when transport is stopped. */
+    instance=motion_fixture();transport=1;position=-1;API.set_param(instance,"motion_operation","Gate");
+    send_note(instance,1,60);count=API.tick(instance,7000,48000,output,lengths,64);
+    assert(count==1&&output[0][0]==0x80);send_note(instance,0,60);
+    instance=motion_fixture();API.set_param(instance,"motion_operation","Pan");
+    API.set_param(instance,"motion_enabled","Off");API.set_param(instance,"motion_hold_1","On");
+    count=send_note(instance,1,60);assert(count==2&&output[0][0]==0xb0&&output[0][1]==10&&output[0][2]>64);
+    API.set_param(instance,"motion_hold_1","Off");count=API.tick(instance,128,48000,output,lengths,64);
+    assert(count==1&&output[0][0]==0xb0&&output[0][2]==64);send_note(instance,0,60);
+    API.set_param(instance,"motion_operation","Octave");API.set_param(instance,"motion_hold_1","On");send_note(instance,1,60);
+    uint8_t stop=0xfc;API.process_midi(instance,&stop,1,output,lengths,64);
+    assert(instance->motion.held==0);
+    API.tick(instance,128,48000,output,lengths,64);
+    assert(!instance->motion_local.owned&&!instance->motion_render.owned);
+}
+static void harmony_choice(void){
+    Inst *instance=motion_fixture();hb_harmony_t current=bus_read();
+    uint8_t notes[3]={65,69,72};hb_harmony_t upcoming=hb_infer_harmony(notes,3);
+    g_bus.clip_loop_start=0;g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    g_bus.next_model[0].phase=0;g_bus.next_model[0].harmony=current;
+    g_bus.next_model[1].phase=2;g_bus.next_model[1].harmony=upcoming;
+    g_bus.next_lookahead=4;position=1.5;
+    API.set_param(instance,"motion_operation","Harmony");API.set_param(instance,"motion_amount","100");
+    assert(hb_render_harmony(instance).root_pc==upcoming.root_pc);
+    API.set_param(instance,"motion_amount","0");assert(hb_render_harmony(instance).root_pc==current.root_pc);
+    assert(bus_read().root_pc==current.root_pc); /* lane never mutates the shared bus */
+    g_bus.next_model_locked=0;API.set_param(instance,"motion_amount","100");
+    assert(hb_render_harmony(instance).root_pc==current.root_pc);
+}
+static void ownership_and_recording(void){
+    hb_motion_route route;hb_mo_route_init(&route);uint8_t message[3]={0x90,61,100},event[3];
+    hb_mo_event(&route,message,61,100,-1,-1,0);
+    message[1]=60;hb_mo_event(&route,message,72,100,-1,-1,0);
+    message[0]=0x80;message[1]=61;hb_mo_event(&route,message,61,0,-1,-1,0);
+    message[0]=0x90;message[1]=60;hb_mo_event(&route,message,84,100,-1,-1,0);
+    while(hb_mo_pop(&route,event)){}
+    message[0]=0x80;hb_mo_event(&route,message,60,0,-1,-1,0);
+    assert(hb_mo_pop(&route,event)&&event[1]==72); /* reused slot cannot steal older OFF */
+    hb_mo_event(&route,message,60,0,-1,-1,0);assert(hb_mo_pop(&route,event)&&event[1]==84);
+    assert(!route.owned);
+    message[0]=0x90;hb_mo_event(&route,message,72,100,-1,-1,0);
+    message[1]=61;hb_mo_event(&route,message,72,100,-1,-1,0);
+    while(hb_mo_pop(&route,event)){}
+    message[0]=0x80;hb_mo_event(&route,message,61,0,-1,-1,0);assert(!hb_mo_pop(&route,event));
+    message[1]=60;hb_mo_event(&route,message,60,0,-1,-1,0);assert(hb_mo_pop(&route,event)&&event[1]==72);
+    Inst *instance=motion_fixture();API.set_param(instance,"role","Conductor");instance->movy_track=0;
+    API.set_param(instance,"chord_mode","Scale Degree");API.set_param(instance,"motion_operation","Octave");
+    send_note(instance,1,60);
+    assert(recorded_count==3&&recorded[0][2]==60); /* source capture is before output lanes */
+    assert(render_count>=3&&rendered[0][2]==72);
+    send_note(instance,0,60);
+    assert(recorded_count==6&&recorded[3][2]==60);
+    assert(!instance->motion_local.owned&&!instance->motion_render.owned);
+}
+static void performance_buttons(void){
+    Inst *instance=motion_fixture();
+    API.set_param(instance,"performance_below","On");
+    assert(send_note(instance,1,60)==1&&output[0][1]==59);
+    API.set_param(instance,"performance_below","Off");
+    assert(send_note(instance,0,60)==1&&output[0][1]==59);
+    API.set_param(instance,"performance_below","On");API.set_param(instance,"performance_above","On");
+    assert(send_note(instance,1,60)==1&&output[0][1]==62);send_note(instance,0,60);
+    API.set_param(instance,"performance_above","Off");
+    assert(send_note(instance,1,60)==1&&output[0][1]==59);send_note(instance,0,60);
+    API.set_param(instance,"performance_below","Off");
+    assert(send_note(instance,1,60)==1&&output[0][1]==60);send_note(instance,0,60);
+    for(int order=0;order<2;order++){
+        const char *key=order?"performance_enclose_ba":"performance_enclose_ab";
+        API.set_param(instance,key,"On");API.set_param(instance,key,"Off");
+        for(int step=0;step<4;step++){
+            int expected=step>=2?60:((step==0)==(order==0)?62:59);
+            assert(send_note(instance,1,60)==1&&output[0][1]==expected);
+            assert(rendered[render_count-1][2]==expected);
+            assert(send_note(instance,0,60)==1&&output[0][1]==expected);
+            assert(rendered[render_count-1][2]==expected);
+        }
+        assert(!instance->motion.enclosure&&!instance->motion_local.owned&&!instance->motion_render.owned);
+    }
+    API.set_param(instance,"performance_enclose_ab","On");
+    send_note(instance,1,60);send_note(instance,0,60);
+    API.set_param(instance,"performance_enclose_ab","On"); /* retrigger starts again */
+    assert(send_note(instance,1,60)==1&&output[0][1]==62);send_note(instance,0,60);
+    API.set_param(instance,"performance_below","On"); /* explicit hold replaces sequence */
+    assert(!instance->motion.enclosure);
+    char state[1024];API.get_param(instance,"state",state,sizeof(state));
+    API.set_param(instance,"state",state);assert(!instance->motion.pitch_held&&!instance->motion.enclosure);
+    API.set_param(instance,"performance_enclose_ab","On");
+    API.set_param(instance,"performance_reset","1");assert(!hb_mo_enabled(&instance->motion));
+    /* A simultaneous three-voice chord advances once, on both output routes. */
+    instance=motion_fixture();API.set_param(instance,"performance_enclose_ab","On");
+    const int pitches[3]={60,64,67};
+    const int expected[3][3]={{62,65,69},{59,63,66},{60,64,67}};
+    for(int step=0;step<3;step++){
+        position=step*0.5;
+        for(int voice=0;voice<3;voice++)midi(instance,1,pitches[voice]);
+        int count=API.tick(instance,128,48000,output,lengths,64);assert(count==3);
+        for(int voice=0;voice<3;voice++)assert(output[voice][1]==expected[step][voice]);
+        for(int voice=0;voice<3;voice++)midi(instance,0,pitches[voice]);
+        API.tick(instance,128,48000,output,lengths,64);
+    }
+    assert(!instance->motion.enclosure);
+}
+int main(void){
+    controls_and_state();punch_and_release();lanes_and_patterns();gate_pan_and_stop();harmony_choice();ownership_and_recording();performance_buttons();
+    puts("motion: persistence, isolation, punch ownership, stacked lanes, patterns, gate, pan, stop and harmony pass");
+    return 0;
+}

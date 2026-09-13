@@ -1,10 +1,10 @@
 {
  "id": "harmonybus",
- "name": "Harmony Bus 0.2.129",
+ "name": "Harmony Bus 0.2.130",
  "abbrev": "HB2101",
- "version": "0.2.129",
+ "version": "0.2.130",
  "api_version": 2,
- "description": "Harmony Bus v0.2.129 \u2014 Conductor-first follower boundary mapping",
+ "description": "Harmony Bus v0.2.130 \u2014 Conductor-first follower boundary mapping",
  "author": "Douglas Mason / OpenAI prototype",
  "license": "MIT",
  "dsp": "dsp.so",
@@ -16,7 +16,7 @@
   "ui_hierarchy": {
    "levels": {
     "root": {
-     "name": "Harmony Bus 0.2.129",
+     "name": "Harmony Bus 0.2.130",
      "params": [
       {
        "key": "version",
@@ -231,6 +231,14 @@
       {
        "level": "pad_display",
        "label": "Pads Global"
+      },
+      {
+       "level": "motion_operation",
+       "label": "Operation"
+      },
+      {
+       "level": "motion_timing",
+       "label": "Timing / Trigger"
       }
      ],
      "knobs": [
@@ -1448,6 +1456,216 @@
       "pad_pulse_shape",
       "pad_current_color",
       "pad_lookahead_color"
+     ]
+    },
+    "motion_operation": {
+     "name": "Operation",
+     "params": [
+      {
+       "key": "motion_lane",
+       "name": "Lane",
+       "type": "enum",
+       "options": [
+        "1",
+        "2",
+        "3",
+        "4"
+       ],
+       "options_as_string": true,
+       "default": "1"
+      },
+      {
+       "key": "motion_operation",
+       "name": "Operation",
+       "type": "enum",
+       "options": [
+        "Off",
+        "Velocity",
+        "Pan",
+        "Octave",
+        "Rotate",
+        "Gate",
+        "Skip",
+        "Harmony"
+       ],
+       "options_as_string": true,
+       "default": "Off"
+      },
+      {
+       "key": "motion_pattern",
+       "name": "Pattern",
+       "type": "enum",
+       "options": [
+        "Constant",
+        "Alternate",
+        "Rise",
+        "Fall",
+        "Triangle",
+        "Backbeat",
+        "Random"
+       ],
+       "options_as_string": true,
+       "default": "Constant"
+      },
+      {
+       "key": "motion_amount",
+       "name": "Amount",
+       "type": "int",
+       "min": -100,
+       "max": 100,
+       "step": 1,
+       "default": 0
+      },
+      {
+       "key": "motion_offset",
+       "name": "Offset",
+       "type": "int",
+       "min": -100,
+       "max": 100,
+       "step": 1,
+       "default": 0
+      },
+      {
+       "key": "motion_enabled",
+       "name": "Auto",
+       "type": "enum",
+       "options": [
+        "Off",
+        "On"
+       ],
+       "options_as_string": true,
+       "default": "On"
+      },
+      {
+       "key": "motion_overview",
+       "name": "Lanes (* on)",
+       "type": "string",
+       "access": "read"
+      },
+      {
+       "key": "motion_punch",
+       "name": "Punch Status",
+       "type": "string",
+       "access": "read"
+      }
+     ],
+     "knobs": [
+      "motion_lane",
+      "motion_operation",
+      "motion_pattern",
+      "motion_amount",
+      "motion_offset",
+      "motion_enabled",
+      "motion_overview",
+      "motion_punch"
+     ]
+    },
+    "motion_timing": {
+     "name": "Timing / Trigger",
+     "params": [
+      {
+       "key": "motion_lane",
+       "name": "Lane",
+       "type": "enum",
+       "options": [
+        "1",
+        "2",
+        "3",
+        "4"
+       ],
+       "options_as_string": true,
+       "default": "1"
+      },
+      {
+       "key": "motion_grid",
+       "name": "Grid",
+       "type": "enum",
+       "options": [
+        "1/64",
+        "1/32",
+        "1/16",
+        "1/8",
+        "1/4",
+        "1/2",
+        "1 Bar",
+        "2 Bars",
+        "4 Bars"
+       ],
+       "options_as_string": true,
+       "default": "1/8"
+      },
+      {
+       "key": "motion_cycle",
+       "name": "Cycle",
+       "type": "enum",
+       "options": [
+        "1/8",
+        "1/4",
+        "1/2",
+        "1 Bar",
+        "2 Bars",
+        "3 Bars",
+        "4 Bars"
+       ],
+       "options_as_string": true,
+       "default": "1 Bar"
+      },
+      {
+       "key": "motion_phase",
+       "name": "Phase",
+       "type": "int",
+       "min": -64,
+       "max": 64,
+       "step": 1,
+       "default": 0
+      },
+      {
+       "key": "motion_probability",
+       "name": "Probability",
+       "type": "int",
+       "min": 0,
+       "max": 100,
+       "step": 1,
+       "default": 100
+      },
+      {
+       "key": "motion_group",
+       "name": "Group",
+       "type": "enum",
+       "options": [
+        "Chord",
+        "Voice"
+       ],
+       "options_as_string": true,
+       "default": "Chord"
+      },
+      {
+       "key": "motion_evolve",
+       "name": "Random",
+       "type": "enum",
+       "options": [
+        "Repeat",
+        "Evolve"
+       ],
+       "options_as_string": true,
+       "default": "Repeat"
+      },
+      {
+       "key": "motion_punch",
+       "name": "Punch Status",
+       "type": "string",
+       "access": "read"
+      }
+     ],
+     "knobs": [
+      "motion_lane",
+      "motion_grid",
+      "motion_cycle",
+      "motion_phase",
+      "motion_probability",
+      "motion_group",
+      "motion_evolve",
+      "motion_punch"
      ]
     }
    },
@@ -3059,6 +3277,284 @@
     ],
     "options_as_string": true,
     "default": "Yellow"
+   },
+   {
+    "key": "motion_lane",
+    "name": "Lane",
+    "type": "enum",
+    "options": [
+     "1",
+     "2",
+     "3",
+     "4"
+    ],
+    "options_as_string": true,
+    "default": "1"
+   },
+   {
+    "key": "motion_operation",
+    "name": "Operation",
+    "type": "enum",
+    "options": [
+     "Off",
+     "Velocity",
+     "Pan",
+     "Octave",
+     "Rotate",
+     "Gate",
+     "Skip",
+     "Harmony"
+    ],
+    "options_as_string": true,
+    "default": "Off"
+   },
+   {
+    "key": "motion_pattern",
+    "name": "Pattern",
+    "type": "enum",
+    "options": [
+     "Constant",
+     "Alternate",
+     "Rise",
+     "Fall",
+     "Triangle",
+     "Backbeat",
+     "Random"
+    ],
+    "options_as_string": true,
+    "default": "Constant"
+   },
+   {
+    "key": "motion_amount",
+    "name": "Amount",
+    "type": "int",
+    "min": -100,
+    "max": 100,
+    "step": 1,
+    "default": 0
+   },
+   {
+    "key": "motion_offset",
+    "name": "Offset",
+    "type": "int",
+    "min": -100,
+    "max": 100,
+    "step": 1,
+    "default": 0
+   },
+   {
+    "key": "motion_enabled",
+    "name": "Auto",
+    "type": "enum",
+    "options": [
+     "Off",
+     "On"
+    ],
+    "options_as_string": true,
+    "default": "On"
+   },
+   {
+    "key": "motion_grid",
+    "name": "Grid",
+    "type": "enum",
+    "options": [
+     "1/64",
+     "1/32",
+     "1/16",
+     "1/8",
+     "1/4",
+     "1/2",
+     "1 Bar",
+     "2 Bars",
+     "4 Bars"
+    ],
+    "options_as_string": true,
+    "default": "1/8"
+   },
+   {
+    "key": "motion_cycle",
+    "name": "Cycle",
+    "type": "enum",
+    "options": [
+     "1/8",
+     "1/4",
+     "1/2",
+     "1 Bar",
+     "2 Bars",
+     "3 Bars",
+     "4 Bars"
+    ],
+    "options_as_string": true,
+    "default": "1 Bar"
+   },
+   {
+    "key": "motion_phase",
+    "name": "Phase",
+    "type": "int",
+    "min": -64,
+    "max": 64,
+    "step": 1,
+    "default": 0
+   },
+   {
+    "key": "motion_probability",
+    "name": "Probability",
+    "type": "int",
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "default": 100
+   },
+   {
+    "key": "motion_group",
+    "name": "Group",
+    "type": "enum",
+    "options": [
+     "Chord",
+     "Voice"
+    ],
+    "options_as_string": true,
+    "default": "Chord"
+   },
+   {
+    "key": "motion_evolve",
+    "name": "Random",
+    "type": "enum",
+    "options": [
+     "Repeat",
+     "Evolve"
+    ],
+    "options_as_string": true,
+    "default": "Repeat"
+   },
+   {
+    "key": "motion_bypass",
+    "name": "Bypass All",
+    "type": "enum",
+    "options": [
+     "Off",
+     "On"
+    ],
+    "options_as_string": true,
+    "default": "Off"
+   },
+   {
+    "key": "motion_punch",
+    "name": "Punch Status",
+    "type": "string",
+    "access": "read"
+   },
+   {
+    "key": "motion_overview",
+    "name": "Lanes (* on)",
+    "type": "string",
+    "access": "read"
+   },
+   {
+    "key": "motion_hold_1",
+    "name": "Punch 1",
+    "type": "enum",
+    "options": [
+     "Off",
+     "On"
+    ],
+    "options_as_string": true,
+    "default": "Off"
+   },
+   {
+    "key": "motion_hold_2",
+    "name": "Punch 2",
+    "type": "enum",
+    "options": [
+     "Off",
+     "On"
+    ],
+    "options_as_string": true,
+    "default": "Off"
+   },
+   {
+    "key": "motion_hold_3",
+    "name": "Punch 3",
+    "type": "enum",
+    "options": [
+     "Off",
+     "On"
+    ],
+    "options_as_string": true,
+    "default": "Off"
+   },
+   {
+    "key": "motion_hold_4",
+    "name": "Punch 4",
+    "type": "enum",
+    "options": [
+     "Off",
+     "On"
+    ],
+    "options_as_string": true,
+    "default": "Off"
+   },
+   {
+    "key": "performance_below",
+    "name": "Chrom Below Hold",
+    "type": "enum",
+    "options": [
+     "Off",
+     "On"
+    ],
+    "options_as_string": true,
+    "default": "Off",
+    "access": "write"
+   },
+   {
+    "key": "performance_above",
+    "name": "Scale Above Hold",
+    "type": "enum",
+    "options": [
+     "Off",
+     "On"
+    ],
+    "options_as_string": true,
+    "default": "Off",
+    "access": "write"
+   },
+   {
+    "key": "performance_enclose_ab",
+    "name": "Above Below Target",
+    "type": "enum",
+    "options": [
+     "Off",
+     "On"
+    ],
+    "options_as_string": true,
+    "default": "Off",
+    "access": "write"
+   },
+   {
+    "key": "performance_enclose_ba",
+    "name": "Below Above Target",
+    "type": "enum",
+    "options": [
+     "Off",
+     "On"
+    ],
+    "options_as_string": true,
+    "default": "Off",
+    "access": "write"
+   },
+   {
+    "key": "performance_status",
+    "name": "Performance",
+    "type": "string",
+    "access": "read"
+   },
+   {
+    "key": "performance_reset",
+    "name": "Reset Performance",
+    "type": "int",
+    "min": 0,
+    "max": 1,
+    "access": "write"
    }
   ],
   "pre_capable": 1
