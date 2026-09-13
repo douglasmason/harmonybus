@@ -1,10 +1,10 @@
 {
  "id": "harmonybus",
- "name": "Harmony Bus 0.2.128",
+ "name": "Harmony Bus 0.2.129",
  "abbrev": "HB2101",
- "version": "0.2.128",
+ "version": "0.2.129",
  "api_version": 2,
- "description": "Harmony Bus v0.2.128 \u2014 Conductor-first follower boundary mapping",
+ "description": "Harmony Bus v0.2.129 \u2014 Conductor-first follower boundary mapping",
  "author": "Douglas Mason / OpenAI prototype",
  "license": "MIT",
  "dsp": "dsp.so",
@@ -16,7 +16,7 @@
   "ui_hierarchy": {
    "levels": {
     "root": {
-     "name": "Harmony Bus 0.2.128",
+     "name": "Harmony Bus 0.2.129",
      "params": [
       {
        "key": "version",
@@ -227,6 +227,10 @@
       {
        "level": "diagnostics",
        "label": "Diagnostics"
+      },
+      {
+       "level": "pad_display",
+       "label": "Pads Global"
       }
      ],
      "knobs": [
@@ -1355,6 +1359,95 @@
       "play_scope",
       "play_bypass",
       "play_reset"
+     ]
+    },
+    "pad_display": {
+     "name": "Pads Global",
+     "params": [
+      {
+       "key": "pad_display",
+       "name": "Pad Colors",
+       "type": "enum",
+       "options": [
+        "Standard",
+        "Current",
+        "Effective",
+        "Both",
+        "Lookahead"
+       ],
+       "options_as_string": true,
+       "default": "Standard"
+      },
+      {
+       "key": "pad_pulse_rate",
+       "name": "Pulse Rate",
+       "type": "enum",
+       "options": [
+        "Off",
+        "1/16",
+        "1/8",
+        "1/4",
+        "1/2",
+        "1 Bar",
+        "2 Bars",
+        "4 Bars"
+       ],
+       "options_as_string": true,
+       "default": "1/4"
+      },
+      {
+       "key": "pad_pulse_shape",
+       "name": "Pulse Shape",
+       "type": "enum",
+       "options": [
+        "Smooth",
+        "Triangle",
+        "Square"
+       ],
+       "options_as_string": true,
+       "default": "Smooth"
+      },
+      {
+       "key": "pad_current_color",
+       "name": "Current Color",
+       "type": "enum",
+       "options": [
+        "Red",
+        "Orange",
+        "Yellow",
+        "Green",
+        "Cyan",
+        "Blue",
+        "Purple",
+        "Pink"
+       ],
+       "options_as_string": true,
+       "default": "Cyan"
+      },
+      {
+       "key": "pad_lookahead_color",
+       "name": "Lookahead Color",
+       "type": "enum",
+       "options": [
+        "Red",
+        "Orange",
+        "Yellow",
+        "Green",
+        "Cyan",
+        "Blue",
+        "Purple",
+        "Pink"
+       ],
+       "options_as_string": true,
+       "default": "Yellow"
+      }
+     ],
+     "knobs": [
+      "pad_display",
+      "pad_pulse_rate",
+      "pad_pulse_shape",
+      "pad_current_color",
+      "pad_lookahead_color"
      ]
     }
    },
@@ -2889,6 +2982,83 @@
     ],
     "options_as_string": true,
     "access": "write"
+   },
+   {
+    "key": "pad_display",
+    "name": "Pad Colors",
+    "type": "enum",
+    "options": [
+     "Standard",
+     "Current",
+     "Effective",
+     "Both",
+     "Lookahead"
+    ],
+    "options_as_string": true,
+    "default": "Standard"
+   },
+   {
+    "key": "pad_pulse_rate",
+    "name": "Pulse Rate",
+    "type": "enum",
+    "options": [
+     "Off",
+     "1/16",
+     "1/8",
+     "1/4",
+     "1/2",
+     "1 Bar",
+     "2 Bars",
+     "4 Bars"
+    ],
+    "options_as_string": true,
+    "default": "1/4"
+   },
+   {
+    "key": "pad_pulse_shape",
+    "name": "Pulse Shape",
+    "type": "enum",
+    "options": [
+     "Smooth",
+     "Triangle",
+     "Square"
+    ],
+    "options_as_string": true,
+    "default": "Smooth"
+   },
+   {
+    "key": "pad_current_color",
+    "name": "Current Color",
+    "type": "enum",
+    "options": [
+     "Red",
+     "Orange",
+     "Yellow",
+     "Green",
+     "Cyan",
+     "Blue",
+     "Purple",
+     "Pink"
+    ],
+    "options_as_string": true,
+    "default": "Cyan"
+   },
+   {
+    "key": "pad_lookahead_color",
+    "name": "Lookahead Color",
+    "type": "enum",
+    "options": [
+     "Red",
+     "Orange",
+     "Yellow",
+     "Green",
+     "Cyan",
+     "Blue",
+     "Purple",
+     "Pink"
+    ],
+    "options_as_string": true,
+    "default": "Yellow"
    }
   ],
   "pre_capable": 1

@@ -1049,6 +1049,53 @@ static void rapid_latched_arp(void){
     }
 }
 
+static void pad_global_settings(void){
+    Inst *first=fixture(),*second=API.create_instance("",NULL);
+    char state[2048],value[128];
+    API.set_param(first,"pad_display","Lookahead");API.set_param(first,"pad_pulse_rate","2 Bars");
+    API.get_param(second,"pad_display",value,sizeof(value));assert(!strcmp(value,"Lookahead"));
+    API.get_param(second,"state",state,sizeof(state));assert(strstr(state,";pd1,4,6,0,4,2"));
+    API.set_param(second,"pad_display","Current");API.set_param(first,"state",state);
+    API.get_param(second,"pad_display",value,sizeof(value));assert(!strcmp(value,"Current")); /* stale state cannot overwrite live global */
+    API.destroy_instance(first);API.destroy_instance(second);
+    first=API.create_instance("",NULL);API.set_param(first,"state",state);
+    API.get_param(first,"pad_display",value,sizeof(value));assert(!strcmp(value,"Lookahead"));
+    API.get_param(first,"pad_pulse_rate",value,sizeof(value));assert(!strcmp(value,"2 Bars"));
+    API.destroy_instance(first);
+}
+
+static void pad_render_mapping(void){
+    Inst *instance=fixture();API.set_param(instance,"pad_display","Both");
+    uint8_t chord[3]={67,71,74};hb_commit_observed_harmony(hb_infer_harmony(chord,3));
+    API.set_param(instance,"content_map","Scale");
+    instance->content_map=1;instance->travel_map=0;
+    g_bus.boundary_buffer_ms=0;g_bus.next_predict=0;
+    char snapshot[128];unsigned current,effective,scale,lookahead;int ready;
+    Inst before=*instance;unsigned sequence=g_bus.seq;
+    API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
+    assert(sscanf(snapshot,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&lookahead)==5);
+    assert(!memcmp(&before,instance,sizeof(before))&&g_bus.seq==sequence);
+    assert(current&(1u<<0)); /* input C renders G, a G-major chord tone */
+    assert(!(current&(1u<<2))); /* input D renders A, despite D being in G major chord */
+    assert(current==effective&&!ready&&!lookahead);
+    for(int mode=0;mode<3;mode++)for(int travel=0;travel<7;travel++){
+        instance->player.config.mode=mode;instance->travel_map=travel;
+        API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
+        sscanf(snapshot,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&lookahead);
+        for(int pitch_class=0;pitch_class<12;pitch_class++){
+            render_count=0;midi(instance,1,60+pitch_class);
+            advance(instance,1,64);
+            unsigned actual=0;
+            for(int event=0;event<render_count;event++)if((rendered[event][1]&0xf0)==0x90&&rendered[event][3])actual|=1u<<mod12(rendered[event][2]);
+            assert(actual);
+            unsigned chord_mask=(1u<<7)|(1u<<11)|(1u<<2);
+            assert(!!(current&(1u<<pitch_class))==!(actual&~chord_mask));
+            midi(instance,0,60+pitch_class);advance(instance,1,64);
+        }
+    }
+    API.destroy_instance(instance);
+}
+
 static void pad_harmony_snapshot(void){
     for(int late=0;late<2;late++){
         Inst *instance=fixture();
@@ -1066,6 +1113,15 @@ static void pad_harmony_snapshot(void){
         unsigned cmask=(1u<<0)|(1u<<4)|(1u<<7),dmask=(1u<<2)|(1u<<6)|(1u<<9);
         assert(current==(late?dmask:cmask));assert(effective==(late?cmask:dmask));
         assert(ready&&scale);assert(!memcmp(&before,instance,sizeof(before))&&g_bus.seq==sequence);
+        unsigned lookahead;
+        API.set_param(instance,"pad_display","Both");
+        API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
+        assert(sscanf(snapshot,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&lookahead)==5);
+        assert(!memcmp(&before,instance,sizeof(before))&&g_bus.seq==sequence);
+        instance->approach_pad_armed=HB_APPROACH_OFF;
+        API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
+        sscanf(snapshot,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&lookahead);
+        if(!late)assert(lookahead!=effective); /* buffer advances beyond plain lookahead */
         g_bus.next_model_locked=0;
         API.get_param(instance,"pad_harmony",snapshot,sizeof(snapshot));
         sscanf(snapshot,"%u,%u,%u,%d",&current,&effective,&scale,&ready);assert(!ready);
@@ -1073,4 +1129,4 @@ static void pad_harmony_snapshot(void){
     }
 }
 
-int main(void){pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+int main(void){pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
