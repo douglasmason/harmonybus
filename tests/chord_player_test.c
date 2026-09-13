@@ -138,7 +138,8 @@ static void arp_and_latch(void){
     midi(instance,0,60);midi(instance,0,64);midi(instance,0,67);
     assert(advance(instance,63,64)==1&&output[0][0]==0x80);
     assert(advance(instance,62,64)==1&&output[0][1]==64);
-    midi(instance,1,69);assert(advance(instance,0,64)==2&&output[1][1]==69);
+    midi(instance,1,69);assert(advance(instance,0,64)==0);
+    assert(instance->player.sounding[0][64]); /* Complete the existing hit. */
     midi(instance,0,69);advance(instance,63,64);assert(advance(instance,62,64)==1&&output[0][1]==69);
     uint8_t stop[1]={0xFC};API.process_midi(instance,stop,1,output,lengths,64);
     assert(advance(instance,0,64)==1&&output[0][0]==0x80);
@@ -995,4 +996,57 @@ static void conductor_arp_range_recording(void){
     API.destroy_instance(instance);
 }
 
-int main(void){conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void rapid_latched_arp_api(void){
+    for(int phase=0;phase<3;phase++)for(int chords=0;chords<2;chords++){
+        Inst *instance=fixture();
+        API.set_param(instance,"arp_playback","Repeat Arp");
+        API.set_param(instance,"arp_hold","Latch");
+        API.set_param(instance,"chord_mode",chords?"Conductor Chord":"Off");
+        instance->player.config.phase=phase;
+        midi(instance,1,60);midi(instance,0,60);
+        int total=0;
+        for(int milliseconds=0;milliseconds<=500;milliseconds++){
+            if(milliseconds&&(milliseconds%17==0||milliseconds%125==0)){
+                int source=60+2*((milliseconds/17)%3);
+                midi(instance,1,source);midi(instance,0,source);
+            }
+            int count=advance(instance,milliseconds?1:0,64),hits=0;
+            for(int event=0;event<count;event++)if((output[event][0]&0xF0)==0x90)hits++;
+            assert(hits==(milliseconds%125==0&&(milliseconds>0||phase!=1)));
+            total+=hits;
+        }
+        assert(total==(phase==1?4:5));
+        uint8_t stop[1]={0xFC};API.process_midi(instance,stop,1,output,lengths,64);
+        advance(instance,0,64);assert(instance->player.sounding_count==0);
+        API.destroy_instance(instance);
+    }
+}
+static void rapid_latched_arp(void){
+    for(int phase=0;phase<3;phase++)for(int same=0;same<2;same++){
+        hb_chord_player player={0};hb_cp_defaults(&player.config);
+        player.config.playback=1;player.config.latch=1;player.config.phase=phase;
+        int note=60;hb_cp_on(&player,60,0,100,&note,1);hb_cp_off(&player,60,0);
+        int last_on=-1000,total_on=0;
+        for(int milliseconds=0;milliseconds<=1000;milliseconds++){
+            player.beat=milliseconds/500.0;
+            /* Replace released gestures faster than the arp, including exactly
+               on a scheduled boundary. This must not re-arm Auto or cut a hit. */
+            if(milliseconds>0&&(milliseconds%17==0||milliseconds%125==0)){
+                note=same?60:60+2*((milliseconds/17)%3);
+                hb_cp_on(&player,note,0,100,&note,1);hb_cp_off(&player,note,0);
+            }
+            int count=hb_cp_tick(&player,output,lengths,64),hits=0;
+            for(int event=0;event<count;event++){
+                if((output[event][0]&0xF0)==0x90){hits++;total_on++;last_on=milliseconds;}
+                else if((output[event][0]&0xF0)==0x80)assert(milliseconds-last_on>=62);
+            }
+            int expected=(milliseconds%125==0&&(milliseconds>0||phase!=1));
+            assert(hits==expected);
+        }
+        assert(total_on==(phase==1?8:9));
+        hb_cp_clear(&player);hb_cp_tick(&player,output,lengths,64);
+        assert(player.sounding_count==0);
+    }
+}
+
+int main(void){rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

@@ -22,7 +22,7 @@ typedef struct {
     hb_cp_key keys[HB_CP_KEYS];
     uint8_t sounding[16][128], retrigger[16][128];
     int sounding_channels[16];
-    int sounding_count, flushing, render_channel, step, running, arp_note, arp_channel;
+    int sounding_count, flushing, render_channel, step, running, arp_note, arp_channel, arp_velocity;
     unsigned random, sequence;
     double seconds, beat, next_beat, gate_beat;
 } hb_chord_player;
@@ -180,8 +180,13 @@ static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,
                     const int *notes,int count){
     if(count<=0)return 1;
     if(player->config.latch&&!hb_cp_held(player)){
-        memcpy(player->retrigger,player->sounding,sizeof(player->retrigger));
-        memset(player->keys,0,sizeof(player->keys));player->running=0;player->step=0;
+        /* A latched replacement changes the pitch pool, not the running clock.
+           Re-arming Auto here can postpone every division under rapid input. */
+        if(player->config.playback!=1){
+            memcpy(player->retrigger,player->sounding,sizeof(player->retrigger));
+            player->running=0;player->step=0;
+        }
+        memset(player->keys,0,sizeof(player->keys));
     }
     int slot=-1;
     for(int index=0;index<HB_CP_KEYS;index++){
@@ -191,7 +196,7 @@ static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,
     }
     if(slot<0)return 0;
     hb_cp_key *key=&player->keys[slot];
-    if(key->used)for(int voice=0;voice<key->count;voice++){
+    if(key->used&&player->config.playback!=1)for(int voice=0;voice<key->count;voice++){
         int pitch=key->notes[voice],shared=0;
         for(int other=0;other<HB_CP_KEYS;other++)if(other!=slot&&player->keys[other].used&&player->keys[other].channel==channel)
             for(int tone=0;tone<player->keys[other].count;tone++)if(player->keys[other].notes[tone]==pitch)shared=1;
@@ -311,6 +316,7 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
             hb_cp_entry entry=entries[ordinal];
             if(player->sounding[entry.channel][entry.pitch])player->retrigger[entry.channel][entry.pitch]=1;
             player->arp_note=entry.pitch;player->arp_channel=entry.channel;
+            player->arp_velocity=player->keys[entry.key].velocity;
             static const double gates[4]={0.25,0.5,0.75,0.9};
             player->gate_beat=onset+rate*gates[player->config.gate];
             player->next_beat=first&&player->config.phase==2?
@@ -319,6 +325,10 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
             player->running=1;
         }
         if(player->running==1&&player->beat<player->gate_beat){
+            /* A replacement pool may no longer contain this already-emitted
+               latched hit. Let it finish its gate; use the new pool next step. */
+            if(player->config.latch&&count)
+                desired[player->arp_channel][player->arp_note]=(uint8_t)player->arp_velocity;
             for(int index=0;index<count;index++)if(entries[index].pitch==player->arp_note&&entries[index].channel==player->arp_channel)
                 desired[player->arp_channel][player->arp_note]=(uint8_t)player->keys[entries[index].key].velocity;
         }
