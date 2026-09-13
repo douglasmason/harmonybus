@@ -1049,4 +1049,28 @@ static void rapid_latched_arp(void){
     }
 }
 
-int main(void){rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void pad_harmony_snapshot(void){
+    for(int late=0;late<2;late++){
+        Inst *instance=fixture();
+        g_bus.next_lookahead=late?10:3;hb_next_update_playhead(0,48000);
+        g_bus.next_model_locked=1;g_bus.next_model_count=2;
+        uint8_t c[3]={60,64,67},d[3]={62,66,69};
+        g_bus.next_model[0].phase=0;g_bus.next_model[0].harmony=hb_infer_harmony(c,3);
+        g_bus.next_model[1].phase=2;g_bus.next_model[1].harmony=hb_infer_harmony(d,3);
+        position=late?2.6:1.3;hb_next_apply_effective(hb_clip_playhead());
+        instance->approach_pad_armed=HB_APPROACH_CHROM_BELOW;
+        Inst before=*instance;unsigned sequence=g_bus.seq;
+        char snapshot[128];unsigned current,effective,scale;int ready;
+        assert(API.get_param(instance,"pad_harmony",snapshot,sizeof(snapshot))>0);
+        assert(sscanf(snapshot,"%u,%u,%u,%d",&current,&effective,&scale,&ready)==4);
+        unsigned cmask=(1u<<0)|(1u<<4)|(1u<<7),dmask=(1u<<2)|(1u<<6)|(1u<<9);
+        assert(current==(late?dmask:cmask));assert(effective==(late?cmask:dmask));
+        assert(ready&&scale);assert(!memcmp(&before,instance,sizeof(before))&&g_bus.seq==sequence);
+        g_bus.next_model_locked=0;
+        API.get_param(instance,"pad_harmony",snapshot,sizeof(snapshot));
+        sscanf(snapshot,"%u,%u,%u,%d",&current,&effective,&scale,&ready);assert(!ready);
+        API.destroy_instance(instance);
+    }
+}
+
+int main(void){pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

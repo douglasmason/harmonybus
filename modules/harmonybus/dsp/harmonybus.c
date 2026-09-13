@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.127 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.127"
+/* Harmony Bus v0.2.128 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.128"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -3623,6 +3623,34 @@ if(!strcmp(key,"play_octave")){return snprintf(buffer,(size_t)length,"%d",instan
 if(!strcmp(key,"play_range")){static const char *options[]={"1 Oct","2 Oct","3 Oct","4 Oct"};return snprintf(buffer,(size_t)length,"%s",options[instance->play.range]);}
 if(!strcmp(key,"play_scope")){static const char *options[]={"Both","Clip","Live"};return snprintf(buffer,(size_t)length,"%s",options[instance->play.scope]);}
 if(!strcmp(key,"play_bypass")){static const char *options[]={"Off","On"};return snprintf(buffer,(size_t)length,"%s",options[instance->play.bypass]);}
+if(!strcmp(key,"pad_harmony")){
+    /* Read-only preview of current conductor and effective rendering harmony.
+       Never queue a note, consume an approach, or advance the learned model. */
+    hb_harmony_t current=g_bus.observed_harmony;
+    hb_harmony_t effective=bus_read();
+    int ready=hb_prediction_ready();
+    if(ready){
+        double now=hb_current_beat();
+        double phase=hb_next_phase(hb_clip_playhead());
+        int current_event=hb_next_model_event_for_phase(phase,0);
+        if(current_event>=0)current=g_bus.next_model[current_event].harmony;
+        if(instance->player.config.playback!=1){
+            double capture=g_bus.boundary_buffer_ms<0?
+                0.0625*(1u<<(-g_bus.boundary_buffer_ms-1))-hb_ms_to_beats(1):hb_ms_to_beats(g_bus.boundary_buffer_ms);
+            if(capture<0.0)capture=0.0;
+            double boundary=hb_next_effective_boundary(now);
+            if(boundary>=now-1e-6&&boundary-now<=capture+1e-6)
+                phase=hb_next_phase(hb_clip_playhead()+boundary-now+1e-7);
+        }
+        int event=hb_next_model_event_for_phase(phase,1);
+        if(event>=0)effective=g_bus.next_model[event].harmony;
+    }
+    hb_harmony_t scale=hb_follower_scale_target(instance,effective);
+    return snprintf(buffer,(size_t)length,"%u,%u,%u,%d",
+        current.valid?(unsigned)hb_harmony_chord_mask(current):0u,
+        effective.valid?(unsigned)hb_harmony_chord_mask(effective):0u,
+        scale.valid?(unsigned)scale.pitch_mask:0u,ready);
+}
 if(!strcmp(key,"receive_channel"))return snprintf(buffer,(size_t)length,"%d",(instance->source_channel<0?0:instance->source_channel)+1);
 
 if(!strcmp(key,"master_transpose")){
