@@ -572,4 +572,53 @@ static void four_bar_timing(void){
     assert(instance->follower_queue_count==1&&instance->follower_queue_target_beat[0]==16.0);
     API.destroy_instance(copy);API.destroy_instance(instance);
 }
-int main(void){four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void recorded_master_transpose(void){
+    Inst *conductor=fixture();API.set_param(conductor,"role","Conductor");
+    API.set_param(conductor,"chord_mode","Scale Degree");API.set_param(conductor,"chord_form","Triad");
+    conductor->movy_track=0;API.set_param(conductor,"master_transpose","D");
+    midi(conductor,1,60);assert(advance(conductor,0,64)==3);
+    const int expected[3]={62,66,69};
+    for(int index=0;index<3;index++){
+        assert(output[index][1]==expected[index]);
+        assert(recorded[index][2]==expected[index]-2);
+    }
+    advance(conductor,100,64);assert(bus_read().root_pc==2);
+    // Changing transpose before release still closes the original recorded pitches.
+    API.set_param(conductor,"master_transpose","F");advance(conductor,0,64);
+    assert(recorded_count==6);
+    for(int index=0;index<3;index++)assert(recorded[index+3][2]==recorded[index][2]);
+    API.set_param(conductor,"hb_movy_playback","1");API.set_param(conductor,"hb_movy_passthrough","1");
+    int prior_recorded=recorded_count;
+    for(int mode=0;mode<2;mode++){
+        API.set_param(conductor,"chord_mode",mode?"Scale Degree":"Off");
+        advance(conductor,0,64);
+        int before=render_count;
+        for(int index=0;index<3;index++){
+            uint8_t message[3]={0x90,(uint8_t)(expected[index]-2),100};
+            assert(API.process_midi(conductor,message,3,output,lengths,64)==1);
+            assert(output[0][1]==expected[index]+3);
+            assert(rendered[before+index][2]==output[0][1]);
+        }
+        advance(conductor,100,64);assert(bus_read().root_pc==5);
+        // Recorded/raw follower 1-3-5 and live pads share the same reference key.
+        Inst *follower=API.create_instance("",NULL);
+        API.set_param(follower,"role","Follower");API.set_param(follower,"render_channel","2");
+        API.set_param(follower,"follower_root_policy","Explicit");API.set_param(follower,"follower_explicit_root","C");
+        for(int playback=0;playback<2;playback++)for(int index=0;index<3;index++){
+            API.set_param(follower,"hb_movy_playback",playback?"1":"0");
+            midi(follower,1,expected[index]-2);assert(advance(follower,0,64)==1);
+            assert(output[0][1]==expected[index]+3);
+            assert(rendered[render_count-1][2]==output[0][1]);
+            midi(follower,0,expected[index]-2);advance(follower,0,64);
+        }
+        API.destroy_instance(follower);
+        // Master changes flush old local and broadcast pitches for replayed voices.
+        API.set_param(conductor,"master_transpose","D");
+        assert(advance(conductor,0,64)==3);
+        for(int index=0;index<3;index++)assert(output[index][0]==0x80&&output[index][1]==expected[index]+3);
+        API.set_param(conductor,"master_transpose","F");
+    }
+    assert(recorded_count==prior_recorded);
+    API.destroy_instance(conductor);
+}
+int main(void){recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

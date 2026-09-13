@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.117",
+  "name": "Harmony Bus 0.2.118",
   "abbrev": "HB2101",
-  "version": "0.2.117",
+  "version": "0.2.118",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.117 \u2014 Conductor-first follower boundary mapping",
+  "description": "Harmony Bus v0.2.118 \u2014 Conductor-first follower boundary mapping",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,7 +16,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.117",
+          "name": "Harmony Bus 0.2.118",
           "params": [
             {
               "key": "version",
