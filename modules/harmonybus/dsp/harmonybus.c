@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.119 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.119"
+/* Harmony Bus v0.2.120 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.120"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1999,7 +1999,10 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
 /* Revoice chord-player owners through the same path as their original press.
    The player's owned-note diff drains OFFs before ONs, even at small capacity. */
 static void hb_reharmonize_held_chords(Inst *instance){
-    if(instance->player.config.mode!=2||instance->follower_queue_count)return;
+    if(instance->player.config.mode!=2)return;
+    /* Pending input owns its future onset, not the harmony of existing owners.
+       Due input is released before this call; remaining queued notes must not
+       block revoicing the held chord before this tick's arp step is emitted. */
     unsigned sequence=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);
     if(sequence==instance->follower_bus_seq)return;
     instance->follower_bus_seq=sequence;
