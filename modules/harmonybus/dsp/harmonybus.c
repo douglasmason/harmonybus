@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.118 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.118"
+/* Harmony Bus v0.2.119 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.119"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1831,6 +1831,9 @@ static void hb_player_note_on(Inst *instance,int source_note,int channel,int vel
         if(key->used&&key->source==source_note&&key->channel==channel){
             key->root_pc=config.mode==2?harmony.root_pc:mod12(modified_note+g_bus.global_transpose);
             key->recordable=instance->role==0&&!instance->movy_playback;
+            key->harmony_sequence=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);
+            key->harmony_root=harmony.valid?harmony.root_pc:-1;
+            key->harmony_mask=harmony.valid?hb_harmony_chord_mask(harmony):0;
             break;
         }
     }
@@ -1992,6 +1995,32 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
     instance->follower_queue_count=write;
     if(next_approach_used)hb_consume_next_approach(instance);
     return emitted;
+}
+/* Revoice chord-player owners through the same path as their original press.
+   The player's owned-note diff drains OFFs before ONs, even at small capacity. */
+static void hb_reharmonize_held_chords(Inst *instance){
+    if(instance->player.config.mode!=2||instance->follower_queue_count)return;
+    unsigned sequence=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);
+    if(sequence==instance->follower_bus_seq)return;
+    instance->follower_bus_seq=sequence;
+    if(!instance->retrigger_held)return;
+    hb_harmony_t harmony=bus_read();if(!harmony.valid)return;
+    hb_chord_player *player=&instance->player;
+    unsigned mask=hb_harmony_chord_mask(harmony);
+    int changed=0,latch=player->config.latch,armed=instance->approach_pad_armed;
+    /* A harmony update is not a fresh physical press: it must neither replace
+       the latched gesture nor consume a next-note modifier. */
+    player->config.latch=0;instance->approach_pad_armed=HB_APPROACH_OFF;
+    for(int index=0;index<HB_CP_KEYS;index++){
+        hb_cp_key *key=&player->keys[index];
+        if(!key->used||key->harmony_sequence==sequence)continue;
+        if(key->harmony_root==harmony.root_pc&&key->harmony_mask==mask)continue;
+        int held=key->held;unsigned order=key->sequence;
+        hb_player_note_on(instance,key->source,key->channel,key->velocity);
+        key->held=held;key->sequence=order;changed=1;
+    }
+    player->config.latch=latch;instance->approach_pad_armed=armed;
+    if(changed){player->running=0;player->step=0;}
 }
 static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int lengths[],int max_output){
     if(!instance||instance->role!=1||!output||!lengths||max_output<=0)return 0;
@@ -2962,7 +2991,10 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
     if(instance->role==1){
         if(hb_cp_enabled(player))player->render_channel=instance->render_channel;
         int emitted=hb_release_follower_queue(instance,frames,sample_rate,output,lengths,max_output);
-        if(hb_cp_enabled(player))return emitted+hb_player_tick(instance,output+emitted,lengths+emitted,max_output-emitted);
+        if(hb_cp_enabled(player)){
+            hb_reharmonize_held_chords(instance);
+            return emitted+hb_player_tick(instance,output+emitted,lengths+emitted,max_output-emitted);
+        }
         if(emitted>0)return emitted;
         /* The follower queue is the serialization boundary between physical
            input state and sounding output state. Never synthesize retriggers
@@ -3230,7 +3262,7 @@ if(!strcmp(key,"track_role")||!strcmp(key,"role")){
         instance->resolved_source_channel=-1;
     }
     if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}
-}else if(!strcmp(key,"clip_slot")){g_bus.clip_slot=enum_index(parameter,CLIP_SLOT_OPTS,9,g_bus.clip_slot);if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}}else if(!strcmp(key,"sensor_sources")){g_bus.sensor_sources=0;instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"clip_context")){g_bus.clip_context=0;g_bus.sensor_sources=0;instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"retrigger_held")){instance->retrigger_held=enum_index(parameter,RETRIGGER_OPTS,2,instance->retrigger_held);}else if(!strcmp(key,"follow_lookahead_ms")){int parsed=parse_i(parameter,instance->follow_lookahead_ms);if(parsed<0)parsed=0;if(parsed>100)parsed=100;instance->follow_lookahead_ms=parsed;}else if(!strcmp(key,"follower_root_policy")||!strcmp(key,"follower_source_policy")){hb_set_global_root_policy(enum_index(parameter,FOLLOWER_SOURCE_POLICY_OPTS,3,hb_global_root_policy()));}else if(!strcmp(key,"follower_explicit_root")||!strcmp(key,"follower_source_root")){hb_set_global_explicit_root(enum_index(parameter,PC_OPTS,12,hb_global_explicit_root()));}else if(!strcmp(key,"mode")){instance->mode=enum_index(parameter,MODE_OPTS,3,instance->mode);instance->follower_bus_seq=0;}else if(!strcmp(key,"content_map")){
+}else if(!strcmp(key,"clip_slot")){g_bus.clip_slot=enum_index(parameter,CLIP_SLOT_OPTS,9,g_bus.clip_slot);if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}}else if(!strcmp(key,"sensor_sources")){g_bus.sensor_sources=0;instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"clip_context")){g_bus.clip_context=0;g_bus.sensor_sources=0;instance->dirty=1;instance->frames_since_change=0;}else if(!strcmp(key,"retrigger_held")){int previous=instance->retrigger_held;instance->retrigger_held=enum_index(parameter,RETRIGGER_OPTS,2,previous);if(!previous&&instance->retrigger_held)instance->follower_bus_seq=~__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);}else if(!strcmp(key,"follow_lookahead_ms")){int parsed=parse_i(parameter,instance->follow_lookahead_ms);if(parsed<0)parsed=0;if(parsed>100)parsed=100;instance->follow_lookahead_ms=parsed;}else if(!strcmp(key,"follower_root_policy")||!strcmp(key,"follower_source_policy")){hb_set_global_root_policy(enum_index(parameter,FOLLOWER_SOURCE_POLICY_OPTS,3,hb_global_root_policy()));}else if(!strcmp(key,"follower_explicit_root")||!strcmp(key,"follower_source_root")){hb_set_global_explicit_root(enum_index(parameter,PC_OPTS,12,hb_global_explicit_root()));}else if(!strcmp(key,"mode")){instance->mode=enum_index(parameter,MODE_OPTS,3,instance->mode);instance->follower_bus_seq=0;}else if(!strcmp(key,"content_map")){
     if(!strncmp(parameter,"In ",3))parameter+=3; /* legacy label alias */
     int value=instance->content_map;
     if(!strcmp(parameter,"Chord"))value=0;

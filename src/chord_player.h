@@ -10,7 +10,8 @@ typedef struct {
 } hb_cp_config;
 typedef struct {
     int used, held, source, channel, velocity, count, fresh, root_pc, recordable;
-    unsigned sequence;
+    unsigned sequence, harmony_mask, harmony_sequence;
+    int harmony_root;
     int notes[HB_CP_VOICES];
     double due[HB_CP_VOICES];
     unsigned started;

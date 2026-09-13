@@ -621,4 +621,59 @@ static void recorded_master_transpose(void){
     assert(recorded_count==prior_recorded);
     API.destroy_instance(conductor);
 }
-int main(void){recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void held_conductor_chords(void){
+    const uint8_t minor[3]={62,65,69};
+    for(int enabled=0;enabled<2;enabled++)for(int latch=0;latch<2;latch++){
+        Inst *instance=fixture();
+        API.set_param(instance,"chord_mode","Conductor Chord");API.set_param(instance,"chord_form","Triad");
+        instance->player.config.latch=latch;instance->retrigger_held=enabled;
+        midi(instance,1,60);assert(advance(instance,0,64)==3);
+        assert(output[0][1]==60&&output[1][1]==64&&output[2][1]==67);
+        if(latch){midi(instance,0,60);assert(advance(instance,0,64)==0);}
+        int before=render_count;
+        hb_commit_observed_harmony(hb_infer_harmony(minor,3));
+        if(enabled){
+            // Capacity one forces the complete OFF-then-ON transition over ticks.
+            for(int index=0;index<6;index++){
+                assert(advance(instance,0,1)==1);
+                assert(output[0][0]==(index<3?0x80:0x90));
+                if(index>=3)assert(output[0][1]==minor[index-3]);
+                assert(rendered[before+index][2]==output[0][1]);
+            }
+            assert(render_count==before+6);
+        }else assert(advance(instance,0,64)==0&&render_count==before);
+        assert(advance(instance,0,64)==0);
+        hb_commit_observed_harmony(hb_infer_harmony(minor,3));
+        assert(advance(instance,0,64)==0); // identical harmony cannot repeat the chord
+        if(latch)API.set_param(instance,"arp_clear","Clear");else midi(instance,0,60);
+        assert(advance(instance,0,64)==3);
+        for(int index=0;index<3;index++)assert(output[index][0]==0x80);
+        assert(advance(instance,0,64)==0&&instance->player.sounding_count==0);
+        API.destroy_instance(instance);
+    }
+    // Enabling after a change catches an already-held old chord up immediately.
+    Inst *late=fixture();API.set_param(late,"chord_mode","Conductor Chord");
+    API.set_param(late,"chord_form","Triad");midi(late,1,60);advance(late,0,64);
+    hb_commit_observed_harmony(hb_infer_harmony(minor,3));assert(advance(late,0,64)==0);
+    API.set_param(late,"retrigger_held","On");assert(advance(late,0,64)==6);
+    assert(output[3][1]==62&&output[4][1]==65&&output[5][1]==69);
+    midi(late,0,60);assert(advance(late,0,64)==3);API.destroy_instance(late);
+    // Repeat arp and trigger strum must replace their pitch pool too.
+    for(int playback=1;playback<=2;playback++){
+        Inst *instance=fixture();instance->retrigger_held=1;
+        API.set_param(instance,"chord_mode","Conductor Chord");API.set_param(instance,"chord_form","Triad");
+        instance->player.config.playback=playback;instance->player.config.spread=0;
+        midi(instance,1,60);assert(advance(instance,0,64)>0);
+        hb_commit_observed_harmony(hb_infer_harmony(minor,3));
+        int count=advance(instance,0,64);assert(count>0);
+        for(int index=0;index<HB_CP_KEYS;index++)if(instance->player.keys[index].used){
+            hb_cp_key *key=&instance->player.keys[index];
+            assert(key->count==3);
+            for(int voice=0;voice<3;voice++)assert(key->notes[voice]==minor[voice]);
+        }
+        midi(instance,0,60);advance(instance,0,64);
+        assert(instance->player.sounding_count==0);
+        API.destroy_instance(instance);
+    }
+}
+int main(void){held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
