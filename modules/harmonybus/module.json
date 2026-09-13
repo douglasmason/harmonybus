@@ -1,10 +1,10 @@
 {
   "id": "harmonybus",
-  "name": "Harmony Bus 0.2.114",
+  "name": "Harmony Bus 0.2.115",
   "abbrev": "HB2101",
-  "version": "0.2.114",
+  "version": "0.2.115",
   "api_version": 2,
-  "description": "Harmony Bus v0.2.114 \u2014 Conductor-first follower boundary mapping",
+  "description": "Harmony Bus v0.2.115 \u2014 Conductor-first follower boundary mapping",
   "author": "Douglas Mason / OpenAI prototype",
   "license": "MIT",
   "dsp": "dsp.so",
@@ -16,13 +16,17 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Harmony Bus 0.2.114",
+          "name": "Harmony Bus 0.2.115",
           "params": [
             {
               "key": "version",
               "name": "Version",
               "type": "string",
               "access": "read"
+            },
+            {
+              "level": "receiver",
+              "label": "Receiver"
             },
             {
               "key": "track_role",
@@ -1216,6 +1220,43 @@
             "strum_spread",
             "arp_clear",
             "arp_phase"
+          ]
+        },
+        "receiver": {
+          "name": "Receiver",
+          "params": [
+            {
+              "key": "role"
+            },
+            {
+              "key": "receive_channel",
+              "name": "Receive Channel",
+              "type": "enum",
+              "options": [
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11",
+                "12",
+                "13",
+                "14",
+                "15",
+                "16"
+              ],
+              "options_as_string": true,
+              "default": "1"
+            }
+          ],
+          "knobs": [
+            "role",
+            "receive_channel"
           ]
         }
       },
@@ -2631,6 +2672,31 @@
         ],
         "options_as_string": true,
         "default": "As Played"
+      },
+      {
+        "key": "receive_channel",
+        "name": "Receive Channel",
+        "type": "enum",
+        "options": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16"
+        ],
+        "options_as_string": true,
+        "default": "1"
       }
     ],
     "pre_capable": 1

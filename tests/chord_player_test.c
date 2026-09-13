@@ -493,4 +493,55 @@ static void predicted_capture(void){
     }
     API.destroy_instance(instance);
 }
-int main(void){split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void receiver_routing(void){
+    Inst *source=fixture(),*r=API.create_instance("",NULL),*other=API.create_instance("",NULL);
+    API.set_param(r,"role","Receiver");API.set_param(r,"receive_channel","4");
+    API.set_param(other,"role","Receiver");API.set_param(other,"receive_channel","3");
+    assert(r->role==3&&r->source_channel==3);
+    char state[8192],name[32];API.get_param(r,"state",state,sizeof(state));
+    API.set_param(r,"role","Off");assert(r->role==2);API.set_param(r,"state",state);
+    API.get_param(r,"role",name,sizeof(name));assert(!strcmp(name,"Receiver"));
+    midi(source,1,60);assert(advance(source,0,64)==1);assert(render_count==1);
+    assert(advance(r,0,1)==1&&output[0][1]==60);
+    assert(advance(other,0,64)==0&&render_count==1); // neither rebroadcast nor cross-channel delivery
+    midi(r,1,72);assert(advance(r,0,64)==0); // raw receiver pads do not re-harmonize
+    midi(source,0,60);advance(source,0,64);
+    assert(advance(r,0,64)==1&&output[0][0]==0x80&&output[0][1]==60);
+    assert(render_count==2);
+    // Same pitch from two sources: one source's release cannot end the other.
+    API.set_param(other,"role","Follower");API.set_param(other,"source_channel","1");API.set_param(other,"render_channel","4");
+    midi(source,1,60);advance(source,0,64);midi(other,1,60);advance(other,0,64);
+    assert(advance(r,0,1)==1);assert(advance(r,0,1)==1);
+    midi(source,0,60);advance(source,0,64);assert(advance(r,0,64)==0);
+    API.destroy_instance(other);assert(advance(r,0,64)==1&&output[0][0]==0x80);
+    midi(source,1,60);advance(source,0,64);assert(advance(r,0,64)==1);
+    API.set_param(source,"render_channel","2");assert(advance(r,0,64)==1&&output[0][0]==0x80);
+    API.set_param(source,"render_channel","4");midi(source,1,64);advance(source,0,64);advance(r,0,64);
+    API.set_param(r,"receive_channel","2");assert(advance(r,0,64)==1&&output[0][0]==0x80);
+    API.set_param(r,"receive_channel","4");
+    midi(source,1,67);advance(source,0,64);advance(r,0,64);
+    position=-1;assert(advance(r,0,64)==1&&output[0][0]==0x80);position=0;
+    // Overflow fails closed; pending local OFF survives small output capacity.
+    uint8_t packet[4]={0x29,0x93,60,100};hb_send_render(source,packet,0);advance(r,0,64);
+    for(int n=0;n<257;n++)hb_send_render(source,packet,0);
+    assert(advance(r,0,1)==1&&output[0][0]==0x80);
+    assert(advance(r,0,64)==0);
+    // Restore a different route, then change role before ticking: preserve the OFF.
+    hb_send_render(source,packet,0);assert(advance(r,0,64)==1);
+    API.set_param(r,"receive_channel","2");
+    API.set_param(r,"state",state);
+    API.set_param(r,"role","Off");
+    assert(advance(r,0,64)==1&&output[0][0]==0x80);
+    API.set_param(r,"role","Receiver");
+    hb_send_render(source,packet,0);assert(advance(r,0,64)==1);
+    API.set_param(r,"receive_channel","2");char changed[8192];API.get_param(r,"state",changed,sizeof(changed));advance(r,0,64);
+    API.set_param(r,"state",state);hb_send_render(source,packet,0);assert(advance(r,0,64)==1);
+    API.set_param(r,"state",changed);assert(advance(r,0,64)==1&&output[0][0]==0x80);
+    // A chord-playing source becoming a receiver must release its existing voices.
+    API.destroy_instance(r);API.destroy_instance(source);source=fixture();
+    API.set_param(source,"chord_mode","Scale Degree");API.set_param(source,"chord_form","Triad");midi(source,1,60);assert(advance(source,0,64)==3);
+    API.set_param(source,"role","Receiver");assert(advance(source,0,64)==3);
+    for(int i=0;i<3;i++)assert(output[i][0]==0x80);
+    API.destroy_instance(source);
+}
+int main(void){receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
