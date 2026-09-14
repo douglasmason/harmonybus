@@ -5,17 +5,28 @@
 #define HB_MOTION_LANES 16
 #define HB_MOTION_OWNERS 512
 #define HB_MOTION_QUEUE 2048
+#define HB_MOTION_BURSTS 128
 enum { HB_MO_OFF, HB_MO_VELOCITY, HB_MO_PAN, HB_MO_OCTAVE, HB_MO_ROTATE,
        HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY, HB_MO_BELOW, HB_MO_ABOVE,
        HB_MO_ENCLOSE_AB, HB_MO_ENCLOSE_BA, HB_MO_REPEAT, HB_MO_REVERSE,
-       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE };
-typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve; } hb_motion_lane;
+       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO };
+typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance; } hb_motion_lane;
 typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned held;
+    unsigned revision[HB_MOTION_LANES];
+    unsigned long long events[HB_MOTION_LANES];
+    const unsigned long long *event_override;
+    int input_valid; double input_beat; uint8_t input_notes[128];
     unsigned pitch_held,enclosure_revision; int pitch_last,enclosure;
 } hb_motion_config;
-typedef struct { int used,channel,source,pitch,sounding; double off_beat; unsigned long long serial; } hb_motion_owner;
+typedef struct { int used,channel,source,pitch,sounding; double off_beat; unsigned long long serial; double repeat_off; int generated,lane,manual; unsigned revision,held_serial; } hb_motion_owner;
+typedef struct {
+    int used,lane,channel,pitch,velocity,remaining,manual,decay;
+    unsigned revision,held_serial;
+    double next,spacing,gate;
+} hb_motion_burst;
 typedef struct {
     hb_motion_owner owners[HB_MOTION_OWNERS];
+    hb_motion_burst bursts[HB_MOTION_BURSTS];
     unsigned short refs[16][128];
     uint8_t queue[HB_MOTION_QUEUE][3];
     int head,count,owned,pan_dirty[16],base_pan[16];
@@ -71,6 +82,18 @@ static int hb_mo_performance(hb_motion_config *config,hb_motion_route *route,int
     route->performance_notes[source]=1;
     return route->performance_modifier;
 }
+/* Source events advance once before mapping; UI reads and generated copies are pure. */
+static void hb_mo_input_reset(hb_motion_config *config){
+    memset(config->events,0,sizeof(config->events));config->input_valid=0;
+}
+static void hb_mo_input(hb_motion_config *config,int pitch,double beat,double grouping){
+    double elapsed=beat-config->input_beat;
+    int chord=!config->input_valid||elapsed<0||elapsed>grouping||config->input_notes[pitch];
+    if(chord){config->input_valid=1;config->input_beat=beat;memset(config->input_notes,0,sizeof(config->input_notes));}
+    config->input_notes[pitch]=1;
+    for(int lane=0;lane<HB_MOTION_LANES;lane++)
+        if(config->lanes[lane].advance==1||(config->lanes[lane].advance==2&&chord))config->events[lane]++;
+}
 static unsigned hb_mo_hash(unsigned value){value^=value>>16;value*=0x7feb352du;value^=value>>15;value*=0x846ca68bu;return value^(value>>16);}
 /* Return false means do not perform this operation; it never means skip a note. */
 static int hb_mo_value(const hb_motion_config *config,int index,double beat,int voice,double *value){
@@ -78,6 +101,8 @@ static int hb_mo_value(const hb_motion_config *config,int index,double beat,int 
     int held=(config->held&(1u<<index))!=0;
     if(!hb_mo_lane_active(config,index)||(!held&&!lane->probability))return 0;
     double grid=hb_mo_grid(lane->grid),cycle=hb_mo_cycle(lane->cycle);
+    if(lane->advance){const unsigned long long *events=config->event_override?config->event_override:config->events;
+        beat=(double)(events[index]?events[index]-1:0)*grid;}
     double shifted=beat+(double)lane->phase*grid;
     long long iteration=(long long)hb_mo_floor(shifted/cycle);
     double position=shifted-(double)iteration*cycle;
@@ -94,7 +119,7 @@ static int hb_mo_value(const hb_motion_config *config,int index,double beat,int 
     else if(lane->pattern==4){double phase=(double)step/steps;pattern=phase<0.5?4*phase-1:3-4*phase;}
     else if(lane->pattern==5)pattern=((int)hb_mo_floor(position)&1)?1.0:0.0;
     else if(lane->pattern==6)pattern=2.0*(hb_mo_hash(seed^0xa511e9b3u)%10001u)/10000.0-1.0;
-    *value=lane->offset+lane->amount*pattern;return 1;
+    *value=(lane->operation==HB_MO_ECHO?0:lane->offset)+lane->amount*pattern;return 1;
 }
 static int hb_mo_push(hb_motion_route *route,int status,int pitch,int velocity){
     if(route->count>=HB_MOTION_QUEUE)return 0;
@@ -112,10 +137,11 @@ static int hb_mo_release(hb_motion_route *route,hb_motion_owner *owner){
 static void hb_mo_due(hb_motion_route *route,double beat){
     for(int index=0;index<HB_MOTION_OWNERS;index++){
         hb_motion_owner *owner=&route->owners[index];
-        if(owner->used&&owner->sounding&&owner->off_beat>=0&&beat+1e-9>=owner->off_beat)hb_mo_release(route,owner);
+        if(owner->used&&!owner->generated&&owner->sounding&&owner->off_beat>=0&&beat+1e-9>=owner->off_beat)hb_mo_release(route,owner);
     }
 }
 static void hb_mo_panic(hb_motion_route *route){
+    memset(route->bursts,0,sizeof(route->bursts));
     for(int index=0;index<HB_MOTION_OWNERS;index++){
         hb_motion_owner *owner=&route->owners[index];
         if(owner->used&&hb_mo_release(route,owner)){owner->used=0;route->owned--;}
@@ -132,7 +158,7 @@ static int hb_mo_event(hb_motion_route *route,const uint8_t message[3],int pitch
         hb_motion_owner *oldest=0;
         for(int index=0;index<HB_MOTION_OWNERS;index++){
             hb_motion_owner *owner=&route->owners[index];
-            if(owner->used&&owner->channel==channel&&owner->source==source&&(!oldest||owner->serial<oldest->serial))oldest=owner;
+            if(owner->used&&!owner->generated&&owner->channel==channel&&owner->source==source&&(!oldest||owner->serial<oldest->serial))oldest=owner;
         }
         if(oldest){
             if(!hb_mo_release(route,oldest))return 0;
@@ -146,7 +172,7 @@ static int hb_mo_event(hb_motion_route *route,const uint8_t message[3],int pitch
     for(int index=0;index<HB_MOTION_OWNERS;index++)if(!route->owners[index].used){slot=index;break;}
     if(slot<0||route->count>HB_MOTION_QUEUE-2)return 0;
     hb_motion_owner *owner=&route->owners[slot];
-    *owner=(hb_motion_owner){1,channel,source,pitch,!skip,off_beat,route->next_serial++};route->owned++;
+    *owner=(hb_motion_owner){.used=1,.channel=channel,.source=source,.pitch=pitch,.sounding=!skip,.off_beat=off_beat,.serial=route->next_serial++};route->owned++;
     if(skip)return 1;
     if(pan<0&&route->pan_dirty[channel]){
         hb_mo_push(route,0xb0|channel,10,route->base_pan[channel]);route->pan_dirty[channel]=0;
@@ -154,5 +180,80 @@ static int hb_mo_event(hb_motion_route *route,const uint8_t message[3],int pitch
     if(pan>=0){hb_mo_push(route,0xb0|channel,10,pan);route->pan_dirty[channel]=1;}
     route->refs[channel][pitch]++;
     return hb_mo_push(route,0x90|channel,pitch,velocity);
+}
+/* Generated notes use the monotonic DSP beat, independent of transport seeks.
+   Repeats from different lanes add; they never pass through input processing. */
+static int hb_mo_repeat_active(const hb_motion_config *config,int lane,int manual,unsigned revision,unsigned held_serial){
+    return config->revision[lane]==revision&&hb_mo_lane_active(config,lane)&&
+        (!manual||((config->held&(1u<<lane))&&config->held_serial[lane]==held_serial));
+}
+static void hb_mo_repeat_cancel(hb_motion_route *route,const hb_motion_config *config,int all){
+    for(int index=0;index<HB_MOTION_BURSTS;index++){
+        hb_motion_burst *burst=&route->bursts[index];
+        if(burst->used&&(all||!hb_mo_repeat_active(config,burst->lane,burst->manual,burst->revision,burst->held_serial)))burst->used=0;
+    }
+    for(int index=0;index<HB_MOTION_OWNERS;index++){
+        hb_motion_owner *owner=&route->owners[index];
+        if(owner->used&&owner->generated&&(all||!hb_mo_repeat_active(config,owner->lane,owner->manual,owner->revision,owner->held_serial)))
+            if(hb_mo_release(route,owner)){owner->used=0;route->owned--;}
+    }
+}
+static void hb_mo_repeat_schedule(hb_motion_route *route,const hb_motion_config *config,
+                                const uint8_t message[3],int pitch,int velocity,double pattern_beat,double now){
+    for(int lane=0;lane<HB_MOTION_LANES;lane++){
+        const hb_motion_lane *settings=&config->lanes[lane];double value;
+        if((settings->operation!=HB_MO_RATCHET&&settings->operation!=HB_MO_ECHO)||!hb_mo_value(config,lane,pattern_beat,message[1],&value))continue;
+        int ratchet=settings->operation==HB_MO_RATCHET;
+        int count=hb_mo_clamp(hb_mo_round(value),ratchet?1:0,16);
+        int remaining=count-ratchet;if(remaining<=0)continue;
+        int slot=-1;for(int index=0;index<HB_MOTION_BURSTS;index++)if(!route->bursts[index].used){slot=index;break;}
+        if(slot<0)continue; /* Overload leaves the original note intact. */
+        double spacing=hb_mo_grid(settings->grid)/(ratchet?count:1);
+        route->bursts[slot]=(hb_motion_burst){.used=1,.lane=lane,.channel=message[0]&15,.pitch=pitch,.velocity=velocity,
+            .remaining=remaining,.manual=(config->held&(1u<<lane))!=0,.decay=ratchet?0:hb_mo_clamp(settings->offset,0,100),
+            .revision=config->revision[lane],.held_serial=config->held_serial[lane],.next=now+spacing,.spacing=spacing,.gate=spacing*0.5};
+        if(ratchet)for(int index=0;index<HB_MOTION_OWNERS;index++){
+            hb_motion_owner *owner=&route->owners[index];
+            if(owner->used&&!owner->generated&&owner->serial==route->next_serial-1){
+                double deadline=now+spacing*0.5;
+                if(owner->repeat_off<=0||deadline<owner->repeat_off)owner->repeat_off=deadline;
+                break;
+            }
+        }
+    }
+}
+static void hb_mo_repeat_tick(hb_motion_route *route,const hb_motion_config *config,double now){
+    hb_mo_repeat_cancel(route,config,0);
+    for(int index=0;index<HB_MOTION_OWNERS;index++){
+        hb_motion_owner *owner=&route->owners[index];
+        if(owner->used&&!owner->generated&&owner->repeat_off>0&&now+1e-9>=owner->repeat_off)hb_mo_release(route,owner);
+        if(owner->used&&owner->generated&&now+1e-9>=owner->off_beat&&hb_mo_release(route,owner)){owner->used=0;route->owned--;}
+    }
+    /* Earliest deadline first, at most one attack per burst per audio block. */
+    for(int emitted=0;emitted<HB_MOTION_BURSTS;emitted++){
+        hb_motion_burst *burst=0;
+        for(int index=0;index<HB_MOTION_BURSTS;index++){
+            hb_motion_burst *candidate=&route->bursts[index];
+            if(candidate->used&&candidate->next<=now+1e-9&&(!burst||candidate->next<burst->next))burst=candidate;
+        }
+        if(!burst)break;
+        burst->velocity=hb_mo_round(burst->velocity*(100-burst->decay)/100.0);
+        int slot=-1;for(int index=0;index<HB_MOTION_OWNERS;index++)if(!route->owners[index].used){slot=index;break;}
+        if(burst->velocity>0&&slot>=0&&route->count<HB_MOTION_QUEUE-1){
+            hb_motion_owner *owner=&route->owners[slot];
+            *owner=(hb_motion_owner){.used=1,.channel=burst->channel,.source=-1,.pitch=burst->pitch,.sounding=1,
+                .off_beat=now+burst->gate,.serial=route->next_serial++,.generated=1,.lane=burst->lane,.manual=burst->manual,
+                .revision=burst->revision,.held_serial=burst->held_serial};
+            route->owned++;route->refs[owner->channel][owner->pitch]++;
+            hb_mo_push(route,0x90|owner->channel,owner->pitch,burst->velocity);
+        }
+        burst->remaining--;burst->next+=burst->spacing;
+        /* Drop missed attacks instead of dumping a late catch-up burst. */
+        while(burst->remaining>0&&burst->next<=now+1e-9){
+            burst->remaining--;burst->next+=burst->spacing;
+            burst->velocity=hb_mo_round(burst->velocity*(100-burst->decay)/100.0);
+        }
+        if(burst->remaining<=0||burst->velocity<=0)burst->used=0;
+    }
 }
 #endif

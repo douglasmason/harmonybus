@@ -20,8 +20,12 @@ def main() -> None:
         assert map_metadata['motion_lane']['options'] == [str(slot) for slot in range(1,17)]
         assert set(map_metadata) == set(map_canonical)
         for key, parameter in map_canonical.items():
-            if key not in ('motion_operation','motion_enabled'):
+            if key not in ('motion_operation','motion_enabled','motion_offset'):
                 assert map_metadata[key] == parameter, key
+    assert maps[0]['motion_offset'] == map_canonical['motion_offset']
+    assert maps[3]['motion_offset']['name'] == 'Decay %' and maps[3]['motion_offset']['min'] == 0
+    assert maps[3]['motion_advance']['options'] == ['Clock','Note','Chord']
+    assert maps[3]['motion_operation']['options'][-2:] == ['Ratchet','MIDI Echo']
     assert not any(option.startswith('Clip ') for option in maps[0]['motion_operation']['options'])
     assert maps[1]['motion_operation']['options'] == map_canonical['motion_operation']['options']
     assert [option for option in maps[2]['motion_operation']['options'] if option.startswith('Clip ')] == ['Clip Reverse']

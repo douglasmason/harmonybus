@@ -1,4 +1,6 @@
-> Release 0.2.132 adds sixteen assignable operation slots per track and host-aware clip controls. Pair with Movy hbclean.47 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
+> 0.2.133 adds Clock/Note/Chord pattern advancement, Ratchet and MIDI Echo in the existing operation panels. Both repeat operations support live and recorded MIDI. See [operation controls](docs/operations.md).
+
+> Release 0.2.133 adds sixteen assignable operation slots per track and host-aware clip controls. Pair with Movy hbclean.48 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
 
 
 
@@ -62,7 +64,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.132-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.133-module.tar.gz`.
 
 ## License
 

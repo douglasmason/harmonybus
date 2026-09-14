@@ -8,7 +8,7 @@ def main() -> None:
     root: Path = Path(__file__).resolve().parents[1]
     map_module: dict = json.loads((root / 'modules/harmonybus/module.json').read_text())
     parameters: list[dict] = [parameter for parameter in map_module['capabilities']['chain_params']
-                              if parameter['key'] not in ('motion_operation', 'motion_enabled')]
+                              if parameter['key'] not in ('motion_operation', 'motion_enabled', 'motion_offset')]
     prefix: str = json.dumps(parameters, ensure_ascii=True, separators=(',', ':'))[:-1] + ','
     literal: str = json.dumps(prefix)
     (root / 'src/motion_metadata.h').write_text(

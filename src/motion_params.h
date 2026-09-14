@@ -2,17 +2,18 @@
 #define HB_MOTION_PARAMS_H
 #include "motion_metadata.h"
 /* The selected lane is an editor cursor. Holds are runtime-only, never state. */
-static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Chrom Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose"};
+static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Chrom Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo"};
 static const char *MO_PATTERNS[]={"Constant","Alternate","Rise","Fall","Triangle","Backbeat","Random"};
 static const char *MO_GRIDS[]={"1/64","1/32","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};
 static const char *MO_CYCLES[]={"1/8","1/4","1/2","1 Bar","2 Bars","3 Bars","4 Bars"};
 static const char *MO_SWITCH[]={"Off","On"};
 static const char *MO_GROUPS[]={"Chord","Voice"};
+static const char *MO_ADVANCE[]={"Clock","Note","Chord"};
 static const char *MO_RANDOM[]={"Repeat","Evolve"};
 typedef struct { const char *key; size_t offset; int low,high; const char *const *options; } hb_motion_parameter;
 #define MO_FIELD(name,low,high,options) {"motion_" #name,__builtin_offsetof(hb_motion_lane,name),low,high,options}
 static const hb_motion_parameter MO_PARAMETERS[]={
-    MO_FIELD(operation,0,16,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
+    MO_FIELD(operation,0,18,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
     MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM)
@@ -27,7 +28,8 @@ static int hb_mo_slot_key(const char *key,const char *prefix){
 static int hb_mo_set(hb_motion_config *config,const char *key,const char *value){
     if(!strcmp(key,"motion_host")){config->host_capabilities=!strcmp(value,"movy-clip-v1");return 1;}
     if(!strcmp(key,"performance_reset")){
-        config->held=0;config->pitch_held=0;config->enclosure=0;return 1;
+        config->held=0;config->pitch_held=0;config->enclosure=0;hb_mo_input_reset(config);
+        for(int lane=0;lane<HB_MOTION_LANES;lane++)config->revision[lane]++;return 1;
     }
     if(!strcmp(key,"performance_below")||!strcmp(key,"performance_above")){
         unsigned bit=!strcmp(key,"performance_below")?1u:2u;
@@ -52,6 +54,12 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     }
     if(!strcmp(key,"motion_bypass")){config->bypass=enum_index(value,MO_SWITCH,2,config->bypass);return 1;}
     if(!strcmp(key,"motion_release")){config->held=0;return 1;}
+    if(!strcmp(key,"motion_advance")){
+        int selected=config->selected;int previous=config->lanes[selected].advance;
+        config->lanes[selected].advance=enum_index(value,MO_ADVANCE,3,previous);
+        if(previous!=config->lanes[selected].advance){config->events[selected]=0;config->revision[selected]++;}
+        return 1;
+    }
     /* Fixed lane keys let a release follow its original lane after selection changes. */
     int slot=hb_mo_slot_key(key,"motion_hold_");
     if(slot>=0){
@@ -73,12 +81,14 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         int *field=hb_mo_field(&config->lanes[config->selected],index);
         int parsed=spec->options?enum_index(value,spec->options,spec->high+1,*field):hb_mo_clamp(parse_i(value,*field),spec->low,spec->high);
         if(index==0&&parsed!=*field){
-            static const int amounts[]={0,25,50,1,1,50,100,100,1,1,1,1,1,1,1,2,1};
+            static const int amounts[]={0,25,50,1,1,50,100,100,1,1,1,1,1,1,1,2,1,4,3};
             config->lanes[config->selected].amount=amounts[parsed];
-            config->lanes[config->selected].offset=0;
+            config->lanes[config->selected].offset=parsed==HB_MO_ECHO?25:0;
             if(parsed>=HB_MO_ENCLOSE_AB&&parsed<=HB_MO_SPEED)config->lanes[config->selected].enabled=0;
         }
         if(index==4&&config->lanes[config->selected].operation>=HB_MO_ENCLOSE_AB&&config->lanes[config->selected].operation<=HB_MO_SPEED)parsed=0;
+        if(index==3&&config->lanes[config->selected].operation==HB_MO_ECHO)parsed=hb_mo_clamp(parsed,0,100);
+        if(*field!=parsed)config->revision[config->selected]++;
         *field=parsed;return 1;
     }
     return 0;
@@ -87,15 +97,19 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
-        for(int operation=0;operation<17;operation++){
+        for(int operation=0;operation<19;operation++){
             if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&!config->host_capabilities&&operation!=selected)continue;
             if(used<0||used>=length)return -1;
             used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",count++?",":"",MO_OPERATIONS[operation]);
         }
         if(used<0||used>=length)return -1;
         used+=snprintf(buffer+used,(size_t)(length-used),"]},{\"key\":\"motion_enabled\",\"name\":\"Auto\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Off\",\"On\"],\"readOnly\":%s}]",selected>=HB_MO_ENCLOSE_AB&&selected<=HB_MO_SPEED?"true":"false");
+        if(used<0||used>=length)return -1;
+        used--; /* Replace the closing array bracket with contextual metadata. */
+        used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":100,\"step\":1,\"default\":0}]",selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_ECHO?0:-100);
         return used>=length?-1:used;
     }
+    if(!strcmp(key,"motion_advance"))return snprintf(buffer,(size_t)length,"%s",MO_ADVANCE[config->lanes[config->selected].advance]);
     if(!strcmp(key,"motion_lane"))return snprintf(buffer,(size_t)length,"%d",config->selected+1);
     if(!strcmp(key,"motion_bypass"))return snprintf(buffer,(size_t)length,"%s",MO_SWITCH[config->bypass]);
     if(!strcmp(key,"motion_punch")&&config->lanes[config->selected].operation>=HB_MO_REPEAT&&config->lanes[config->selected].operation<=HB_MO_SPEED&&!config->host_capabilities)return snprintf(buffer,(size_t)length,"Requires Movy");
@@ -132,6 +146,10 @@ static int hb_mo_save(hb_motion_config *config,char *buffer,int length,int used)
             used+=snprintf(buffer+used,(size_t)(length-used),",%d",*hb_mo_field(&config->lanes[lane],field));
         }
     }
+    for(int lane=0;lane<HB_MOTION_LANES;lane++)if(config->lanes[lane].advance){
+        if(used<0||used>=length)return used;
+        used+=snprintf(buffer+used,(size_t)(length-used),";ma1,%d,%d",lane,config->lanes[lane].advance);
+    }
     return used;
 }
 static void hb_mo_restore(hb_motion_config *config,const char *state){
@@ -151,6 +169,13 @@ static void hb_mo_restore(hb_motion_config *config,const char *state){
             *hb_mo_field(&restored,field)=(int)value;cursor=end;
         }
         if(valid&&(*cursor==';'||!*cursor))config->lanes[lane]=restored;
+    }
+    cursor=state;
+    while((cursor=strstr(cursor,";ma1,"))){
+        int lane,advance,consumed=0;
+        if(sscanf(cursor,";ma1,%d,%d%n",&lane,&advance,&consumed)==2&&consumed>0&&
+            (!cursor[consumed]||cursor[consumed]==';')&&lane>=0&&lane<HB_MOTION_LANES&&advance>=0&&advance<3)config->lanes[lane].advance=advance;
+        cursor+=5;
     }
 }
 #endif

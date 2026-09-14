@@ -1,8 +1,8 @@
-# Operation lanes (HarmonyBus 0.2.132 / Movy hbclean.47)
+# Operation lanes (HarmonyBus 0.2.133 / Movy hbclean.48)
 
 Each HarmonyBus instance has sixteen independent slots. The Operation and
 Timing / Trigger panels share one lane selector. Duplicate operations compose
-in lane order. Existing assignments in slots 1–4 are retained. Unassigned slots 5–12 start Off; slots 13–16 default to the four approaches below. These defaults are inactive until pressed. The sixteen-slot performance row requires hbclean.47 or newer.
+in lane order. Existing assignments in slots 1–4 are retained. Unassigned slots 5–12 start Off; slots 13–16 default to the four approaches below. These defaults are inactive until pressed. The sixteen-slot performance row requires hbclean.48 or newer.
 
 ## Signal path and recording
 
@@ -28,10 +28,10 @@ bridge can consequently reflect that selected harmony.
 | 2 | Operation | Grid |
 | 3 | Pattern | Cycle |
 | 4 | Amount | Phase (grid steps) |
-| 5 | Offset | Probability (%) |
+| 5 | Offset (Echo: Decay %) | Probability (%) |
 | 6 | Auto On/Off | Group: Chord/Voice |
 | 7 | Selected slot summary | Random: Repeat/Evolve |
-| 8 | Punch status (read-only) | Punch status (read-only) |
+| 8 | Punch status (read-only) | Advance: Clock / Note / Chord |
 
 Knob touch does not activate these operations. Choose **Settings → Step Row →
 STEPS / PERFORM** (open Settings with Shift+Step 2; scroll with the wheel and
@@ -98,6 +98,8 @@ explicitly suppresses notes.
 | Gate | Maximum duration as a percentage of the grid; source release can end sooner | 50 |
 | Skip | Suppress the note when the value is positive | 100 |
 | Harmony | Below 50: current; 50 or above: lookahead | 100 |
+| Ratchet | Total attacks (1–16) within one Grid duration | 4 |
+| MIDI Echo | Additional repeats (0–16), spaced by Grid; Decay reduces velocity per repeat | 3 |
 | Transpose | Rounded semitone shift; emitted MIDI pitch stays within 0–127 | +1 |
 | Chrom Below | Chromatic semitone below the rendered target | 1 |
 | Scale Above | Next scale tone above the rendered target | 1 |
@@ -113,6 +115,43 @@ Pan sends MIDI CC10 and restores the last incoming CC10 value (default center)
 when it stops applying. This is channel-wide, not independent per-note pan. The
 receiving instrument must support CC10. Independent voice panning would require
 an instrument/voice control mechanism.
+
+## Pattern advancement and generated repeats
+
+**Advance** lives on Timing / Trigger knob 8 and opens the native option list.
+Clock samples the transport grid (or the running internal clock while stopped).
+Note advances once per accepted incoming note-on. Chord advances once per group
+of distinct incoming pitches within 25 ms; a repeated pitch starts a new group.
+The first event uses step zero. Grid and Cycle determine the number of steps;
+Phase offsets the position. These counters advance even when a slot is inactive,
+and reset on Stop, state load, performance reset or changing its Advance mode.
+Generated chord voices, arpeggio output, ratchets and echoes do not increment the
+input counter. Use Clock when an arpeggio should change the pattern over time.
+
+Ratchet and MIDI Echo work on live input and recorded MIDI passing through HB,
+in standalone Schwung as well as Movy. Their step buttons are green. Choose the
+operation, set Auto Off for punch-in use, then hold its assigned step while playing.
+Ratchet's Amount includes the original attack; Echo's Amount counts extra attacks.
+Repeats use the final mapped pitch and velocity. Each repeat has a gate of half
+its spacing. Ratchet also shortens the original gate to half that spacing;
+Echo leaves the original gate alone. Ratchet uses a fixed Grid window because
+the eventual duration of a live held key is not known in advance.
+
+For Echo, knob 5 becomes **Decay %** (default 25): 25 removes a quarter of the
+remaining velocity on each repeat; 0 keeps the velocity unchanged and 100 silences
+all repeats. Its pattern controls repeat count; Decay is not added to that count.
+Multiple repeat lanes add independent copies of the original transformed note;
+they never feed one another or harmony detection. The existing conductor
+recording bridge does not record these copies; recording downstream MIDI can.
+
+Source note-off may precede the repeats. Releasing a punch button cancels that
+press's queued repeats and releases its generated voices, even if Auto is On.
+Changing the lane's settings, bypassing automatic operation, Stop, state load
+and performance reset also cancel pending repeats. Other held notes retain their
+own note-offs. Scheduling uses a monotonic DSP clock so a transport seek cannot
+strand a repeat. Each output route allows 128 pending bursts; excess bursts are
+omitted while original notes still play. Missed attacks after a late callback are
+dropped rather than emitted as a catch-up flurry.
 
 ## Clip playback operations (Movy only)
 
