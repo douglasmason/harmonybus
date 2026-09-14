@@ -419,7 +419,29 @@ static void condition_state_and_repeat_tails(void){
     uint8_t stop=0xfc;API.process_midi(instance,&stop,1,output,lengths,64);assert(!burst_count(&instance->motion_local));
 }
 
+static void automatic_clip_config(void){
+    Inst *instance=motion_fixture();char config[2048],saved[4096];
+    API.set_param(instance,"motion_operation","Clip Repeat");API.set_param(instance,"motion_enabled","On");
+    expect_param(instance,"motion_enabled","Off");
+    API.set_param(instance,"motion_host","movy-clip-v2");API.set_param(instance,"motion_enabled","On");
+    API.set_param(instance,"motion_every","4");API.set_param(instance,"motion_from","4");
+    expect_param(instance,"motion_clip_config","mca1;0,12,1,3,3,4,4,4,100,0");
+    API.get_param(instance,"state",saved,sizeof(saved));API.set_param(instance,"state",saved);
+    expect_param(instance,"motion_enabled","On");
+    API.set_param(instance,"motion_bypass","On");expect_param(instance,"motion_clip_config","mca1");
+    API.set_param(instance,"motion_bypass","Off");
+    API.set_param(instance,"motion_host","movy-clip-v1");expect_param(instance,"motion_clip_config","mca1");
+    assert(!hb_mo_lane_active(&instance->motion,0));API.set_param(instance,"motion_hold_1","On");assert(hb_mo_lane_active(&instance->motion,0));
+    API.set_param(instance,"motion_host","movy-clip-v2");
+    for(int lane=1;lane<=16;lane++){
+        char number[16];snprintf(number,sizeof(number),"%d",lane);API.set_param(instance,"motion_lane",number);
+        API.set_param(instance,"motion_operation","Clip Speed");API.set_param(instance,"motion_enabled","On");
+    }
+    assert(API.get_param(instance,"motion_clip_config",config,sizeof(config))>0);assert(strstr(config,";15,15,"));
+    char tiny[8];assert(API.get_param(instance,"motion_clip_config",tiny,sizeof(tiny))<0&&tiny[7]==0);
+}
 int main(void){
+    automatic_clip_config();
     cycle_conditions();condition_state_and_repeat_tails();
     buffered_advancement();advancement_modes();repeats_production();repeat_capacity_and_collisions();
     sixteen_slots_and_capabilities();controls_and_state();punch_and_release();lanes_and_patterns();gate_pan_and_stop();harmony_choice();ownership_and_recording();performance_buttons();

@@ -26,7 +26,7 @@ static int hb_mo_slot_key(const char *key,const char *prefix){
     return end!=key+size&&!*end&&slot>=1&&slot<=HB_MOTION_LANES?(int)slot-1:-1;
 }
 static int hb_mo_set(hb_motion_config *config,const char *key,const char *value){
-    if(!strcmp(key,"motion_host")){config->host_capabilities=!strcmp(value,"movy-clip-v1");return 1;}
+    if(!strcmp(key,"motion_host")){config->host_capabilities=!strcmp(value,"movy-clip-v2")?2:!strcmp(value,"movy-clip-v1");return 1;}
     if(!strcmp(key,"performance_reset")){
         config->held=0;config->pitch_held=0;config->enclosure=0;hb_mo_input_reset(config);
         for(int lane=0;lane<HB_MOTION_LANES;lane++)config->revision[lane]++;return 1;
@@ -102,7 +102,8 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
             config->lanes[config->selected].offset=parsed==HB_MO_ECHO?25:0;
             if(parsed>=HB_MO_ENCLOSE_AB&&parsed<=HB_MO_SPEED)config->lanes[config->selected].enabled=0;
         }
-        if(index==4&&config->lanes[config->selected].operation>=HB_MO_ENCLOSE_AB&&config->lanes[config->selected].operation<=HB_MO_SPEED)parsed=0;
+        if(index==4&&(config->lanes[config->selected].operation==HB_MO_ENCLOSE_AB||config->lanes[config->selected].operation==HB_MO_ENCLOSE_BA||
+            (config->lanes[config->selected].operation>=HB_MO_REPEAT&&config->lanes[config->selected].operation<=HB_MO_SPEED&&config->host_capabilities<2)))parsed=0;
         if(index==3&&config->lanes[config->selected].operation==HB_MO_ECHO)parsed=hb_mo_clamp(parsed,0,100);
         if(*field!=parsed)config->revision[config->selected]++;
         *field=parsed;return 1;
@@ -119,7 +120,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
             used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",count++?",":"",MO_OPERATIONS[operation]);
         }
         if(used<0||used>=length)return -1;
-        used+=snprintf(buffer+used,(size_t)(length-used),"]},{\"key\":\"motion_enabled\",\"name\":\"Auto\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Off\",\"On\"],\"readOnly\":%s}]",selected>=HB_MO_ENCLOSE_AB&&selected<=HB_MO_SPEED?"true":"false");
+        used+=snprintf(buffer+used,(size_t)(length-used),"]},{\"key\":\"motion_enabled\",\"name\":\"Auto\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Off\",\"On\"],\"readOnly\":%s}]",(selected==HB_MO_ENCLOSE_AB||selected==HB_MO_ENCLOSE_BA||(selected>=HB_MO_REPEAT&&selected<=HB_MO_SPEED&&config->host_capabilities<2))?"true":"false");
         if(used<0||used>=length)return -1;
         used--; /* Replace the closing array bracket with contextual metadata. */
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":100,\"step\":1,\"default\":0}]",selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_ECHO?0:-100);
@@ -141,6 +142,16 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         }
         if(used<0||used>=length)return -1;
         used+=snprintf(buffer+used,(size_t)(length-used),"]");
+        return used>=length?-1:used;
+    }
+    if(!strcmp(key,"motion_clip_config")){
+        int used=snprintf(buffer,(size_t)length,"mca1");
+        for(int index=0;index<HB_MOTION_LANES;index++){
+            const hb_motion_lane *lane=&config->lanes[index];
+            if(config->host_capabilities<2||config->bypass||!lane->enabled||lane->operation<HB_MO_REPEAT||lane->operation>HB_MO_SPEED)continue;
+            if(used<0||used>=length)return -1;
+            used+=snprintf(buffer+used,(size_t)(length-used),";%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",index,lane->operation,lane->amount,lane->grid,lane->cycle,lane->every,lane->from,lane->through,lane->probability,lane->evolve);
+        }
         return used>=length?-1:used;
     }
     if(!strcmp(key,"motion_every"))return snprintf(buffer,(size_t)length,"%d",config->lanes[config->selected].every);

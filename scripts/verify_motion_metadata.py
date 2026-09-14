@@ -36,6 +36,7 @@ def main() -> None:
     assert maps[1]['motion_operation']['options'] == map_canonical['motion_operation']['options']
     assert [option for option in maps[2]['motion_operation']['options'] if option.startswith('Clip ')] == ['Clip Reverse']
     assert maps[2]['motion_enabled']['readOnly']
+    assert not maps[5]['motion_enabled']['readOnly']
     print('Runtime metadata: valid complete JSON; standalone hides unsupported choices and preserves the selected clip assignment')
 
 

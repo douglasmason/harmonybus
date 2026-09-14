@@ -49,7 +49,8 @@ static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*con
 static void hb_mo_route_init(hb_motion_route *route){memset(route,0,sizeof(*route));for(int channel=0;channel<16;channel++)route->base_pan[channel]=64;}
 static int hb_mo_lane_active(const hb_motion_config *config,int index){
     int operation=config->lanes[index].operation;
-    if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&!config->host_capabilities)return 0;
+    if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&
+        (!config->host_capabilities||(config->host_capabilities<2&&!(config->held&(1u<<index)))))return 0;
     if(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA)return config->enclosure&&config->enclosure_lane==index;
     return operation && ((config->held&(1u<<index)) || (!config->bypass&&config->lanes[index].enabled));
 }

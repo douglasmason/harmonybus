@@ -1,6 +1,6 @@
-> 0.2.134 adds per-lane cycle conditions: Every / From / Through, transport-aligned windows, manual override and live cycle feedback. For a last-bar fill, choose Every 4, From 4, Through 4, Cycle 1 Bar and Auto On. See [operation controls](docs/operations.md).
+> 0.2.135 extends Auto and cycle conditions to Clip Repeat, Reverse, Time Shift and Speed when paired with Movy hbclean.50. Manual holds override the automatic schedule. See [operation controls](docs/operations.md).
 
-> Release 0.2.134 adds sixteen assignable operation slots per track and host-aware clip controls. Pair with Movy hbclean.49 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
+> Release 0.2.135 adds sixteen assignable operation slots per track and host-aware clip controls. Pair with Movy hbclean.50 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
 
 
 
@@ -64,7 +64,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.134-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.135-module.tar.gz`.
 
 ## License
 

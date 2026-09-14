@@ -1,8 +1,8 @@
-# Operation lanes (HarmonyBus 0.2.134 / Movy hbclean.49)
+# Operation lanes (HarmonyBus 0.2.135 / Movy hbclean.50)
 
 Each HarmonyBus instance has sixteen independent slots. The Operation,
 Timing / Trigger, and Conditions panels share one lane selector. Duplicate operations compose
-in lane order. Existing assignments in slots 1–4 are retained. Unassigned slots 5–12 start Off; slots 13–16 default to the four approaches below. These defaults are inactive until pressed. The sixteen-slot performance row requires hbclean.47 or newer; the Conditions editor uses hbclean.49 or newer.
+in lane order. Existing assignments in slots 1–4 are retained. Unassigned slots 5–12 start Off; slots 13–16 default to the four approaches below. These defaults are inactive until pressed. The sixteen-slot performance row requires hbclean.47 or newer; the Conditions editor uses hbclean.50 or newer.
 
 ## Signal path and recording
 
@@ -49,8 +49,8 @@ in MIDI FX 1 on the active track even while editing its synth or another panel:
 
 Every button maps directly to its numbered slot. All sixteen assignments can be
 changed, including the last four. Approaches/enclosures are ordinary operations
-and can be duplicated or moved. Enclosure slots are Trigger; clip slots are Hold
-only. Auto is disabled for those choices.
+and can be duplicated or moved. Enclosure slots are Trigger and have Auto disabled. Clip slots support Auto
+on Movy hbclean.50 or newer, alongside their direct manual holds.
 
 Opening or leaving an HB panel no longer changes the chosen mode. Loop/Session,
 Shift shortcuts, track/mute selection, and dedicated step editing temporarily
@@ -165,10 +165,10 @@ and show Stopped; a manual hold still works. Every 1 preserves ordinary live
 operation without transport. Conditions are saved with each lane. Older states
 default to Every 1, and old readers can ignore the new state suffix.
 
-Clip operations remain **Hold only**, and enclosures remain **Trigger**; the
-status labels make this explicit. Assigning conditions does not convert these
-manual gestures into automatic clip transformations or generated enclosures.
-Standalone Schwung continues to show Requires Movy for preserved clip slots.
+Clip operations support the same Auto and cycle conditions with Movy
+hbclean.50 or newer. Enclosures remain **Trigger**. Standalone Schwung continues
+to show Requires Movy for preserved clip slots; older Movy hosts show Update Movy
+and keep manual clip gestures available.
 
 ## Pattern advancement and generated repeats
 
@@ -211,8 +211,9 @@ dropped rather than emitted as a catch-up flurry.
 
 Note operations work on live input and recorded notes that pass through HB.
 Clip operations need an existing playing clip. Movy changes which stored notes
-are emitted while its normal transport keeps moving; releasing the operation
-returns playback to that transport position. They never rewrite the clip and
+are emitted while its normal transport keeps moving. Leaving an automatic
+condition window, or releasing the last manual hold when no automatic operation
+is eligible, returns playback to that transport position. They never rewrite the clip and
 are bypassed on the track currently recording. Live pads are unaffected.
 
 | Operation | Controls and behavior |
@@ -222,12 +223,37 @@ are bypassed on the track currently recording. Live pads are unaffected.
 | Clip Time Shift | Amount is a signed number of Grid steps ahead (+) or behind (−) normal playback. Wraps within the loop. |
 | Clip Speed | Amount +2/+3/+4 means 2×/3×/4×; −2/−3/−4 means 1/2×, 1/3×, 1/4×. Zero and ±1 mean normal speed. Starts at the press position. |
 
-Only Grid and Amount apply as described above. Clip operations do not use
-Pattern, Offset, Cycle, Phase, Probability, Group or Random in this version.
-With several clip operations held, the most recently pressed wins. Releasing it
-restores an earlier held operation; its elapsed time continues in the background.
-Stop, clip launch/change, set load, leaving Perform mode and teardown clear clip
-gestures. Note-offs remain paired with emitted pitches; existing gates finish
+Grid and Amount control the transformation as described above. **Auto On** enables
+automatic activation, with **Cycle / Every / From / Through** defining its windows.
+For a last-bar reverse, choose Clip Reverse, Cycle 1 Bar, Every 4, From 4,
+Through 4 and Auto On. No editor needs to be open. Auto Off preserves hold-only
+operation. The settings remain stored in HB alongside the other lanes.
+
+An automatic gesture captures the current playing clip and position when its
+eligible window begins. It continues through an inclusive multi-cycle range,
+then releases. Full-range conditions at probability 100 run continuously across
+cycle boundaries, allowing effects you leave on. A new partial-range window
+starts a fresh gesture. A backwards transport seek re-anchors it; a clip change
+clears runtime gestures and reapplies the schedule to the new playing clip.
+
+Probability is sampled once per phrase window, rather than once per note. The
+Repeat random mode repeats the same deterministic decision for that lane/track;
+Evolve varies it between phrases. Holding a clip step bypasses this decision and
+cycle eligibility. Pattern, Offset, Phase, Group and Advance do not alter the
+clip reader; they retain their note-operation meanings.
+
+Manual gestures take priority over all automatic gestures. With several clip
+operations held, the most recently pressed wins. Releasing it restores an earlier
+held operation, or the eligible automatic operation; elapsed reader time continues
+in the background. If several automatic clip lanes qualify, the highest-numbered
+lane wins. They do not compose conflicting reader transformations. Blue LEDs show
+cycle eligibility, not the result of a probability draw or which competing lane
+wins. Existing note gates finish normally when a window closes.
+Stop, clip launch/change, set load, leaving Perform mode and teardown clear
+manual clip gestures. Auto schedules remain independent of Step Row mode.
+Recording bypasses clip operations on the recording track. No source clips are
+rewritten; parameter and set changes refresh the sequencer configuration without
+per-frame parameter polling. Note-offs remain paired with emitted pitches; existing gates finish
 normally on release. Speed scales new gates and pressure timing. Parameter
 automation remains on the normal clip timeline.
 

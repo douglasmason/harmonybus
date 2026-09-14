@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.134 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.134"
+/* Harmony Bus v0.2.135 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.135"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1926,7 +1926,12 @@ static void hb_player_note_on(Inst *instance,int source_note,int channel,int vel
 /* One post-render pipeline for local sound and the original MIDI broadcast.
    Harmony Choice is deliberately evaluated earlier, in hb_render_harmony. */
 static double hb_motion_position(Inst *instance){return hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING?hb_current_beat():instance->motion_beat;}
-static double hb_motion_condition_position(void){return hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING?hb_current_beat():-1.0;}
+static double hb_motion_condition_position(void){
+    if(hb_clock_status()!=MOVE_CLOCK_STATUS_RUNNING)return -1.0;
+    /* Movy increments master_tick before emitting that tick's notes. */
+    if(g_movy_present)return (double)(g_movy_tick?g_movy_tick-1:0)/g_movy_ppqn;
+    return hb_current_beat();
+}
 static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,int *velocity,int *pan,double *off_beat,int *skip){
     *pitch=message[1];*velocity=message[2];*pan=-1;*off_beat=-1;*skip=0;
     double beat=hb_motion_position(instance);
@@ -3813,7 +3818,7 @@ if(!strcmp(key,"motion_condition_status")){
     double beat=hb_motion_condition_position();
     const char *status="Ready";
     if(lane->operation==HB_MO_OFF)status="Off";
-    else if(lane->operation>=HB_MO_REPEAT&&lane->operation<=HB_MO_SPEED)status=instance->motion.host_capabilities?"Hold only":"Requires Movy";
+    else if(lane->operation>=HB_MO_REPEAT&&lane->operation<=HB_MO_SPEED&&instance->motion.host_capabilities<2)status=instance->motion.host_capabilities?"Update Movy":"Requires Movy";
     else if(lane->operation==HB_MO_ENCLOSE_AB||lane->operation==HB_MO_ENCLOSE_BA)status="Trigger";
     else if(instance->motion.held&(1u<<instance->motion.selected))status="Held";
     else if(instance->motion.bypass)status="Bypassed";
