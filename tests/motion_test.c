@@ -200,6 +200,7 @@ static void performance_buttons(void){
 }
 static void sixteen_slots_and_capabilities(void){
     Inst *instance=motion_fixture();char saved[8192],after[8192],metadata[65536];
+    expect_param(instance,"motion_row","0,0,0,0,0,0,0,0,0,0,0,0,0,8,9,10,11");
     for(int lane=13;lane<=16;lane++){
         char value[16];snprintf(value,sizeof(value),"%d",lane);API.set_param(instance,"motion_lane",value);
         assert(instance->motion.lanes[lane-1].operation==HB_MO_BELOW+lane-13);

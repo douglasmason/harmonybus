@@ -1,4 +1,4 @@
-# Operation lanes (HarmonyBus 0.2.131 / Movy hbclean.47)
+# Operation lanes (HarmonyBus 0.2.132 / Movy hbclean.47)
 
 Each HarmonyBus instance has sixteen independent slots. The Operation and
 Timing / Trigger panels share one lane selector. Duplicate operations compose
@@ -60,8 +60,9 @@ Without a compatible HB in MIDI FX 1, normal steps remain available and the
 footer reads **STEPS / NO HB**. Switching the preference to STEPS clears holds
 and enclosures immediately; old physical releases are still consumed. Releases
 are captured by original track/lane and handled before modal dispatch; teardown
-also resets holds and armed enclosures. LEDs: dim available, white physically held, green active or
-armed. Press feedback is immediate; engine-status updates are bounded to 10 Hz.
+also resets holds and armed enclosures. LEDs: green for note operations (live and HB-routed playback), royal blue for
+clip-only operations, unlit for Off. Idle assignments are dim; held, automatically
+active or armed operations use their brighter category color. Press feedback is immediate; engine-status updates are bounded to 10 Hz.
 
 Enclosures advance on the next three note/chord onsets; they do not generate
 notes. Release of the trigger does not cancel the sequence. Retrigger starts

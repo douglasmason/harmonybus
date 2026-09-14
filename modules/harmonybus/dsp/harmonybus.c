@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.131 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.131"
+/* Harmony Bus v0.2.132 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.132"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -3763,10 +3763,14 @@ static void hb_restore_state(Inst *instance,const char *state){
     if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}
 }
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();
-if(!strcmp(key,"performance_status")){
+if(!strcmp(key,"performance_status")||!strcmp(key,"motion_row")){
     unsigned mask=0;for(int lane=0;lane<HB_MOTION_LANES;lane++)if(hb_mo_lane_active(&instance->motion,lane))mask|=1u<<lane;
-
-    return snprintf(buffer,(size_t)length,"%u",mask);
+    int used=snprintf(buffer,(size_t)length,"%u",mask);
+    if(!strcmp(key,"motion_row"))for(int lane=0;lane<HB_MOTION_LANES;lane++){
+        if(used<0||used>=length)return -1;
+        used+=snprintf(buffer+used,(size_t)(length-used),",%d",instance->motion.lanes[lane].operation);
+    }
+    return used;
 }
 int motion_value=hb_mo_get(&instance->motion,key,buffer,length);if(motion_value>=0||!strcmp(key,"chain_params"))return motion_value;
 for(int index=0;index<5;index++)if(!strcmp(key,PAD_KEYS[index]))return snprintf(buffer,(size_t)length,"%s",PAD_OPTIONS[index][g_pad_settings[index]]);
