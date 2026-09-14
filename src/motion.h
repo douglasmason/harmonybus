@@ -1,14 +1,16 @@
 #ifndef HB_MOTION_H
 #define HB_MOTION_H
-/* Four per-instance lanes. Pure evaluation uses transport position, never a
+/* Sixteen per-instance lanes. Pure evaluation uses transport position, never a
    mutable random stream, so local and MIDI-render routes make identical choices. */
-#define HB_MOTION_LANES 4
+#define HB_MOTION_LANES 16
 #define HB_MOTION_OWNERS 512
 #define HB_MOTION_QUEUE 2048
 enum { HB_MO_OFF, HB_MO_VELOCITY, HB_MO_PAN, HB_MO_OCTAVE, HB_MO_ROTATE,
-       HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY };
+       HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY, HB_MO_BELOW, HB_MO_ABOVE,
+       HB_MO_ENCLOSE_AB, HB_MO_ENCLOSE_BA, HB_MO_REPEAT, HB_MO_REVERSE,
+       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE };
 typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve; } hb_motion_lane;
-typedef struct { hb_motion_lane lanes[4]; int selected,bypass; unsigned held;
+typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned held;
     unsigned pitch_held,enclosure_revision; int pitch_last,enclosure;
 } hb_motion_config;
 typedef struct { int used,channel,source,pitch,sounding; double off_beat; unsigned long long serial; } hb_motion_owner;
@@ -29,16 +31,30 @@ static double hb_mo_floor(double value){long long whole=(long long)value;return 
 static double hb_mo_grid(int index){return 0.0625*(1u<<hb_mo_clamp(index,0,8));}
 static double hb_mo_cycle(int index){static const double lengths[]={0.5,1,2,4,8,12,16};return lengths[hb_mo_clamp(index,0,6)];}
 static void hb_mo_lane_default(hb_motion_lane *lane){memset(lane,0,sizeof(*lane));lane->enabled=1;lane->grid=3;lane->cycle=3;lane->probability=100;}
-static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*config));for(int index=0;index<4;index++)hb_mo_lane_default(&config->lanes[index]);}
+static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*config));for(int index=0;index<HB_MOTION_LANES;index++)hb_mo_lane_default(&config->lanes[index]);
+    config->enclosure_lane=-1;
+    for(int index=12;index<16;index++){config->lanes[index].operation=HB_MO_BELOW+index-12;config->lanes[index].enabled=0;config->lanes[index].amount=1;}
+}
 static void hb_mo_route_init(hb_motion_route *route){memset(route,0,sizeof(*route));for(int channel=0;channel<16;channel++)route->base_pan[channel]=64;}
 static int hb_mo_lane_active(const hb_motion_config *config,int index){
-    return config->lanes[index].operation && ((config->held&(1u<<index)) || (!config->bypass&&config->lanes[index].enabled));
+    int operation=config->lanes[index].operation;
+    if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&!config->host_capabilities)return 0;
+    if(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA)return config->enclosure&&config->enclosure_lane==index;
+    return operation && ((config->held&(1u<<index)) || (!config->bypass&&config->lanes[index].enabled));
 }
-static int hb_mo_enabled(const hb_motion_config *config){if(config->pitch_held||config->enclosure)return 1;for(int index=0;index<4;index++)if(hb_mo_lane_active(config,index))return 1;return 0;}
+static int hb_mo_enabled(const hb_motion_config *config){if(config->pitch_held||config->enclosure)return 1;for(int index=0;index<HB_MOTION_LANES;index++)if(hb_mo_lane_active(config,index))return 1;return 0;}
 /* Each route advances independently so the local and render copies agree.
    Simultaneous distinct pitches share a step; a repeated pitch starts another
    onset even if both arrive before the next transport sample. */
 static int hb_mo_performance(hb_motion_config *config,hb_motion_route *route,int source,double beat,double grouping){
+    unsigned newest=0;int held_modifier=0;
+    for(int lane=0;lane<HB_MOTION_LANES;lane++)if(config->held&(1u<<lane)){
+        int operation=config->lanes[lane].operation;
+        if((operation==HB_MO_BELOW||operation==HB_MO_ABOVE)&&config->held_serial[lane]>=newest){
+            newest=config->held_serial[lane];held_modifier=operation==HB_MO_BELOW?-1:1;
+        }
+    }
+    if(held_modifier)return held_modifier;
     if(config->pitch_held)return config->pitch_last==1?-1:1;
     if(!config->enclosure)return 0;
     if(route->enclosure_revision!=config->enclosure_revision){

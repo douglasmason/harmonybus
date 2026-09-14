@@ -23,17 +23,20 @@ jobs:
           echo "HB=dist/harmonybus-v${VERSION}-module.tar.gz" >> "$GITHUB_ENV"
           grep -q "#define HB_VERSION \"${VERSION}\"" modules/harmonybus/dsp/harmonybus.c
           node --check modules/harmonybus/canvas.js
+          python3 scripts/build_motion_metadata.py
+          git diff --exit-code -- src/motion_metadata.h
+          python3 scripts/verify_motion_metadata.py
           python3 - <<'PY'
           import json
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.130'
+          assert module['version']=='0.2.131'
           levels=module['capabilities']['ui_hierarchy']['levels']
           buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
           assert buffer['options']==[f'{ms} ms' for ms in [0,25,*range(50,1001,50)]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars','4 Bars']
           assert buffer['default']=='1/16'
-          assert levels['root']['name']=='Harmony Bus 0.2.130'
+          assert levels['root']['name']=='Harmony Bus 0.2.131'
           master=next(p for p in levels['global_transpose']['params'] if p.get('key')=='master_transpose')
           assert len(master['options'])==13 and master['default']=='As Played'
           assert levels['global_transpose']['knobs'][0]=='master_transpose'
@@ -194,7 +197,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.130'
+          assert module['version']==os.environ['VERSION']=='0.2.131'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -214,12 +217,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Four operation lanes per track with shared Operation and Timing / Trigger panels. Non-destructive output effects, momentary pitch and lane controls, and triggered enclosures. Pair with Movy hbclean.44 for global Steps / Perform mode. Hardware gestures have not yet been verified on Move."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Sixteen assignable operation slots; the last four default to pitch approaches and enclosures. Standalone HB hides Movy clip operations while preserving their assignments. Pair with Movy hbclean.47 for clip Repeat, Reverse, Time Shift and Speed. Stored source notes remain intact."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Four operation lanes per track with shared Operation and Timing / Trigger panels. Non-destructive output effects, momentary pitch and lane controls, and triggered enclosures. Pair with Movy hbclean.44 for global Steps / Perform mode. Hardware gestures have not yet been verified on Move." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Sixteen assignable operation slots; the last four default to pitch approaches and enclosures. Standalone HB hides Movy clip operations while preserving their assignments. Pair with Movy hbclean.47 for clip Repeat, Reverse, Time Shift and Speed. Stored source notes remain intact." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

@@ -198,8 +198,54 @@ static void performance_buttons(void){
     }
     assert(!instance->motion.enclosure);
 }
+static void sixteen_slots_and_capabilities(void){
+    Inst *instance=motion_fixture();char saved[8192],after[8192],metadata[65536];
+    for(int lane=13;lane<=16;lane++){
+        char value[16];snprintf(value,sizeof(value),"%d",lane);API.set_param(instance,"motion_lane",value);
+        assert(instance->motion.lanes[lane-1].operation==HB_MO_BELOW+lane-13);
+        expect_param(instance,"motion_enabled","Off");
+    }
+    API.set_param(instance,"motion_hold_13","On");
+    assert(send_note(instance,1,60)==1&&output[0][1]==59);send_note(instance,0,60);
+    API.set_param(instance,"motion_hold_14","On");
+    assert(send_note(instance,1,60)==1&&output[0][1]==62);send_note(instance,0,60);
+    API.set_param(instance,"motion_hold_14","Off");
+    assert(send_note(instance,1,60)==1&&output[0][1]==59);send_note(instance,0,60);
+    API.set_param(instance,"motion_hold_13","Off");
+    for(int lane=15;lane<=16;lane++){
+        char key[32];snprintf(key,sizeof(key),"motion_hold_%d",lane);
+        API.set_param(instance,key,"On");unsigned revision=instance->motion.enclosure_revision;
+        API.set_param(instance,key,"On");assert(instance->motion.enclosure_revision==revision);
+        API.set_param(instance,key,"Off");assert(instance->motion.enclosure);
+        int expected[3]={lane==15?62:59,lane==15?59:62,60};
+        for(int step=0;step<3;step++){assert(send_note(instance,1,60)==1&&output[0][1]==expected[step]);send_note(instance,0,60);}
+        assert(!instance->motion.enclosure);
+    }
+    API.set_param(instance,"motion_operation","Clip Reverse");
+    API.set_param(instance,"motion_enabled","On");expect_param(instance,"motion_enabled","Off");
+    API.set_param(instance,"motion_hold_16","On");assert(!hb_mo_enabled(&instance->motion));
+    expect_param(instance,"motion_punch","Requires Movy");
+    API.get_param(instance,"state",saved,sizeof(saved));
+    assert(API.get_param(instance,"chain_params",metadata,sizeof(metadata))>0);
+    assert(strstr(metadata,"Clip Reverse")&&!strstr(metadata,"Clip Repeat"));
+    API.set_param(instance,"motion_host","movy-clip-v1");
+    assert(API.get_param(instance,"chain_params",metadata,sizeof(metadata))>0&&strstr(metadata,"Clip Repeat"));
+    API.get_param(instance,"state",after,sizeof(after));assert(!strcmp(saved,after));
+    API.set_param(instance,"state",saved);assert(instance->motion.host_capabilities&&!instance->motion.held);
+    Inst *standalone=API.create_instance("",NULL);API.set_param(standalone,"state",saved);
+    assert(!standalone->motion.host_capabilities);expect_param(standalone,"motion_operation","Clip Reverse");
+    expect_param(standalone,"motion_punch","Requires Movy");
+    char tiny[16];assert(API.get_param(instance,"chain_params",tiny,sizeof(tiny))<0&&tiny[15]==0);
+    // Every numeric slot parses independently; the older first-four state still loads.
+    hb_mo_restore(&instance->motion,";mo1,0,3,0,2,0,0,3,3,0,100,0,0");
+    assert(instance->motion.lanes[0].operation==HB_MO_OCTAVE&&instance->motion.lanes[0].amount==2);
+    assert(instance->motion.lanes[15].operation==HB_MO_ENCLOSE_BA);
+    API.set_param(instance,"motion_lane","16");API.set_param(instance,"motion_operation","Off");
+    API.get_param(instance,"state",saved,sizeof(saved));API.set_param(instance,"state",saved);
+    assert(instance->motion.lanes[15].operation==HB_MO_OFF);
+}
 int main(void){
-    controls_and_state();punch_and_release();lanes_and_patterns();gate_pan_and_stop();harmony_choice();ownership_and_recording();performance_buttons();
+    sixteen_slots_and_capabilities();controls_and_state();punch_and_release();lanes_and_patterns();gate_pan_and_stop();harmony_choice();ownership_and_recording();performance_buttons();
     puts("motion: persistence, isolation, punch ownership, stacked lanes, patterns, gate, pan, stop and harmony pass");
     return 0;
 }

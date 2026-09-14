@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.130 / Movy 0.34.1-hbclean.44.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.131 / Movy 0.34.1-hbclean.47.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -332,4 +332,4 @@ Polling is read-only, at most once per 50 ms, and paused during performance-touc
 
 ## Operation lanes and performance controls
 
-Four lanes transform the rendered output without rewriting source clips. The two shared editing panels and global Steps / Perform switch are described in [Operation lanes](operations.md), including the recording path, momentary controls and triggered enclosures.
+Sixteen slots transform the rendered output without rewriting source clips. The two shared editing panels and global Steps / Perform switch are described in [Operation lanes](operations.md), including the recording path, momentary controls and triggered enclosures.

@@ -1,8 +1,8 @@
-# Operation lanes (HarmonyBus 0.2.130 / Movy hbclean.44)
+# Operation lanes (HarmonyBus 0.2.131 / Movy hbclean.47)
 
-Each HarmonyBus instance has four independent lanes. The Operation and
+Each HarmonyBus instance has sixteen independent slots. The Operation and
 Timing / Trigger panels share one lane selector. Duplicate operations compose
-in lane order. Existing sets load with all operations Off. The Movy performance row requires hbclean.44 or newer.
+in lane order. Existing assignments in slots 1–4 are retained. Unassigned slots 5–12 start Off; slots 13–16 default to the four approaches below. These defaults are inactive until pressed. The sixteen-slot performance row requires hbclean.47 or newer.
 
 ## Signal path and recording
 
@@ -24,13 +24,13 @@ bridge can consequently reflect that selected harmony.
 
 | Knob | Operation | Timing / Trigger |
 |---|---|---|
-| 1 | Lane 1–4 | Lane 1–4 |
+| 1 | Lane 1–16 | Lane 1–16 |
 | 2 | Operation | Grid |
 | 3 | Pattern | Cycle |
 | 4 | Amount | Phase (grid steps) |
 | 5 | Offset | Probability (%) |
 | 6 | Auto On/Off | Group: Chord/Voice |
-| 7 | Four-lane overview (`*` means active) | Random: Repeat/Evolve |
+| 7 | Selected slot summary | Random: Repeat/Evolve |
 | 8 | Punch status (read-only) | Punch status (read-only) |
 
 Knob touch does not activate these operations. Choose **Settings → Step Row →
@@ -41,12 +41,16 @@ in MIDI FX 1 on the active track even while editing its synth or another panel:
 
 | Step | Action | Gesture |
 |---|---|---|
-| 1–4 | Force operation lanes 1–4 | Hold |
-| 5 | Chromatic semitone below target | Hold |
-| 6 | Next scale tone above target | Hold |
-| 7 | Scale above → chromatic below → target | Press to arm |
-| 8 | Chromatic below → scale above → target | Press to arm |
-| 9–16 | Unassigned | No action |
+| 1–12 | Assigned operation (Off unless configured or restored) | Hold |
+| 13 | Chromatic semitone below target | Hold |
+| 14 | Next scale tone above target | Hold |
+| 15 | Scale above → chromatic below → target | Press to arm |
+| 16 | Chromatic below → scale above → target | Press to arm |
+
+Every button maps directly to its numbered slot. All sixteen assignments can be
+changed, including the last four. Approaches/enclosures are ordinary operations
+and can be duplicated or moved. Enclosure slots are Trigger; clip slots are Hold
+only. Auto is disabled for those choices.
 
 Opening or leaving an HB panel no longer changes the chosen mode. Loop/Session,
 Shift shortcuts, track/mute selection, and dedicated step editing temporarily
@@ -93,6 +97,11 @@ explicitly suppresses notes.
 | Gate | Maximum duration as a percentage of the grid; source release can end sooner | 50 |
 | Skip | Suppress the note when the value is positive | 100 |
 | Harmony | Below 50: current; 50 or above: lookahead | 100 |
+| Transpose | Rounded semitone shift; emitted MIDI pitch stays within 0–127 | +1 |
+| Chrom Below | Chromatic semitone below the rendered target | 1 |
+| Scale Above | Next scale tone above the rendered target | 1 |
+| Enclose Above Below | Above → below → target on three onsets | 1 |
+| Enclose Below Above | Below → above → target on three onsets | 1 |
 
 Lookahead uses the existing configured signed offset and learned model, falling
 back to observed harmony when prediction is unavailable. Harmony choice is
@@ -104,6 +113,37 @@ when it stops applying. This is channel-wide, not independent per-note pan. The
 receiving instrument must support CC10. Independent voice panning would require
 an instrument/voice control mechanism.
 
+## Clip playback operations (Movy only)
+
+Note operations work on live input and recorded notes that pass through HB.
+Clip operations need an existing playing clip. Movy changes which stored notes
+are emitted while its normal transport keeps moving; releasing the operation
+returns playback to that transport position. They never rewrite the clip and
+are bypassed on the track currently recording. Live pads are unaffected.
+
+| Operation | Controls and behavior |
+|---|---|
+| Clip Repeat | Grid selects the repeated section length, anchored to the section containing the press. Starts at that section's beginning. |
+| Clip Reverse | Mirrors note intervals within the clip loop, preserving their gates. |
+| Clip Time Shift | Amount is a signed number of Grid steps ahead (+) or behind (−) normal playback. Wraps within the loop. |
+| Clip Speed | Amount +2/+3/+4 means 2×/3×/4×; −2/−3/−4 means 1/2×, 1/3×, 1/4×. Zero and ±1 mean normal speed. Starts at the press position. |
+
+Only Grid and Amount apply as described above. Clip operations do not use
+Pattern, Offset, Cycle, Phase, Probability, Group or Random in this version.
+With several clip operations held, the most recently pressed wins. Releasing it
+restores an earlier held operation; its elapsed time continues in the background.
+Stop, clip launch/change, set load, leaving Perform mode and teardown clear clip
+gestures. Note-offs remain paired with emitted pitches; existing gates finish
+normally on release. Speed scales new gates and pressure timing. Parameter
+automation remains on the normal clip timeline.
+
+Movy advertises clip support at runtime. Standalone HB in Schwung offers note
+operations only. Loading a preset with a clip assignment preserves that slot,
+shows **Requires Movy**, and bypasses it. Its selected operation stays visible so
+the saved assignment can be understood or changed; other clip choices are hidden.
+Host capability, physical holds and triggered enclosure progress are not saved.
+The existing HB state format and first four assignments remain compatible.
+
 ## Validation and remaining release work
 
 `tests/motion_test.c` exercises the production API: persistence, isolation,
@@ -112,4 +152,4 @@ gates with/without transport, pan restoration, stop, harmony choice, and recordi
 placement. Movy's real Schwung controller test verifies both panels, their shared
 cursor, immediate dependent-value refresh, and inert knob-touch activation.
 
-Release workflows build the ARM packages and run native and UI gates. Physical step gestures and audio on Move have not yet been verified for this release.
+Release workflows build the ARM packages and run native and UI gates. This release still needs the on-device check after installation. Earlier eight-button approach/enclosure gestures were confirmed on Move; the expanded assignment row and clip operations are new.

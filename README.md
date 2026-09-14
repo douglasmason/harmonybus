@@ -1,4 +1,4 @@
-> Release 0.2.130 adds four operation lanes per track and performance controls. Pair with Movy hbclean.44 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
+> Release 0.2.131 adds sixteen assignable operation slots per track and host-aware clip controls. Pair with Movy hbclean.47 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
 
 
 
@@ -62,7 +62,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.130-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.131-module.tar.gz`.
 
 ## License
 

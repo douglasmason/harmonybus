@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.130 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.130"
+/* Harmony Bus v0.2.131 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.131"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1147,7 +1147,7 @@ static double hb_follower_playback_target(Inst *instance,int slot){
 }
 static hb_harmony_t hb_render_harmony(Inst *instance){
     hb_harmony_t harmony=instance->render_harmony_active?instance->render_harmony:bus_read();
-    for(int lane=0;lane<4;lane++){
+    for(int lane=0;lane<HB_MOTION_LANES;lane++){
         if(instance->motion.lanes[lane].operation!=HB_MO_HARMONY)continue;
         double choice;
         if(!hb_mo_value(&instance->motion,lane,hb_motion_position(instance),0,&choice))continue;
@@ -1926,7 +1926,7 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
     *pitch=message[1];*velocity=message[2];*pan=-1;*off_beat=-1;*skip=0;
     double beat=hb_motion_position(instance);
     hb_harmony_t harmony=hb_render_harmony(instance);
-    for(int index=0;index<4;index++){
+    for(int index=0;index<HB_MOTION_LANES;index++){
         hb_motion_lane *lane=&instance->motion.lanes[index];double value;
         if(!hb_mo_value(&instance->motion,index,beat,message[1],&value))continue;
         if(lane->operation==HB_MO_VELOCITY)*velocity=hb_mo_clamp(hb_mo_round(*velocity*(1.0+value/100.0)),1,127);
@@ -1943,6 +1943,9 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
             double deadline=beat+hb_mo_grid(lane->grid)*hb_mo_clamp(hb_mo_round(value),1,400)/100.0;
             if(*off_beat<0||deadline<*off_beat)*off_beat=deadline;
         }else if(lane->operation==HB_MO_SKIP&&value>0)*skip=1;
+        else if(lane->operation==HB_MO_TRANSPOSE)*pitch=hb_mo_clamp(*pitch+hb_mo_round(value),0,127);
+        else if(!(instance->motion.held&(1u<<index))&&(lane->operation==HB_MO_BELOW||lane->operation==HB_MO_ABOVE)&&value>0)
+            *pitch=hb_apply_approach(instance,*pitch,lane->operation==HB_MO_BELOW?HB_APPROACH_CHROM_BELOW:HB_APPROACH_SCALE_ABOVE);
     }
 }
 static void hb_motion_output(Inst *instance,hb_motion_route *route,const uint8_t message[3]){
@@ -1960,7 +1963,7 @@ static void hb_motion_output(Inst *instance,hb_motion_route *route,const uint8_t
 static void hb_motion_harmony_refresh(Inst *instance){
     hb_harmony_t harmony=hb_render_harmony(instance);
     unsigned signature=harmony.valid?((unsigned)hb_harmony_chord_mask(harmony)<<4)|(unsigned)(harmony.root_pc+1):0;
-    int active=0;for(int lane=0;lane<4;lane++)if(hb_mo_lane_active(&instance->motion,lane)&&instance->motion.lanes[lane].operation==HB_MO_HARMONY)active=1;
+    int active=0;for(int lane=0;lane<HB_MOTION_LANES;lane++)if(hb_mo_lane_active(&instance->motion,lane)&&instance->motion.lanes[lane].operation==HB_MO_HARMONY)active=1;
     if((active||instance->motion_harmony_signature)&&signature!=instance->motion_harmony_signature)instance->play_revision++;
     instance->motion_harmony_signature=active?signature:0;
 }
@@ -3197,7 +3200,7 @@ static int tick_core(void *value,int frames,int sample_rate,uint8_t output[][3],
 static void hb_motion_tick_routes(Inst *instance){
     double beat=hb_motion_position(instance);
     hb_mo_due(&instance->motion_local,beat);hb_mo_due(&instance->motion_render,beat);
-    int pan_active=0;for(int lane=0;lane<4;lane++)if(hb_mo_lane_active(&instance->motion,lane)&&instance->motion.lanes[lane].operation==HB_MO_PAN)pan_active=1;
+    int pan_active=0;for(int lane=0;lane<HB_MOTION_LANES;lane++)if(hb_mo_lane_active(&instance->motion,lane)&&instance->motion.lanes[lane].operation==HB_MO_PAN)pan_active=1;
     if(!pan_active)for(int channel=0;channel<16;channel++){
         hb_motion_route *routes[2]={&instance->motion_local,&instance->motion_render};
         for(int index=0;index<2;index++)if(routes[index]->pan_dirty[channel]&&hb_mo_push(routes[index],0xb0|channel,10,routes[index]->base_pan[channel]))routes[index]->pan_dirty[channel]=0;
@@ -3761,12 +3764,11 @@ static void hb_restore_state(Inst *instance,const char *state){
 }
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();
 if(!strcmp(key,"performance_status")){
-    unsigned mask=0;for(int lane=0;lane<4;lane++)if(hb_mo_lane_active(&instance->motion,lane))mask|=1u<<lane;
-    mask|=instance->motion.pitch_held<<4;
-    if(instance->motion.enclosure)mask|=1u<<(5+instance->motion.enclosure);
+    unsigned mask=0;for(int lane=0;lane<HB_MOTION_LANES;lane++)if(hb_mo_lane_active(&instance->motion,lane))mask|=1u<<lane;
+
     return snprintf(buffer,(size_t)length,"%u",mask);
 }
-int motion_value=hb_mo_get(&instance->motion,key,buffer,length);if(motion_value>=0)return motion_value;
+int motion_value=hb_mo_get(&instance->motion,key,buffer,length);if(motion_value>=0||!strcmp(key,"chain_params"))return motion_value;
 for(int index=0;index<5;index++)if(!strcmp(key,PAD_KEYS[index]))return snprintf(buffer,(size_t)length,"%s",PAD_OPTIONS[index][g_pad_settings[index]]);
 if(!strcmp(key,"state")){
     int used=get_param(value,"pad_state_base",buffer,length);
