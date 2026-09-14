@@ -20,8 +20,14 @@ def main() -> None:
         assert map_metadata['motion_lane']['options'] == [str(slot) for slot in range(1,17)]
         assert set(map_metadata) == set(map_canonical)
         for key, parameter in map_canonical.items():
-            if key not in ('motion_operation','motion_enabled','motion_offset'):
+            if key not in ('motion_operation','motion_enabled','motion_offset','motion_from','motion_through'):
                 assert map_metadata[key] == parameter, key
+    assert maps[0]['motion_from']['options'] == [str(cycle) for cycle in range(1,17)]
+    assert maps[1]['motion_from']['options'] == ['1']
+    assert maps[4]['motion_from']['options'] == [str(cycle) for cycle in range(1,9)]
+    assert maps[4]['motion_through']['options'] == maps[4]['motion_from']['options']
+    assert maps[4]['motion_every']['options'] == [str(cycle) for cycle in range(1,17)]
+    assert map_module['capabilities']['ui_hierarchy']['levels']['motion_conditions']['knobs'] == ['motion_lane','motion_every','motion_from','motion_through','motion_cycle','motion_enabled','motion_condition_range','motion_condition_status']
     assert maps[0]['motion_offset'] == map_canonical['motion_offset']
     assert maps[3]['motion_offset']['name'] == 'Decay %' and maps[3]['motion_offset']['min'] == 0
     assert maps[3]['motion_advance']['options'] == ['Clock','Note','Chord']

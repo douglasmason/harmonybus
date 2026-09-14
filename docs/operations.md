@@ -1,8 +1,8 @@
-# Operation lanes (HarmonyBus 0.2.133 / Movy hbclean.48)
+# Operation lanes (HarmonyBus 0.2.134 / Movy hbclean.49)
 
-Each HarmonyBus instance has sixteen independent slots. The Operation and
-Timing / Trigger panels share one lane selector. Duplicate operations compose
-in lane order. Existing assignments in slots 1–4 are retained. Unassigned slots 5–12 start Off; slots 13–16 default to the four approaches below. These defaults are inactive until pressed. The sixteen-slot performance row requires hbclean.48 or newer.
+Each HarmonyBus instance has sixteen independent slots. The Operation,
+Timing / Trigger, and Conditions panels share one lane selector. Duplicate operations compose
+in lane order. Existing assignments in slots 1–4 are retained. Unassigned slots 5–12 start Off; slots 13–16 default to the four approaches below. These defaults are inactive until pressed. The sixteen-slot performance row requires hbclean.47 or newer; the Conditions editor uses hbclean.49 or newer.
 
 ## Signal path and recording
 
@@ -116,6 +116,60 @@ when it stops applying. This is channel-wide, not independent per-note pan. The
 receiving instrument must support CC10. Independent voice panning would require
 an instrument/voice control mechanism.
 
+## Cycle conditions
+
+The **Conditions** page automates Auto-capable note operations on selected
+transport cycles. Each lane has its own condition; duplicate operations can
+use different ranges. Cycle counting starts at transport beat zero. Seeking or
+restarting the transport updates the cycle position immediately; punching a
+button never restarts it. Lanes with the same Cycle length stay aligned even
+when their instances were created at different times.
+
+| Knob | Control | Meaning |
+|---|---|---|
+| 1 | Lane | Shared slot selector across all three editors |
+| 2 | Every | Phrase length in cycles, 1–16 |
+| 3 | From | First eligible cycle, inclusive |
+| 4 | Through | Last eligible cycle, inclusive |
+| 5 | Cycle | Length of one cycle; same control as Timing / Trigger |
+| 6 | Auto | Enable automatic operation; same control as Operation |
+| 7 | Cycle Range | Read-only summary, such as `4 of 4` or `7-8 of 8` |
+| 8 | Cycle Status | Read-only position and state, such as `3/4 Waiting` |
+
+**Every 4, From 4, Through 4, Cycle 1 Bar, Auto On** applies the selected
+operation during the last bar of each four-bar phrase. **Every 8, From 7,
+Through 8** covers the last two cycles. Every 1 is the default and preserves
+unrestricted operation. Increasing From past Through moves Through with it;
+decreasing Through below From moves From with it. Reducing Every clamps both
+endpoints. Movy refreshes the native option lists immediately. Standalone
+Schwung keeps the full 1–16 lists available; endpoint writes still clamp to Every.
+
+Conditions are checked before Probability and Pattern. Pattern Phase and
+Clock/Note/Chord advancement do not shift the condition window: conditions
+always use transport time. A ratchet or echo begins only from notes emitted in
+an eligible cycle. Buffered follower notes use their output time for this test;
+their captured input pattern position remains unchanged.
+
+Holding a step overrides the condition, probability, Auto Off and bypass.
+Release returns to automatic scheduling and cancels that press's generated
+repeats. The cycle readout shows Held during the override. Idle assignments are
+dim green and eligible automatic lanes brighten; Ready means eligible, not that
+a note or probability trial has fired. Auto Off, Bypassed, Prob 0 and Waiting are
+shown explicitly. No new polling loop is added; LEDs use the existing 10 Hz status
+read. Notes retain their matching note-offs across a window boundary; automatic
+echo/ratchet tails already started can finish. Pan returns to its base value when
+its condition window closes. Stop clears scheduled repeats and holds.
+
+While the transport is stopped, conditional lanes (Every greater than 1) wait
+and show Stopped; a manual hold still works. Every 1 preserves ordinary live
+operation without transport. Conditions are saved with each lane. Older states
+default to Every 1, and old readers can ignore the new state suffix.
+
+Clip operations remain **Hold only**, and enclosures remain **Trigger**; the
+status labels make this explicit. Assigning conditions does not convert these
+manual gestures into automatic clip transformations or generated enclosures.
+Standalone Schwung continues to show Requires Movy for preserved clip slots.
+
 ## Pattern advancement and generated repeats
 
 **Advance** lives on Timing / Trigger knob 8 and opens the native option list.
@@ -190,6 +244,6 @@ The existing HB state format and first four assignments remain compatible.
 stacked lanes, bypass and manual activation, note-off ownership, collisions,
 gates with/without transport, pan restoration, stop, harmony choice, and recording
 placement. Movy's real Schwung controller test verifies both panels, their shared
-cursor, immediate dependent-value refresh, and inert knob-touch activation.
+cursor, the Conditions page, immediate dependent-value refresh, and inert knob-touch activation.
 
 Release workflows build the ARM packages and run native and UI gates. This release still needs the on-device check after installation. Earlier eight-button approach/enclosure gestures were confirmed on Move; the expanded assignment row and clip operations are new.

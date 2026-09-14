@@ -31,12 +31,12 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.133'
+          assert module['version']=='0.2.134'
           levels=module['capabilities']['ui_hierarchy']['levels']
           buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
           assert buffer['options']==[f'{ms} ms' for ms in [0,25,*range(50,1001,50)]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars','4 Bars']
           assert buffer['default']=='1/16'
-          assert levels['root']['name']=='Harmony Bus 0.2.133'
+          assert levels['root']['name']=='Harmony Bus 0.2.134'
           master=next(p for p in levels['global_transpose']['params'] if p.get('key')=='master_transpose')
           assert len(master['options'])==13 and master['default']=='As Played'
           assert levels['global_transpose']['knobs'][0]=='master_transpose'
@@ -197,7 +197,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.133'
+          assert module['version']==os.environ['VERSION']=='0.2.134'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -217,12 +217,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add Clock/Note/Chord pattern advancement, Ratchet and MIDI Echo to the existing sixteen operation slots. Repeat operations support live and recorded MIDI, with immediate punch release, paired note-offs and contextual Echo Decay. Native enum lists and standalone Schwung support remain available. Pair with Movy hbclean.48; new-set HB/Plaits defaults and stored source notes are preserved."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add per-lane cycle conditions for Auto-capable note operations: Every / From / Through, transport-aligned windows, manual punch override, live cycle readout and eligible-cycle LED feedback. Ratchet and echo tails retain their note-off ownership. Pair with Movy hbclean.49 for the shared Conditions editor; standalone Schwung and automatic HB/Plaits new-set defaults are preserved. Clip gestures remain hold-only and enclosures remain triggered."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add Clock/Note/Chord pattern advancement, Ratchet and MIDI Echo to the existing sixteen operation slots. Repeat operations support live and recorded MIDI, with immediate punch release, paired note-offs and contextual Echo Decay. Native enum lists and standalone Schwung support remain available. Pair with Movy hbclean.48; new-set HB/Plaits defaults and stored source notes are preserved." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add per-lane cycle conditions for Auto-capable note operations: Every / From / Through, transport-aligned windows, manual punch override, live cycle readout and eligible-cycle LED feedback. Ratchet and echo tails retain their note-off ownership. Pair with Movy hbclean.49 for the shared Conditions editor; standalone Schwung and automatic HB/Plaits new-set defaults are preserved. Clip gestures remain hold-only and enclosures remain triggered." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

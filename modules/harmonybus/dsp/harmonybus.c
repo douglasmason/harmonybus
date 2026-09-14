@@ -1,5 +1,5 @@
-/* Harmony Bus v0.2.133 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.133"
+/* Harmony Bus v0.2.134 — Schwung MIDI FX. */
+#define HB_VERSION "0.2.134"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -187,6 +187,7 @@ static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
 static void hb_motion_output(Inst *instance,hb_motion_route *route,const uint8_t message[3]);
 static void hb_motion_flush_render(Inst *instance);
 static double hb_motion_position(Inst *instance);
+static double hb_motion_condition_position(void);
 static uint16_t hb_scale_mask(hb_harmony_t harmony);
 static uint16_t hb_explicit_scale_mask(int root_pc,int scale_index);
 static int reference_root(Inst *instance);
@@ -1152,7 +1153,7 @@ static hb_harmony_t hb_render_harmony(Inst *instance){
     for(int lane=0;lane<HB_MOTION_LANES;lane++){
         if(instance->motion.lanes[lane].operation!=HB_MO_HARMONY)continue;
         double choice;
-        if(!hb_mo_value(&instance->motion,lane,hb_motion_position(instance),0,&choice))continue;
+        if(!hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&choice))continue;
         harmony=g_bus.observed_harmony;
         if(hb_prediction_ready()){
             int event=hb_next_model_event_for_phase(hb_next_phase(hb_clip_playhead()),choice>=50.0);
@@ -1925,13 +1926,14 @@ static void hb_player_note_on(Inst *instance,int source_note,int channel,int vel
 /* One post-render pipeline for local sound and the original MIDI broadcast.
    Harmony Choice is deliberately evaluated earlier, in hb_render_harmony. */
 static double hb_motion_position(Inst *instance){return hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING?hb_current_beat():instance->motion_beat;}
+static double hb_motion_condition_position(void){return hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING?hb_current_beat():-1.0;}
 static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,int *velocity,int *pan,double *off_beat,int *skip){
     *pitch=message[1];*velocity=message[2];*pan=-1;*off_beat=-1;*skip=0;
     double beat=hb_motion_position(instance);
     hb_harmony_t harmony=hb_render_harmony(instance);
     for(int index=0;index<HB_MOTION_LANES;index++){
         hb_motion_lane *lane=&instance->motion.lanes[index];double value;
-        if(!hb_mo_value(&instance->motion,index,beat,message[1],&value))continue;
+        if(!hb_mo_value_at(&instance->motion,index,beat,hb_motion_condition_position(),message[1],&value))continue;
         if(lane->operation==HB_MO_VELOCITY)*velocity=hb_mo_clamp(hb_mo_round(*velocity*(1.0+value/100.0)),1,127);
         else if(lane->operation==HB_MO_PAN)*pan=hb_mo_clamp(hb_mo_round(64.0+value*0.63),0,127);
         else if(lane->operation==HB_MO_OCTAVE){
@@ -1962,7 +1964,7 @@ static void hb_motion_output(Inst *instance,hb_motion_route *route,const uint8_t
             instance->motion.enclosure=0;
     }
     if(hb_mo_event(route,message,pitch,velocity,pan,off_beat,skip)&&!skip&&(message[0]&0xf0)==0x90&&message[2])
-        hb_mo_repeat_schedule(route,&instance->motion,message,pitch,velocity,hb_motion_position(instance),instance->motion_beat);
+        hb_mo_repeat_schedule(route,&instance->motion,message,pitch,velocity,hb_motion_position(instance),hb_motion_condition_position(),instance->motion_beat);
 }
 static void hb_motion_harmony_refresh(Inst *instance){
     hb_harmony_t harmony=hb_render_harmony(instance);
@@ -3220,7 +3222,7 @@ static void hb_motion_tick_routes(Inst *instance){
     hb_mo_due(&instance->motion_local,beat);hb_mo_due(&instance->motion_render,beat);
     hb_mo_repeat_tick(&instance->motion_local,&instance->motion,instance->motion_beat);
     hb_mo_repeat_tick(&instance->motion_render,&instance->motion,instance->motion_beat);
-    int pan_active=0;for(int lane=0;lane<HB_MOTION_LANES;lane++)if(hb_mo_lane_active(&instance->motion,lane)&&instance->motion.lanes[lane].operation==HB_MO_PAN)pan_active=1;
+    int pan_active=0;for(int lane=0;lane<HB_MOTION_LANES;lane++)if(hb_mo_lane_active(&instance->motion,lane)&&hb_mo_condition(&instance->motion,lane,hb_motion_condition_position())&&instance->motion.lanes[lane].operation==HB_MO_PAN)pan_active=1;
     if(!pan_active)for(int channel=0;channel<16;channel++){
         hb_motion_route *routes[2]={&instance->motion_local,&instance->motion_render};
         for(int index=0;index<2;index++)if(routes[index]->pan_dirty[channel]&&hb_mo_push(routes[index],0xb0|channel,10,routes[index]->base_pan[channel]))routes[index]->pan_dirty[channel]=0;
@@ -3798,13 +3800,29 @@ static void hb_restore_state(Inst *instance,const char *state){
 }
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();
 if(!strcmp(key,"performance_status")||!strcmp(key,"motion_row")){
-    unsigned mask=0;for(int lane=0;lane<HB_MOTION_LANES;lane++)if(hb_mo_lane_active(&instance->motion,lane))mask|=1u<<lane;
+    unsigned mask=0;for(int lane=0;lane<HB_MOTION_LANES;lane++)if(hb_mo_lane_active(&instance->motion,lane)&&hb_mo_condition(&instance->motion,lane,hb_motion_condition_position()))mask|=1u<<lane;
     int used=snprintf(buffer,(size_t)length,"%u",mask);
     if(!strcmp(key,"motion_row"))for(int lane=0;lane<HB_MOTION_LANES;lane++){
         if(used<0||used>=length)return -1;
         used+=snprintf(buffer+used,(size_t)(length-used),",%d",instance->motion.lanes[lane].operation);
     }
     return used;
+}
+if(!strcmp(key,"motion_condition_status")){
+    const hb_motion_lane *lane=&instance->motion.lanes[instance->motion.selected];
+    double beat=hb_motion_condition_position();
+    const char *status="Ready";
+    if(lane->operation==HB_MO_OFF)status="Off";
+    else if(lane->operation>=HB_MO_REPEAT&&lane->operation<=HB_MO_SPEED)status=instance->motion.host_capabilities?"Hold only":"Requires Movy";
+    else if(lane->operation==HB_MO_ENCLOSE_AB||lane->operation==HB_MO_ENCLOSE_BA)status="Trigger";
+    else if(instance->motion.held&(1u<<instance->motion.selected))status="Held";
+    else if(instance->motion.bypass)status="Bypassed";
+    else if(!lane->enabled)status="Auto Off";
+    else if(beat<0&&lane->every>1)status="Stopped";
+    else if(!hb_mo_condition(&instance->motion,instance->motion.selected,beat))status="Waiting";
+    else if(!lane->probability)status="Prob 0";
+    if(beat<0)return snprintf(buffer,(size_t)length,"-/%d %s",lane->every,status);
+    return snprintf(buffer,(size_t)length,"%d/%d %s",hb_mo_condition_cycle(lane,beat),lane->every,status);
 }
 int motion_value=hb_mo_get(&instance->motion,key,buffer,length);if(motion_value>=0||!strcmp(key,"chain_params"))return motion_value;
 for(int index=0;index<5;index++)if(!strcmp(key,PAD_KEYS[index]))return snprintf(buffer,(size_t)length,"%s",PAD_OPTIONS[index][g_pad_settings[index]]);

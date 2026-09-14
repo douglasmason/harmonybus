@@ -1,6 +1,6 @@
-> 0.2.133 adds Clock/Note/Chord pattern advancement, Ratchet and MIDI Echo in the existing operation panels. Both repeat operations support live and recorded MIDI. See [operation controls](docs/operations.md).
+> 0.2.134 adds per-lane cycle conditions: Every / From / Through, transport-aligned windows, manual override and live cycle feedback. For a last-bar fill, choose Every 4, From 4, Through 4, Cycle 1 Bar and Auto On. See [operation controls](docs/operations.md).
 
-> Release 0.2.133 adds sixteen assignable operation slots per track and host-aware clip controls. Pair with Movy hbclean.48 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
+> Release 0.2.134 adds sixteen assignable operation slots per track and host-aware clip controls. Pair with Movy hbclean.49 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
 
 
 
@@ -15,7 +15,7 @@
 
 Experimental Schwung MIDI FX for Ableton Move.
 
-Unreleased work: [four operation lanes and two shared editors](docs/operations.md).
+Operation controls: [sixteen lanes with shared Operation, Timing and Conditions editors](docs/operations.md).
 The new operations use a global Steps / Perform step-row mode, not knob touch. The published version below remains unchanged.
 
 Harmony Bus uses a **Conductor / Follower / Receiver** model:
@@ -64,7 +64,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.133-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.134-module.tar.gz`.
 
 ## License
 

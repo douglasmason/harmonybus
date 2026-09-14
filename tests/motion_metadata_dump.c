@@ -11,5 +11,8 @@ int main(void){
     assert(API.get_param(instance,"chain_params",metadata,sizeof(metadata))>0);puts(metadata);
     API.set_param(instance,"motion_operation","MIDI Echo");
     assert(API.get_param(instance,"chain_params",metadata,sizeof(metadata))>0);puts(metadata);
+    API.set_param(instance,"motion_host","movy-clip-v1");
+    API.set_param(instance,"motion_every","8");API.set_param(instance,"motion_from","7");API.set_param(instance,"motion_through","8");
+    assert(API.get_param(instance,"chain_params",metadata,sizeof(metadata))>0);puts(metadata);
     return 0;
 }

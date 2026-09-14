@@ -10,7 +10,7 @@ enum { HB_MO_OFF, HB_MO_VELOCITY, HB_MO_PAN, HB_MO_OCTAVE, HB_MO_ROTATE,
        HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY, HB_MO_BELOW, HB_MO_ABOVE,
        HB_MO_ENCLOSE_AB, HB_MO_ENCLOSE_BA, HB_MO_REPEAT, HB_MO_REVERSE,
        HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO };
-typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance; } hb_motion_lane;
+typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through; } hb_motion_lane;
 typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned held;
     unsigned revision[HB_MOTION_LANES];
     unsigned long long events[HB_MOTION_LANES];
@@ -41,7 +41,7 @@ static int hb_mo_round(double value){return (int)(value+(value>=0?0.5:-0.5));}
 static double hb_mo_floor(double value){long long whole=(long long)value;return (double)whole-(value<(double)whole);}
 static double hb_mo_grid(int index){return 0.0625*(1u<<hb_mo_clamp(index,0,8));}
 static double hb_mo_cycle(int index){static const double lengths[]={0.5,1,2,4,8,12,16};return lengths[hb_mo_clamp(index,0,6)];}
-static void hb_mo_lane_default(hb_motion_lane *lane){memset(lane,0,sizeof(*lane));lane->enabled=1;lane->grid=3;lane->cycle=3;lane->probability=100;}
+static void hb_mo_lane_default(hb_motion_lane *lane){memset(lane,0,sizeof(*lane));lane->enabled=1;lane->grid=3;lane->cycle=3;lane->probability=100;lane->every=lane->from=lane->through=1;}
 static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*config));for(int index=0;index<HB_MOTION_LANES;index++)hb_mo_lane_default(&config->lanes[index]);
     config->enclosure_lane=-1;
     for(int index=12;index<16;index++){config->lanes[index].operation=HB_MO_BELOW+index-12;config->lanes[index].enabled=0;config->lanes[index].amount=1;}
@@ -95,11 +95,27 @@ static void hb_mo_input(hb_motion_config *config,int pitch,double beat,double gr
         if(config->lanes[lane].advance==1||(config->lanes[lane].advance==2&&chord))config->events[lane]++;
 }
 static unsigned hb_mo_hash(unsigned value){value^=value>>16;value*=0x7feb352du;value^=value>>15;value*=0x846ca68bu;return value^(value>>16);}
+/* Conditions use transport cycles, independently of pattern phase or input
+   advancement. Negative beat means stopped; unrestricted lanes keep working. */
+static int hb_mo_condition_cycle(const hb_motion_lane *lane,double beat){
+    int every=hb_mo_clamp(lane->every,1,16);
+    if(beat<0)return 1;
+    long long cycle=(long long)hb_mo_floor((beat+1e-9)/hb_mo_cycle(lane->cycle));
+    return (int)(cycle%every)+1;
+}
+static int hb_mo_condition(const hb_motion_config *config,int index,double beat){
+    const hb_motion_lane *lane=&config->lanes[index];
+    if(config->held&(1u<<index))return 1;
+    if(lane->every<=1)return 1;
+    if(beat<0)return 0;
+    int cycle=hb_mo_condition_cycle(lane,beat);
+    return cycle>=lane->from&&cycle<=lane->through;
+}
 /* Return false means do not perform this operation; it never means skip a note. */
-static int hb_mo_value(const hb_motion_config *config,int index,double beat,int voice,double *value){
+static int hb_mo_value_at(const hb_motion_config *config,int index,double beat,double condition_beat,int voice,double *value){
     const hb_motion_lane *lane=&config->lanes[index];
     int held=(config->held&(1u<<index))!=0;
-    if(!hb_mo_lane_active(config,index)||(!held&&!lane->probability))return 0;
+    if(!hb_mo_lane_active(config,index)||!hb_mo_condition(config,index,condition_beat)||(!held&&!lane->probability))return 0;
     double grid=hb_mo_grid(lane->grid),cycle=hb_mo_cycle(lane->cycle);
     if(lane->advance){const unsigned long long *events=config->event_override?config->event_override:config->events;
         beat=(double)(events[index]?events[index]-1:0)*grid;}
@@ -120,6 +136,9 @@ static int hb_mo_value(const hb_motion_config *config,int index,double beat,int 
     else if(lane->pattern==5)pattern=((int)hb_mo_floor(position)&1)?1.0:0.0;
     else if(lane->pattern==6)pattern=2.0*(hb_mo_hash(seed^0xa511e9b3u)%10001u)/10000.0-1.0;
     *value=(lane->operation==HB_MO_ECHO?0:lane->offset)+lane->amount*pattern;return 1;
+}
+static int hb_mo_value(const hb_motion_config *config,int index,double beat,int voice,double *value){
+    return hb_mo_value_at(config,index,beat,beat,voice,value);
 }
 static int hb_mo_push(hb_motion_route *route,int status,int pitch,int velocity){
     if(route->count>=HB_MOTION_QUEUE)return 0;
@@ -199,10 +218,10 @@ static void hb_mo_repeat_cancel(hb_motion_route *route,const hb_motion_config *c
     }
 }
 static void hb_mo_repeat_schedule(hb_motion_route *route,const hb_motion_config *config,
-                                const uint8_t message[3],int pitch,int velocity,double pattern_beat,double now){
+                                const uint8_t message[3],int pitch,int velocity,double pattern_beat,double condition_beat,double now){
     for(int lane=0;lane<HB_MOTION_LANES;lane++){
         const hb_motion_lane *settings=&config->lanes[lane];double value;
-        if((settings->operation!=HB_MO_RATCHET&&settings->operation!=HB_MO_ECHO)||!hb_mo_value(config,lane,pattern_beat,message[1],&value))continue;
+        if((settings->operation!=HB_MO_RATCHET&&settings->operation!=HB_MO_ECHO)||!hb_mo_value_at(config,lane,pattern_beat,condition_beat,message[1],&value))continue;
         int ratchet=settings->operation==HB_MO_RATCHET;
         int count=hb_mo_clamp(hb_mo_round(value),ratchet?1:0,16);
         int remaining=count-ratchet;if(remaining<=0)continue;

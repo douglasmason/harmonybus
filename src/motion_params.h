@@ -60,6 +60,22 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         if(previous!=config->lanes[selected].advance){config->events[selected]=0;config->revision[selected]++;}
         return 1;
     }
+    if(!strcmp(key,"motion_every")||!strcmp(key,"motion_from")||!strcmp(key,"motion_through")){
+        hb_motion_lane *lane=&config->lanes[config->selected];
+        int every=lane->every,from=lane->from,through=lane->through;
+        if(!strcmp(key,"motion_every")){
+            lane->every=hb_mo_clamp(parse_i(value,every),1,16);
+            lane->from=hb_mo_clamp(from,1,lane->every);lane->through=hb_mo_clamp(through,lane->from,lane->every);
+        }else if(!strcmp(key,"motion_from")){
+            lane->from=hb_mo_clamp(parse_i(value,from),1,every);
+            if(lane->through<lane->from)lane->through=lane->from;
+        }else{
+            lane->through=hb_mo_clamp(parse_i(value,through),1,every);
+            if(lane->from>lane->through)lane->from=lane->through;
+        }
+        if(every!=lane->every||from!=lane->from||through!=lane->through)config->revision[config->selected]++;
+        return 1;
+    }
     /* Fixed lane keys let a release follow its original lane after selection changes. */
     int slot=hb_mo_slot_key(key,"motion_hold_");
     if(slot>=0){
@@ -107,7 +123,34 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         if(used<0||used>=length)return -1;
         used--; /* Replace the closing array bracket with contextual metadata. */
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":100,\"step\":1,\"default\":0}]",selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_ECHO?0:-100);
+        if(used<0||used>=length)return -1;
+        used--;
+        const char *keys[]={"motion_from","motion_through"},*names[]={"From","Through"};
+        for(int parameter=0;parameter<2;parameter++){
+            if(used<0||used>=length)return -1;
+            used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"enum\",\"options_as_string\":true,\"default\":\"1\",\"options\":[",keys[parameter],names[parameter]);
+            /* Movy reloads dependent metadata immediately. Stock Schwung keeps a
+               stable full list so increasing Every never leaves a one-item list cached. */
+            int limit=config->host_capabilities?config->lanes[config->selected].every:16;
+            for(int cycle=1;cycle<=limit;cycle++){
+                if(used<0||used>=length)return -1;
+                used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%d\"",cycle>1?",":"",cycle);
+            }
+            if(used<0||used>=length)return -1;
+            used+=snprintf(buffer+used,(size_t)(length-used),"]}");
+        }
+        if(used<0||used>=length)return -1;
+        used+=snprintf(buffer+used,(size_t)(length-used),"]");
         return used>=length?-1:used;
+    }
+    if(!strcmp(key,"motion_every"))return snprintf(buffer,(size_t)length,"%d",config->lanes[config->selected].every);
+    if(!strcmp(key,"motion_from"))return snprintf(buffer,(size_t)length,"%d",config->lanes[config->selected].from);
+    if(!strcmp(key,"motion_through"))return snprintf(buffer,(size_t)length,"%d",config->lanes[config->selected].through);
+    if(!strcmp(key,"motion_condition_range")){
+        const hb_motion_lane *lane=&config->lanes[config->selected];
+        if(lane->every==1)return snprintf(buffer,(size_t)length,"Every cycle");
+        if(lane->from==lane->through)return snprintf(buffer,(size_t)length,"%d of %d",lane->from,lane->every);
+        return snprintf(buffer,(size_t)length,"%d-%d of %d",lane->from,lane->through,lane->every);
     }
     if(!strcmp(key,"motion_advance"))return snprintf(buffer,(size_t)length,"%s",MO_ADVANCE[config->lanes[config->selected].advance]);
     if(!strcmp(key,"motion_lane"))return snprintf(buffer,(size_t)length,"%d",config->selected+1);
@@ -150,6 +193,12 @@ static int hb_mo_save(hb_motion_config *config,char *buffer,int length,int used)
         if(used<0||used>=length)return used;
         used+=snprintf(buffer+used,(size_t)(length-used),";ma1,%d,%d",lane,config->lanes[lane].advance);
     }
+    for(int index=0;index<HB_MOTION_LANES;index++){
+        const hb_motion_lane *lane=&config->lanes[index];
+        if(lane->every==1)continue;
+        if(used<0||used>=length)return used;
+        used+=snprintf(buffer+used,(size_t)(length-used),";mcond1,%d,%d,%d,%d",index,lane->every,lane->from,lane->through);
+    }
     return used;
 }
 static void hb_mo_restore(hb_motion_config *config,const char *state){
@@ -176,6 +225,15 @@ static void hb_mo_restore(hb_motion_config *config,const char *state){
         if(sscanf(cursor,";ma1,%d,%d%n",&lane,&advance,&consumed)==2&&consumed>0&&
             (!cursor[consumed]||cursor[consumed]==';')&&lane>=0&&lane<HB_MOTION_LANES&&advance>=0&&advance<3)config->lanes[lane].advance=advance;
         cursor+=5;
+    }
+    cursor=state;
+    while((cursor=strstr(cursor,";mcond1,"))){
+        int index,every,from,through,consumed=0;
+        if(sscanf(cursor,";mcond1,%d,%d,%d,%d%n",&index,&every,&from,&through,&consumed)==4&&consumed>0&&
+            (!cursor[consumed]||cursor[consumed]==';')&&index>=0&&index<HB_MOTION_LANES&&every>=1&&every<=16&&from>=1&&from<=through&&through<=every){
+            hb_motion_lane *lane=&config->lanes[index];lane->every=every;lane->from=from;lane->through=through;
+        }
+        cursor+=8;
     }
 }
 #endif

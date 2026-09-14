@@ -12,7 +12,9 @@ static int send_note(Inst *instance,int on,int pitch){
     int count=API.process_midi(instance,message,3,output,lengths,64);
     return count+API.tick(instance,128,48000,output+count,lengths+count,64-count);
 }
+static double motion_test_beat(void){return transport==MOVE_CLOCK_STATUS_STOPPED?-1.0:position;}
 static Inst *motion_fixture(void){
+    host.get_beat_position=motion_test_beat;
     Inst *instance=fixture();API.set_param(instance,"boundary_buffer_ms","0 ms");
     return instance;
 }
@@ -281,12 +283,12 @@ static void buffered_advancement(void){
     count=advance(instance,10,64);assert(count==2&&output[0][1]==48&&output[1][1]==76);
     /* Host Stop cancels repeats before the scheduler gets a due callback. */
     API.set_param(instance,"motion_operation","MIDI Echo");send_note(instance,1,60);send_note(instance,0,60);
-    transport=0;count=advance(instance,250,64);assert(count==0);
+    transport=MOVE_CLOCK_STATUS_STOPPED;count=advance(instance,250,64);assert(count==0);
     for(int index=0;index<HB_MOTION_BURSTS;index++)assert(!instance->motion_local.bursts[index].used&&!instance->motion_render.bursts[index].used);
 }
 static int burst_count(hb_motion_route *route){int count=0;for(int index=0;index<HB_MOTION_BURSTS;index++)count+=route->bursts[index].used;return count;}
 static void repeats_production(void){
-    Inst *instance=motion_fixture();transport=0;
+    Inst *instance=motion_fixture();transport=MOVE_CLOCK_STATUS_STOPPED;
     API.set_param(instance,"motion_operation","Ratchet");API.set_param(instance,"motion_advance","Note");
     assert(send_note(instance,1,60)==1&&output[0][2]==100);
     assert(burst_count(&instance->motion_local)==1&&burst_count(&instance->motion_render)==1);
@@ -325,7 +327,7 @@ static void repeats_production(void){
 static void repeat_capacity_and_collisions(void){
     hb_motion_config config;hb_mo_defaults(&config);config.lanes[0].operation=HB_MO_ECHO;config.lanes[0].amount=3;
     hb_motion_route route;hb_mo_route_init(&route);uint8_t message[3]={0x90,60,100},event[3];
-    hb_mo_event(&route,message,60,100,-1,-1,0);hb_mo_repeat_schedule(&route,&config,message,60,100,0,0);
+    hb_mo_event(&route,message,60,100,-1,-1,0);hb_mo_repeat_schedule(&route,&config,message,60,100,0,0,0);
     while(hb_mo_pop(&route,event)){};
     hb_mo_repeat_tick(&route,&config,0.5);assert(hb_mo_pop(&route,event)&&event[0]==0x90);
     config.bypass=1;hb_mo_repeat_cancel(&route,&config,0);
@@ -333,7 +335,7 @@ static void repeat_capacity_and_collisions(void){
     message[0]=0x80;assert(hb_mo_event(&route,message,60,0,-1,-1,0));assert(hb_mo_pop(&route,event)&&event[0]==0x80);
     config.bypass=0;message[0]=0x90;
     for(int index=0;index<HB_MOTION_BURSTS+5;index++){
-        assert(hb_mo_event(&route,message,60,100,-1,-1,0));hb_mo_repeat_schedule(&route,&config,message,60,100,0,0);
+        assert(hb_mo_event(&route,message,60,100,-1,-1,0));hb_mo_repeat_schedule(&route,&config,message,60,100,0,0,0);
     }
     assert(burst_count(&route)==HB_MOTION_BURSTS);
     while(hb_mo_pop(&route,event)){};
@@ -342,7 +344,83 @@ static void repeat_capacity_and_collisions(void){
     hb_mo_panic(&route);assert(!route.owned&&!route.refs[0][60]);
 }
 
+
+static void cycle_conditions(void){
+    Inst *instance=motion_fixture();
+    API.set_param(instance,"motion_operation","Octave");
+    API.set_param(instance,"motion_every","4");API.set_param(instance,"motion_from","4");
+    expect_param(instance,"motion_through","4");expect_param(instance,"motion_condition_range","4 of 4");
+    char row[256];
+    const double beats[]={0,4,8,11.999,12,15.999,16,28};
+    for(int index=0;index<8;index++){
+        position=beats[index];int eligible=(index==4||index==5||index==7);
+        assert(send_note(instance,1,60)==1&&output[0][1]==(eligible?72:60));
+        assert(rendered[render_count-1][2]==output[0][1]);
+        assert(send_note(instance,0,60)==1&&output[0][1]==(eligible?72:60));
+        API.get_param(instance,"motion_row",row,sizeof(row));assert((strtoul(row,0,10)&1u)==(unsigned)eligible);
+    }
+    position=8;expect_param(instance,"motion_condition_status","3/4 Waiting");
+    position=12;expect_param(instance,"motion_condition_status","4/4 Ready");
+    /* Phase and input advancement do not move the transport condition window. */
+    API.set_param(instance,"motion_phase","64");API.set_param(instance,"motion_advance","Note");
+    position=0;assert(send_note(instance,1,60)==1&&output[0][1]==60);send_note(instance,0,60);
+    position=12;assert(send_note(instance,1,60)==1&&output[0][1]==72);send_note(instance,0,60);
+    API.set_param(instance,"motion_probability","0");assert(send_note(instance,1,60)==1&&output[0][1]==60);send_note(instance,0,60);
+    position=0;API.set_param(instance,"motion_enabled","Off");API.set_param(instance,"motion_bypass","On");API.set_param(instance,"motion_hold_1","On");
+    expect_param(instance,"motion_condition_status","1/4 Held");
+    assert(send_note(instance,1,60)==1&&output[0][1]==72);
+    API.set_param(instance,"motion_hold_1","Off");assert(send_note(instance,0,60)==1&&output[0][1]==72);
+    API.set_param(instance,"motion_bypass","Off");API.set_param(instance,"motion_enabled","On");API.set_param(instance,"motion_probability","100");
+    /* Closed window must not cancel a note's captured pitch/off pairing. */
+    position=12;assert(send_note(instance,1,60)==1&&output[0][1]==72);
+    position=16;assert(send_note(instance,0,60)==1&&output[0][1]==72);
+    /* Ranges, shorter cycle lengths, independent lanes and seeks. */
+    API.set_param(instance,"motion_every","8");API.set_param(instance,"motion_from","7");API.set_param(instance,"motion_through","8");
+    expect_param(instance,"motion_condition_range","7-8 of 8");
+    API.set_param(instance,"motion_cycle","1/4");
+    for(int cycle=0;cycle<16;cycle++){
+        position=cycle;assert(send_note(instance,1,60)==1&&output[0][1]==(cycle%8>=6?72:60));send_note(instance,0,60);
+    }
+    API.set_param(instance,"motion_lane","2");expect_param(instance,"motion_every","1");
+    API.set_param(instance,"motion_lane","1");API.set_param(instance,"motion_every","2");
+    expect_param(instance,"motion_from","2");expect_param(instance,"motion_through","2");
+    API.set_param(instance,"motion_through","1");expect_param(instance,"motion_from","1");
+    API.set_param(instance,"motion_every","99");expect_param(instance,"motion_every","16");
+    API.set_param(instance,"motion_from","99");expect_param(instance,"motion_from","16");expect_param(instance,"motion_through","16");
+    /* Stopped conditional lanes wait, but held and unrestricted lanes still work. */
+    transport=MOVE_CLOCK_STATUS_STOPPED;advance(instance,1,64);expect_param(instance,"motion_condition_status","-/16 Stopped");
+    assert(send_note(instance,1,60)==1&&output[0][1]==60);send_note(instance,0,60);
+    API.set_param(instance,"motion_hold_1","On");assert(send_note(instance,1,60)==1&&output[0][1]==72);send_note(instance,0,60);
+    API.set_param(instance,"motion_hold_1","Off");API.set_param(instance,"motion_every","1");
+    assert(send_note(instance,1,60)==1&&output[0][1]==72);send_note(instance,0,60);
+}
+static void condition_state_and_repeat_tails(void){
+    Inst *instance=motion_fixture();char legacy[4096],saved[4096],restored[4096];
+    API.get_param(instance,"state",legacy,sizeof(legacy));assert(!strstr(legacy,";mcond1,"));
+    for(int lane=1;lane<=16;lane++){
+        char number[16];snprintf(number,sizeof(number),"%d",lane);API.set_param(instance,"motion_lane",number);
+        API.set_param(instance,"motion_every","16");API.set_param(instance,"motion_from",number);
+    }
+    API.get_param(instance,"state",saved,sizeof(saved));API.set_param(instance,"state",saved);
+    API.get_param(instance,"state",restored,sizeof(restored));assert(!strcmp(saved,restored));
+    for(int lane=0;lane<16;lane++)assert(instance->motion.lanes[lane].every==16&&instance->motion.lanes[lane].from==lane+1&&instance->motion.lanes[lane].through==lane+1);
+    API.set_param(instance,"state",legacy);API.get_param(instance,"state",restored,sizeof(restored));assert(!strcmp(legacy,restored));
+    hb_mo_restore(&instance->motion,";mcond1,0,4,4,3;mcond1,1,17,1,1;mcond1,2,4,1,5;mcond1,3,4,1,2garbage;mcond1,15,8,7,8");
+    for(int lane=0;lane<4;lane++)assert(instance->motion.lanes[lane].every==1);
+    assert(instance->motion.lanes[15].every==8&&instance->motion.lanes[15].from==7);
+    API.set_param(instance,"state",legacy);API.set_param(instance,"motion_operation","MIDI Echo");
+    API.set_param(instance,"motion_amount","2");API.set_param(instance,"motion_every","4");API.set_param(instance,"motion_from","4");
+    position=8;send_note(instance,1,60);send_note(instance,0,60);assert(!burst_count(&instance->motion_local));
+    position=15.9;send_note(instance,1,60);send_note(instance,0,60);assert(burst_count(&instance->motion_local)==1);
+    assert(advance(instance,250,64)==1&&output[0][0]==0x90); /* tail crosses cycle boundary */
+    API.set_param(instance,"motion_hold_1","On");send_note(instance,1,64);send_note(instance,0,64);
+    API.set_param(instance,"motion_hold_1","Off");
+    assert(burst_count(&instance->motion_local)==1); /* only original automatic tail remains */
+    uint8_t stop=0xfc;API.process_midi(instance,&stop,1,output,lengths,64);assert(!burst_count(&instance->motion_local));
+}
+
 int main(void){
+    cycle_conditions();condition_state_and_repeat_tails();
     buffered_advancement();advancement_modes();repeats_production();repeat_capacity_and_collisions();
     sixteen_slots_and_capabilities();controls_and_state();punch_and_release();lanes_and_patterns();gate_pan_and_stop();harmony_choice();ownership_and_recording();performance_buttons();
     puts("motion: persistence, isolation, punch ownership, stacked lanes, patterns, gate, pan, stop and harmony pass");
