@@ -1,6 +1,8 @@
-> 0.2.135 extends Auto and cycle conditions to Clip Repeat, Reverse, Time Shift and Speed when paired with Movy hbclean.50. Manual holds override the automatic schedule. See [operation controls](docs/operations.md).
+> 0.2.136 fixes unnecessary idle scheduler work introduced with Ratchet/Echo in 0.2.133. Empty repeat schedulers now return immediately, and empty note-owner tables are skipped. Keep Movy hbclean.50. This addresses a measured performance regression; the reported stock transport symptom still needs device confirmation.
 
-> Release 0.2.135 adds sixteen assignable operation slots per track and host-aware clip controls. Pair with Movy hbclean.50 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
+> 0.2.136 extends Auto and cycle conditions to Clip Repeat, Reverse, Time Shift and Speed when paired with Movy hbclean.50. Manual holds override the automatic schedule. See [operation controls](docs/operations.md).
+
+> Release 0.2.136 adds sixteen assignable operation slots per track and host-aware clip controls. Pair with Movy hbclean.50 for Settings → Step Row → STEPS / PERFORM. See [operations](docs/operations.md).
 
 
 
@@ -64,7 +66,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.135-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.136-module.tar.gz`.
 
 ## License
 

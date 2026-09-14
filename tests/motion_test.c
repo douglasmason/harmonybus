@@ -287,6 +287,25 @@ static void buffered_advancement(void){
     for(int index=0;index<HB_MOTION_BURSTS;index++)assert(!instance->motion_local.bursts[index].used&&!instance->motion_render.bursts[index].used);
 }
 static int burst_count(hb_motion_route *route){int count=0;for(int index=0;index<HB_MOTION_BURSTS;index++)count+=route->bursts[index].used;return count;}
+static void repeat_idle_lifecycle(void){
+    Inst *instance=motion_fixture();transport=MOVE_CLOCK_STATUS_STOPPED;
+    API.set_param(instance,"motion_operation","Velocity");
+    send_note(instance,1,60);
+    assert(!instance->motion_local.repeat_pending&&!instance->motion_render.repeat_pending);
+    send_note(instance,0,60);
+    API.set_param(instance,"motion_operation","MIDI Echo");
+    API.set_param(instance,"motion_amount","1");
+    send_note(instance,1,60);send_note(instance,0,60);
+    assert(instance->motion_local.repeat_pending&&instance->motion_render.repeat_pending);
+    assert(advance(instance,250,64)==1&&output[0][0]==0x90);
+    assert(advance(instance,125,64)==1&&output[0][0]==0x80);
+    advance(instance,1,64);
+    assert(!instance->motion_local.repeat_pending&&!instance->motion_render.repeat_pending);
+    send_note(instance,1,62);send_note(instance,0,62);
+    assert(instance->motion_local.repeat_pending);
+    API.set_param(instance,"motion_bypass","On");
+    assert(!instance->motion_local.repeat_pending&&!instance->motion_render.repeat_pending);
+}
 static void repeats_production(void){
     Inst *instance=motion_fixture();transport=MOVE_CLOCK_STATUS_STOPPED;
     API.set_param(instance,"motion_operation","Ratchet");API.set_param(instance,"motion_advance","Note");
@@ -441,6 +460,7 @@ static void automatic_clip_config(void){
     char tiny[8];assert(API.get_param(instance,"motion_clip_config",tiny,sizeof(tiny))<0&&tiny[7]==0);
 }
 int main(void){
+    repeat_idle_lifecycle();
     automatic_clip_config();
     cycle_conditions();condition_state_and_repeat_tails();
     buffered_advancement();advancement_modes();repeats_production();repeat_capacity_and_collisions();

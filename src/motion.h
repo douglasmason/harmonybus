@@ -29,7 +29,7 @@ typedef struct {
     hb_motion_burst bursts[HB_MOTION_BURSTS];
     unsigned short refs[16][128];
     uint8_t queue[HB_MOTION_QUEUE][3];
-    int head,count,owned,pan_dirty[16],base_pan[16];
+    int head,count,owned,repeat_pending,pan_dirty[16],base_pan[16];
     unsigned long long next_serial;
     unsigned enclosure_revision;
     int enclosure_step,performance_valid,performance_modifier;
@@ -155,6 +155,7 @@ static int hb_mo_release(hb_motion_route *route,hb_motion_owner *owner){
     if(*refs)(*refs)--;owner->sounding=0;return 1;
 }
 static void hb_mo_due(hb_motion_route *route,double beat){
+    if(!route->owned)return;
     for(int index=0;index<HB_MOTION_OWNERS;index++){
         hb_motion_owner *owner=&route->owners[index];
         if(owner->used&&!owner->generated&&owner->sounding&&owner->off_beat>=0&&beat+1e-9>=owner->off_beat)hb_mo_release(route,owner);
@@ -208,15 +209,20 @@ static int hb_mo_repeat_active(const hb_motion_config *config,int lane,int manua
         (!manual||((config->held&(1u<<lane))&&config->held_serial[lane]==held_serial));
 }
 static void hb_mo_repeat_cancel(hb_motion_route *route,const hb_motion_config *config,int all){
+    if(!route->repeat_pending)return;
+    int pending=0;
     for(int index=0;index<HB_MOTION_BURSTS;index++){
         hb_motion_burst *burst=&route->bursts[index];
         if(burst->used&&(all||!hb_mo_repeat_active(config,burst->lane,burst->manual,burst->revision,burst->held_serial)))burst->used=0;
+        pending|=burst->used;
     }
     for(int index=0;index<HB_MOTION_OWNERS;index++){
         hb_motion_owner *owner=&route->owners[index];
         if(owner->used&&owner->generated&&(all||!hb_mo_repeat_active(config,owner->lane,owner->manual,owner->revision,owner->held_serial)))
             if(hb_mo_release(route,owner)){owner->used=0;route->owned--;}
+        pending|=owner->used&&(owner->generated||(owner->sounding&&owner->repeat_off>0));
     }
+    route->repeat_pending=pending;
 }
 static void hb_mo_repeat_schedule(hb_motion_route *route,const hb_motion_config *config,
                                 const uint8_t message[3],int pitch,int velocity,double pattern_beat,double condition_beat,double now){
@@ -232,6 +238,7 @@ static void hb_mo_repeat_schedule(hb_motion_route *route,const hb_motion_config 
         route->bursts[slot]=(hb_motion_burst){.used=1,.lane=lane,.channel=message[0]&15,.pitch=pitch,.velocity=velocity,
             .remaining=remaining,.manual=(config->held&(1u<<lane))!=0,.decay=ratchet?0:hb_mo_clamp(settings->offset,0,100),
             .revision=config->revision[lane],.held_serial=config->held_serial[lane],.next=now+spacing,.spacing=spacing,.gate=spacing*0.5};
+        route->repeat_pending=1;
         if(ratchet)for(int index=0;index<HB_MOTION_OWNERS;index++){
             hb_motion_owner *owner=&route->owners[index];
             if(owner->used&&!owner->generated&&owner->serial==route->next_serial-1){
@@ -244,6 +251,7 @@ static void hb_mo_repeat_schedule(hb_motion_route *route,const hb_motion_config 
 }
 static void hb_mo_repeat_tick(hb_motion_route *route,const hb_motion_config *config,double now){
     hb_mo_repeat_cancel(route,config,0);
+    if(!route->repeat_pending)return;
     for(int index=0;index<HB_MOTION_OWNERS;index++){
         hb_motion_owner *owner=&route->owners[index];
         if(owner->used&&!owner->generated&&owner->repeat_off>0&&now+1e-9>=owner->repeat_off)hb_mo_release(route,owner);
