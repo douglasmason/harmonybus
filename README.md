@@ -1,3 +1,5 @@
+> 0.2.139: group settings by musical workflow, followed by note analysis, pad appearance and diagnostics.
+
 > 0.2.138: simplify note analysis to the global conductor page and two per-track follower path pages. Movy hbclean.52 remains compatible.
 
 > 0.2.137: new followers default to Scale; input roles stay anchored to the follower root; transposition applies consistently across travel modes. Next Harm adds an independent Lookahead Anti Buffer (25 ms by default). Foll Trk has two note-path pages. Pair with Movy hbclean.52 for fresh-set defaults and running-transport/deleted-set lifecycle fixes. See [follower paths and timing](docs/follower-paths.md).
@@ -70,7 +72,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.138-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.139-module.tar.gz`.
 
 ## License
 

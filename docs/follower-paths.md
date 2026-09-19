@@ -1,4 +1,4 @@
-# Follower note paths (0.2.138)
+# Follower note paths (0.2.139)
 
 Input roles are relative to the follower root. With Explicit C, G is always
 fifth. Neither current harmony, lookahead nor master transpose changes that
@@ -28,7 +28,7 @@ octaves to preserve that role instead of clamping to an unrelated pitch class.
 ## Note-path pages
 
 **Foll Trk 1-2 / 3-4** have two rows per page. The global follower pages and
-per-track conductor page were removed in 0.2.138; **Cond All** remains:
+per-track conductor page were removed in 0.2.139; **Cond All** remains:
 
 | Raw Note | Input Role | Output Role | Rendered |
 |---|---|---|---|

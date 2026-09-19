@@ -33,12 +33,12 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.138'
+          assert module['version']=='0.2.139'
           levels=module['capabilities']['ui_hierarchy']['levels']
           buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
           assert buffer['options']==[f'{ms} ms' for ms in [0,25,*range(50,1001,50)]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars','4 Bars']
           assert buffer['default']=='1/16'
-          assert levels['root']['name']=='Harmony Bus 0.2.138'
+          assert levels['root']['name']=='Harmony Bus 0.2.139'
           master=next(p for p in levels['global_transpose']['params'] if p.get('key')=='master_transpose')
           assert len(master['options'])==13 and master['default']=='As Played'
           assert levels['global_transpose']['knobs'][0]=='master_transpose'
@@ -204,7 +204,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.138'
+          assert module['version']==os.environ['VERSION']=='0.2.139'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_mod']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -231,12 +231,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Simplify note analysis: keep the global conductor page and two per-track follower path pages; remove global follower pages and the per-track conductor page. Compatible with Movy hbclean.52. Mapping and timing behavior are unchanged."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Simplify note analysis: keep the global conductor page and two per-track follower path pages; remove global follower pages and the per-track conductor page. Group pages by musical workflow and move diagnostics to the end. Compatible with Movy hbclean.52. Mapping and timing behavior are unchanged."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Simplify note analysis: keep the global conductor page and two per-track follower path pages; remove global follower pages and the per-track conductor page. Compatible with Movy hbclean.52. Mapping and timing behavior are unchanged." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Simplify note analysis: keep the global conductor page and two per-track follower path pages; remove global follower pages and the per-track conductor page. Group pages by musical workflow and move diagnostics to the end. Compatible with Movy hbclean.52. Mapping and timing behavior are unchanged." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
