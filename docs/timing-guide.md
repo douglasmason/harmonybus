@@ -333,3 +333,13 @@ Polling is read-only, at most once per 50 ms, and paused during performance-touc
 ## Operation lanes and performance controls
 
 Sixteen slots transform the rendered output without rewriting source clips. The two shared editing panels and global Steps / Perform switch are described in [Operation lanes](operations.md), including the recording path, momentary controls and triggered enclosures.
+
+## Lookahead anti-buffer (0.2.137)
+
+Next Harm now includes **Lookahead Anti Buffer**, independently adjustable from
+Lookahead and Follower Buffer. Positive lookahead starts later by this amount
+(default 25 ms), clamped to the actual harmony boundary. A nonzero anti-buffer
+also prevents harmonic pre-capture from selecting that harmony before the new
+start; Quant Grid capture remains independent. Negative lookahead is unchanged.
+The earlier timing diagrams describe the **0 ms** compatibility setting. See
+[follower paths and timing](follower-paths.md) for examples and diagnostics.

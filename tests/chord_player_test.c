@@ -26,6 +26,8 @@ static Inst *fixture(void){
     position=0;tempo=120;transport=2;render_count=recorded_count=0;
     move_midi_fx_init(&host);
     Inst *instance=API.create_instance("",NULL);
+    instance->content_map=0; /* Legacy tests explicitly exercise Chord content. */
+    g_bus.next_anti_buffer_ms=0; /* Legacy timing fixture: no onset guard. */
     API.set_param(instance,"role","Follower");API.set_param(instance,"source_channel","1");
     API.set_param(instance,"render_channel","4");
     API.set_param(instance,"follower_root_policy","Explicit");API.set_param(instance,"follower_explicit_root","C");
