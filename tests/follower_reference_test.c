@@ -77,6 +77,34 @@ static void transpose_equivariance(void){
     }
     API.destroy_instance(instance);
 }
+static void transpose_last_at_limits(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"travel_map","Closest Split 2");
+    char label[64];API.get_param(instance,"travel_map",label,sizeof(label));
+    assert(!strcmp(label,"Closest Split Chromatic"));
+    const int pitches[]={0,1,7,12,60,67,115,120,126,127};
+    for(int root=0;root<12;root++)for(int travel=0;travel<7;travel++){
+        instance->travel_map=travel;instance->follower_scale=1;
+        hb_harmony_t harmony=chord(root,1,1);
+        for(int index=0;index<10;index++){
+            int pitch=pitches[index];g_bus.global_transpose=0;hb_effective_write(harmony);
+            int baseline=hb_map_follower_note_now(instance,pitch);
+            int role=mod12(baseline-harmony.root_pc);
+            for(int shift=-24;shift<=24;shift++){
+                g_bus.global_transpose=shift;
+                hb_harmony_t shifted=hb_transpose_harmony(harmony,shift);hb_effective_write(shifted);
+                int actual=hb_map_follower_note_now(instance,pitch);
+                assert(actual>=0&&actual<=127);
+                assert(mod12(actual-shifted.root_pc)==role);
+                int expected=baseline+shift;
+                while(expected<0)expected+=12;
+                while(expected>127)expected-=12;
+                assert(actual==expected);
+            }
+        }
+    }
+    API.destroy_instance(instance);
+}
 static void anti_buffer(void){
     Inst *instance=fixture();
     g_bus.clip_loop_end=8;g_bus.next_model_locked=1;g_bus.next_model_count=2;
@@ -153,4 +181,4 @@ static void follower_rows(void){
     API.get_param(second,"fpath_0_0_3",display,sizeof(display));assert(!strcmp(display,"--"));
     API.destroy_instance(first);API.destroy_instance(second);
 }
-int main(void){follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}
+int main(void){transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}

@@ -430,12 +430,12 @@ static void split2_and_master(void){
             API.set_param(instance,"travel_map","Closest Split");
             int normal=hb_map_follower_note_now(instance,pitch);
             if(parent&(1u<<mod12(pitch))){
-                API.set_param(instance,"travel_map","Closest Split 2");
+                API.set_param(instance,"travel_map","Closest Split Chromatic");
                 assert(hb_map_follower_note_now(instance,pitch)==normal);
             }else{
                 int next=pitch+1;while(!(parent&(1u<<mod12(next))))next++;
                 int resolution=hb_map_follower_note_now(instance,next);
-                API.set_param(instance,"travel_map","Closest Split 2");
+                API.set_param(instance,"travel_map","Closest Split Chromatic");
                 assert(hb_map_follower_note_now(instance,pitch)==resolution-1);
                 assert(hb_map_follower_note_now(instance,next)==resolution);
             }
@@ -444,7 +444,7 @@ static void split2_and_master(void){
     char state[8192],label[64];
     API.get_param(instance,"state",state,sizeof(state));
     API.set_param(instance,"travel_map","Relative");API.set_param(instance,"state",state);
-    API.get_param(instance,"travel_map",label,sizeof(label));assert(!strcmp(label,"Closest Split 2"));
+    API.get_param(instance,"travel_map",label,sizeof(label));assert(!strcmp(label,"Closest Split Chromatic"));
     globals.follower_explicit_root=0;instance->follower_split_map=1;
     API.set_param(instance,"follower_scale","Major");
     for(int pitch=61;pitch<=62;pitch++){
@@ -927,7 +927,7 @@ static void follower_play_transform(void){
     API.set_param(instance,"play_bypass","On");
     assert(hb_map_follower_note_now(instance,60)==baseline);
     API.set_param(instance,"play_bypass","Off");
-    API.set_param(instance,"travel_map","Closest Split 2");
+    API.set_param(instance,"travel_map","Closest Split Chromatic");
     API.set_param(instance,"split_map","135 / 2467");
     for(int note=48;note<84;note++)if(!(0xAB5u&(1u<<(note%12)))){
         int next=note+1;while(!(0xAB5u&(1u<<(next%12))))next++;

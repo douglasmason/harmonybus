@@ -17,11 +17,13 @@ Saved sets retain their chosen content.
   membership rather than degree number. A fifth input can therefore render a
   seventh with Harm./Out or 1357/246. Choose 135/2467 to keep 1/3/5 together,
   or Relative when the exact degree should survive.
-- **Closest Split 2** uses the same mapping for diatonic inputs. A chromatic
+- **Closest Split Chromatic** uses the same mapping for diatonic inputs. A chromatic
   input becomes a semitone below the rendered next-higher diatonic input.
 
-Master transpose shifts output scales, target harmonies and register together,
-exactly once. It does not reclassify the physical source key.
+Travel and role transforms are solved in the reference key. Master transpose
+is applied exactly once to the final pitch, after the output role is determined.
+It changes neither input nor output role. At MIDI range limits, output folds by
+octaves to preserve that role instead of clamping to an unrelated pitch class.
 
 ## Note-path pages
 
