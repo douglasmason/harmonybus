@@ -84,7 +84,7 @@ jobs:
           assert 'static void hb_render_conductor_event' in source
           assert 'rendered_note=note+g_bus.global_transpose' in source
           assert 'render_pitch=source_note+g_bus.global_transpose' in source
-          assert 'int direct=source_note+g_bus.global_transpose' in source
+          # Final-stage follower transpose is verified by follower_reference_test.
           assert 'if(!strcmp(key,"pretranspose_root"))' in source
           assert 'if(!strcmp(key,"final_root"))' in source
           assert 'if(!strcmp(key,"final_harmony"))' in source
