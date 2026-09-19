@@ -47,6 +47,7 @@ int main(void){
     move_midi_fx_init(&host);
     Inst *first=API.create_instance("",NULL),*second=API.create_instance("",NULL);
     expect(first,"1/16");expect(second,"1/16");
+    g_bus.next_anti_buffer_ms=0; /* Legacy timing fixture: no onset guard. */
     API.set_param(first,"boundary_buffer_ms","1/8");expect(second,"1/8");
     char state[512];API.get_param(second,"state",state,sizeof(state));
     API.set_param(second,"state","hb16,1,0,0,25,2,0,0,0,0,0,0,3,0,0,0,0,0,0,0,20,60,0,0,0,3");

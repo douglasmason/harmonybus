@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.136 / Movy 0.34.1-hbclean.50.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. All diagrams use 120 BPM and 4/4. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.137 / Movy 0.34.1-hbclean.52.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -217,9 +217,9 @@ Follower Content choices now omit the “In” prefix. Saved indices and older t
 
 Closest Split with **135 / 2467** keeps degree 7 in the 2467 group. Previously, Chord content over a triad could leave that group empty and fall back to all chord tones, sending B to C over C major. Explicit 135 / 2467 and 1357 / 246 groups now remain intact: Content narrows the group when possible; otherwise the full group is available. Other split modes retain their existing behavior.
 
-## Closest Split 2 and Master Transpose
+## Closest Split Chromatic and Master Transpose
 
-**Follower Travel: Closest Split 2** keeps the normal Closest Split rendering for in-scale inputs. An out-of-scale input instead approaches the rendering of the next higher in-scale input: find that input, run its normal split mapping in the same register, then subtract one semitone from the output. The existing Split selection still chooses the groups.
+**Follower Travel: Closest Split Chromatic** keeps the normal Closest Split rendering for in-scale inputs. An out-of-scale input instead approaches the rendering of the next higher in-scale input: find that input, run its normal split mapping in the same register, then subtract one semitone from the output. The existing Split selection still chooses the groups.
 
 For example, with C-major reference, C-major harmony, Scale content and 135 / 2467, C-sharp approaches the rendering of D: it plays D-flat, then D resolves it. If the split mapper sends that D input to a different pitch, the C-sharp pad plays one semitone below that actual output instead. The same rule works across octaves. This guarantee assumes harmony and mapping settings remain unchanged between the two notes; physical MIDI limits clamp a leading tone below note zero. No higher valid MIDI input means ordinary split fallback.
 
@@ -298,7 +298,7 @@ Foll Play changes playback without rewriting clip notes or recorded pressure. It
 | K7 | Bypass | Temporarily disable these transformations; Off |
 | K8 | Reset | Restore the panel's neutral settings |
 
-For raw follower notes, Follower Content supplies the permitted tones. Closest Split retains the input's assigned group. Closest Split 2 first transforms the next diatonic input's resolution, then places the chromatic approach one semitone below it. Manual approaches are applied after the transform. Auto Chord rotates through the generated chord's tones, retaining its chosen quality and extensions. With no valid harmony, harmonic transforms pass notes through.
+For raw follower notes, Follower Content supplies the permitted tones. Closest Split retains the input's assigned group. Closest Split Chromatic first transforms the next diatonic input's resolution, then places the chromatic approach one semitone below it. Manual approaches are applied after the transform. Auto Chord rotates through the generated chord's tones, retaining its chosen quality and extensions. With no valid harmony, harmonic transforms pass notes through.
 
 For a C-major triad, rotation +1 sends C4, E4, G4 to E4, G4, C5. Wrap Octave instead makes the last result C4. Scale content uses the scale's tone sequence; Free content uses chromatic steps. Mirror reverses the tone index before rotation. At MIDI limits, octave adjustment preserves the resulting pitch class.
 
@@ -333,3 +333,13 @@ Polling is read-only, at most once per 50 ms, and paused during performance-touc
 ## Operation lanes and performance controls
 
 Sixteen slots transform the rendered output without rewriting source clips. The two shared editing panels and global Steps / Perform switch are described in [Operation lanes](operations.md), including the recording path, momentary controls and triggered enclosures.
+
+## Lookahead anti-buffer (0.2.137)
+
+Next Harm now includes **Lookahead Anti Buffer**, independently adjustable from
+Lookahead and Follower Buffer. Positive lookahead starts later by this amount
+(default 25 ms), clamped to the actual harmony boundary. A nonzero anti-buffer
+also prevents harmonic pre-capture from selecting that harmony before the new
+start; Quant Grid capture remains independent. Negative lookahead is unchanged.
+The earlier timing diagrams describe the **0 ms** compatibility setting. See
+[follower paths and timing](follower-paths.md) for examples and diagnostics.
