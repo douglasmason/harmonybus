@@ -1,4 +1,4 @@
-# Follower note paths (0.2.137)
+# Follower note paths (0.2.138)
 
 Input roles are relative to the follower root. With Explicit C, G is always
 fifth. Neither current harmony, lookahead nor master transpose changes that
@@ -27,18 +27,16 @@ octaves to preserve that role instead of clamping to an unrelated pitch class.
 
 ## Note-path pages
 
-**Foll Trk 1-2 / 3-4** and **Foll All 1-2 / 3-4** have two rows per page:
+**Foll Trk 1-2 / 3-4** have two rows per page. The global follower pages and
+per-track conductor page were removed in 0.2.138; **Cond All** remains:
 
 | Raw Note | Input Role | Output Role | Rendered |
 |---|---|---|---|
 | G4 | 5th | b7 | G4 |
 
 The example is a G input relative to C, rendered as G over A minor seventh.
-Each row belongs to a single source note on a single follower instance. Global
-rows retain duplicate pitches from different tracks so their independent
-transformations remain distinguishable. The old global panels mixed sorted,
-deduplicated pitches with roles enumerated by track; this could show another
-note's role under G.
+Each row belongs to a single source note on the selected follower instance.
+Use **Cond All** to inspect the combined conductor notes and harmony.
 
 The output role is relative to the harmony captured when that note was mapped,
 including lookahead. It does not relabel a held note against a newer harmony
