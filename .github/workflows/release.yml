@@ -43,7 +43,7 @@ jobs:
           assert len(master['options'])==13 and master['default']=='As Played'
           assert levels['global_transpose']['knobs'][0]=='master_transpose'
           travel=next(p for p in module['capabilities']['chain_params'] if p.get('key')=='travel_map')
-          assert travel['options'][-1]=='Closest Split 2'
+          assert travel['options'][-1]=='Closest Split Chromatic'
           assert 'receiver' not in levels
           assert levels['root']['knobs']==['version','track_role','render_channel','receive_channel','quant_timing','chord_timing','anticipation','boundary_buffer_ms']
           assert next(p for p in levels['root']['params'] if p.get('key')=='track_role')['options']==['Conductor','Follower','Receiver','Off']
