@@ -3553,7 +3553,8 @@ if(!strcmp(key,"hb_movy_playback")){instance->movy_playback=parameter[0]=='1';re
 if(!strcmp(key,"hb_movy_passthrough")){instance->movy_passthrough=parameter[0]=='1';return;}
 if(!strcmp(key,"next_predict")){g_bus.next_predict=enum_index(parameter,NEXT_PREDICT_OPTS,2,g_bus.next_predict);if(!g_bus.next_predict){g_bus.next_shift_active=0;hb_effective_write(g_bus.observed_harmony);}else if(g_bus.next_model_locked)hb_next_apply_effective(hb_clip_playhead());return;}
 if(!strcmp(key,"next_anti_buffer_ms")){
-    int setting=atoi(parameter);
+    int setting=g_bus.next_anti_buffer_ms;
+    sscanf(parameter,"%d",&setting);
     for(int index=0;index<9;index++)if(!strcmp(parameter,BUFFER_DIVISIONS[index]))setting=-index-1;
     if(setting>=-9&&setting<=1000){g_bus.next_anti_buffer_ms=setting;g_lookahead_restored=1;hb_next_apply_effective(hb_clip_playhead());}
     return;
