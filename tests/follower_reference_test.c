@@ -45,7 +45,7 @@ static void reference_invariance(void){
                 g_bus.global_transpose=shift;
                 g_bus.observed_harmony=hb_transpose_harmony(chord(target_root,0,1),shift);
                 hb_effective_write(hb_transpose_harmony(chord((target_root+5)%12,1,1),shift));
-                for(int travel=0;travel<7;travel++){
+                for(int travel=0;travel<8;travel++){
                     instance->travel_map=travel;
                     assert(!strcmp(hb_follower_degree_role_for_note(instance,pitch),hb_role_name_for_degree(expected)));
                 }
@@ -59,7 +59,7 @@ static void transpose_equivariance(void){
     for(int scale=0;scale<=9;scale++)for(int root=0;root<12;root++)for(int minor=0;minor<2;minor++){
         instance->follower_scale=scale;
         hb_harmony_t harmony=chord(root,minor,1);
-        for(int content=0;content<9;content++)for(int travel=0;travel<7;travel++)for(int split=0;split<4;split++){
+        for(int content=0;content<9;content++)for(int travel=0;travel<8;travel++)for(int split=0;split<4;split++){
             instance->content_map=content;instance->travel_map=travel;instance->follower_split_map=split;
             for(int pitch=60;pitch<72;pitch++){
                 g_bus.global_transpose=0;hb_effective_write(harmony);
@@ -83,7 +83,7 @@ static void transpose_last_at_limits(void){
     char label[64];API.get_param(instance,"travel_map",label,sizeof(label));
     assert(!strcmp(label,"Closest Split Chromatic"));
     const int pitches[]={0,1,7,12,60,67,115,120,126,127};
-    for(int root=0;root<12;root++)for(int travel=0;travel<7;travel++){
+    for(int root=0;root<12;root++)for(int travel=0;travel<8;travel++){
         instance->travel_map=travel;instance->follower_scale=1;
         hb_harmony_t harmony=chord(root,1,1);
         for(int index=0;index<10;index++){
@@ -101,6 +101,40 @@ static void transpose_last_at_limits(void){
                 while(expected>127)expected-=12;
                 assert(actual==expected);
             }
+        }
+    }
+    API.destroy_instance(instance);
+}
+static void coherent_display_and_none(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"travel_map","None");
+    assert(instance->travel_map==7);
+    char state[8192],display[256];API.get_param(instance,"state",state,sizeof(state));
+    instance->travel_map=0;API.set_param(instance,"state",state);assert(instance->travel_map==7);
+    for(int root=0;root<12;root++){
+        hb_effective_write(chord(root,1,1));
+        assert(hb_map_follower_note_now(instance,67)==67);
+    }
+    for(int travel=3;travel<=6;travel+=3){
+        instance->travel_map=travel;
+        for(int root=0;root<12;root++)for(int shift=-24;shift<=24;shift++){
+            g_bus.global_transpose=shift;
+            hb_harmony_t target=hb_transpose_harmony(chord(root,1,1),shift);
+            hb_effective_write(target);
+            memset(instance->published_follower,0,sizeof(instance->published_follower));
+            instance->published_follower[67]=1;
+            instance->mapped[67]=hb_map_follower_note_now(instance,67);
+            instance->follower_path_harmony[67]=target;
+            API.get_param(instance,"follower_snapshot",display,sizeof(display));
+            assert(strstr(display,"|5th|")!=NULL);
+            API.get_param(instance,"fpath_0_0_0",display,sizeof(display));
+            /* A lower note arrives between the host's raw-note and role reads.
+               The role must stay attached to the raw note already displayed. */
+            instance->published_follower[60]=1;
+            API.get_param(instance,"fpath_0_0_1",display,sizeof(display));
+            assert(!strcmp(display,"5th"));
+            API.get_param(instance,"follower_snapshot",display,sizeof(display));
+            assert(strstr(display,"|Root|")!=NULL&&strstr(display,"|5th|")!=NULL);
         }
     }
     API.destroy_instance(instance);
@@ -178,7 +212,8 @@ static void follower_rows(void){
     API.get_param(first,"fpath_1_2_3",display,sizeof(display));assert(!strcmp(display,"G4"));
     API.get_param(first,"fpath_0_3_0",display,sizeof(display));assert(!strcmp(display,"--"));
     second->mapped[67]=-1;
+    API.get_param(second,"fpath_0_0_0",display,sizeof(display));
     API.get_param(second,"fpath_0_0_3",display,sizeof(display));assert(!strcmp(display,"--"));
     API.destroy_instance(first);API.destroy_instance(second);
 }
-int main(void){transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}
+int main(void){coherent_display_and_none();transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}

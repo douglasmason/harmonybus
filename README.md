@@ -1,3 +1,5 @@
+> 0.2.141: coherent follower rows, cached split mapping, None travel, clearer root readouts and a single Foll Notes page before Operations. Pair with Movy hbclean.53 for simultaneous follower display updates at up to 25 Hz.
+
 > 0.2.140: Foll Map now includes Approach, Reset, Scale Next and Chrom Next. The separate Foll Mod page is removed; Diagnostics stays last. Movy hbclean.52 remains compatible.
 
 > 0.2.139: group settings by musical workflow, followed by note analysis, pad appearance and diagnostics.
@@ -74,7 +76,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.140-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.141-module.tar.gz`.
 
 ## License
 

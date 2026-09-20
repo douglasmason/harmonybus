@@ -1,4 +1,4 @@
-# Follower note paths (0.2.140)
+# Follower note paths (0.2.141)
 
 Input roles are relative to the follower root. With Explicit C, G is always
 fifth. Neither current harmony, lookahead nor master transpose changes that
@@ -6,7 +6,7 @@ input reference. An explicit follower scale refines ambiguous chromatic degrees
 (e.g. F-sharp is #4 in C Lydian and b5 in C Locrian). Infer uses stable input
 interval buckets; inference still chooses the output parent scale.
 
-New instances and Movy hbclean.52 fresh follower tracks use **Scale** content.
+New instances and Movy hbclean.53 fresh follower tracks use **Scale** content.
 Saved sets retain their chosen content.
 
 ## Travel
@@ -27,8 +27,8 @@ octaves to preserve that role instead of clamping to an unrelated pitch class.
 
 ## Note-path pages
 
-**Foll Trk 1-2 / 3-4** have two rows per page. The global follower pages and
-per-track conductor page were removed in 0.2.140; **Cond All** remains:
+**Foll Notes** have two rows per page. The global follower pages and
+per-track conductor page were removed in 0.2.141; **Cond All** remains:
 
 | Raw Note | Input Role | Output Role | Rendered |
 |---|---|---|---|
@@ -77,3 +77,18 @@ Content, Travel, Split, Retrigger Held; the bottom row is Approach, Reset,
 Scale Next, Chrom Next. Approach replaces the separate Scale Above and Chrom
 Below toggles. The next-note actions remain independent triggers. Diagnostics
 remains the final page.
+
+## Display consistency and responsiveness
+
+Foll Notes shows the first two simultaneous input notes. Its eight fields are
+captured together. Movy hbclean.53 reads the complete snapshot at up to 25 Hz
+and updates all cells together; older hosts retain their normal polling speed,
+but sibling fields share the snapshot captured by the first cell.
+
+Input G with Explicit C remains fifth in both split modes regardless of harmony
+or master transpose. Closest Split assignments are cached by their complete
+nominal pitches and allowed pitch sets; harmony, split or scale changes that
+change those inputs recompute the assignment. None bypasses harmonic travel
+(as Direct does), while master transpose and independent modifiers still apply.
+Pre Root and Post Root show the effective harmony root before and after master
+transpose; they are not follower input-reference roots.
