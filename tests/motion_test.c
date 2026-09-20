@@ -459,7 +459,75 @@ static void automatic_clip_config(void){
     assert(API.get_param(instance,"motion_clip_config",config,sizeof(config))>0);assert(strstr(config,";15,15,"));
     char tiny[8];assert(API.get_param(instance,"motion_clip_config",tiny,sizeof(tiny))<0&&tiny[7]==0);
 }
-int main(void){
+static void gesture_tap(Inst *instance,const char *key,int milliseconds){
+    char release[32];snprintf(release,sizeof(release),"Up,%d",milliseconds);
+    API.set_param(instance,key,"Down");API.set_param(instance,key,release);
+}
+static void ordered_gestures(void){
+    for(int reverse=0;reverse<2;reverse++){
+        Inst *instance=motion_fixture();
+        const char *first=reverse?"motion_gesture_13":"performance_gesture_above";
+        const char *second=reverse?"performance_gesture_above":"motion_gesture_13";
+        gesture_tap(instance,first,80);gesture_tap(instance,second,90);
+        assert(instance->motion.enclosure==(reverse?2:1));
+        const int notes[3]={reverse?59:62,reverse?62:59,60};
+        for(int step=0;step<3;step++){
+            assert(send_note(instance,1,60)==1&&output[0][1]==notes[step]);
+            assert(send_note(instance,0,60)==1&&output[0][1]==notes[step]);
+        }
+        assert(!instance->motion.enclosure);
+        API.destroy_instance(instance);
+    }
+    Inst *instance=motion_fixture();
+    // Press order wins even when fingers release in the opposite order.
+    API.set_param(instance,"performance_gesture_above","Down");
+    API.set_param(instance,"performance_gesture_below","Down");
+    API.set_param(instance,"performance_gesture_below","Up,80");
+    API.set_param(instance,"performance_gesture_above","Up,100");
+    assert(instance->motion.enclosure==1);
+    API.set_param(instance,"performance_reset","1");
+    gesture_tap(instance,"performance_gesture_above",80);
+    gesture_tap(instance,"performance_gesture_below",80);
+    gesture_tap(instance,"performance_gesture_above",80); /* remove only above */
+    assert(instance->motion.enclosure==4);
+    gesture_tap(instance,"performance_gesture_above",80); /* now below then above */
+    assert(instance->motion.enclosure==2);
+    gesture_tap(instance,"performance_gesture_below",80);
+    gesture_tap(instance,"performance_gesture_above",80);assert(!instance->motion.enclosure);
+    API.set_param(instance,"performance_gesture_below","Down");
+    for(int index=0;index<3;index++){assert(send_note(instance,1,60)==1&&output[0][1]==59);send_note(instance,0,60);}
+    API.set_param(instance,"performance_gesture_below","Up,400");
+    assert(send_note(instance,1,60)==1&&output[0][1]==60);send_note(instance,0,60);
+    // A short press already used while down must not arm an extra note.
+    API.set_param(instance,"performance_gesture_above","Down");
+    assert(send_note(instance,1,60)==1&&output[0][1]==62);send_note(instance,0,60);
+    API.set_param(instance,"performance_gesture_above","Up,80");
+    assert(send_note(instance,1,60)==1&&output[0][1]==60);send_note(instance,0,60);
+    // Exactly the threshold is a hold, and Cancel never arms a pending note.
+    gesture_tap(instance,"performance_gesture_above",250);assert(!instance->motion.enclosure);
+    API.set_param(instance,"performance_gesture_above","Down");API.set_param(instance,"performance_gesture_above","Cancel");assert(!instance->motion.enclosure);
+    gesture_tap(instance,"motion_gesture_15",80);assert(instance->motion.enclosure==1);
+    gesture_tap(instance,"motion_gesture_15",80);assert(!instance->motion.enclosure);
+    API.set_param(instance,"motion_lane","15");API.set_param(instance,"motion_touch_mode","Hold");
+    gesture_tap(instance,"motion_gesture_15",80);assert(!instance->motion.enclosure);
+    // Continuous operations latch on short taps and release on long holds.
+    API.set_param(instance,"motion_lane","1");API.set_param(instance,"motion_operation","Octave");API.set_param(instance,"motion_enabled","Off");
+    gesture_tap(instance,"motion_gesture_1",80);assert(instance->motion.held&1);
+    assert(send_note(instance,1,60)==1&&output[0][1]==72);send_note(instance,0,60);
+    gesture_tap(instance,"motion_gesture_1",80);assert(!(instance->motion.held&1));
+    gesture_tap(instance,"motion_gesture_1",400);assert(!(instance->motion.held&1));
+    API.set_param(instance,"motion_touch_mode","Toggle");gesture_tap(instance,"motion_gesture_1",400);assert(instance->motion.held&1);
+    gesture_tap(instance,"motion_gesture_1",400);assert(!(instance->motion.held&1));
+    API.set_param(instance,"motion_touch_mode","Hold");gesture_tap(instance,"motion_gesture_1",80);assert(!(instance->motion.held&1));
+    API.set_param(instance,"touch_hold_ms","350");
+    char saved[16384];API.get_param(instance,"state",saved,sizeof(saved));
+    API.set_param(instance,"motion_touch_mode","Tap/Hold");API.set_param(instance,"state",saved);
+    assert(instance->motion.lanes[0].touch_mode==0&&g_hb_hold_ms==350);
+    gesture_tap(instance,"performance_gesture_above",300);assert(instance->motion.enclosure==3);
+    API.set_param(instance,"performance_reset","1");assert(!instance->motion.enclosure&&!instance->motion.gesture_down);
+    API.destroy_instance(instance);
+}
+int main(void){ordered_gestures();
     repeat_idle_lifecycle();
     automatic_clip_config();
     cycle_conditions();condition_state_and_repeat_tails();

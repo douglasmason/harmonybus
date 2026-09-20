@@ -10,13 +10,16 @@ enum { HB_MO_OFF, HB_MO_VELOCITY, HB_MO_PAN, HB_MO_OCTAVE, HB_MO_ROTATE,
        HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY, HB_MO_BELOW, HB_MO_ABOVE,
        HB_MO_ENCLOSE_AB, HB_MO_ENCLOSE_BA, HB_MO_REPEAT, HB_MO_REVERSE,
        HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO };
-typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through; } hb_motion_lane;
+typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through,touch_mode; } hb_motion_lane;
 typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned held;
     unsigned revision[HB_MOTION_LANES];
     unsigned long long events[HB_MOTION_LANES];
     const unsigned long long *event_override;
     int input_valid; double input_beat; uint8_t input_notes[128];
     unsigned pitch_held,enclosure_revision; int pitch_last,enclosure;
+    unsigned gesture_down,gesture_used,gesture_was_latched,gesture_latched;
+    unsigned gesture_serial[18]; int gesture_operation[18],gesture_mode[18],gesture_threshold[18];
+    unsigned tap_mask,tap_serial[2]; int tap_first,tap_started;
 } hb_motion_config;
 typedef struct { int used,channel,source,pitch,sounding; double off_beat; unsigned long long serial; double repeat_off; int generated,lane,manual; unsigned revision,held_serial; } hb_motion_owner;
 typedef struct {
@@ -36,12 +39,13 @@ typedef struct {
     double performance_beat;
     uint8_t performance_notes[128];
 } hb_motion_route;
+static int g_hb_hold_ms=250,g_hb_hold_restored=0;
 static int hb_mo_clamp(int value,int low,int high){return value<low?low:value>high?high:value;}
 static int hb_mo_round(double value){return (int)(value+(value>=0?0.5:-0.5));}
 static double hb_mo_floor(double value){long long whole=(long long)value;return (double)whole-(value<(double)whole);}
 static double hb_mo_grid(int index){return 0.0625*(1u<<hb_mo_clamp(index,0,8));}
 static double hb_mo_cycle(int index){static const double lengths[]={0.5,1,2,4,8,12,16};return lengths[hb_mo_clamp(index,0,6)];}
-static void hb_mo_lane_default(hb_motion_lane *lane){memset(lane,0,sizeof(*lane));lane->enabled=1;lane->grid=3;lane->cycle=3;lane->probability=100;lane->every=lane->from=lane->through=1;}
+static void hb_mo_lane_default(hb_motion_lane *lane){memset(lane,0,sizeof(*lane));lane->enabled=1;lane->grid=3;lane->cycle=3;lane->probability=100;lane->every=lane->from=lane->through=1;lane->touch_mode=2;}
 static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*config));for(int index=0;index<HB_MOTION_LANES;index++)hb_mo_lane_default(&config->lanes[index]);
     config->enclosure_lane=-1;
     for(int index=12;index<16;index++){config->lanes[index].operation=HB_MO_BELOW+index-12;config->lanes[index].enabled=0;config->lanes[index].amount=1;}
@@ -54,7 +58,70 @@ static int hb_mo_lane_active(const hb_motion_config *config,int index){
     if(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA)return config->enclosure&&config->enclosure_lane==index;
     return operation && ((config->held&(1u<<index)) || (!config->bypass&&config->lanes[index].enabled));
 }
-static int hb_mo_enabled(const hb_motion_config *config){if(config->pitch_held||config->enclosure)return 1;for(int index=0;index<HB_MOTION_LANES;index++)if(hb_mo_lane_active(config,index))return 1;return 0;}
+static int hb_mo_enabled(const hb_motion_config *config){if(config->pitch_held||config->enclosure||config->gesture_down)return 1;for(int index=0;index<HB_MOTION_LANES;index++)if(hb_mo_lane_active(config,index))return 1;return 0;}
+/* One ordered pending sequence is shared by knob and step gestures. */
+static void hb_mo_tap_rebuild(hb_motion_config *config){
+    config->enclosure=config->tap_mask==3?(config->tap_first==2?1:2):config->tap_mask==2?3:config->tap_mask==1?4:0;
+    config->enclosure_lane=-1;config->tap_started=0;config->enclosure_revision++;
+}
+static void hb_mo_tap_toggle_at(hb_motion_config *config,unsigned bit,unsigned serial){
+    if(config->tap_started){config->tap_mask=0;config->tap_started=0;}
+    if(config->tap_mask&bit){config->tap_mask&=~bit;config->tap_first=(int)config->tap_mask;}
+    else {if(!config->tap_mask)config->tap_first=(int)bit;config->tap_mask|=bit;config->tap_serial[bit==2]=serial;
+        if(config->tap_mask==3)config->tap_first=config->tap_serial[1]<config->tap_serial[0]?2:1;}
+    hb_mo_tap_rebuild(config);
+}
+static void hb_mo_tap_toggle(hb_motion_config *config,unsigned bit){hb_mo_tap_toggle_at(config,bit,++config->serial);}
+static void hb_mo_tap_remove(hb_motion_config *config,unsigned bit){
+    if(!config->tap_started&&(config->tap_mask&bit)){
+        config->tap_mask&=~bit;config->tap_first=(int)config->tap_mask;hb_mo_tap_rebuild(config);
+    }
+}
+static void hb_mo_gesture_reset(hb_motion_config *config){
+    config->gesture_down=config->gesture_used=config->gesture_was_latched=config->gesture_latched=0;
+    config->tap_mask=0;config->tap_started=0;
+}
+static void hb_mo_gesture(hb_motion_config *config,int id,int down,int elapsed){
+    unsigned bit=1u<<id;
+    if(down){
+        if(config->gesture_down&bit)return;
+        int operation=id<16?config->lanes[id].operation:id==16?HB_MO_ABOVE:HB_MO_BELOW;
+        int mode=id<16?config->lanes[id].touch_mode:2;
+        config->gesture_down|=bit;config->gesture_used&=~bit;
+        config->gesture_operation[id]=operation;config->gesture_mode[id]=mode;config->gesture_threshold[id]=g_hb_hold_ms;
+        config->gesture_serial[id]=++config->serial;
+        if(config->gesture_latched&bit)config->gesture_was_latched|=bit;else config->gesture_was_latched&=~bit;
+        if(operation==HB_MO_BELOW||operation==HB_MO_ABOVE){
+            if(mode==1)hb_mo_tap_toggle(config,operation==HB_MO_ABOVE?2:1);
+            else if(id<16){config->held|=bit;config->held_serial[id]=config->gesture_serial[id];}
+        }else if(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA){
+            int wanted=operation==HB_MO_ENCLOSE_AB?1:2;
+            if(config->enclosure==wanted&&!config->tap_started){config->enclosure=0;config->tap_mask=0;}
+            else {config->tap_mask=3;config->tap_first=wanted==1?2:1;hb_mo_tap_rebuild(config);config->enclosure_lane=id;}
+        }else if(id<16){
+            if(mode==1){config->gesture_latched^=bit;if(config->gesture_latched&bit)config->held|=bit;else config->held&=~bit;}
+            else config->held|=bit;
+            config->held_serial[id]=++config->serial;
+        }
+        return;
+    }
+    if(!(config->gesture_down&bit))return;
+    config->gesture_down&=~bit;
+    int operation=config->gesture_operation[id],mode=config->gesture_mode[id];
+    int short_tap=elapsed>=0&&elapsed<config->gesture_threshold[id];
+    if(operation==HB_MO_BELOW||operation==HB_MO_ABOVE){
+        unsigned modifier=operation==HB_MO_ABOVE?2u:1u;
+        if(id<16)config->held&=~bit;
+        if(mode==2&&short_tap&&!(config->gesture_used&bit))hb_mo_tap_toggle_at(config,modifier,config->gesture_serial[id]);
+        else if(mode!=1||elapsed<0)hb_mo_tap_remove(config,modifier);
+    }else if(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA){
+        if(elapsed<0||mode==0||(!short_tap&&mode!=1)){config->enclosure=0;config->tap_mask=0;}
+    }else if(id<16&&mode!=1){
+        if(mode==2&&short_tap&&!(config->gesture_was_latched&bit))config->gesture_latched|=bit;
+        else config->gesture_latched&=~bit;
+        if(config->gesture_latched&bit)config->held|=bit;else config->held&=~bit;
+    }else if(elapsed<0&&id<16){config->gesture_latched&=~bit;config->held&=~bit;}
+}
 /* Each route advances independently so the local and render copies agree.
    Simultaneous distinct pitches share a step; a repeated pitch starts another
    onset even if both arrive before the next transport sample. */
@@ -64,6 +131,13 @@ static int hb_mo_performance(hb_motion_config *config,hb_motion_route *route,int
         int operation=config->lanes[lane].operation;
         if((operation==HB_MO_BELOW||operation==HB_MO_ABOVE)&&config->held_serial[lane]>=newest){
             newest=config->held_serial[lane];held_modifier=operation==HB_MO_BELOW?-1:1;
+        }
+    }
+    for(int id=0;id<18;id++)if(config->gesture_down&(1u<<id)){
+        int operation=config->gesture_operation[id];
+        if(config->gesture_mode[id]!=1&&(operation==HB_MO_BELOW||operation==HB_MO_ABOVE)){
+            config->gesture_used|=1u<<id;
+            if(config->gesture_serial[id]>=newest){newest=config->gesture_serial[id];held_modifier=operation==HB_MO_BELOW?-1:1;}
         }
     }
     if(held_modifier)return held_modifier;
@@ -76,7 +150,8 @@ static int hb_mo_performance(hb_motion_config *config,hb_motion_route *route,int
     double elapsed=beat-route->performance_beat;
     if(!route->performance_valid||elapsed<0||elapsed>grouping||route->performance_notes[source]){
         int step=route->enclosure_step++;
-        route->performance_modifier=step>=2?0:((config->enclosure==1)==(step==0)?1:-1);
+        route->performance_modifier=config->enclosure>=3?(step==0?(config->enclosure==3?1:-1):0):step>=2?0:((config->enclosure==1)==(step==0)?1:-1);
+        config->tap_started=1;
         route->performance_beat=beat;route->performance_valid=1;
         memset(route->performance_notes,0,sizeof(route->performance_notes));
     }

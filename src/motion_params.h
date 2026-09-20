@@ -9,6 +9,7 @@ static const char *MO_CYCLES[]={"1/8","1/4","1/2","1 Bar","2 Bars","3 Bars","4 B
 static const char *MO_SWITCH[]={"Off","On"};
 static const char *MO_GROUPS[]={"Chord","Voice"};
 static const char *MO_ADVANCE[]={"Clock","Note","Chord"};
+static const char *MO_TOUCH[]={"Hold","Toggle","Tap/Hold"};
 static const char *MO_RANDOM[]={"Repeat","Evolve"};
 typedef struct { const char *key; size_t offset; int low,high; const char *const *options; } hb_motion_parameter;
 #define MO_FIELD(name,low,high,options) {"motion_" #name,__builtin_offsetof(hb_motion_lane,name),low,high,options}
@@ -26,9 +27,18 @@ static int hb_mo_slot_key(const char *key,const char *prefix){
     return end!=key+size&&!*end&&slot>=1&&slot<=HB_MOTION_LANES?(int)slot-1:-1;
 }
 static int hb_mo_set(hb_motion_config *config,const char *key,const char *value){
+    if(!strcmp(key,"touch_hold_ms")){g_hb_hold_ms=hb_mo_clamp(parse_i(value,g_hb_hold_ms),150,500);g_hb_hold_restored=1;return 1;}
+    if(!strcmp(key,"motion_touch_mode")){config->lanes[config->selected].touch_mode=enum_index(value,MO_TOUCH,3,config->lanes[config->selected].touch_mode);return 1;}
+    int gesture=hb_mo_slot_key(key,"motion_gesture_");
+    if(!strcmp(key,"performance_gesture_above"))gesture=16;
+    if(!strcmp(key,"performance_gesture_below"))gesture=17;
+    if(gesture>=0){
+        int elapsed=-1;if(!strncmp(value,"Up,",3))elapsed=parse_i(value+3,-1);
+        hb_mo_gesture(config,gesture,!strcmp(value,"Down"),elapsed);return 1;
+    }
     if(!strcmp(key,"motion_host")){config->host_capabilities=!strcmp(value,"movy-clip-v2")?2:!strcmp(value,"movy-clip-v1");return 1;}
     if(!strcmp(key,"performance_reset")){
-        config->held=0;config->pitch_held=0;config->enclosure=0;hb_mo_input_reset(config);
+        config->held=0;config->pitch_held=0;config->enclosure=0;hb_mo_input_reset(config);hb_mo_gesture_reset(config);
         for(int lane=0;lane<HB_MOTION_LANES;lane++)config->revision[lane]++;return 1;
     }
     if(!strcmp(key,"performance_below")||!strcmp(key,"performance_above")){
@@ -44,8 +54,10 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     }
     if(!strcmp(key,"performance_enclose_ab")||!strcmp(key,"performance_enclose_ba")){
         if(strcmp(value,"0")&&strcmp(value,"Off")){
-            config->enclosure=!strcmp(key,"performance_enclose_ab")?1:2;
-            config->enclosure_revision++;
+            int wanted=!strcmp(key,"performance_enclose_ab")?1:2;
+            if(config->enclosure==wanted&&!config->tap_started){config->enclosure=0;config->tap_mask=0;}
+            else {config->tap_mask=3;config->tap_first=wanted==1?2:1;hb_mo_tap_rebuild(config);}
+
         }
         return 1;
     }
@@ -111,6 +123,11 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     return 0;
 }
 static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int length){
+    if(!strcmp(key,"touch_hold_ms"))return snprintf(buffer,(size_t)length,"%d",g_hb_hold_ms);
+    if(!strcmp(key,"motion_touch_mode"))return snprintf(buffer,(size_t)length,"%s",MO_TOUCH[config->lanes[config->selected].touch_mode]);
+    int gesture_slot=hb_mo_slot_key(key,"motion_gesture_binding_");
+    if(gesture_slot>=0){hb_motion_lane *lane=&config->lanes[gesture_slot];return snprintf(buffer,(size_t)length,"%d,%d,%d,%d,%d,%d",lane->operation,lane->amount,lane->grid,lane->touch_mode,g_hb_hold_ms,(config->gesture_latched>>gesture_slot)&1);}
+
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
@@ -184,6 +201,10 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     return -1;
 }
 static int hb_mo_save(hb_motion_config *config,char *buffer,int length,int used){
+    if(used<0||used>=length)return used;
+    if(g_hb_hold_ms!=250)used+=snprintf(buffer+used,(size_t)(length-used),";gt1,%d",g_hb_hold_ms);
+    for(int index=0;index<HB_MOTION_LANES;index++)if(config->lanes[index].touch_mode!=2&&used>=0&&used<length)
+        used+=snprintf(buffer+used,(size_t)(length-used),";mt1,%d,%d",index,config->lanes[index].touch_mode);
     /* Omit untouched lanes so legacy/default snapshots remain byte-identical. */
     if(config->selected||config->bypass){
         if(used<0||used>=length)return used;
@@ -214,6 +235,10 @@ static int hb_mo_save(hb_motion_config *config,char *buffer,int length,int used)
 }
 static void hb_mo_restore(hb_motion_config *config,const char *state){
     int capabilities=config->host_capabilities;hb_mo_defaults(config);config->host_capabilities=capabilities;
+    const char *gesture_state=strstr(state,";gt1,");int hold_ms;
+    if(!g_hb_hold_restored&&gesture_state&&sscanf(gesture_state,";gt1,%d",&hold_ms)==1&&hold_ms>=150&&hold_ms<=500){g_hb_hold_ms=hold_ms;g_hb_hold_restored=1;}
+    gesture_state=state;
+    while((gesture_state=strstr(gesture_state,";mt1,"))){int lane,mode;if(sscanf(gesture_state,";mt1,%d,%d",&lane,&mode)==2&&lane>=0&&lane<16&&mode>=0&&mode<3)config->lanes[lane].touch_mode=mode;gesture_state+=5;}
     const char *cursor=strstr(state,";mc1,");
     int selected=0,bypass=0;
     if(cursor&&sscanf(cursor,";mc1,%d,%d",&selected,&bypass)==2&&selected>=0&&selected<HB_MOTION_LANES&&bypass>=0&&bypass<=1){config->selected=selected;config->bypass=bypass;}
@@ -228,7 +253,7 @@ static void hb_mo_restore(hb_motion_config *config,const char *state){
             if(end==cursor||value<MO_PARAMETERS[field].low||value>MO_PARAMETERS[field].high){valid=0;break;}
             *hb_mo_field(&restored,field)=(int)value;cursor=end;
         }
-        if(valid&&(*cursor==';'||!*cursor))config->lanes[lane]=restored;
+        if(valid&&(*cursor==';'||!*cursor)){restored.touch_mode=config->lanes[lane].touch_mode;config->lanes[lane]=restored;}
     }
     cursor=state;
     while((cursor=strstr(cursor,";ma1,"))){
