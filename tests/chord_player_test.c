@@ -131,21 +131,64 @@ static void strum(void){
     }
     API.destroy_instance(instance);
 }
-static void latch_with_off(void){
+static void latch_replacement_with_off(void){
     for(int phase=0;phase<3;phase++){
         Inst *instance=fixture();
         API.set_param(instance,"arp_playback","Repeat Arp");
         API.set_param(instance,"travel_map","Direct");
         API.set_param(instance,"arp_hold","Latch with Off");
         instance->player.config.phase=phase;
+        char state[16384];API.get_param(instance,"state",state,sizeof(state));
+        API.set_param(instance,"arp_hold","Momentary");API.set_param(instance,"state",state);
         assert(instance->player.config.latch==2);
+        hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
+        midi(instance,1,60);advance(instance,0,64);
+        midi(instance,1,64);advance(instance,0,64);
+        assert(hb_cp_entries(&instance->player,entries,0)==2);
+        midi(instance,0,60);midi(instance,0,64);advance(instance,0,64);
+        if(phase==1)advance(instance,125,64);
+        assert(instance->player.sounding[0][60]);
+        double next=instance->player.next_beat;
+        midi(instance,1,60);advance(instance,0,64);
+        assert(!instance->player.sounding[0][60]);
+        assert(instance->player.next_beat==next);
+        assert(hb_cp_entries(&instance->player,entries,0)==1&&entries[0].pitch==64);
+        midi(instance,0,60);advance(instance,0,64);
+        // New gesture replaces E, rather than accumulating G beside it.
+        midi(instance,1,67);advance(instance,0,64);
+        assert(hb_cp_entries(&instance->player,entries,0)==1&&entries[0].pitch==67);
+        // Still-held G groups the next input, independent of elapsed time.
+        advance(instance,300,64);midi(instance,1,71);advance(instance,0,64);
+        assert(hb_cp_entries(&instance->player,entries,0)==2);
+        midi(instance,0,67);midi(instance,0,71);advance(instance,0,64);
+        midi(instance,1,71);midi(instance,0,71);advance(instance,0,64);
+        assert(hb_cp_entries(&instance->player,entries,0)==1&&entries[0].pitch==67);
+        midi(instance,1,67);midi(instance,0,67);advance(instance,0,64);
+        assert(!instance->player.sounding_count&&!instance->player.running);
+        assert(hb_cp_entries(&instance->player,entries,0)==0);
+        midi(instance,1,60);midi(instance,1,64);advance(instance,125,64);
+        API.set_param(instance,"arp_clear","Clear");advance(instance,0,64);
+        assert(hb_cp_entries(&instance->player,entries,0)==0);
+        assert(!instance->player.sounding_count);
+        midi(instance,0,60);midi(instance,0,64);assert(advance(instance,500,64)==0);
+        API.destroy_instance(instance);
+    }
+}
+static void latch_acc_with_off(void){
+    for(int phase=0;phase<3;phase++){
+        Inst *instance=fixture();
+        API.set_param(instance,"arp_playback","Repeat Arp");
+        API.set_param(instance,"travel_map","Direct");
+        API.set_param(instance,"arp_hold","Latch Acc. with Off");
+        instance->player.config.phase=phase;
+        assert(instance->player.config.latch==3);
         char state[16384],value[64];
         API.get_param(instance,"state",state,sizeof(state));
         API.set_param(instance,"arp_hold","Momentary");
         API.set_param(instance,"state",state);
-        assert(instance->player.config.latch==2);
+        assert(instance->player.config.latch==3);
         API.get_param(instance,"arp_hold",value,sizeof(value));
-        assert(!strcmp(value,"Latch with Off"));
+        assert(!strcmp(value,"Latch Acc. with Off"));
         midi(instance,1,60);midi(instance,0,60);
         advance(instance,0,64);
         midi(instance,1,64);midi(instance,0,64);
@@ -175,7 +218,7 @@ static void latch_with_off(void){
     /* Two raw keys may own the same transformed tone. Removing either key
        must retain the other owner's sound; channels remain independent. */
     hb_chord_player player={0};hb_cp_defaults(&player.config);
-    player.config.playback=1;player.config.latch=2;player.config.phase=0;
+    player.config.playback=1;player.config.latch=3;player.config.phase=0;
     int pitch=72;
     hb_cp_on(&player,60,0,100,&pitch,1);hb_cp_off(&player,60,0);
     hb_cp_on(&player,64,0,100,&pitch,1);hb_cp_off(&player,64,0);
@@ -736,7 +779,7 @@ static void recorded_master_transpose(void){
 }
 static void held_conductor_chords(void){
     const uint8_t minor[3]={62,65,69};
-    for(int enabled=0;enabled<2;enabled++)for(int latch=0;latch<3;latch++){
+    for(int enabled=0;enabled<2;enabled++)for(int latch=0;latch<4;latch++){
         Inst *instance=fixture();
         API.set_param(instance,"chord_mode","Conductor Chord");API.set_param(instance,"chord_form","Triad");
         instance->player.config.latch=latch;instance->retrigger_held=enabled;
@@ -1188,4 +1231,4 @@ static void pad_harmony_snapshot(void){
     }
 }
 
-int main(void){latch_with_off();pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+int main(void){latch_replacement_with_off();latch_acc_with_off();pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

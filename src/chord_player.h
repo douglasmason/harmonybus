@@ -179,7 +179,7 @@ static int hb_cp_held(const hb_chord_player *player){
 /* Toggle ownership by the original input key, independent of rendered pitch.
    Shared rendered tones remain owned by any other retained input keys. */
 static int hb_cp_toggle_off(hb_chord_player *player,int source,int channel){
-    if(player->config.latch!=2)return 0;
+    if(player->config.latch!=2&&player->config.latch!=3)return 0;
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
         if(key->used&&key->source==source&&key->channel==channel){
@@ -193,7 +193,7 @@ static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,
                     const int *notes,int count){
     if(hb_cp_toggle_off(player,source,channel))return 1;
     if(count<=0)return 1;
-    if(player->config.latch==1&&!hb_cp_held(player)){
+    if((player->config.latch==1||player->config.latch==2)&&!hb_cp_held(player)){
         /* A latched replacement changes the pitch pool, not the running clock.
            Re-arming Auto here can postpone every division under rapid input. */
         if(player->config.playback!=1){

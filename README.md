@@ -1,3 +1,5 @@
+> 0.2.147: Latch with Off now uses normal Latch replacement: new notes replace a released gesture, overlapping held keys join it, and repeating a latched input key removes it individually. Latch Acc. with Off retains accumulation. Clear Arp occupies the former Strum Spread knob; Strum Spread moves to Auto Chord’s free slot. There is no timed grouping window: held-key overlap defines a gesture.
+
 > 0.2.146: Arp Hold adds Latch with Off. New input keys accumulate; pressing a latched key again removes it. Releases keep the remaining pool latched. Toggle identity uses the input key and channel, before harmony mapping or transpose; a chord-producing key toggles its whole generated chord. Existing Latch behavior is unchanged.
 
 > 0.2.145: Next Harm places the linked Follower Buffer control beside Lookahead Anti Buffer, replacing Reset Learn. Both buffer locations edit the same saved setting and display its effective value.
