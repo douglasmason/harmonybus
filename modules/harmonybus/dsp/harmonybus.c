@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.147"
+#define HB_VERSION "0.2.148"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -3381,7 +3381,7 @@ static double hb_chord_grid_beats(void){
 }
 static int hb_arp_phase_limit(int rate){
     double grid=hb_chord_grid_beats();
-    return (int)((grid>0.0?grid:4.0)/hb_cp_division(rate));
+    return (int)((grid>0.0?grid:4.0)/hb_cp_division(rate%9));
 }
 static double hb_quant_grid_beats_for(const Inst *instance){
     static const double beats[8]={0.0,0.25,0.5,1.0,2.0,4.0,8.0,16.0};
@@ -3421,8 +3421,8 @@ static const char *CP_CHORD_QUALITY[]={"Auto","Major","Minor","Dim","Aug","Maj7"
 static const char *CP_CHROMATIC_QUALITY[]={"Scale","Major / Maj7","Major / Dom7","Dim / Dim7"};
 static const char *CP_ARP_PLAYBACK[]={"Together","Repeat Arp","Once"};
 static const char *CP_ARP_HOLD[]={"Momentary","Latch","Latch with Off","Latch Acc. with Off"};
-static const char *CP_ARP_ORDER[]={"Up","Down","Up-Down","Played","Random"};
-static const char *CP_ARP_RATE[]={"1/64","1/32","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};
+static const char *CP_ARP_ORDER[]={"Up","Down","Up-Down","Played","Random","Shuffle"};
+static const char *CP_ARP_RATE[]={"1/64","1/32","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars","Cycle 1/64","Cycle 1/32","Cycle 1/16","Cycle 1/8","Cycle 1/4","Cycle 1/2","Cycle 1 Bar","Cycle 2 Bars","Cycle 4 Bars"};
 static const char *CP_ARP_GATE[]={"25%","50%","75%","90%"};
 static const char CHAIN_PARAMS[]="["
 "{\\\"key\\\":\\\"role\\\",\\\"name\\\":\\\"Role\\\",\\\"type\\\":\\\"enum\\\",\\\"options\\\":[\\\"Conductor\\\",\\\"Follower\\\",\\\"Off\\\"],\\\"options_as_string\\\":true},"
@@ -3539,7 +3539,7 @@ if(!strcmp(key,"arp_hold")){
     return;
 }
 if(!strcmp(key,"arp_order")){
-    int selected=enum_index(parameter,CP_ARP_ORDER,5,instance->player.config.order);
+    int selected=enum_index(parameter,CP_ARP_ORDER,6,instance->player.config.order);
     if(selected!=instance->player.config.order){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.order=selected;}
     return;
 }
@@ -3555,7 +3555,7 @@ if(!strcmp(key,"arp_note_phase")){
     return;
 }
 if(!strcmp(key,"arp_rate")){
-    int selected=enum_index(parameter,CP_ARP_RATE,9,instance->player.config.rate);
+    int selected=enum_index(parameter,CP_ARP_RATE,18,instance->player.config.rate);
     if(selected!=instance->player.config.rate){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.rate=selected;int limit=hb_arp_phase_limit(selected);instance->player.config.note_phase=hb_cp_clamp(instance->player.config.note_phase,-limit,limit);}
     return;
 }
@@ -3867,7 +3867,7 @@ static void hb_restore_state(Inst *instance,const char *state){
         if(parsed_count==10&&parsed_config.mode>=0&&parsed_config.mode<3&&parsed_config.size>=0&&parsed_config.size<12&&
            parsed_config.inversion>=0&&parsed_config.inversion<8&&parsed_config.voicing>=0&&parsed_config.voicing<4&&
            parsed_config.playback>=0&&parsed_config.playback<3&&parsed_config.latch>=0&&parsed_config.latch<4&&
-           parsed_config.order>=0&&parsed_config.order<5&&parsed_config.rate>=0&&parsed_config.rate<9&&
+           parsed_config.order>=0&&parsed_config.order<6&&parsed_config.rate>=0&&parsed_config.rate<18&&
            parsed_config.gate>=0&&parsed_config.gate<4&&parsed_config.spread>=-9&&parsed_config.spread<=1000)config=parsed_config;
     }
     const char *lookahead_suffix=strstr(state,";la1,");

@@ -1,5 +1,6 @@
 /* Production API and scheduler regressions, including emitted render packets. */
 #include <assert.h>
+#include <math.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include "../modules/harmonybus/dsp/harmonybus.c"
@@ -129,6 +130,56 @@ static void strum(void){
         assert(advance(instance,trial?1000:500,64)==3);
         midi(instance,0,60);assert(advance(instance,0,64)==4);
     }
+    API.destroy_instance(instance);
+}
+static void shuffle_cycles(void){
+    for(int phase=0;phase<3;phase++)for(int count=1;count<=12;count++){
+        hb_chord_player player={0};hb_cp_defaults(&player.config);
+        player.config.playback=1;player.config.phase=phase;player.config.order=5;player.config.rate=15;
+        for(int index=0;index<count;index++){int note=60+index;hb_cp_on(&player,note,0,100,&note,1);}
+        player.beat=0;hb_cp_tick(&player,output,lengths,64);
+        unsigned seen=0;int hits=0;
+        if(player.running==1){seen=1u<<(player.arp_note-60);hits=1;}
+        while(hits<count*5){
+            if(hits%count==0)seen=0;
+            player.beat=player.next_beat;hb_cp_tick(&player,output,lengths,64);
+            unsigned bit=1u<<(player.arp_note-60);assert(!(seen&bit));seen|=bit;hits++;
+            if(hits%count==0)assert(seen==((1u<<count)-1u));
+        }
+    }
+    Inst *instance=fixture();API.set_param(instance,"arp_order","Shuffle");
+    char saved[16384];API.get_param(instance,"state",saved,sizeof(saved));
+    API.set_param(instance,"arp_order","Up");API.set_param(instance,"state",saved);
+    assert(instance->player.config.order==5);API.destroy_instance(instance);
+}
+static void cycle_rate(void){
+    for(int order=0;order<6;order++)for(int count=1;count<=5;count++){
+        hb_chord_player player={0};hb_cp_defaults(&player.config);
+        player.config.playback=1;player.config.phase=0;player.config.order=order;
+        player.config.rate=15; /* one bar per cycle */
+        for(int index=0;index<count;index++){
+            int note=60+index;assert(hb_cp_on(&player,note,0,100,&note,1));
+        }
+        int steps=order==2&&count>1?2*count-2:count;
+        for(int step=0;step<=steps;step++){
+            player.beat=4.0*step/steps;
+            int events=hb_cp_tick(&player,output,lengths,64),ons=0;
+            for(int event=0;event<events;event++)if((output[event][0]&0xf0)==0x90)ons++;
+            assert(ons==1);
+            assert(fabs(player.next_beat-(4.0*(step+1)/steps))<1e-8);
+        }
+        // Ordinary 1 Bar is still one step per bar, regardless of pool size.
+        hb_cp_clear(&player);hb_cp_tick(&player,output,lengths,64);
+        player.config.rate=6;player.beat=0;
+        for(int index=0;index<count;index++){int note=60+index;hb_cp_on(&player,note,0,100,&note,1);}
+        hb_cp_tick(&player,output,lengths,64);assert(player.next_beat==4.0);
+    }
+    Inst *instance=fixture();API.set_param(instance,"arp_rate","Cycle 1 Bar");
+    assert(instance->player.config.rate==15);
+    char saved[16384],value[64];API.get_param(instance,"state",saved,sizeof(saved));
+    API.set_param(instance,"arp_rate","1/16");API.set_param(instance,"state",saved);
+    assert(instance->player.config.rate==15);
+    API.get_param(instance,"arp_rate",value,sizeof(value));assert(!strcmp(value,"Cycle 1 Bar"));
     API.destroy_instance(instance);
 }
 static void latch_replacement_with_off(void){
@@ -1231,4 +1282,4 @@ static void pad_harmony_snapshot(void){
     }
 }
 
-int main(void){latch_replacement_with_off();latch_acc_with_off();pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+int main(void){shuffle_cycles();cycle_rate();latch_replacement_with_off();latch_acc_with_off();pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

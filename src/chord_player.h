@@ -23,7 +23,9 @@ typedef struct {
     uint8_t sounding[16][128], retrigger[16][128];
     int sounding_channels[16];
     int sounding_count, flushing, render_channel, step, running, arp_note, arp_channel, arp_velocity;
-    unsigned random, sequence;
+    unsigned random, sequence, shuffle_signature;
+    int shuffle_count, shuffle_position;
+    int shuffle_order[HB_CP_KEYS*HB_CP_VOICES*4];
     double seconds, beat, next_beat, gate_beat;
 } hb_chord_player;
 static int hb_cp_mod(int value){value%=12;return value<0?value+12:value;}
@@ -171,6 +173,7 @@ static void hb_cp_clear(hb_chord_player *player){
     memset(player->keys,0,sizeof(player->keys));
     memset(player->retrigger,0,sizeof(player->retrigger));
     player->running=0;player->flushing=1;player->step=0;
+    player->shuffle_count=player->shuffle_position=0;
 }
 static int hb_cp_held(const hb_chord_player *player){
     int count=0;for(int key=0;key<HB_CP_KEYS;key++)count+=player->keys[key].used&&player->keys[key].held;
@@ -295,7 +298,9 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
     hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
     if(player->config.playback==1){
         int count=hb_cp_entries(player,entries,0);
-        double rate=hb_cp_division(player->config.rate);
+        int cycle=player->config.order==2&&count>1?2*count-2:count;
+        double rate=hb_cp_division(player->config.rate%9);
+        if(player->config.rate>=9&&cycle>0)rate/=cycle;
         if(!count)player->running=0;
         if(count&&!player->running&&player->config.phase==1){
             player->step=0;
@@ -316,7 +321,6 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
         if(count&&(!player->running||player->beat+1e-9>=player->next_beat)){
             int first=!player->running;
             if(first)player->step=-player->config.note_phase;
-            int cycle=player->config.order==2&&count>1?2*count-2:count;
             /* Preserve the first-hit anchor in Free, including late callbacks.
                Other modes use transport grid after their opening note. */
             double onset=first?player->beat:player->next_beat;
@@ -327,6 +331,20 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
             int ordinal=player->step%cycle;if(ordinal<0)ordinal+=cycle;
             if(ordinal>=count)ordinal=cycle-ordinal;
             if(player->config.order==4&&player->running!=2){player->random=player->random*1664525u+1013904223u;ordinal=(int)(player->random%(unsigned)count);}
+            if(player->config.order==5){
+                unsigned signature=2166136261u;
+                for(int index=0;index<count;index++)signature=(signature^(unsigned)(entries[index].pitch+128*entries[index].channel))*16777619u;
+                if(player->shuffle_count!=count||player->shuffle_signature!=signature||player->shuffle_position>=count){
+                    player->shuffle_count=count;player->shuffle_position=0;player->shuffle_signature=signature;
+                    for(int index=0;index<count;index++)player->shuffle_order[index]=index;
+                    for(int index=count-1;index>0;index--){
+                        player->random=player->random*1664525u+1013904223u;
+                        int other=(int)(player->random%(unsigned)(index+1));
+                        int saved=player->shuffle_order[index];player->shuffle_order[index]=player->shuffle_order[other];player->shuffle_order[other]=saved;
+                    }
+                }
+                ordinal=player->shuffle_order[player->shuffle_position++];
+            }
             hb_cp_entry entry=entries[ordinal];
             if(player->sounding[entry.channel][entry.pitch])player->retrigger[entry.channel][entry.pitch]=1;
             player->arp_note=entry.pitch;player->arp_channel=entry.channel;
