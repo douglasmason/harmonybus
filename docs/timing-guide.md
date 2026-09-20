@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.143 / Movy 0.34.1-hbclean.54.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.144 / Movy 0.34.1-hbclean.54.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -340,6 +340,11 @@ Next Harm now includes **Lookahead Anti Buffer**, independently adjustable from
 Lookahead and Follower Buffer. Positive lookahead starts later by this amount
 (default 25 ms), clamped to the actual harmony boundary. A nonzero anti-buffer
 also prevents harmonic pre-capture from selecting that harmony before the new
-start; Quant Grid capture remains independent. Negative lookahead is unchanged.
+start. As of 0.2.144, enabled nonzero lookahead with a nonzero anti-buffer also
+forces the effective **Follower Buffer to 0 ms**, including during learning.
+This disables early capture for both harmony and Quant Grid. The displayed
+buffer is 0 ms; its configured value is preserved in saved state and returns
+when lookahead is off or the anti-buffer is zero. This buffer override also
+applies to negative lookahead; the negative harmony offset itself is unchanged.
 The earlier timing diagrams describe the **0 ms** compatibility setting. See
 [follower paths and timing](follower-paths.md) for examples and diagnostics.

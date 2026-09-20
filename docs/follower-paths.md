@@ -101,3 +101,8 @@ before master transpose; Selected is the effective harmony chosen by lookahead
 before transpose; Rendered includes master transpose. A latched harmony can remain
 when Notes is empty. Notes shows up to four unique pitch classes, then + for more.
 Movy hbclean.54 refreshes all four cells together at up to 25 Hz.
+
+With enabled nonzero lookahead and a nonzero anti-buffer, Follower Buffer
+automatically uses and displays **0 ms** (including during learning). Its saved
+value returns when either setting is off/zero. This applies to both harmonic
+and Quant Grid capture, and to positive and negative lookahead.

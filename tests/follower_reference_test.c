@@ -160,6 +160,42 @@ static void harmony_flow(void){
     assert(!strcmp(snapshot,"hp1|--|--|--|--"));
     API.destroy_instance(instance);
 }
+static void lookahead_disables_follower_buffer(void){
+    Inst *instance=fixture();
+    tempo=120;position=0.9;
+    instance->quant_timing=3; /* quarter-note grid */
+    g_bus.boundary_buffer_ms=100;
+    g_bus.next_predict=1;g_bus.next_lookahead=14;
+    const int guards[]={25,-3};
+    for(int index=0;index<2;index++){
+        g_bus.next_anti_buffer_ms=guards[index];
+        for(int locked=0;locked<2;locked++){
+            g_bus.next_model_locked=locked;
+            assert(hb_effective_follower_buffer()==0);
+            assert(hb_follower_capture_beats()==0.0);
+            char value[64];API.get_param(instance,"boundary_buffer_ms",value,sizeof(value));
+            assert(!strcmp(value,"0 ms"));
+            instance->follower_queue_count=0;
+            assert(hb_queue_follower_event(instance,67,100,1,0));
+            assert(instance->follower_queue_target_beat[0]<0.0);
+            assert(g_bus.boundary_buffer_ms==100);
+        }
+    }
+    g_bus.next_anti_buffer_ms=0;
+    assert(hb_effective_follower_buffer()==100);
+    instance->follower_queue_count=0;
+    assert(hb_queue_follower_event(instance,67,100,1,0));
+    assert(instance->follower_queue_target_beat[0]>position);
+    g_bus.next_anti_buffer_ms=25;g_bus.next_lookahead=0;
+    assert(hb_effective_follower_buffer()==100);
+    g_bus.next_lookahead=14;g_bus.next_predict=0;
+    assert(hb_effective_follower_buffer()==100);
+    g_bus.boundary_buffer_ms=-3;
+    assert(hb_follower_capture_beats()>0.0);
+    char value[64];API.get_param(instance,"boundary_buffer_ms",value,sizeof(value));
+    assert(!strcmp(value,"1/16"));
+    API.destroy_instance(instance);
+}
 static void anti_buffer(void){
     Inst *instance=fixture();
     g_bus.clip_loop_end=8;g_bus.next_model_locked=1;g_bus.next_model_count=2;
@@ -295,4 +331,4 @@ static void direct_follower_input_owns_its_display(void){
     g_monitor=0;API.destroy_instance(instance);
 }
 
-int main(void){direct_follower_input_owns_its_display();unchanged_pitch_updates_output_role();harmony_flow();coherent_display_and_none();transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}
+int main(void){lookahead_disables_follower_buffer();direct_follower_input_owns_its_display();unchanged_pitch_updates_output_role();harmony_flow();coherent_display_and_none();transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}

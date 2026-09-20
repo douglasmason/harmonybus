@@ -1,3 +1,5 @@
+> 0.2.144: enabled lookahead with a nonzero anti-buffer automatically uses and displays Follower Buffer = 0 ms. The saved buffer returns when lookahead is off or the anti-buffer is zero. Applies during learning too.
+
 > 0.2.143: direct follower MIDI owns its held-note display once input begins; auxiliary monitor snapshots cannot add silent notes or resurrect releases. Held notes refresh output-role context when the harmony changes without changing pitch. Pair with Movy hbclean.56. The reported pad G/A-sharp behavior remains unconfirmed on hardware.
 
 > 0.2.142: Harmony Flow presents conductor notes, detected harmony, lookahead-selected harmony and transposed rendered harmony as one row. Pair with Movy hbclean.54 for simultaneous updates.
