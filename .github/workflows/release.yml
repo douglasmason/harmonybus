@@ -211,7 +211,8 @@ jobs:
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
           assert next_panel['knobs'][0]=='next_lookahead'
-          assert next_panel['knobs'][-1]=='next_reset'
+          assert next_panel['knobs'][1:3]==['next_anti_buffer_ms','boundary_buffer_ms']
+          assert 'next_reset' not in next_panel['knobs']
           global_panel=module['capabilities']['ui_hierarchy']['levels']['global_transpose']
           assert global_panel['knobs'][0]=='master_transpose'
           assert global_panel['knobs'][1]=='transpose'
