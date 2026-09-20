@@ -139,6 +139,27 @@ static void coherent_display_and_none(void){
     }
     API.destroy_instance(instance);
 }
+static void harmony_flow(void){
+    Inst *instance=fixture();
+    g_bus.global_transpose=2;
+    g_bus.observed_harmony=hb_transpose_harmony(chord(0,0,0),2);
+    hb_effective_write(hb_transpose_harmony(chord(9,1,0),2));
+    char snapshot[256],expected[256],detected[48],selected[48],rendered[48];
+    hb_format_harmony(detected,48,chord(0,0,0));
+    hb_format_harmony(selected,48,chord(9,1,0));
+    hb_format_harmony(rendered,48,hb_transpose_harmony(chord(9,1,0),2));
+    snprintf(expected,sizeof(expected),"hp1|--|%s|%s|%s",detected,selected,rendered);
+    API.get_param(instance,"harmony_snapshot",snapshot,sizeof(snapshot));
+    assert(!strcmp(snapshot,expected));
+    API.get_param(instance,"hpath_0",snapshot,sizeof(snapshot));
+    hb_effective_write(chord(7,0,1));
+    API.get_param(instance,"hpath_3",snapshot,sizeof(snapshot));
+    assert(!strcmp(snapshot,rendered)); /* one stock-host sweep retains its frame */
+    g_bus.observed_harmony=(hb_harmony_t){0};hb_effective_write((hb_harmony_t){0});
+    API.get_param(instance,"harmony_snapshot",snapshot,sizeof(snapshot));
+    assert(!strcmp(snapshot,"hp1|--|--|--|--"));
+    API.destroy_instance(instance);
+}
 static void anti_buffer(void){
     Inst *instance=fixture();
     g_bus.clip_loop_end=8;g_bus.next_model_locked=1;g_bus.next_model_count=2;
@@ -216,4 +237,4 @@ static void follower_rows(void){
     API.get_param(second,"fpath_0_0_3",display,sizeof(display));assert(!strcmp(display,"--"));
     API.destroy_instance(first);API.destroy_instance(second);
 }
-int main(void){coherent_display_and_none();transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}
+int main(void){harmony_flow();coherent_display_and_none();transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}

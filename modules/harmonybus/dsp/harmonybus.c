@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.141"
+#define HB_VERSION "0.2.142"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -187,6 +187,7 @@ hb_harmony_t follower_path_harmony[128];
 int split_cache_valid,split_cache_nominal[7],split_cache_output[7];
 unsigned split_cache_allowed[7];
 char follower_display[8][24]; int follower_display_valid;
+char harmony_display[4][48]; int harmony_display_valid;
 uint8_t follower_origin[128], follower_queue_origin[64]; int dominant_scale; int used,role,mode,content_map,travel_map,follower_scale,follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_quant_beat[64]; double follower_queue_harmony_beat[64]; hb_harmony_t render_harmony; int render_harmony_active; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],recorded_source_pitch[16][128],passthrough_held[128]; } Inst;
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
 static void hb_motion_output(Inst *instance,hb_motion_route *route,const uint8_t message[3]);
@@ -3908,6 +3909,25 @@ static int hb_follower_path(Inst *instance,const char *key,char *buffer,int leng
         hb_note_name_with_octave(pitches[0],harmony,name,sizeof(name));
     return count>1?snprintf(buffer,(size_t)length,"%s+%d",display,count-1):snprintf(buffer,(size_t)length,"%s",display);
 }
+static void hb_capture_harmony_display(Inst *instance){
+    hb_harmony_t rendered=bus_read();
+    hb_harmony_t detected=hb_transpose_harmony(g_bus.observed_harmony,-g_bus.global_transpose);
+    hb_harmony_t selected=hb_transpose_harmony(rendered,-g_bus.global_transpose);
+    unsigned seen=0;int count=0,used=0;
+    uint8_t notes[64];int note_count=hb_observed_notes(0,notes,64);
+    for(int ordinal=0;ordinal<note_count;ordinal++){
+        int note=notes[ordinal];
+        int pc=mod12(note);if(seen&(1u<<pc))continue;seen|=1u<<pc;
+        if(count==4){snprintf(instance->harmony_display[0]+used,48-used," +");break;}
+        used+=snprintf(instance->harmony_display[0]+used,48-used,"%s%s",count?" ":"",hb_pc_display(pc,detected));
+        count++;
+    }
+    if(!count)snprintf(instance->harmony_display[0],48,"--");
+    hb_format_harmony(instance->harmony_display[1],48,detected);
+    hb_format_harmony(instance->harmony_display[2],48,selected);
+    hb_format_harmony(instance->harmony_display[3],48,rendered);
+    instance->harmony_display_valid=1;
+}
 static void hb_capture_follower_display(Inst *instance){
     for(int index=0;index<8;index++){
         char key[24];snprintf(key,sizeof(key),"fpath_0_%d_%d",index/4,index%4);
@@ -3916,6 +3936,18 @@ static void hb_capture_follower_display(Inst *instance){
     instance->follower_display_valid=1;
 }
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();
+if(!strcmp(key,"harmony_snapshot")){
+    hb_capture_harmony_display(instance);
+    return snprintf(buffer,(size_t)length,"hp1|%s|%s|%s|%s",instance->harmony_display[0],
+        instance->harmony_display[1],instance->harmony_display[2],instance->harmony_display[3]);
+}
+if(!strncmp(key,"hpath_",6)){
+    int field=-1;
+    if(sscanf(key,"hpath_%d",&field)==1&&field>=0&&field<4){
+        if(field==0||!instance->harmony_display_valid)hb_capture_harmony_display(instance);
+        return snprintf(buffer,(size_t)length,"%s",instance->harmony_display[field]);
+    }
+}
 if(!strcmp(key,"follower_snapshot")){
     hb_capture_follower_display(instance);
     return snprintf(buffer,(size_t)length,"fp1|%s|%s|%s|%s|%s|%s|%s|%s",

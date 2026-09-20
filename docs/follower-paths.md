@@ -1,4 +1,4 @@
-# Follower note paths (0.2.141)
+# Follower note paths (0.2.142)
 
 Input roles are relative to the follower root. With Explicit C, G is always
 fifth. Neither current harmony, lookahead nor master transpose changes that
@@ -6,7 +6,7 @@ input reference. An explicit follower scale refines ambiguous chromatic degrees
 (e.g. F-sharp is #4 in C Lydian and b5 in C Locrian). Infer uses stable input
 interval buckets; inference still chooses the output parent scale.
 
-New instances and Movy hbclean.53 fresh follower tracks use **Scale** content.
+New instances and Movy hbclean.54 fresh follower tracks use **Scale** content.
 Saved sets retain their chosen content.
 
 ## Travel
@@ -28,7 +28,7 @@ octaves to preserve that role instead of clamping to an unrelated pitch class.
 ## Note-path pages
 
 **Foll Notes** have two rows per page. The global follower pages and
-per-track conductor page were removed in 0.2.141; **Cond All** remains:
+per-track conductor page were removed in 0.2.142; **Cond All** remains:
 
 | Raw Note | Input Role | Output Role | Rendered |
 |---|---|---|---|
@@ -81,7 +81,7 @@ remains the final page.
 ## Display consistency and responsiveness
 
 Foll Notes shows the first two simultaneous input notes. Its eight fields are
-captured together. Movy hbclean.53 reads the complete snapshot at up to 25 Hz
+captured together. Movy hbclean.54 reads the complete snapshot at up to 25 Hz
 and updates all cells together; older hosts retain their normal polling speed,
 but sibling fields share the snapshot captured by the first cell.
 
@@ -92,3 +92,12 @@ change those inputs recompute the assignment. None bypasses harmonic travel
 (as Direct does), while master transpose and independent modifiers still apply.
 Pre Root and Post Root show the effective harmony root before and after master
 transpose; they are not follower input-reference roots.
+
+## Harmony Flow
+
+One row mirrors the follower note paths: Conductor Notes → Detected Harmony →
+Selected Harmony → Rendered Harmony. Detected is the committed observed harmony
+before master transpose; Selected is the effective harmony chosen by lookahead
+before transpose; Rendered includes master transpose. A latched harmony can remain
+when Notes is empty. Notes shows up to four unique pitch classes, then + for more.
+Movy hbclean.54 refreshes all four cells together at up to 25 Hz.
