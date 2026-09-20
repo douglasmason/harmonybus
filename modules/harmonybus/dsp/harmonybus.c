@@ -1784,9 +1784,11 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
     /* Solve jointly only to avoid exact MIDI-note collisions. Proximity is
        primary; pitch-class repetition and local inversions are allowed so
        Closest Split remains musically distinct from Relative. */
-    if(instance->split_cache_valid&&
-       !memcmp(instance->split_cache_nominal,nominal_by_degree,sizeof(nominal_by_degree))&&
-       !memcmp(instance->split_cache_allowed,allowed_by_degree,sizeof(allowed_by_degree))){
+    int cache_matches=instance->split_cache_valid;
+    for(int degree=0;degree<HB_CLOSEST_SPLIT_DEGREES&&cache_matches;degree++)
+        if(instance->split_cache_nominal[degree]!=nominal_by_degree[degree]||
+           instance->split_cache_allowed[degree]!=allowed_by_degree[degree])cache_matches=0;
+    if(cache_matches){
         memcpy(output_by_degree,instance->split_cache_output,sizeof(output_by_degree));
     }else{
         if(!hb_build_closest_split_assignment(nominal_by_degree,allowed_by_degree,output_by_degree))
