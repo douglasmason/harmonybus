@@ -1282,4 +1282,30 @@ static void pad_harmony_snapshot(void){
     }
 }
 
-int main(void){shuffle_cycles();cycle_rate();latch_replacement_with_off();latch_acc_with_off();pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void input_latch_controls(void){
+    for(int mode=4;mode<=5;mode++){
+        hb_chord_player player={0};hb_cp_defaults(&player.config);player.config.latch=mode;
+        int tone=72;hb_cp_on(&player,60,0,100,&tone,1);
+        tone=77;hb_cp_on(&player,64,0,100,&tone,1);
+        assert(hb_cp_held(&player)==1);
+        for(int key=0;key<HB_CP_KEYS;key++)if(player.keys[key].used)assert(player.keys[key].source==64);
+        if(mode==5){assert(hb_cp_toggle_off(&player,77,0)==0);assert(hb_cp_toggle_off(&player,64,1)==0);assert(hb_cp_toggle_off(&player,64,0)==1);}
+    }
+    Inst *instance=fixture();API.set_param(instance,"boundary_buffer_ms","0 ms");
+    API.set_param(instance,"arp_playback","Repeat Arp");API.set_param(instance,"arp_hold","Latch Acc. with Off");
+    API.set_param(instance,"arp_clear_harmony","On");
+    midi(instance,1,60);advance(instance,0,64);midi(instance,0,60);advance(instance,0,64);
+    midi(instance,1,64);advance(instance,0,64);
+    char buffer[4096];API.get_param(instance,"pad_view",buffer,sizeof(buffer));assert(strstr(buffer,"|arp1,1,60,64"));
+    /* Repeat commits and transpose preserve ownership. */
+    hb_commit_observed_harmony(g_bus.observed_harmony);assert(instance->player.keys[0].used);
+    API.set_param(instance,"transpose","2");assert(instance->player.keys[0].used);
+    const uint8_t minor[]={62,65,69};hb_commit_observed_harmony(hb_infer_harmony(minor,3));
+    API.get_param(instance,"pad_view",buffer,sizeof(buffer));assert(strstr(buffer,"|arp1,1,64")&&!strstr(buffer,",60"));
+    assert(hb_cp_held(&instance->player)==1);
+    API.set_param(instance,"arp_hold","Latch with Off - Single");
+    API.get_param(instance,"state",buffer,sizeof(buffer));API.set_param(instance,"arp_hold","Momentary");API.set_param(instance,"state",buffer);
+    assert(instance->player.config.latch==5&&instance->player.config.clear_harmony==1);
+    API.destroy_instance(instance);
+}
+int main(void){input_latch_controls();shuffle_cycles();cycle_rate();latch_replacement_with_off();latch_acc_with_off();pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}

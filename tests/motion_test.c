@@ -544,7 +544,7 @@ static void source_gesture_consumption(void){
     /* Generated voices and time-separated arp steps all belong to one press. */
     instance=motion_fixture();
     API.set_param(instance,"chord_mode","Conductor Chord");
-    API.set_param(instance,"arp_playback","Repeat");
+    API.set_param(instance,"arp_playback","Repeat Arp");
     API.set_param(instance,"arp_start","Immediate");
     gesture_tap(instance,"performance_gesture_above",80);
     gesture_tap(instance,"performance_gesture_below",80);

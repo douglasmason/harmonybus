@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.150"
+#define HB_VERSION "0.2.151"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1044,6 +1044,17 @@ static void hb_next_begin_relearning(void){
 static void hb_commit_observed_harmony(hb_harmony_t harmony){
     /* Unknown pitches and gaps cannot replace the last established harmony. */
     if(!hb_next_is_harmony(harmony))return;
+    /* Observed commits alone clear released owners; prediction and master
+       transpose never enter this path as a new chord change. */
+    if(hb_next_is_harmony(g_bus.observed_harmony)&&
+       (g_bus.observed_harmony.root_pc!=harmony.root_pc||hb_harmony_chord_mask(g_bus.observed_harmony)!=hb_harmony_chord_mask(harmony))){
+        for(int owner=0;owner<HB_MAX_INSTANCES;owner++)if(g_pool[owner].used){
+            hb_chord_player *player=&g_pool[owner].player;
+            if(!player->config.clear_harmony||!player->config.latch)continue;
+            for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&!player->keys[key].held)
+                memset(&player->keys[key],0,sizeof(player->keys[key]));
+        }
+    }
     g_bus.observed_harmony=harmony;
     if(!next_pending_active||!hb_harmony_equal_effective(next_pending,harmony)){
         next_pending=harmony;
@@ -3440,7 +3451,7 @@ static const char *CP_ARP_PHASE[]={"Free","Auto","1st Note Free"};
 static const char *CP_CHORD_QUALITY[]={"Auto","Major","Minor","Dim","Aug","Maj7","Dom7","Min7","Half Dim7","Dim7"};
 static const char *CP_CHROMATIC_QUALITY[]={"Scale","Major / Maj7","Major / Dom7","Dim / Dim7"};
 static const char *CP_ARP_PLAYBACK[]={"Together","Repeat Arp","Once"};
-static const char *CP_ARP_HOLD[]={"Momentary","Latch","Latch with Off","Latch Acc. with Off"};
+static const char *CP_ARP_HOLD[]={"Momentary","Latch - Overlap","Latch with Off - Overlap","Latch Acc. with Off","Latch - Single","Latch with Off - Single"};
 static const char *CP_ARP_ORDER[]={"Up","Down","Up-Down","Played","Random","Shuffle"};
 static const char *CP_ARP_RATE[]={"1/64","1/32","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars","Cycle 1/64","Cycle 1/32","Cycle 1/16","Cycle 1/8","Cycle 1/4","Cycle 1/2","Cycle 1 Bar","Cycle 2 Bars","Cycle 4 Bars"};
 static const char *CP_ARP_GATE[]={"25%","50%","75%","90%"};
@@ -3469,7 +3480,18 @@ static void hb_set_master_transpose(int semitones){
         uint8_t pending[128];memcpy(pending,voice->role_flush_pending,sizeof(pending));
         hb_prepare_role_change_flush(voice);
         for(int pitch=0;pitch<128;pitch++)voice->role_flush_pending[pitch]|=pending[pitch];
+        hb_cp_key retained[HB_CP_KEYS];
+        int keep=voice->player.config.latch&&hb_cp_enabled(&voice->player);
+        if(keep)memcpy(retained,voice->player.keys,sizeof(retained));
         hb_clear_instance_note_state(voice);
+        if(keep){
+            memcpy(voice->player.keys,retained,sizeof(retained));
+            for(int owner=0;owner<HB_CP_KEYS;owner++){
+                hb_cp_key *key=&voice->player.keys[owner];if(!key->used)continue;
+                key->fresh=1;key->started=0;
+                for(int note=0;note<key->count;note++)key->notes[note]=hb_cp_clamp(key->notes[note]+delta,0,127);
+            }
+        }
         voice->candidate_harmony=hb_transpose_harmony(voice->candidate_harmony,delta);
     }
     g_bus.global_transpose=semitones;
@@ -3553,8 +3575,9 @@ if(!strcmp(key,"arp_playback")){
     if(selected!=instance->player.config.playback){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.playback=selected;}
     return;
 }
+if(!strcmp(key,"arp_clear_harmony")){instance->player.config.clear_harmony=!strcmp(parameter,"On")||!strcmp(parameter,"1");return;}
 if(!strcmp(key,"arp_hold")){
-    int selected=enum_index(parameter,CP_ARP_HOLD,4,instance->player.config.latch);
+    int selected=!strcmp(parameter,"Latch")?1:!strcmp(parameter,"Latch with Off")?2:enum_index(parameter,CP_ARP_HOLD,6,instance->player.config.latch);
     if(selected!=instance->player.config.latch){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.latch=selected;}
     return;
 }
@@ -3886,7 +3909,7 @@ static void hb_restore_state(Inst *instance,const char *state){
         int parsed_count=sscanf(suffix,";cp1,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",&parsed_config.mode,&parsed_config.size,&parsed_config.inversion,&parsed_config.voicing,&parsed_config.playback,&parsed_config.latch,&parsed_config.order,&parsed_config.rate,&parsed_config.gate,&parsed_config.spread);
         if(parsed_count==10&&parsed_config.mode>=0&&parsed_config.mode<3&&parsed_config.size>=0&&parsed_config.size<12&&
            parsed_config.inversion>=0&&parsed_config.inversion<8&&parsed_config.voicing>=0&&parsed_config.voicing<4&&
-           parsed_config.playback>=0&&parsed_config.playback<3&&parsed_config.latch>=0&&parsed_config.latch<4&&
+           parsed_config.playback>=0&&parsed_config.playback<3&&parsed_config.latch>=0&&parsed_config.latch<6&&
            parsed_config.order>=0&&parsed_config.order<6&&parsed_config.rate>=0&&parsed_config.rate<18&&
            parsed_config.gate>=0&&parsed_config.gate<4&&parsed_config.spread>=-9&&parsed_config.spread<=1000)config=parsed_config;
     }
@@ -3897,6 +3920,9 @@ static void hb_restore_state(Inst *instance,const char *state){
         g_bus.next_lookahead=lookahead;g_bus.next_anti_buffer_ms=anti_buffer;g_lookahead_restored=1;
         hb_next_apply_effective(hb_clip_playhead());
     }
+    const char *clear_suffix=strstr(state,";ac1,");
+    config.clear_harmony=clear_suffix&&clear_suffix[5]=='1';
+    instance->player.config.clear_harmony=config.clear_harmony;
     const char *phase_suffix=strstr(state,";ph1,");
     int phase=0;
     if(phase_suffix&&sscanf(phase_suffix,";ph1,%d",&phase)==1&&phase>=0&&phase<3)config.phase=phase;
@@ -4044,7 +4070,24 @@ if(!strcmp(key,"state")){
     if(used<0||used>=length)return used;
     if(g_bus.next_lookahead||g_bus.next_anti_buffer_ms!=25)
         used+=snprintf(buffer+used,(size_t)(length-used),";la1,%d,%d",g_bus.next_lookahead,g_bus.next_anti_buffer_ms);
+    if(used<0||used>=length)return used;
+    if(instance->player.config.clear_harmony)used+=snprintf(buffer+used,(size_t)(length-used),";ac1,1");
     return hb_mo_save(&instance->motion,buffer,length,used);
+}
+if(!strcmp(key,"pad_view")){
+    int used=get_param(value,"pad_render",buffer,length);
+    if(used<0||used>=length)return used;
+    int active=hb_cp_enabled(&instance->player);
+    used+=snprintf(buffer+used,(size_t)(length-used),"|arp1,%d",active);
+    uint8_t seen[128]={0};
+    if(active)for(int index=0;index<HB_CP_KEYS;index++){
+        const hb_cp_key *key=&instance->player.keys[index];
+        if(!key->used||seen[key->source])continue;
+        seen[key->source]=1;
+        if(used<0||used>=length)return used;
+        used+=snprintf(buffer+used,(size_t)(length-used),",%d",key->source);
+    }
+    return used;
 }
 if(!strcmp(key,"pad_render")&&!g_pad_settings[0])return snprintf(buffer,(size_t)length,"0,0,0,0,0,%d,%d,%d,%d,%d",g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4]);
 
@@ -4143,6 +4186,7 @@ if(!strcmp(key,"chord_form"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD
 if(!strcmp(key,"chord_inversion"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_INVERSION[instance->player.config.inversion]);
 if(!strcmp(key,"chord_voicing"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_VOICING[instance->player.config.voicing]);
 if(!strcmp(key,"arp_playback"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_PLAYBACK[instance->player.config.playback]);
+if(!strcmp(key,"arp_clear_harmony"))return snprintf(buffer,(size_t)length,"%s",instance->player.config.clear_harmony?"On":"Off");
 if(!strcmp(key,"arp_hold"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_HOLD[instance->player.config.latch]);
 if(!strcmp(key,"arp_order"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_ORDER[instance->player.config.order]);
 if(!strcmp(key,"arp_phase_range")){int limit=hb_arp_phase_limit(instance->player.config.rate);return snprintf(buffer,(size_t)length,"-%d to +%d",limit,limit);}
