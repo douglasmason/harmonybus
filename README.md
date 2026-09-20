@@ -1,3 +1,5 @@
+> 0.2.146: Arp Hold adds Latch with Off. New input keys accumulate; pressing a latched key again removes it. Releases keep the remaining pool latched. Toggle identity uses the input key and channel, before harmony mapping or transpose; a chord-producing key toggles its whole generated chord. Existing Latch behavior is unchanged.
+
 > 0.2.145: Next Harm places the linked Follower Buffer control beside Lookahead Anti Buffer, replacing Reset Learn. Both buffer locations edit the same saved setting and display its effective value.
 
 > 0.2.144: enabled lookahead with a nonzero anti-buffer automatically uses and displays Follower Buffer = 0 ms. The saved buffer returns when lookahead is off or the anti-buffer is zero. Applies during learning too.

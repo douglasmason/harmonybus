@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.145"
+#define HB_VERSION "0.2.146"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1915,6 +1915,7 @@ static void hb_prepare_conductors(int frames,int sample_rate);
    been established yet; subsequent gestures can voice the recognized chord. */
 static void hb_player_note_on(Inst *instance,int source_note,int channel,int velocity){
     hb_chord_player *player=&instance->player;
+    if(hb_cp_toggle_off(player,source_note,channel))return;
     hb_harmony_t harmony=hb_render_harmony(instance);
     instance->follower_path_harmony[source_note]=harmony;
     hb_harmony_t untransposed=hb_transpose_harmony(harmony,-g_bus.global_transpose);
@@ -3419,7 +3420,7 @@ static const char *CP_ARP_PHASE[]={"Free","Auto","1st Note Free"};
 static const char *CP_CHORD_QUALITY[]={"Auto","Major","Minor","Dim","Aug","Maj7","Dom7","Min7","Half Dim7","Dim7"};
 static const char *CP_CHROMATIC_QUALITY[]={"Scale","Major / Maj7","Major / Dom7","Dim / Dim7"};
 static const char *CP_ARP_PLAYBACK[]={"Together","Repeat Arp","Once"};
-static const char *CP_ARP_HOLD[]={"Momentary","Latch"};
+static const char *CP_ARP_HOLD[]={"Momentary","Latch","Latch with Off"};
 static const char *CP_ARP_ORDER[]={"Up","Down","Up-Down","Played","Random"};
 static const char *CP_ARP_RATE[]={"1/64","1/32","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};
 static const char *CP_ARP_GATE[]={"25%","50%","75%","90%"};
@@ -3533,7 +3534,7 @@ if(!strcmp(key,"arp_playback")){
     return;
 }
 if(!strcmp(key,"arp_hold")){
-    int selected=enum_index(parameter,CP_ARP_HOLD,2,instance->player.config.latch);
+    int selected=enum_index(parameter,CP_ARP_HOLD,3,instance->player.config.latch);
     if(selected!=instance->player.config.latch){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.latch=selected;}
     return;
 }
@@ -3865,7 +3866,7 @@ static void hb_restore_state(Inst *instance,const char *state){
         int parsed_count=sscanf(suffix,";cp1,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",&parsed_config.mode,&parsed_config.size,&parsed_config.inversion,&parsed_config.voicing,&parsed_config.playback,&parsed_config.latch,&parsed_config.order,&parsed_config.rate,&parsed_config.gate,&parsed_config.spread);
         if(parsed_count==10&&parsed_config.mode>=0&&parsed_config.mode<3&&parsed_config.size>=0&&parsed_config.size<12&&
            parsed_config.inversion>=0&&parsed_config.inversion<8&&parsed_config.voicing>=0&&parsed_config.voicing<4&&
-           parsed_config.playback>=0&&parsed_config.playback<3&&parsed_config.latch>=0&&parsed_config.latch<2&&
+           parsed_config.playback>=0&&parsed_config.playback<3&&parsed_config.latch>=0&&parsed_config.latch<3&&
            parsed_config.order>=0&&parsed_config.order<5&&parsed_config.rate>=0&&parsed_config.rate<9&&
            parsed_config.gate>=0&&parsed_config.gate<4&&parsed_config.spread>=-9&&parsed_config.spread<=1000)config=parsed_config;
     }
