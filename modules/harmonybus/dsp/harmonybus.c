@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.142"
+#define HB_VERSION "0.2.143"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -187,6 +187,7 @@ hb_harmony_t follower_path_harmony[128];
 int split_cache_valid,split_cache_nominal[7],split_cache_output[7];
 unsigned split_cache_allowed[7];
 char follower_display[8][24]; int follower_display_valid;
+int follower_input_seen; /* Direct MIDI takes ownership from monitor fallback. */
 char harmony_display[4][48]; int harmony_display_valid;
 uint8_t follower_origin[128], follower_queue_origin[64]; int dominant_scale; int used,role,mode,content_map,travel_map,follower_scale,follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_quant_beat[64]; double follower_queue_harmony_beat[64]; hb_harmony_t render_harmony; int render_harmony_active; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],recorded_source_pitch[16][128],passthrough_held[128]; } Inst;
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
@@ -300,7 +301,7 @@ static int hb_monitor_snapshot_channel(Inst *instance,uint8_t velocities[128],ui
     return 0;
 }
 static int hb_sync_from_monitor(Inst *instance){
-    if(!instance||instance->role!=1)return 0;
+    if(!instance||instance->role!=1||instance->follower_input_seen)return 0;
     uint8_t velocities[128];uint32_t generation=0;
     if(!hb_monitor_snapshot_channel(instance,velocities,&generation))return 0;
     int changed=0;
@@ -2278,6 +2279,10 @@ static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int l
         int saved_origin=instance->movy_playback;
         instance->movy_playback=instance->follower_origin[source_note];
         new_outputs[voice_count]=hb_map_follower_note_now(instance,source_note);
+        /* A harmony change can change the displayed role without changing
+           the MIDI pitch. Refresh that context without retriggering audio. */
+        if(previous_outputs[voice_count]==new_outputs[voice_count])
+            instance->follower_path_harmony[source_note]=hb_render_harmony(instance);
         instance->movy_playback=saved_origin;
 
         int used_root=0;
@@ -2922,6 +2927,14 @@ if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note
     if(max_output<1)return 0;
     output[0][0]=input[0];output[0][1]=(uint8_t)mapped;output[0][2]=length>=3?input[2]:0;lengths[0]=3;
     return 1;
+}
+/* The auxiliary monitor is only a pre-input observation fallback. Once the
+   instance receives its own MIDI, that event stream owns the held-note set.
+   Mixing a monitor snapshot into it can invent silent notes or resurrect OFFs. */
+if(!instance->follower_input_seen){
+    instance->follower_input_seen=1;
+    memset(instance->follower_held,0,sizeof(instance->follower_held));
+    memset(instance->follower_velocity,0,sizeof(instance->follower_velocity));
 }
 if(is_on){
     instance->follower_held[note]=1;

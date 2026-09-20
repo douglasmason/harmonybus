@@ -237,4 +237,62 @@ static void follower_rows(void){
     API.get_param(second,"fpath_0_0_3",display,sizeof(display));assert(!strcmp(display,"--"));
     API.destroy_instance(first);API.destroy_instance(second);
 }
-int main(void){harmony_flow();coherent_display_and_none();transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}
+static void unchanged_pitch_updates_output_role(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"travel_map","None");
+    instance->published_follower[71]=1;
+    instance->follower_sounding[71]=1;
+    instance->follower_held[71]=1;
+    instance->follower_velocity[71]=100;
+    instance->mapped[71]=71;
+    hb_harmony_t previous=chord(9,1,0);
+    hb_effective_write(previous);
+    instance->follower_path_harmony[71]=previous;
+    instance->follower_bus_seq=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);
+    char display[256];uint8_t output[16][3];int lengths[16];
+    API.get_param(instance,"follower_snapshot",display,sizeof(display));
+    assert(strstr(display,"|7th|2/9|B4|")!=NULL);
+    hb_effective_write(chord(2,1,0));
+    assert(hb_reharmonize_held_follower(instance,output,lengths,16)==0);
+    assert(instance->mapped[71]==71);
+    API.get_param(instance,"follower_snapshot",display,sizeof(display));
+    assert(strstr(display,"|7th|6/13|B4|")!=NULL);
+    /* Reharmonization disabled preserves the original note-on context. */
+    instance->retrigger_held=0;
+    hb_effective_write(previous);
+    assert(hb_reharmonize_held_follower(instance,output,lengths,16)==0);
+    API.get_param(instance,"follower_snapshot",display,sizeof(display));
+    assert(strstr(display,"|7th|6/13|B4|")!=NULL);
+    API.destroy_instance(instance);
+}
+
+static void direct_follower_input_owns_its_display(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"source_channel","1");
+    API.set_param(instance,"boundary_buffer_ms","0 ms");
+    API.set_param(instance,"travel_map","None");
+    hb_effective_write(chord(9,1,0));
+    hb_monitor_shared_t monitor;memset(&monitor,0,sizeof(monitor));
+    monitor.magic=HB_MONITOR_MAGIC;monitor.version=HB_MONITOR_VERSION;
+    monitor.velocities[0][58]=100; /* stale A#3 from the auxiliary monitor */
+    g_monitor=&monitor;
+    uint8_t output[16][3];int lengths[16];
+    API.tick(instance,64,48000,output,lengths,16);
+    uint8_t message[3]={0x90,67,100};
+    API.process_midi(instance,message,3,output,lengths,16);
+    API.tick(instance,64,48000,output,lengths,16);
+    char display[256];API.get_param(instance,"follower_snapshot",display,sizeof(display));
+    assert(!strcmp(display,"fp1|G4|5th|b7|G4|--|--|--|--"));
+    assert(!instance->follower_held[58]);
+    assert(instance->follower_held[67]);
+    /* A delayed monitor note-off must not resurrect a released direct note. */
+    monitor.velocities[0][67]=100;
+    message[0]=0x80;message[2]=0;
+    API.process_midi(instance,message,3,output,lengths,16);
+    API.tick(instance,64,48000,output,lengths,16);
+    API.get_param(instance,"follower_snapshot",display,sizeof(display));
+    assert(!strcmp(display,"fp1|--|--|--|--|--|--|--|--"));
+    g_monitor=0;API.destroy_instance(instance);
+}
+
+int main(void){direct_follower_input_owns_its_display();unchanged_pitch_updates_output_role();harmony_flow();coherent_display_and_none();transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}

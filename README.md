@@ -1,3 +1,5 @@
+> 0.2.143: direct follower MIDI owns its held-note display once input begins; auxiliary monitor snapshots cannot add silent notes or resurrect releases. Held notes refresh output-role context when the harmony changes without changing pitch. Pair with Movy hbclean.56. The reported pad G/A-sharp behavior remains unconfirmed on hardware.
+
 > 0.2.142: Harmony Flow presents conductor notes, detected harmony, lookahead-selected harmony and transposed rendered harmony as one row. Pair with Movy hbclean.54 for simultaneous updates.
 
 > 0.2.141: coherent follower rows, cached split mapping, None travel, clearer root readouts and a single Foll Notes page before Operations. Pair with Movy hbclean.53 for simultaneous follower display updates at up to 25 Hz.
