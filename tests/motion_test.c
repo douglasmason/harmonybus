@@ -527,7 +527,71 @@ static void ordered_gestures(void){
     API.set_param(instance,"performance_reset","1");assert(!instance->motion.enclosure&&!instance->motion.gesture_down);
     API.destroy_instance(instance);
 }
-int main(void){ordered_gestures();
+static void source_gesture_consumption(void){
+    Inst *instance=motion_fixture();
+    gesture_tap(instance,"performance_gesture_above",80);
+    gesture_tap(instance,"performance_gesture_below",80);
+    expect_param(instance,"approach_reset","Above > Below > Target");
+    /* Three presses queued before a tick retain three independent choices. */
+    for(int step=0;step<3;step++){midi(instance,1,60);midi(instance,0,60);}
+    int count=API.tick(instance,128,48000,output,lengths,64);
+    assert(count==6);
+    const int expected[]={62,62,59,59,60,60};
+    for(int index=0;index<count;index++)assert(output[index][1]==expected[index]);
+    expect_param(instance,"approach_reset","Off");
+    API.destroy_instance(instance);
+
+    /* Generated voices and time-separated arp steps all belong to one press. */
+    instance=motion_fixture();
+    API.set_param(instance,"chord_mode","Conductor Chord");
+    API.set_param(instance,"arp_playback","Repeat");
+    API.set_param(instance,"arp_start","Immediate");
+    gesture_tap(instance,"performance_gesture_above",80);
+    gesture_tap(instance,"performance_gesture_below",80);
+    midi(instance,1,60);advance(instance,0,64);
+    assert(instance->motion.enclosure_step==1);
+    expect_param(instance,"approach_reset","Below > Target");
+    for(int tick=0;tick<16;tick++)advance(instance,125,64);
+    assert(instance->motion.enclosure_step==1);
+    expect_param(instance,"approach_reset","Below > Target");
+    for(int key=0;key<HB_CP_KEYS;key++)if(instance->player.keys[key].used){
+        assert(instance->player.keys[key].notes[0]==62);
+        assert(instance->motion_player_events[key][HB_MOTION_LANES]==2);
+    }
+    midi(instance,0,60);advance(instance,0,64);
+    midi(instance,1,60);advance(instance,0,64);
+    assert(instance->motion.enclosure_step==2);
+    expect_param(instance,"approach_reset","Armed Target");
+    for(int key=0;key<HB_CP_KEYS;key++)if(instance->player.keys[key].used)assert(instance->player.keys[key].notes[0]==59);
+    API.destroy_instance(instance);
+
+    instance=motion_fixture();
+    API.set_param(instance,"chord_mode","Conductor Chord");API.set_param(instance,"chord_form","Triad");
+    API.set_param(instance,"arp_playback","Once");API.set_param(instance,"strum_spread","150 ms");
+    gesture_tap(instance,"performance_gesture_above",80);gesture_tap(instance,"performance_gesture_below",80);
+    midi(instance,1,60);assert(advance(instance,0,64)==1&&output[0][1]==62);
+    assert(advance(instance,75,64)==1&&output[0][1]==65);
+    assert(advance(instance,75,64)==1&&output[0][1]==69);
+    assert(instance->motion.enclosure_step==1);
+    API.destroy_instance(instance);
+
+    instance=motion_fixture();
+    API.set_param(instance,"motion_lane","13");API.set_param(instance,"motion_touch_mode","Arm");
+    expect_param(instance,"motion_touch_mode","Arm");
+    gesture_tap(instance,"motion_gesture_13",80);expect_param(instance,"motion_punch","Armed Below");
+    gesture_tap(instance,"motion_gesture_13",80);expect_param(instance,"motion_punch","Off");
+    API.set_param(instance,"motion_lane","1");API.set_param(instance,"motion_operation","Octave");
+    API.set_param(instance,"motion_enabled","Off");API.set_param(instance,"motion_touch_mode","Latch");
+    expect_param(instance,"motion_touch_mode","Latch");
+    API.set_param(instance,"motion_gesture_1","Down");expect_param(instance,"motion_punch","Held");
+    API.set_param(instance,"motion_gesture_1","Up,80");expect_param(instance,"motion_punch","Latched");
+    gesture_tap(instance,"motion_gesture_1",80);expect_param(instance,"motion_punch","Off");
+    API.set_param(instance,"motion_gesture_1","Down");API.set_param(instance,"approach_reset","Reset");
+    API.set_param(instance,"motion_gesture_1","Up,80");
+    assert(!instance->motion.held&&!instance->motion.gesture_latched);
+    API.destroy_instance(instance);
+}
+int main(void){source_gesture_consumption();ordered_gestures();
     repeat_idle_lifecycle();
     automatic_clip_config();
     cycle_conditions();condition_state_and_repeat_tails();

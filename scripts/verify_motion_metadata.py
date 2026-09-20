@@ -20,8 +20,9 @@ def main() -> None:
         assert map_metadata['motion_lane']['options'] == [str(slot) for slot in range(1,17)]
         assert set(map_metadata) == set(map_canonical)
         for key, parameter in map_canonical.items():
-            if key not in ('motion_operation','motion_enabled','motion_offset','motion_from','motion_through'):
+            if key not in ('motion_touch_mode','motion_operation','motion_enabled','motion_offset','motion_from','motion_through'):
                 assert map_metadata[key] == parameter, key
+    assert maps[0]['motion_touch_mode']['options'] == ['Hold','Latch','Tap/Hold']
     assert maps[0]['motion_from']['options'] == [str(cycle) for cycle in range(1,17)]
     assert maps[1]['motion_from']['options'] == ['1']
     assert maps[4]['motion_from']['options'] == [str(cycle) for cycle in range(1,9)]
