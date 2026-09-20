@@ -1,3 +1,5 @@
+> 0.2.140: Foll Map now includes Approach, Reset, Scale Next and Chrom Next. The separate Foll Mod page is removed; Diagnostics stays last. Movy hbclean.52 remains compatible.
+
 > 0.2.139: group settings by musical workflow, followed by note analysis, pad appearance and diagnostics.
 
 > 0.2.138: simplify note analysis to the global conductor page and two per-track follower path pages. Movy hbclean.52 remains compatible.
@@ -72,7 +74,7 @@ python3 scripts/build_timing_guide.py
 ./scripts/build_harmonybus_move.sh
 ```
 
-The output is `dist/harmonybus-v0.2.139-module.tar.gz`.
+The output is `dist/harmonybus-v0.2.140-module.tar.gz`.
 
 ## License
 

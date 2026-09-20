@@ -1,4 +1,4 @@
-# Follower note paths (0.2.139)
+# Follower note paths (0.2.140)
 
 Input roles are relative to the follower root. With Explicit C, G is always
 fifth. Neither current harmony, lookahead nor master transpose changes that
@@ -28,7 +28,7 @@ octaves to preserve that role instead of clamping to an unrelated pitch class.
 ## Note-path pages
 
 **Foll Trk 1-2 / 3-4** have two rows per page. The global follower pages and
-per-track conductor page were removed in 0.2.139; **Cond All** remains:
+per-track conductor page were removed in 0.2.140; **Cond All** remains:
 
 | Raw Note | Input Role | Output Role | Rendered |
 |---|---|---|---|
@@ -69,3 +69,11 @@ Negative lookahead keeps its existing late-harmony behaviour. Off remains Off.
 An anti-buffer wider than positive lookahead clamps to the actual harmonic
 boundary rather than making it late. Saved state includes the two lookahead
 settings; stale per-track state restores cannot undo a live global edit.
+
+## Follower controls
+
+Foll Map combines mapping and approach controls in one page. The top row is
+Content, Travel, Split, Retrigger Held; the bottom row is Approach, Reset,
+Scale Next, Chrom Next. Approach replaces the separate Scale Above and Chrom
+Below toggles. The next-note actions remain independent triggers. Diagnostics
+remains the final page.
