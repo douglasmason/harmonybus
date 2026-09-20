@@ -72,9 +72,10 @@ jobs:
           assert [item['level'] for item in levels['root']['params'] if 'level' in item][-1]=='diagnostics'
           assert levels['next_harm']['name']=='Next Harm'
           assert levels['next_harm']['knobs']==[
-              'next_lookahead','next_anti_buffer_ms','next_model','next_shift','next_loop_length',
-              'next_position','next_harmony','next_reset'
+              'next_lookahead','next_anti_buffer_ms','boundary_buffer_ms','next_model',
+              'next_shift','next_loop_length','next_position','next_harmony'
           ]
+          assert next(p for p in levels['next_harm']['params'] if p.get('key')=='boundary_buffer_ms')==buffer
           assert levels['global_transpose']['name']=='Global'
           assert levels['global_transpose']['knobs']==[
               'master_transpose','transpose','pretranspose_root','final_root','final_harmony','accidentals'
