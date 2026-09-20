@@ -106,7 +106,8 @@ jobs:
           assert 'int explicit_scale=instance?instance->follower_scale:0;' in source
           assert 'int split=instance->follower_split_map;' in source
           assert 'hb_quant_grid_beats_for(instance)' in source
-          assert 'hb_ms_to_beats(g_bus.boundary_buffer_ms)' in source
+          assert 'int setting=hb_effective_follower_buffer();' in source
+          assert 'double capture=hb_follower_capture_beats();' in source
           assert 'instance->approach_control=hb_approach_toggle' in source
           assert '"hb16,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d"' in source
           for obsolete in (
