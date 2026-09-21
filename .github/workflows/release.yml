@@ -45,7 +45,7 @@ jobs:
           assert len(master['options'])==13 and master['default']=='As Played'
           assert levels['global_transpose']['knobs'][0]=='master_transpose'
           travel=next(p for p in module['capabilities']['chain_params'] if p.get('key')=='travel_map')
-          assert travel['options'][-2:]==['Closest Split Chromatic','None']
+          assert travel['options'][0]=='None' and travel['options'][-1]=='Closest Split Chromatic'
           assert 'receiver' not in levels
           assert levels['root']['knobs']==['version','track_role','render_channel','receive_channel','quant_timing','chord_timing','anticipation','boundary_buffer_ms']
           assert next(p for p in levels['root']['params'] if p.get('key')=='track_role')['options']==['Conductor','Follower','Receiver','Off']
@@ -110,8 +110,8 @@ jobs:
           assert 'int selected=hb_shared_follower_scale();' in source
           assert 'int split=instance->follower_split_map;' in source
           assert 'hb_quant_grid_beats_for(instance)' in source
-          assert 'int setting=hb_effective_follower_buffer();' in source
-          assert 'double capture=hb_follower_capture_beats();' in source
+          assert 'int setting=hb_effective_follower_buffer_for(instance);' in source
+          assert 'double capture=hb_follower_capture_beats_for(instance);' in source
           assert 'instance->approach_control=hb_approach_toggle' in source
           assert '"hb16,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d"' in source
           for obsolete in (
