@@ -4,15 +4,18 @@
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
 typedef unsigned int uint32_t;
+typedef signed int int32_t;
 typedef struct _IO_FILE FILE;
 extern int snprintf(char *, size_t, const char *, ...);
 extern int sscanf(const char *, const char *, ...);
 extern void *memset(void *, int, size_t);
 extern void *memcpy(void *, const void *, size_t);
+extern int memcmp(const void *, const void *, size_t);
 extern size_t strlen(const char *);
 extern int strcmp(const char *, const char *);
 extern int strncmp(const char *, const char *, size_t);
 extern long strtol(const char *, char **, int);
+extern unsigned long long strtoull(const char *, char **, int);
 extern double strtod(const char *, char **);
 extern void *malloc(size_t);
 extern void free(void *);
