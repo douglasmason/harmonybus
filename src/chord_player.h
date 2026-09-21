@@ -288,6 +288,17 @@ static int hb_cp_entries(hb_chord_player *player,hb_cp_entry *entries,int fresh)
     }
     return count;
 }
+/* Duration of one rendered arp step, including cycle-length rates. */
+static double hb_cp_step_beats(hb_chord_player *player){
+    double rate=hb_cp_division(player->config.rate%9);
+    if(player->config.rate>=9){
+        hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
+        int count=hb_cp_entries(player,entries,0);
+        int cycle=player->config.order==2&&count>1?2*count-2:count;
+        if(cycle>0)rate/=cycle;
+    }
+    return rate;
+}
 static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],int capacity){
     uint8_t desired[16][128];memset(desired,0,sizeof(desired));
     if(player->flushing){

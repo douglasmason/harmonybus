@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.153'
+          assert module['version']=='0.2.154'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -63,7 +63,7 @@ jobs:
                   assert any(parameter.get('key')==key for parameter in levels[page]['params'])
           chord_mode=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='chord_mode')
           assert chord_mode['default']=='Off'
-          dominant=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='dominant_scale')
+          dominant=next(parameter for parameter in levels['follower_root']['params'] if parameter.get('key')=='dominant_scale')
           assert dominant['options']==['Off','Harmonic Minor','Melodic Minor','Altered V'] and dominant['default']=='Off'
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
@@ -172,6 +172,8 @@ jobs:
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/chord_player_test.c src/harmony_core.c -lm -o /tmp/chord_player_test
           /tmp/chord_player_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/arp_edit_test.c src/harmony_core.c -lm -o /tmp/arp_edit_test
+          /tmp/arp_edit_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_player_test.c src/harmony_core.c -lm -o /tmp/chord_player_ubsan
           /tmp/chord_player_ubsan
 
@@ -211,7 +213,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.153'
+          assert module['version']==os.environ['VERSION']=='0.2.154'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_source']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -239,12 +241,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Correct stale module name and description in Schwung Manager. The module name is now version-independent; the Version field and version knob report 0.2.153. Musical behavior is unchanged from 0.2.151. Pair with Movy hbclean.61."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Correct stale module name and description in Schwung Manager. The module name is now version-independent; the Version field and version knob report 0.2.154. Musical behavior is unchanged from 0.2.151. Pair with Movy hbclean.61."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Correct stale module name and description in Schwung Manager. The module name is now version-independent; the Version field and version knob report 0.2.153. Musical behavior is unchanged from 0.2.151. Pair with Movy hbclean.61." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Correct stale module name and description in Schwung Manager. The module name is now version-independent; the Version field and version knob report 0.2.154. Musical behavior is unchanged from 0.2.151. Pair with Movy hbclean.61." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

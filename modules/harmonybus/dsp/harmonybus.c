@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.153"
+#define HB_VERSION "0.2.154"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -3571,46 +3571,55 @@ if(!strcmp(key,"chord_voicing")){
 }
 if(!strcmp(key,"arp_playback")){
     int selected=enum_index(parameter,CP_ARP_PLAYBACK,3,instance->player.config.playback);
-    if(selected!=instance->player.config.playback){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.playback=selected;}
+    if(selected!=instance->player.config.playback){instance->player.config.playback=selected;
+        instance->player.flushing=1;instance->player.running=0;
+        instance->player.shuffle_count=instance->player.shuffle_position=0;
+        for(int index=0;index<HB_CP_KEYS;index++)if(instance->player.keys[index].used){
+            instance->player.keys[index].fresh=1;instance->player.keys[index].started=0;
+        }}
     return;
 }
 if(!strcmp(key,"arp_clear_harmony")){instance->player.config.clear_harmony=!strcmp(parameter,"On")||!strcmp(parameter,"1");return;}
 if(!strcmp(key,"arp_hold")){
     int selected=!strcmp(parameter,"Latch")?1:!strcmp(parameter,"Latch with Off")?2:enum_index(parameter,CP_ARP_HOLD,6,instance->player.config.latch);
-    if(selected!=instance->player.config.latch){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.latch=selected;}
+    if(selected!=instance->player.config.latch){instance->player.config.latch=selected;}
     return;
 }
 if(!strcmp(key,"arp_order")){
     int selected=enum_index(parameter,CP_ARP_ORDER,6,instance->player.config.order);
-    if(selected!=instance->player.config.order){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.order=selected;}
+    if(selected!=instance->player.config.order){instance->player.config.order=selected;instance->player.shuffle_count=instance->player.shuffle_position=0;}
     return;
 }
 if(!strcmp(key,"arp_phase")){
     int selected=enum_index(parameter,CP_ARP_PHASE,3,instance->player.config.phase);
-    if(selected!=instance->player.config.phase){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.phase=selected;}
+    if(selected!=instance->player.config.phase){instance->player.config.phase=selected;instance->player.running=0;}
     return;
 }
 if(!strcmp(key,"arp_note_phase")){
     int limit=hb_arp_phase_limit(instance->player.config.rate);
     int selected=hb_cp_clamp(parse_i(parameter,instance->player.config.note_phase),-limit,limit);
-    if(selected!=instance->player.config.note_phase){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.note_phase=selected;}
+    if(selected!=instance->player.config.note_phase){instance->player.step+=instance->player.config.note_phase-selected;instance->player.config.note_phase=selected;}
     return;
 }
 if(!strcmp(key,"arp_rate")){
     int selected=enum_index(parameter,CP_ARP_RATE,18,instance->player.config.rate);
-    if(selected!=instance->player.config.rate){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.rate=selected;int limit=hb_arp_phase_limit(selected);instance->player.config.note_phase=hb_cp_clamp(instance->player.config.note_phase,-limit,limit);}
+    if(selected!=instance->player.config.rate){double old_rate=hb_cp_step_beats(&instance->player);
+        instance->player.config.rate=selected;
+        double ratio=hb_cp_step_beats(&instance->player)/old_rate;
+        if(instance->player.next_beat>instance->player.beat)instance->player.next_beat=instance->player.beat+(instance->player.next_beat-instance->player.beat)*ratio;
+        if(instance->player.gate_beat>instance->player.beat)instance->player.gate_beat=instance->player.beat+(instance->player.gate_beat-instance->player.beat)*ratio;int limit=hb_arp_phase_limit(selected);instance->player.config.note_phase=hb_cp_clamp(instance->player.config.note_phase,-limit,limit);}
     return;
 }
 if(!strcmp(key,"arp_gate")){
     int selected=enum_index(parameter,CP_ARP_GATE,4,instance->player.config.gate);
-    if(selected!=instance->player.config.gate){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.gate=selected;}
+    if(selected!=instance->player.config.gate){instance->player.config.gate=selected;}
     return;
 }
 if(!strcmp(key,"strum_spread")){
     int selected=parse_i(parameter,instance->player.config.spread);
     for(int index=0;index<9;index++)if(!strcmp(parameter,BUFFER_DIVISIONS[index]))selected=-index-1;
     if(selected< -9)selected=0;if(selected>1000)selected=1000;
-    if(selected!=instance->player.config.spread){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.spread=selected;}
+    if(selected!=instance->player.config.spread){instance->player.config.spread=selected;}
     return;
 }
 if(!strcmp(key,"arp_clear")){if(!strcmp(parameter,"Clear")||parameter[0]=='1'){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);}return;}

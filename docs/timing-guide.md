@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.153 / Movy 0.34.1-hbclean.54.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.154 / Movy 0.34.1-hbclean.54.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -359,3 +359,10 @@ so either location edits the same saved value and shows the effective value.
 Follower Scale describes the input keyboard. Explicit scales never borrow accidentals from the current or lookahead chord. Infer resolves a collection around the follower root from the current observed harmony, with Major as the initial/tie preference. Movy mirrors that resolved collection without disabling Infer.
 
 Output collections are chosen separately and must contain the detected chord. Thus C Phrygian as an input scale cannot introduce E-flat into the third of a C-major output chord. Ordinary Closest Split uses the stable degree bucket for a chromatic input (marked with `*` in the input-role display). Closest Split Chromatic instead maps the next higher in-scale input and approaches its rendered note from one semitone below (marked `-1`). Output roles use ordinal degree labels; the Note column gives the exact rendered pitch.
+
+
+## Live arp edits (0.2.154)
+
+Rate, gate, order, start phase, note phase, hold mode, playback mode, and strum spread preserve the retained raw input notes. Rate changes rescale the remaining step and gate time rather than clearing or restarting the input pool. Turning arp playback off drains sounding notes safely and retains the pool for re-enabling. Clear Arp remains the explicit way to empty the pool; enabled Clear on Harmony Change and transport-stop behavior still apply.
+
+The Operation panel has exactly eight parameters. The redundant standalone Slot Summary overflow page has been removed; the selected lane and State / Punch remain on the main Operation panel.
