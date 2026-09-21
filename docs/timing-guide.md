@@ -366,3 +366,10 @@ Output collections are chosen separately and must contain the detected chord. Th
 Rate, gate, order, start phase, note phase, hold mode, playback mode, and strum spread preserve the retained raw input notes. Rate changes rescale the remaining step and gate time rather than clearing or restarting the input pool. Turning arp playback off drains sounding notes safely and retains the pool for re-enabling. Clear Arp remains the explicit way to empty the pool; enabled Clear on Harmony Change and transport-stop behavior still apply.
 
 The Operation panel has exactly eight parameters. The redundant standalone Slot Summary overflow page has been removed; the selected lane and State / Punch remain on the main Operation panel.
+
+
+## Global follower input scale (0.2.155)
+
+Follower Scale is shared by every HarmonyBus instance, alongside the follower root controls. Edits from any HB panel or Movy's Key control update the same value. Infer uses the shared observed harmony and reference root, so track selection cannot choose a different scale. Content, travel and split remain per-track.
+
+Legacy states adopt the first restored follower scale (or an earlier explicit saved scale). A conductor's default Infer value does not override a saved follower scale. Subsequent track restores cannot undo a live edit; every newly saved track records the current shared value.

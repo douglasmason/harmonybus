@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.154'
+          assert module['version']=='0.2.155'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -107,7 +107,7 @@ jobs:
           # Follower voice behavior is now instance-local.
           assert 'int content_map=instance->content_map;' in source
           assert 'int travel=instance->travel_map;' in source
-          assert 'if(instance->follower_scale>0)return instance->follower_scale;' in source
+          assert 'int selected=hb_shared_follower_scale();' in source
           assert 'int split=instance->follower_split_map;' in source
           assert 'hb_quant_grid_beats_for(instance)' in source
           assert 'int setting=hb_effective_follower_buffer();' in source
@@ -162,6 +162,8 @@ jobs:
           /tmp/follower_reference_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/input_pad_test.c src/harmony_core.c -lm -o /tmp/input_pad_test
           /tmp/input_pad_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/global_scale_test.c src/harmony_core.c -lm -o /tmp/global_scale_test
+          /tmp/global_scale_test
 
       - name: Verify shared and tempo-relative buffer
         run: |
@@ -213,7 +215,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.154'
+          assert module['version']==os.environ['VERSION']=='0.2.155'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_source']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -241,12 +243,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Correct stale module name and description in Schwung Manager. The module name is now version-independent; the Version field and version knob report 0.2.154. Musical behavior is unchanged from 0.2.151. Pair with Movy hbclean.61."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Correct stale module name and description in Schwung Manager. The module name is now version-independent; the Version field and version knob report 0.2.155. Musical behavior is unchanged from 0.2.151. Pair with Movy hbclean.61."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Correct stale module name and description in Schwung Manager. The module name is now version-independent; the Version field and version knob report 0.2.154. Musical behavior is unchanged from 0.2.151. Pair with Movy hbclean.61." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Correct stale module name and description in Schwung Manager. The module name is now version-independent; the Version field and version knob report 0.2.155. Musical behavior is unchanged from 0.2.151. Pair with Movy hbclean.61." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

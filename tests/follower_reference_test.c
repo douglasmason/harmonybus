@@ -37,7 +37,7 @@ static void reference_invariance(void){
     /* All input pitch classes, roots, explicit scales, harmonies, travel modes
        and transpositions. The displayed role must never depend on output. */
     for(int input_root=0;input_root<12;input_root++)for(int scale=1;scale<=9;scale++){
-        globals.follower_explicit_root=input_root;instance->follower_scale=scale;
+        globals.follower_explicit_root=input_root;hb_set_shared_follower_scale(scale);
         for(int pitch=60;pitch<72;pitch++){
             int expected=hb_source_degree_from_parent_scale(mod12(pitch-input_root),input_root,
                 hb_explicit_scale_mask(input_root,scale?scale:1));
@@ -57,7 +57,7 @@ static void reference_invariance(void){
 static void transpose_equivariance(void){
     Inst *instance=fixture();
     for(int scale=0;scale<=9;scale++)for(int root=0;root<12;root++)for(int minor=0;minor<2;minor++){
-        instance->follower_scale=scale;
+        hb_set_shared_follower_scale(scale);
         hb_harmony_t harmony=chord(root,minor,1);
         for(int content=0;content<9;content++)for(int travel=0;travel<8;travel++)for(int split=0;split<4;split++){
             instance->content_map=content;instance->travel_map=travel;instance->follower_split_map=split;
@@ -84,7 +84,7 @@ static void transpose_last_at_limits(void){
     assert(!strcmp(label,"Closest Split Chromatic"));
     const int pitches[]={0,1,7,12,60,67,115,120,126,127};
     for(int root=0;root<12;root++)for(int travel=0;travel<8;travel++){
-        instance->travel_map=travel;instance->follower_scale=1;
+        instance->travel_map=travel;hb_set_shared_follower_scale(1);
         hb_harmony_t harmony=chord(root,1,1);
         for(int index=0;index<10;index++){
             int pitch=pitches[index];g_bus.global_transpose=0;hb_effective_write(harmony);
