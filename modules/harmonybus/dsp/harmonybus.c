@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.152"
+#define HB_VERSION "0.2.153"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1450,10 +1450,16 @@ static const char *hb_role_name_for_degree(int degree){
     static const char *roles[7]={"Root","2nd","3rd","4th","5th","6th","7th"};
     return (degree>=0&&degree<7)?roles[degree]:"--";
 }
+static int hb_inferred_parent_scale_index(int source_root,hb_harmony_t harmony);
+static int hb_follower_input_scale_index(Inst *instance,int source_root){
+    if(instance->follower_scale>0)return instance->follower_scale;
+    /* Infer from the current observed chord, never the lookahead target or
+       transposition. The same resolved collection drives pads and input roles. */
+    hb_harmony_t current=hb_transpose_harmony(g_bus.observed_harmony,-g_bus.global_transpose);
+    return current.valid?hb_inferred_parent_scale_index(source_root,current):1;
+}
 static uint16_t hb_follower_input_scale(Inst *instance,int source_root){
-    /* Infer affects OUTPUT collection only. Input roles use stable chromatic
-       buckets around the source root unless an explicit scale refines them. */
-    return hb_explicit_scale_mask(source_root,instance->follower_scale>0?instance->follower_scale:1);
+    return hb_explicit_scale_mask(source_root,hb_follower_input_scale_index(instance,source_root));
 }
 static uint16_t hb_transpose_mask(uint16_t mask,int semitones){
     uint16_t shifted=0;
@@ -1477,7 +1483,7 @@ static int hb_popcount12(uint16_t mask){
 static int hb_inferred_parent_scale_index(int source_root,hb_harmony_t harmony){
     /* Conservative parent-scale inference: choose the candidate tonic scale
        that contains the detected harmony most completely. Ties prefer Major,
-       then Natural Minor. Explicit follower scale always overrides this. */
+       then Natural Minor. The explicit follower scale is a separate input collection. */
     uint16_t chord=hb_harmony_chord_mask(harmony);
     int best_scale=1;
     int best_score=-1;
@@ -1489,8 +1495,7 @@ static int hb_inferred_parent_scale_index(int source_root,hb_harmony_t harmony){
     return best_scale;
 }
 static int hb_parent_scale_at_transpose(Inst *instance,hb_harmony_t harmony,int transpose){
-    int explicit_scale=instance?instance->follower_scale:0;
-    if(explicit_scale>0)return explicit_scale;
+    /* The input scale classifies pads, never overrides the conductor chord. */
     int source_root=0;
     if(!hb_resolve_follower_reference_root(instance,&source_root))source_root=harmony.root_pc;
     return hb_inferred_parent_scale_index(source_root,hb_transpose_harmony(harmony,-transpose));
@@ -1516,7 +1521,8 @@ static uint16_t hb_output_chord_scale_at_transpose(Inst *instance,hb_harmony_t h
     uint16_t shifted=hb_dominant_scale_mask(instance,harmony,mod12(source_root+transpose));
     if(shifted)return shifted;
     parent=hb_transpose_mask(parent,transpose);
-    return parent&&(parent&(1u<<mod12(harmony.root_pc)))?parent:hb_scale_mask(harmony);
+    uint16_t chord=hb_harmony_chord_mask(harmony);
+    return parent&&((parent&chord)==chord)?parent:hb_scale_mask(harmony);
 }
 static uint16_t hb_output_chord_scale(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent){
     return hb_output_chord_scale_at_transpose(instance,harmony,source_root,parent,g_bus.global_transpose);
@@ -1933,7 +1939,8 @@ static void hb_player_note_on(Inst *instance,int source_note,int channel,int vel
     hb_harmony_t untransposed=hb_transpose_harmony(harmony,-g_bus.global_transpose);
     int scale_root=untransposed.root_pc;
     hb_resolve_follower_reference_root(instance,&scale_root);
-    unsigned scale=hb_explicit_scale_mask(scale_root,hb_parent_scale_index(instance,harmony));
+    unsigned scale=player->config.mode==1?hb_follower_input_scale(instance,scale_root):
+        hb_explicit_scale_mask(scale_root,hb_parent_scale_index(instance,harmony));
     uint16_t dominant=hb_dominant_scale_mask(instance,harmony,mod12(scale_root+g_bus.global_transpose));
     if(dominant){
         scale=0;
@@ -2495,16 +2502,8 @@ static uint16_t hb_explicit_scale_mask(int root_pc,int scale_index){
 static hb_harmony_t hb_follower_scale_target(Inst *instance,hb_harmony_t harmony){
     if(!harmony.valid)return harmony;
 
-    /* Follower Content = Scale defines a LEGAL OUTPUT SET around the
-       DETECTED harmony. The follower root/scale describes source-role
-       semantics and the parent pitch collection; it must not re-root the
-       output target back onto the follower root.
-
-       Example: follower root F, parent F minor, detected Ab minor.
-       The legal output set is the F-minor collection viewed from Ab
-       (Ab Ionian-like rotation of that collection), while harmony.root_pc
-       remains Ab. Closest therefore chooses nearest pitches from that legal
-       set instead of collapsing toward an F-rooted scale target. */
+    /* Choose an output collection compatible with the detected chord.
+       Follower Scale describes the INPUT keyboard, not output accidentals. */
     int source_root=0;
     if(!hb_resolve_follower_reference_root(instance,&source_root))
         source_root=harmony.root_pc;
@@ -2515,7 +2514,7 @@ static hb_harmony_t hb_follower_scale_target(Inst *instance,hb_harmony_t harmony
     uint16_t shifted=hb_dominant_scale_mask(instance,harmony,mod12(source_root+g_bus.global_transpose));
     if(shifted){harmony.pitch_mask=(uint16_t)(shifted|hb_harmony_chord_mask(harmony));return harmony;}
     parent_scale=hb_transpose_mask(parent_scale,g_bus.global_transpose);
-    if(parent_scale&&(parent_scale&(1u<<mod12(harmony.root_pc)))){
+    if(parent_scale&&((parent_scale&hb_harmony_chord_mask(harmony))==hb_harmony_chord_mask(harmony))){
         /* Keep detected root/bass/quality; only replace the legal pitch set. */
         harmony.pitch_mask=parent_scale;
     }else{
@@ -2629,7 +2628,7 @@ static int hb_follower_held_count(const Inst *instance){
     return count;
 }
 static const char *hb_role_name_for_interval(int interval){
-    static const char *roles[12]={"Root","b2","2/9","m3","M3","4/11","b5","5","#5/b6","6/13","b7","M7"};
+    static const char *roles[12]={"Root","b2","2/9","b3","3rd","4/11","b5","5th","#5/b6","6/13","b7","7th"};
     return roles[mod12(interval)];
 }
 static const char *hb_follower_role_name(const Inst *instance,int ordinal){
@@ -3953,7 +3952,19 @@ static int hb_follower_path(Inst *instance,const char *key,char *buffer,int leng
     if(raw<0||!owner)return snprintf(buffer,(size_t)length,"--");
     hb_harmony_t harmony=owner->follower_path_harmony[raw];
     if(field==0){char name[12];return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(raw,harmony,name,sizeof(name)));}
-    if(field==1)return snprintf(buffer,(size_t)length,"%s",hb_follower_degree_role_for_note((Inst*)owner,raw));
+    int input_root=0;
+    int have_root=hb_resolve_follower_reference_root((Inst*)owner,&input_root);
+    uint16_t input=have_root?hb_follower_input_scale((Inst*)owner,input_root):0;
+    int chromatic=input&&!(input&(1u<<mod12(raw)));
+    int approach=chromatic&&owner->travel_map==6&&raw<127;
+    if(field==1){
+        if(approach){
+            int next=raw+1;while(next<127&&!(input&(1u<<mod12(next))))next++;
+            if(input&(1u<<mod12(next)))return snprintf(buffer,(size_t)length,"%s-1",hb_follower_degree_role_for_note((Inst*)owner,next));
+        }
+        if(chromatic)return snprintf(buffer,(size_t)length,"%s*",hb_follower_degree_role_for_note((Inst*)owner,raw));
+        return snprintf(buffer,(size_t)length,"%s",hb_follower_degree_role_for_note((Inst*)owner,raw));
+    }
     int pitches[HB_CP_VOICES],count=0;
     for(int index=0;index<HB_CP_KEYS;index++){
         const hb_cp_key *voice=&owner->player.keys[index];
@@ -3963,15 +3974,27 @@ static int hb_follower_path(Inst *instance,const char *key,char *buffer,int leng
     }
     if(!count&&owner->mapped[raw]>=0)pitches[count++]=owner->mapped[raw];
     if(!count)return snprintf(buffer,(size_t)length,"--"); /* queued, not rendered */
+    int rendered_approach=approach&&count==1&&owner->player.config.mode==0;
     /* Operation owners retain the actual emitted pitch; do not reevaluate a
        random/probabilistic lane while drawing a diagnostic. */
     for(int note=0;note<count;note++)for(int index=HB_MOTION_OWNERS-1;index>=0;index--){
         const hb_motion_owner *motion=&owner->motion_local.owners[index];
-        if(motion->used&&motion->source==pitches[note]&&!motion->generated){pitches[note]=motion->pitch;break;}
+        if(motion->used&&motion->source==pitches[note]&&!motion->generated){
+            if(pitches[note]!=motion->pitch)rendered_approach=0;
+            pitches[note]=motion->pitch;break;
+        }
     }
-    char name[12];
-    const char *display=field==2?(harmony.valid?hb_role_name_for_interval(mod12(pitches[0]-harmony.root_pc)):"--"):
-        hb_note_name_with_octave(pitches[0],harmony,name,sizeof(name));
+    char name[24];
+    const char *display;
+    if(field==2&&harmony.valid){
+        uint16_t output=hb_follower_scale_target((Inst*)owner,harmony).pitch_mask;
+        int pitch=pitches[0],target=rendered_approach?pitch+1:pitch;
+        if(output&(1u<<mod12(target))){
+            int degree=hb_source_degree_from_parent_scale(mod12(target-harmony.root_pc),harmony.root_pc,output);
+            snprintf(name,sizeof(name),"%s%s",hb_role_name_for_degree(degree),rendered_approach?"-1":"");
+            display=name;
+        }else display=hb_role_name_for_interval(mod12(pitch-harmony.root_pc));
+    }else display=field==2?"--":hb_note_name_with_octave(pitches[0],harmony,name,sizeof(name));
     return count>1?snprintf(buffer,(size_t)length,"%s+%d",display,count-1):snprintf(buffer,(size_t)length,"%s",display);
 }
 static void hb_capture_harmony_display(Inst *instance){
@@ -4086,6 +4109,23 @@ if(!strcmp(key,"pad_view")){
         seen[key->source]=1;
         if(used<0||used>=length)return used;
         used+=snprintf(buffer+used,(size_t)(length-used),",%d",key->source);
+    }
+    int input_root=0;
+    if(instance->role==1&&hb_resolve_follower_reference_root(instance,&input_root)){
+        uint16_t input=hb_follower_input_scale(instance,input_root),roles=1u<<input_root;
+        hb_harmony_t detected=hb_transpose_harmony(g_bus.observed_harmony,-g_bus.global_transpose);
+        if(detected.valid){
+            uint16_t parent=hb_explicit_scale_mask(input_root,hb_parent_scale_at_transpose(instance,detected,0));
+            uint16_t output=hb_output_chord_scale_at_transpose(instance,detected,input_root,parent,0);
+            uint16_t chord=hb_harmony_chord_mask(detected);
+            for(int degree=1;degree<7;degree++){
+                int target=mod12(detected.root_pc+hb_render_degree_interval(output,detected,degree));
+                if(chord&(1u<<target))roles|=1u<<mod12(input_root+hb_nth_scale_interval_from_root(input,input_root,degree));
+            }
+        }
+        if(used<0||used>=length)return used;
+        used+=snprintf(buffer+used,(size_t)(length-used),"|input1,%d,%d,%d,%u,%u",input_root,
+            instance->follower_scale,hb_follower_input_scale_index(instance,input_root),input,roles&input);
     }
     return used;
 }

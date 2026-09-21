@@ -36,7 +36,7 @@ static void reference_invariance(void){
     g_bus.global_transpose=0;
     /* All input pitch classes, roots, explicit scales, harmonies, travel modes
        and transpositions. The displayed role must never depend on output. */
-    for(int input_root=0;input_root<12;input_root++)for(int scale=0;scale<=9;scale++){
+    for(int input_root=0;input_root<12;input_root++)for(int scale=1;scale<=9;scale++){
         globals.follower_explicit_root=input_root;instance->follower_scale=scale;
         for(int pitch=60;pitch<72;pitch++){
             int expected=hb_source_degree_from_parent_scale(mod12(pitch-input_root),input_root,
@@ -254,12 +254,12 @@ static void follower_rows(void){
     char display[32];
     API.get_param(first,"fpath_1_0_1",display,sizeof(display));assert(!strcmp(display,"7th"));
     API.get_param(first,"fpath_1_1_1",display,sizeof(display));assert(!strcmp(display,"5th"));
-    API.get_param(first,"fpath_1_1_2",display,sizeof(display));assert(!strcmp(display,"b7"));
+    API.get_param(first,"fpath_1_1_2",display,sizeof(display));assert(!strcmp(display,"7th"));
     API.get_param(first,"fpath_1_1_3",display,sizeof(display));assert(!strcmp(display,"G4"));
     /* Harmony can change while a note remains held without retrigger: report
        the harmony used at onset, not the new bus harmony. */
     hb_effective_write(chord(0,0,0));
-    API.get_param(first,"fpath_1_1_2",display,sizeof(display));assert(!strcmp(display,"b7"));
+    API.get_param(first,"fpath_1_1_2",display,sizeof(display));assert(!strcmp(display,"7th"));
     /* Two tracks may play the same pitch. Keep their independent paths. */
     first->published_follower[67]=1;first->mapped[67]=74;
     first->follower_path_harmony[67]=chord(7,0,0);
@@ -287,18 +287,18 @@ static void unchanged_pitch_updates_output_role(void){
     instance->follower_bus_seq=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);
     char display[256];uint8_t output[16][3];int lengths[16];
     API.get_param(instance,"follower_snapshot",display,sizeof(display));
-    assert(strstr(display,"|7th|2/9|B4|")!=NULL);
+    assert(strstr(display,"|7th|2nd|B4|")!=NULL);
     hb_effective_write(chord(2,1,0));
     assert(hb_reharmonize_held_follower(instance,output,lengths,16)==0);
     assert(instance->mapped[71]==71);
     API.get_param(instance,"follower_snapshot",display,sizeof(display));
-    assert(strstr(display,"|7th|6/13|B4|")!=NULL);
+    assert(strstr(display,"|7th|6th|B4|")!=NULL);
     /* Reharmonization disabled preserves the original note-on context. */
     instance->retrigger_held=0;
     hb_effective_write(previous);
     assert(hb_reharmonize_held_follower(instance,output,lengths,16)==0);
     API.get_param(instance,"follower_snapshot",display,sizeof(display));
-    assert(strstr(display,"|7th|6/13|B4|")!=NULL);
+    assert(strstr(display,"|7th|6th|B4|")!=NULL);
     API.destroy_instance(instance);
 }
 
@@ -318,7 +318,7 @@ static void direct_follower_input_owns_its_display(void){
     API.process_midi(instance,message,3,output,lengths,16);
     API.tick(instance,64,48000,output,lengths,16);
     char display[256];API.get_param(instance,"follower_snapshot",display,sizeof(display));
-    assert(!strcmp(display,"fp1|G4|5th|b7|G4|--|--|--|--"));
+    assert(!strcmp(display,"fp1|G4|5th|7th|G4|--|--|--|--"));
     assert(!instance->follower_held[58]);
     assert(instance->follower_held[67]);
     /* A delayed monitor note-off must not resurrect a released direct note. */

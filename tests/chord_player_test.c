@@ -575,7 +575,7 @@ static void split2_and_master(void){
         API.set_param(instance,"follower_scale",scales[scale]);
         uint8_t notes[3]={60,64,67};hb_harmony_t harmony=hb_infer_harmony(notes,3);
         hb_effective_write(harmony);
-        uint16_t parent=hb_explicit_scale_mask(root,hb_parent_scale_index(instance,harmony));
+        uint16_t parent=hb_follower_input_scale(instance,root);
         for(int split=0;split<4;split++)for(int pitch=48;pitch<84;pitch++){
             instance->follower_split_map=split;instance->content_map=1;
             API.set_param(instance,"travel_map","Closest Split");
