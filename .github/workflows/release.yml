@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.157'
+          assert module['version']=='0.2.158'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -166,6 +166,8 @@ jobs:
           /tmp/global_scale_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/recorded_input_test.c src/harmony_core.c -lm -o /tmp/recorded_input_test
           /tmp/recorded_input_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/operation_recording_test.c src/harmony_core.c -lm -o /tmp/operation_recording_test
+          /tmp/operation_recording_test
 
       - name: Verify shared and tempo-relative buffer
         run: |
@@ -217,7 +219,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.157'
+          assert module['version']==os.environ['VERSION']=='0.2.158'
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_source']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
@@ -245,12 +247,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Increase the default tap/hold threshold to 350 ms. Pair with Movy hbclean.66 for priority touch-release handling and native short-tap button feedback."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Global operation settings and grids, per-track lookahead, recorded relative operation actions, None-first travel choices and follower-only active-render harmony colors. Pair with Movy hbclean.67."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Increase the default tap/hold threshold to 350 ms. Pair with Movy hbclean.66 for priority touch-release handling and native short-tap button feedback." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Global operation settings and grids, per-track lookahead, recorded relative operation actions, None-first travel choices and follower-only active-render harmony colors. Pair with Movy hbclean.67." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

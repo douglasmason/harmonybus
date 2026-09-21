@@ -1,6 +1,6 @@
 #ifndef HB_MOTION_H
 #define HB_MOTION_H
-/* Sixteen per-instance lanes. Pure evaluation uses transport position, never a
+/* Sixteen shared lane assignments with per-instance voice ownership. Pure evaluation uses transport position, never a
    mutable random stream, so local and MIDI-render routes make identical choices. */
 #define HB_MOTION_LANES 16
 #define HB_MOTION_OWNERS 512
@@ -51,7 +51,26 @@ static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*con
     for(int index=12;index<16;index++){config->lanes[index].operation=HB_MO_BELOW+index-12;config->lanes[index].enabled=0;config->lanes[index].amount=1;}
 }
 static void hb_mo_route_init(hb_motion_route *route){memset(route,0,sizeof(*route));for(int channel=0;channel<16;channel++)route->base_pan[channel]=64;}
+/* ra1 event words store an operation outcome, never an output MIDI pitch.
+   Bit 63 distinguishes snapshots from ordinary advancing event counters. */
+#define HB_MO_RECORDED (1ULL<<63)
+static unsigned long long hb_mo_recorded_word(const hb_motion_config *config,int index){
+    if(config->held&(1u<<index))return 0; /* live performance temporarily replaces that recorded lane */
+    return config->event_override?config->event_override[index]&HB_MO_RECORDED?config->event_override[index]:0:0;
+}
+static hb_motion_lane hb_mo_settings(const hb_motion_config *config,int index){
+    hb_motion_lane lane=config->lanes[index];
+    unsigned long long word=hb_mo_recorded_word(config,index);
+    if(word){
+        lane.operation=(int)((word>>32)&31);lane.grid=(int)((word>>37)&15);
+        lane.offset=(int)((word>>41)&1023)-400;
+        lane.enabled=1;lane.probability=100;lane.every=lane.from=lane.through=1;
+    }
+    return lane;
+}
 static int hb_mo_lane_active(const hb_motion_config *config,int index){
+    unsigned long long word=hb_mo_recorded_word(config,index);
+    if(word)return ((word>>32)&31)!=0;
     int operation=config->lanes[index].operation;
     if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&
         (!config->host_capabilities||(config->host_capabilities<2&&!(config->held&(1u<<index)))))return 0;
@@ -144,6 +163,11 @@ static int hb_mo_held_modifier(hb_motion_config *config){
     return 0;
 }
 static int hb_mo_source_modifier(const hb_motion_config *config){
+    if(config->event_override){
+        if(config->pitch_held)return 0;
+        for(int lane=0;lane<16;lane++)if((config->held&(1u<<lane))&&(config->lanes[lane].operation==HB_MO_BELOW||config->lanes[lane].operation==HB_MO_ABOVE))return 0;
+        for(int gesture=0;gesture<18;gesture++)if((config->gesture_down&(1u<<gesture))&&config->gesture_mode[gesture]!=1&&(config->gesture_operation[gesture]==HB_MO_BELOW||config->gesture_operation[gesture]==HB_MO_ABOVE))return 0;
+    }
     const unsigned long long *events=config->event_override?config->event_override:config->events;
     return events[HB_MOTION_LANES]==1?-1:events[HB_MOTION_LANES]==2?1:0;
 }
@@ -198,7 +222,7 @@ static int hb_mo_condition_cycle(const hb_motion_lane *lane,double beat){
     return (int)(cycle%every)+1;
 }
 static int hb_mo_condition(const hb_motion_config *config,int index,double beat){
-    const hb_motion_lane *lane=&config->lanes[index];
+    hb_motion_lane resolved=hb_mo_settings(config,index);const hb_motion_lane *lane=&resolved;
     if(config->held&(1u<<index))return 1;
     if(lane->every<=1)return 1;
     if(beat<0)return 0;
@@ -207,7 +231,10 @@ static int hb_mo_condition(const hb_motion_config *config,int index,double beat)
 }
 /* Return false means do not perform this operation; it never means skip a note. */
 static int hb_mo_value_at(const hb_motion_config *config,int index,double beat,double condition_beat,int voice,double *value){
-    const hb_motion_lane *lane=&config->lanes[index];
+    unsigned long long word=hb_mo_recorded_word(config,index);
+    if(word){*value=(double)(int32_t)(uint32_t)word/1000.0;return ((word>>32)&31)!=0;}
+
+    hb_motion_lane resolved=hb_mo_settings(config,index);const hb_motion_lane *lane=&resolved;
     int held=(config->held&(1u<<index))!=0;
     if(!hb_mo_lane_active(config,index)||!hb_mo_condition(config,index,condition_beat)||(!held&&!lane->probability))return 0;
     double grid=hb_mo_grid(lane->grid),cycle=hb_mo_cycle(lane->cycle);
@@ -230,6 +257,20 @@ static int hb_mo_value_at(const hb_motion_config *config,int index,double beat,d
     else if(lane->pattern==5)pattern=((int)hb_mo_floor(position)&1)?1.0:0.0;
     else if(lane->pattern==6)pattern=2.0*(hb_mo_hash(seed^0xa511e9b3u)%10001u)/10000.0-1.0;
     *value=(lane->operation==HB_MO_ECHO?0:lane->offset)+lane->amount*pattern;return 1;
+}
+static void hb_mo_capture(hb_motion_config *config,double beat,double condition,int voice,unsigned long long result[HB_MOTION_LANES+1]){
+    for(int lane=0;lane<HB_MOTION_LANES;lane++){
+        double value=0;hb_motion_lane settings=config->lanes[lane];
+        int active=hb_mo_value_at(config,lane,beat,condition,voice,&value);
+        if((config->held&(1u<<lane))&&(settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE))active=0;
+        /* Explicitly evolving automatic lanes remain live on replay. */
+        if(settings.evolve&&!(config->held&(1u<<lane))){result[lane]=config->events[lane];continue;}
+        result[lane]=HB_MO_RECORDED|((unsigned long long)(active?settings.operation:0)<<32)|
+            ((unsigned long long)settings.grid<<37)|((unsigned long long)(settings.offset+400)<<41)|
+            (unsigned long long)(uint32_t)(int32_t)hb_mo_round(value*1000.0);
+    }
+    int modifier=hb_mo_held_modifier(config);
+    result[HB_MOTION_LANES]=modifier<0?1:modifier>0?2:config->events[HB_MOTION_LANES];
 }
 static int hb_mo_value(const hb_motion_config *config,int index,double beat,int voice,double *value){
     return hb_mo_value_at(config,index,beat,beat,voice,value);
@@ -298,6 +339,7 @@ static int hb_mo_event(hb_motion_route *route,const uint8_t message[3],int pitch
 /* Generated notes use the monotonic DSP beat, independent of transport seeks.
    Repeats from different lanes add; they never pass through input processing. */
 static int hb_mo_repeat_active(const hb_motion_config *config,int lane,int manual,unsigned revision,unsigned held_serial){
+    if(manual==2)return 1; /* A recorded burst owns its captured settings. */
     return config->revision[lane]==revision&&hb_mo_lane_active(config,lane)&&
         (!manual||((config->held&(1u<<lane))&&config->held_serial[lane]==held_serial));
 }
@@ -320,7 +362,7 @@ static void hb_mo_repeat_cancel(hb_motion_route *route,const hb_motion_config *c
 static void hb_mo_repeat_schedule(hb_motion_route *route,const hb_motion_config *config,
                                 const uint8_t message[3],int pitch,int velocity,double pattern_beat,double condition_beat,double now){
     for(int lane=0;lane<HB_MOTION_LANES;lane++){
-        const hb_motion_lane *settings=&config->lanes[lane];double value;
+        hb_motion_lane resolved=hb_mo_settings(config,lane);const hb_motion_lane *settings=&resolved;double value;
         if((settings->operation!=HB_MO_RATCHET&&settings->operation!=HB_MO_ECHO)||!hb_mo_value_at(config,lane,pattern_beat,condition_beat,message[1],&value))continue;
         int ratchet=settings->operation==HB_MO_RATCHET;
         int count=hb_mo_clamp(hb_mo_round(value),ratchet?1:0,16);
@@ -329,7 +371,7 @@ static void hb_mo_repeat_schedule(hb_motion_route *route,const hb_motion_config 
         if(slot<0)continue; /* Overload leaves the original note intact. */
         double spacing=hb_mo_grid(settings->grid)/(ratchet?count:1);
         route->bursts[slot]=(hb_motion_burst){.used=1,.lane=lane,.channel=message[0]&15,.pitch=pitch,.velocity=velocity,
-            .remaining=remaining,.manual=(config->held&(1u<<lane))!=0,.decay=ratchet?0:hb_mo_clamp(settings->offset,0,100),
+            .remaining=remaining,.manual=hb_mo_recorded_word(config,lane)?2:(config->held&(1u<<lane))!=0,.decay=ratchet?0:hb_mo_clamp(settings->offset,0,100),
             .revision=config->revision[lane],.held_serial=config->held_serial[lane],.next=now+spacing,.spacing=spacing,.gate=spacing*0.5};
         route->repeat_pending=1;
         if(ratchet)for(int index=0;index<HB_MOTION_OWNERS;index++){

@@ -28,7 +28,7 @@ static Inst *fixture(void){
     move_midi_fx_init(&host);
     Inst *instance=API.create_instance("",NULL);
     instance->content_map=0; /* Legacy tests explicitly exercise Chord content. */
-    g_bus.next_anti_buffer_ms=0; /* Legacy timing fixture: no onset guard. */
+    instance->next_anti_buffer_ms=0; /* Legacy timing fixture: no onset guard. */
     API.set_param(instance,"role","Follower");API.set_param(instance,"source_channel","1");
     API.set_param(instance,"render_channel","4");
     API.set_param(instance,"follower_root_policy","Explicit");API.set_param(instance,"follower_explicit_root","C");
@@ -650,7 +650,7 @@ static void predicted_capture(void){
         Inst *instance=fixture();
         API.set_param(instance,"boundary_buffer_ms","1/16");
         API.set_param(instance,"quant_timing",quant?"1/8":"Off");
-        g_bus.next_lookahead=late?10:3; // -quarter or +eighth
+        instance->next_lookahead=late?10:3; // -quarter or +eighth
         hb_next_update_playhead(0,48000);
         g_bus.next_model_locked=1;g_bus.next_model_count=2;
         uint8_t c[3]={60,64,67},d[3]={62,66,69};
@@ -676,7 +676,7 @@ static void predicted_capture(void){
     // Future harmony also feeds chord generation, without changing the bus.
     Inst *instance=fixture();
     API.set_param(instance,"chord_mode","Conductor Chord");
-    g_bus.next_lookahead=3;hb_next_update_playhead(0,48000);g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    instance->next_lookahead=3;hb_next_update_playhead(0,48000);g_bus.next_model_locked=1;g_bus.next_model_count=2;
     uint8_t c[3]={60,64,67},d[3]={62,66,69};
     g_bus.next_model[0].phase=0;g_bus.next_model[0].harmony=hb_infer_harmony(c,3);
     g_bus.next_model[1].phase=2;g_bus.next_model[1].harmony=hb_infer_harmony(d,3);
@@ -760,20 +760,20 @@ static void four_bar_timing(void){
         API.get_param(instance,keys[index],value,sizeof(value));assert(!strcmp(value,"4 Bars"));
     }
     assert(hb_quant_grid_beats_for(instance)==16.0&&hb_chord_grid_beats()==16.0);
-    assert(hb_next_lookahead_beats()==16.0);
+    assert(hb_next_lookahead_beats_for(instance)==16.0);
     assert(hb_cp_division(instance->player.config.rate)==16.0);
     assert(hb_cp_division(-instance->player.config.spread-1)==16.0);
-    assert(g_bus.boundary_buffer_ms==-9);
-    API.set_param(instance,"next_lookahead","-4 Bars");assert(hb_next_lookahead_beats()==-16.0);
+    assert(instance->boundary_buffer_ms==-9);
+    API.set_param(instance,"next_lookahead","-4 Bars");assert(hb_next_lookahead_beats_for(instance)==-16.0);
     API.get_param(instance,"next_lookahead",value,sizeof(value));assert(!strcmp(value,"-4 Bars"));
     // Legacy lookahead IDs and two-bar durations remain unchanged.
-    API.set_param(instance,"next_lookahead","19");assert(hb_next_lookahead_beats()==8.0);
-    API.set_param(instance,"next_lookahead","21");assert(hb_next_lookahead_beats()==-8.0);
+    API.set_param(instance,"next_lookahead","19");assert(hb_next_lookahead_beats_for(instance)==8.0);
+    API.set_param(instance,"next_lookahead","21");assert(hb_next_lookahead_beats_for(instance)==-8.0);
     API.set_param(instance,"next_lookahead","Off");
     API.get_param(instance,"state",state,sizeof(state));
     Inst *copy=API.create_instance("",NULL);API.set_param(copy,"state",state);
     API.get_param(copy,"state",restored,sizeof(restored));assert(!strcmp(state,restored));
-    assert(copy->quant_timing==7&&copy->player.config.rate==8&&copy->player.config.spread==-9);
+    assert(g_bus.quant_timing==7&&copy->player.config.rate==8&&copy->player.config.spread==-9);
     // A press one beat into the cycle captures to beat 16, not the old beat 8.
     position=1.0;midi(instance,1,60);
     assert(instance->follower_queue_count==1&&instance->follower_queue_target_beat[0]==16.0);
@@ -1222,7 +1222,7 @@ static void pad_render_mapping(void){
     uint8_t chord[3]={67,71,74};hb_commit_observed_harmony(hb_infer_harmony(chord,3));
     API.set_param(instance,"content_map","Scale");
     instance->content_map=1;instance->travel_map=0;
-    g_bus.boundary_buffer_ms=0;g_bus.next_predict=0;
+    instance->boundary_buffer_ms=0;instance->next_predict=0;
     char snapshot[128];unsigned current,effective,scale,lookahead;int ready;
     Inst before=*instance;unsigned sequence=g_bus.seq;
     API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
@@ -1252,7 +1252,7 @@ static void pad_render_mapping(void){
 static void pad_harmony_snapshot(void){
     for(int late=0;late<2;late++){
         Inst *instance=fixture();
-        g_bus.next_lookahead=late?10:3;hb_next_update_playhead(0,48000);
+        instance->next_lookahead=late?10:3;hb_next_update_playhead(0,48000);
         g_bus.next_model_locked=1;g_bus.next_model_count=2;
         uint8_t c[3]={60,64,67},d[3]={62,66,69};
         g_bus.next_model[0].phase=0;g_bus.next_model[0].harmony=hb_infer_harmony(c,3);

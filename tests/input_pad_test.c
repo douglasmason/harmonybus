@@ -19,7 +19,10 @@ int main(void){
         int root,selected,resolved;unsigned mask,roles;
         assert(sscanf(metadata,"|input1,%d,%d,%d,%u,%u",&root,&selected,&resolved,&mask,&roles)==5);
         assert(root==0&&selected==scale&&resolved==scale&&mask==input);
-        assert((roles&~input)==0&&(roles&1));
+        for(int pitch_class=0;pitch_class<12;pitch_class++){
+            int rendered=hb_map_follower_note_now(instance,60+pitch_class);
+            assert(!!(roles&(1u<<pitch_class))==!!(chord_mask&(1u<<mod12(rendered))));
+        }
         for(int degree=0;degree<7;degree++){
             int pitch=60+hb_nth_scale_interval_from_root(input,0,degree);
             instance->travel_map=3;
@@ -56,6 +59,16 @@ int main(void){
     g_bus.global_transpose=5;g_bus.observed_harmony=hb_transpose_harmony(chord(0,1,0),5);
     assert(hb_follower_input_scale(instance,0)==inferred);
     assert(hb_shared_follower_scale()==0);
+    instance->travel_map=7;g_bus.global_transpose=0;hb_set_shared_follower_scale(1);
+    for(int h=0;h<4;h++){
+        g_bus.observed_harmony=chord(roots[h],minor[h],0);hb_effective_write(g_bus.observed_harmony);
+        API.get_param(instance,"pad_view",view,sizeof(view));
+        const char *metadata=strstr(view,"|input1,");int root,selected,resolved;unsigned mask,roles;
+        assert(sscanf(metadata,"|input1,%d,%d,%d,%u,%u",&root,&selected,&resolved,&mask,&roles)==5);
+        assert(roles==hb_harmony_chord_mask(g_bus.observed_harmony));
+    }
+    API.set_param(instance,"role","Conductor");API.set_param(instance,"pad_display","Both");
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(!strncmp(view,"0,0,0,0,0,0,",12));assert(!strstr(view,"|input1,"));
     API.destroy_instance(instance);
     puts("input pads: chord-compatible output, scale metadata, split/chromatic distinction, auto without lookahead feedback pass");
     return 0;

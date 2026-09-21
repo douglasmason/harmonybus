@@ -44,9 +44,10 @@ static void controls_and_state(void){
         expect_param(instance,"motion_grid","1/16");expect_param(instance,"motion_cycle","3 Bars");
         expect_param(instance,"motion_probability","37");expect_param(instance,"motion_evolve","Evolve");
     }
-    Inst *other=API.create_instance("",NULL);expect_param(other,"motion_operation","Off");
-    API.set_param(instance,"state",legacy);assert(!hb_mo_enabled(&instance->motion));
+    Inst *other=API.create_instance("",NULL);expect_param(other,"motion_operation","Velocity");
+    g_motion_settings_ready=g_motion_settings_restored=0;API.set_param(instance,"state",legacy);assert(!hb_mo_enabled(&instance->motion));
     expect_param(instance,"motion_lane","1");expect_param(instance,"motion_bypass","Off");
+    API.destroy_instance(other);API.destroy_instance(instance);instance=API.create_instance("",NULL);
     API.set_param(instance,"state",saved);API.get_param(instance,"state",after,sizeof(after));assert(!strcmp(saved,after));
     char small[16];assert(API.get_param(instance,"state",small,sizeof(small))>=16);assert(small[15]==0);
     hb_mo_restore(&instance->motion,";mo1,0,99,0,0,0,1,3,3,0,100,0,0");
@@ -119,7 +120,7 @@ static void harmony_choice(void){
     g_bus.clip_loop_start=0;g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
     g_bus.next_model[0].phase=0;g_bus.next_model[0].harmony=current;
     g_bus.next_model[1].phase=2;g_bus.next_model[1].harmony=upcoming;
-    g_bus.next_lookahead=4;position=1.5;
+    instance->next_lookahead=4;position=1.5;
     API.set_param(instance,"motion_operation","Harmony");API.set_param(instance,"motion_amount","100");
     assert(hb_render_harmony(instance).root_pc==upcoming.root_pc);
     API.set_param(instance,"motion_amount","0");assert(hb_render_harmony(instance).root_pc==current.root_pc);
@@ -423,11 +424,11 @@ static void condition_state_and_repeat_tails(void){
     API.get_param(instance,"state",saved,sizeof(saved));API.set_param(instance,"state",saved);
     API.get_param(instance,"state",restored,sizeof(restored));assert(!strcmp(saved,restored));
     for(int lane=0;lane<16;lane++)assert(instance->motion.lanes[lane].every==16&&instance->motion.lanes[lane].from==lane+1&&instance->motion.lanes[lane].through==lane+1);
-    API.set_param(instance,"state",legacy);API.get_param(instance,"state",restored,sizeof(restored));assert(!strcmp(legacy,restored));
+    g_motion_settings_ready=g_motion_settings_restored=0;API.set_param(instance,"state",legacy);API.get_param(instance,"state",restored,sizeof(restored));assert(!strcmp(legacy,restored));
     hb_mo_restore(&instance->motion,";mcond1,0,4,4,3;mcond1,1,17,1,1;mcond1,2,4,1,5;mcond1,3,4,1,2garbage;mcond1,15,8,7,8");
     for(int lane=0;lane<4;lane++)assert(instance->motion.lanes[lane].every==1);
     assert(instance->motion.lanes[15].every==8&&instance->motion.lanes[15].from==7);
-    API.set_param(instance,"state",legacy);API.set_param(instance,"motion_operation","MIDI Echo");
+    g_motion_settings_ready=g_motion_settings_restored=0;API.set_param(instance,"state",legacy);API.set_param(instance,"motion_operation","MIDI Echo");
     API.set_param(instance,"motion_amount","2");API.set_param(instance,"motion_every","4");API.set_param(instance,"motion_from","4");
     position=8;send_note(instance,1,60);send_note(instance,0,60);assert(!burst_count(&instance->motion_local));
     position=15.9;send_note(instance,1,60);send_note(instance,0,60);assert(burst_count(&instance->motion_local)==1);
@@ -522,7 +523,7 @@ static void ordered_gestures(void){
     API.set_param(instance,"touch_hold_ms","350");
     char saved[16384];API.get_param(instance,"state",saved,sizeof(saved));
     API.set_param(instance,"motion_touch_mode","Tap/Hold");API.set_param(instance,"state",saved);
-    assert(instance->motion.lanes[0].touch_mode==0&&g_hb_hold_ms==350);
+    assert(instance->motion.lanes[0].touch_mode==2&&g_hb_hold_ms==350); /* stale saved track cannot undo a global edit */
     gesture_tap(instance,"performance_gesture_above",300);assert(instance->motion.enclosure==3);
     API.set_param(instance,"performance_reset","1");assert(!instance->motion.enclosure&&!instance->motion.gesture_down);
     API.destroy_instance(instance);

@@ -2,13 +2,13 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.157 / Movy 0.34.1-hbclean.66.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.158 / Movy 0.34.1-hbclean.67.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
 **Example:** the conductor changes from C to D at 2000 ms. A locked model with 1/8-note lookahead makes D effective at 1750 ms. A keypress at 1600 ms falls inside the 350 ms pre-boundary window and waits until 1750 ms. This wait is caused by the eighth-note Quant Grid. With Quant Grid Off, the same keypress plays D immediately at 1600 ms, looking up the harmony at 1750 ms.
 
-**Defaults and scope:** Follower Buffer is global, initially **1/16 note** (124 ms capture at 120 BPM), following tempo. The early-lookahead diagrams explicitly use a 350 ms example buffer to illustrate wider capture windows. Changing it on any HB instance changes all followers. Lookahead defaults to **Off**. Quant Grid remains per follower. Musical buffer choices run from 1/64 through 4 Bars; millisecond choices are 0, 25, 50, then 100 to 1000 ms in 50 ms steps.
+**Defaults and scope:** Follower Buffer is per track, initially **1/16 note** (124 ms capture at 120 BPM), following tempo. The early-lookahead diagrams explicitly use a 350 ms example buffer to illustrate wider capture windows. Changing it affects that follower only. Lookahead is per track and defaults to **Off**. Chord Grid and Quant Grid are global. Musical buffer choices run from 1/64 through 4 Bars; millisecond choices are 0, 25, 50, then 100 to 1000 ms in 50 ms steps.
 
 **Saved sets:** saved buffer values survive the update. For older sets containing conflicting per-instance buffers, the first restored copy becomes the shared value. Set the desired global value once, then save the set; new snapshots store the same value in every instance.
 
@@ -350,7 +350,7 @@ The earlier timing diagrams describe the **0 ms** compatibility setting. See
 [follower paths and timing](follower-paths.md) for examples and diagnostics.
 
 Next Harm places **Follower Buffer** immediately beside **Lookahead Anti Buffer**
-(replacing Reset Learn). This is the same global buffer control as in Timing,
+(replacing Reset Learn). This is the same per-track buffer control as in Timing,
 so either location edits the same saved value and shows the effective value.
 
 
@@ -384,6 +384,14 @@ Chromatic notes retain their distance below the next degree. Explicit input-role
 Legacy follower notes have no historical input key. They adopt the active input root and scale when first loaded with a recognized follower context; set the original input key before changing it for an older recording. New context metadata survives saves, copies, recording tails, and Capture. Conductor, rendered-output recordings, and drum notes retain absolute pitches.
 
 
-## Touch release and tap timing (0.2.157 / Movy hbclean.66)
+## Touch release and tap timing (0.2.158 / Movy hbclean.67)
 
 The default Hold Time is 350 ms. A shorter unused approach touch arms or disarms the pending trigger; reaching 350 ms makes it a momentary hold. Existing explicitly saved custom thresholds are preserved. Movy completes an owned touch release before ordinary knob-model lookups and automation handling. Short touch releases use the same native button burst as Pending / Reset, without sending a second trigger command. Long releases and cancellations do not create a trigger burst.
+
+## Shared controls and recorded performance (0.2.158 / hbclean.67)
+
+Operation lane assignments and settings, input root/scale, master transpose, chord grid and quant grid are global. Lookahead, its anti-buffer, follower buffer, mapping, auto chord and arp remain per track. Performance ownership and recorded actions stay with the affected track. Old travel integers are unchanged; None moves only in the displayed option order.
+
+Movy saves per-input relative operation outcomes beside source notes. Ordinary non-evolving operation values and approach/enclosure steps are captured at input onset; explicitly evolving automatic lanes remain live. These records survive clip persistence and copying and are supplied before source-note playback. Live held lane controls temporarily replace that lane's recorded action instead of applying it twice. Repeat, reverse, time-shift and speed gestures recorded on a clip retain their timed intervals, independent of later button assignments. Existing clips without these records continue their prior behavior; already baked rendered notes remain absolute.
+
+The quiet default pad overlay uses the track's active rendering harmony, and only on followers. Highlighted inputs are those whose actual rendered voices belong to that chord, including Travel None, transpose and lookahead. Input root retains track color; chord-producing inputs mix grey and track color; other scale notes stay grey. Live and recorded-input green feedback retains priority. Optional Current, Effective, Both and Lookahead display choices remain available; conductor tracks keep ordinary keyboard colors.

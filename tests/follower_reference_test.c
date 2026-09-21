@@ -144,6 +144,7 @@ static void harmony_flow(void){
     g_bus.global_transpose=2;
     g_bus.observed_harmony=hb_transpose_harmony(chord(0,0,0),2);
     hb_effective_write(hb_transpose_harmony(chord(9,1,0),2));
+    instance->render_harmony=hb_transpose_harmony(chord(9,1,0),2);instance->render_harmony_active=1;
     char snapshot[256],expected[256],detected[48],selected[48],rendered[48];
     hb_format_harmony(detected,48,chord(0,0,0));
     hb_format_harmony(selected,48,chord(9,1,0));
@@ -155,7 +156,7 @@ static void harmony_flow(void){
     hb_effective_write(chord(7,0,1));
     API.get_param(instance,"hpath_3",snapshot,sizeof(snapshot));
     assert(!strcmp(snapshot,rendered)); /* one stock-host sweep retains its frame */
-    g_bus.observed_harmony=(hb_harmony_t){0};hb_effective_write((hb_harmony_t){0});
+    g_bus.observed_harmony=(hb_harmony_t){0};instance->render_harmony_active=0;hb_effective_write((hb_harmony_t){0});
     API.get_param(instance,"harmony_snapshot",snapshot,sizeof(snapshot));
     assert(!strcmp(snapshot,"hp1|--|--|--|--"));
     API.destroy_instance(instance);
@@ -163,35 +164,35 @@ static void harmony_flow(void){
 static void lookahead_disables_follower_buffer(void){
     Inst *instance=fixture();
     tempo=120;position=0.9;
-    instance->quant_timing=3; /* quarter-note grid */
-    g_bus.boundary_buffer_ms=100;
-    g_bus.next_predict=1;g_bus.next_lookahead=14;
+    g_bus.quant_timing=3; /* quarter-note grid */
+    instance->boundary_buffer_ms=100;
+    instance->next_predict=1;instance->next_lookahead=14;
     const int guards[]={25,-3};
     for(int index=0;index<2;index++){
-        g_bus.next_anti_buffer_ms=guards[index];
+        instance->next_anti_buffer_ms=guards[index];
         for(int locked=0;locked<2;locked++){
             g_bus.next_model_locked=locked;
-            assert(hb_effective_follower_buffer()==0);
-            assert(hb_follower_capture_beats()==0.0);
+            assert(hb_effective_follower_buffer_for(instance)==0);
+            assert(hb_follower_capture_beats_for(instance)==0.0);
             char value[64];API.get_param(instance,"boundary_buffer_ms",value,sizeof(value));
             assert(!strcmp(value,"0 ms"));
             instance->follower_queue_count=0;
             assert(hb_queue_follower_event(instance,67,100,1,0));
             assert(instance->follower_queue_target_beat[0]<0.0);
-            assert(g_bus.boundary_buffer_ms==100);
+            assert(instance->boundary_buffer_ms==100);
         }
     }
-    g_bus.next_anti_buffer_ms=0;
-    assert(hb_effective_follower_buffer()==100);
+    instance->next_anti_buffer_ms=0;
+    assert(hb_effective_follower_buffer_for(instance)==100);
     instance->follower_queue_count=0;
     assert(hb_queue_follower_event(instance,67,100,1,0));
     assert(instance->follower_queue_target_beat[0]>position);
-    g_bus.next_anti_buffer_ms=25;g_bus.next_lookahead=0;
-    assert(hb_effective_follower_buffer()==100);
-    g_bus.next_lookahead=14;g_bus.next_predict=0;
-    assert(hb_effective_follower_buffer()==100);
-    g_bus.boundary_buffer_ms=-3;
-    assert(hb_follower_capture_beats()>0.0);
+    instance->next_anti_buffer_ms=25;instance->next_lookahead=0;
+    assert(hb_effective_follower_buffer_for(instance)==100);
+    instance->next_lookahead=14;instance->next_predict=0;
+    assert(hb_effective_follower_buffer_for(instance)==100);
+    instance->boundary_buffer_ms=-3;
+    assert(hb_follower_capture_beats_for(instance)>0.0);
     char value[64];API.get_param(instance,"boundary_buffer_ms",value,sizeof(value));
     assert(!strcmp(value,"1/16"));
     API.destroy_instance(instance);
@@ -208,14 +209,14 @@ static void anti_buffer(void){
         const char *guards[]={"25 ms","100 ms","1/64","1/16","1/4","4 Bars"};
         for(int guard_index=0;guard_index<6;guard_index++){
             API.set_param(instance,"next_anti_buffer_ms",guards[guard_index]);
-            double boundary=4-hb_next_shift_beats();
+            double boundary=4-hb_next_shift_beats_for(instance);
             assert(boundary>1&&boundary<=4);
             for(int edge=0;edge<4;edge++){
                 position=edge==0?1:edge==1?boundary-0.00001:edge==2?boundary:boundary+0.00001;
                 hb_next_apply_effective(position);
-                assert(bus_read().root_pc==(edge<2?0:2));
+                assert(hb_render_harmony(instance).root_pc==(edge<2?0:2));
                 /* A large Follower Buffer cannot bypass the start guard. */
-                instance->follower_queue_count=0;g_bus.boundary_buffer_ms=1000;
+                instance->follower_queue_count=0;instance->boundary_buffer_ms=1000;
                 assert(hb_queue_follower_event(instance,67,100,1,0));
                 if(edge<2)assert(instance->follower_queue_harmony_beat[0]<0);
                 assert(!strcmp(hb_follower_degree_role_for_note(instance,67),"5th"));
@@ -223,13 +224,13 @@ static void anti_buffer(void){
         }
     }
     API.set_param(instance,"next_anti_buffer_ms","0 ms");
-    position=1;hb_next_apply_effective(position);assert(bus_read().root_pc==2);
+    position=1;hb_next_apply_effective(position);assert(hb_render_harmony(instance).root_pc==2);
     API.set_param(instance,"next_lookahead","-1/4");
     API.set_param(instance,"next_anti_buffer_ms","100 ms");
-    position=4.9;hb_next_apply_effective(position);assert(bus_read().root_pc==0);
-    position=5;hb_next_apply_effective(position);assert(bus_read().root_pc==2);
+    position=4.9;hb_next_apply_effective(position);assert(hb_render_harmony(instance).root_pc==0);
+    position=5;hb_next_apply_effective(position);assert(hb_render_harmony(instance).root_pc==2);
     API.set_param(instance,"next_lookahead","Off");
-    hb_next_apply_effective(position);assert(bus_read().root_pc==0);
+    hb_next_apply_effective(position);assert(hb_render_harmony(instance).root_pc==0);
     API.set_param(instance,"next_lookahead","3/4");
     API.set_param(instance,"next_anti_buffer_ms","1/16");
     API.set_param(instance,"pad_display","Both");
@@ -238,10 +239,10 @@ static void anti_buffer(void){
     assert(strstr(saved,";la1,")&&strstr(saved,";pd1,"));
     API.destroy_instance(instance);
     instance=API.create_instance("",0);API.set_param(instance,"state",saved);
-    assert(g_bus.next_lookahead==14&&g_bus.next_anti_buffer_ms==-3);
+    assert(instance->next_lookahead==14&&instance->next_anti_buffer_ms==-3);
     API.get_param(instance,"state",restored,sizeof(restored));assert(!strcmp(saved,restored));
     API.set_param(instance,"next_anti_buffer_ms","50 ms");API.set_param(instance,"state",saved);
-    assert(g_bus.next_anti_buffer_ms==50); /* stale per-track snapshot cannot undo global edit */
+    assert(instance->next_anti_buffer_ms==50); /* stale per-track snapshot cannot undo global edit */
     API.destroy_instance(instance);
 }
 static void follower_rows(void){
