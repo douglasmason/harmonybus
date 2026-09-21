@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.155 / Movy 0.34.1-hbclean.63.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.156 / Movy 0.34.1-hbclean.65.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -373,3 +373,12 @@ The Operation panel has exactly eight parameters. The redundant standalone Slot 
 Follower Scale is shared by every HarmonyBus instance, alongside the follower root controls. Edits from any HB panel or Movy's Key control update the same value. Infer uses the shared observed harmony and reference root, so track selection cannot choose a different scale. Content, travel and split remain per-track.
 
 Legacy states adopt the first restored follower scale (or an earlier explicit saved scale). A conductor's default Infer value does not override a saved follower scale. Subsequent track restores cannot undo a live edit; every newly saved track records the current shared value.
+
+
+## Recorded follower input roles (0.2.156 / Movy hbclean.65)
+
+Movy saves the input root and resolved scale at each follower note onset. Playback projects that note's scale degree into the current global input root and scale before HarmonyBus auto-chord, arp, and harmony rendering. Green playback lights use that projected input. The source MIDI pitch stays saved unchanged, so returning to the original key restores it. Master transpose changes output only. Clip transpose remains a separate semitone edit; its value during recording is retained so it cannot change the captured degree accidentally.
+
+Chromatic notes retain their distance below the next degree. Explicit input-role metadata preserves the ordinary split role and the chromatic split approach even when the projected pitch is a member of the new scale. Live pad presses clear prior playback metadata. Note-offs retain the pitch owned at onset, including if the input key changes while a note is held.
+
+Legacy follower notes have no historical input key. They adopt the active input root and scale when first loaded with a recognized follower context; set the original input key before changing it for an older recording. New context metadata survives saves, copies, recording tails, and Capture. Conductor, rendered-output recordings, and drum notes retain absolute pitches.
