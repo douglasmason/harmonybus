@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.156 / Movy 0.34.1-hbclean.65.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.157 / Movy 0.34.1-hbclean.66.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -382,3 +382,8 @@ Movy saves the input root and resolved scale at each follower note onset. Playba
 Chromatic notes retain their distance below the next degree. Explicit input-role metadata preserves the ordinary split role and the chromatic split approach even when the projected pitch is a member of the new scale. Live pad presses clear prior playback metadata. Note-offs retain the pitch owned at onset, including if the input key changes while a note is held.
 
 Legacy follower notes have no historical input key. They adopt the active input root and scale when first loaded with a recognized follower context; set the original input key before changing it for an older recording. New context metadata survives saves, copies, recording tails, and Capture. Conductor, rendered-output recordings, and drum notes retain absolute pitches.
+
+
+## Touch release and tap timing (0.2.157 / Movy hbclean.66)
+
+The default Hold Time is 350 ms. A shorter unused approach touch arms or disarms the pending trigger; reaching 350 ms makes it a momentary hold. Existing explicitly saved custom thresholds are preserved. Movy completes an owned touch release before ordinary knob-model lookups and automation handling. Short touch releases use the same native button burst as Pending / Reset, without sending a second trigger command. Long releases and cancellations do not create a trigger burst.

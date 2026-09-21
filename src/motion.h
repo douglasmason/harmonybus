@@ -39,7 +39,7 @@ typedef struct {
     double performance_beat;
     uint8_t performance_notes[128];
 } hb_motion_route;
-static int g_hb_hold_ms=250,g_hb_hold_restored=0;
+static int g_hb_hold_ms=350,g_hb_hold_restored=0;
 static int hb_mo_clamp(int value,int low,int high){return value<low?low:value>high?high:value;}
 static int hb_mo_round(double value){return (int)(value+(value>=0?0.5:-0.5));}
 static double hb_mo_floor(double value){long long whole=(long long)value;return (double)whole-(value<(double)whole);}

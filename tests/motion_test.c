@@ -504,7 +504,7 @@ static void ordered_gestures(void){
     API.set_param(instance,"performance_gesture_above","Up,80");
     assert(send_note(instance,1,60)==1&&output[0][1]==60);send_note(instance,0,60);
     // Exactly the threshold is a hold, and Cancel never arms a pending note.
-    gesture_tap(instance,"performance_gesture_above",250);assert(!instance->motion.enclosure);
+    gesture_tap(instance,"performance_gesture_above",350);assert(!instance->motion.enclosure);
     API.set_param(instance,"performance_gesture_above","Down");API.set_param(instance,"performance_gesture_above","Cancel");assert(!instance->motion.enclosure);
     gesture_tap(instance,"motion_gesture_15",80);assert(instance->motion.enclosure==1);
     gesture_tap(instance,"motion_gesture_15",80);assert(!instance->motion.enclosure);

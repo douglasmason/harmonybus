@@ -210,7 +210,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
 }
 static int hb_mo_save(hb_motion_config *config,char *buffer,int length,int used){
     if(used<0||used>=length)return used;
-    if(g_hb_hold_ms!=250)used+=snprintf(buffer+used,(size_t)(length-used),";gt1,%d",g_hb_hold_ms);
+    if(g_hb_hold_ms!=350)used+=snprintf(buffer+used,(size_t)(length-used),";gt1,%d",g_hb_hold_ms);
     for(int index=0;index<HB_MOTION_LANES;index++)if(config->lanes[index].touch_mode!=2&&used>=0&&used<length)
         used+=snprintf(buffer+used,(size_t)(length-used),";mt1,%d,%d",index,config->lanes[index].touch_mode);
     /* Omit untouched lanes so legacy/default snapshots remain byte-identical. */
