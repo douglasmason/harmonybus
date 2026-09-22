@@ -4211,7 +4211,21 @@ static void hb_capture_follower_display(Inst *instance){
     }
     instance->follower_display_valid=1;
 }
-static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();
+static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+/* Optional visible-pad list: 32 hex MIDI notes (ff means a layout gap).
+   Preview only visible notes, in the same snapshot as their harmony colors. */
+const char *pad_request=NULL;int pad_notes[32],pad_count=0;
+if(!strncmp(key,"pad_view@",9)||!strncmp(key,"pad_render@",11)){
+    pad_request=strchr(key,'@')+1;
+    if(strlen(pad_request)!=64)return -1;
+    for(int index=0;index<32;index++){
+        unsigned note=0;
+        if(sscanf(pad_request+index*2,"%2x",&note)!=1||(note>127&&note!=255))return -1;
+        pad_notes[pad_count++]=note==255?-1:(int)note;
+    }
+    key=!strncmp(key,"pad_view",8)?"pad_view":"pad_render";
+}
+hb_harmony_t harmony=bus_read();
 if(!strcmp(key,"render_velocity_percent"))return snprintf(buffer,(size_t)length,"%d",(instance->render_velocity_gain+50)/100);
 if(!strcmp(key,"pad_tonic_color"))return snprintf(buffer,(size_t)length,"%s",PAD_TONIC_COLORS[g_pad_tonic_color]);
 if(!strcmp(key,"pad_both_color"))return snprintf(buffer,(size_t)length,"%s",PAD_BOTH_COLORS[g_pad_both_color]);
@@ -4317,7 +4331,8 @@ if(!strcmp(key,"hb_record_action")){
     instance->action_head=(slot+1)%64;instance->action_count--;return used;
 }
 if(!strcmp(key,"pad_view")){
-    int used=get_param(value,"pad_render",buffer,length);
+    char render_key[80];snprintf(render_key,sizeof(render_key),"pad_render%s%s",pad_request?"@":"",pad_request?pad_request:"");
+    int used=get_param(value,render_key,buffer,length);
     if(used<0||used>=length)return used;
     int active=hb_cp_enabled(&instance->player);
     used+=snprintf(buffer+used,(size_t)(length-used),"|colors2,%d|both1,%d|toniccolor1,%d|arp1,%d",g_pad_effective_color,g_pad_both_color,g_pad_tonic_color,active);
@@ -4408,29 +4423,48 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         unsigned current_mask=current.valid?hb_harmony_chord_mask(current):0;
         unsigned effective_mask=effective.valid?hb_harmony_chord_mask(effective):0;
         unsigned lookahead_mask=ready&&lookahead.valid?hb_harmony_chord_mask(lookahead):0;
-        for(int pitch_class=0;pitch_class<12;pitch_class++){
+        uint64_t output_low[32]={0},output_high[32]={0};int output_group[32];
+        for(int sample=0;sample<12+pad_count;sample++){
+            int source_note=sample<12?60+sample:pad_notes[sample-12];
+            if(source_note<0){output_group[sample-12]=-1;continue;}
+            int pitch_class=mod12(source_note);
             unsigned rendered_mask=0;
             if(instance->role==0||instance->role==1){
                 hb_cp_config config=instance->player.config;
                 memset(&preview.player,0,sizeof(preview.player));preview.player.config=config;
                 preview.approach_pad_armed=instance->approach_pad_armed;
                 preview.motion=instance->motion;preview.motion.event_override=0;
-                hb_mo_input(&preview.motion,60+pitch_class,hb_motion_position(&preview),hb_ms_to_beats(25));
-                hb_player_note_on(&preview,60+pitch_class,0,100);
+                hb_mo_input(&preview.motion,source_note,hb_motion_position(&preview),hb_ms_to_beats(25));
+                hb_player_note_on(&preview,source_note,0,100);
                 for(int owner=0;owner<HB_CP_KEYS;owner++)if(preview.player.keys[owner].used){
                     hb_cp_key *voice=&preview.player.keys[owner];
                     /* A chord gesture is represented by its generated root,
                        independent of inversion, extensions and voice count. */
-                    for(int index=0;index<(config.mode?1:voice->count);index++){
-                        int representative=config.mode?60+voice->root_pc:voice->notes[index];
+                    for(int index=0;index<(sample<12&&config.mode?1:voice->count);index++){
+                        int representative=sample<12&&config.mode?60+voice->root_pc:voice->notes[index];
                         uint8_t message[3]={0x90,(uint8_t)representative,100};
                         int pitch,velocity,pan,skip;double off;
                         hb_motion_values(&preview,message,&pitch,&velocity,&pan,&off,&skip);
                         int modifier=hb_mo_held_modifier(&preview.motion);
                         if(modifier)pitch=hb_apply_approach(&preview,pitch,modifier<0?HB_APPROACH_CHROM_BELOW:HB_APPROACH_SCALE_ABOVE);
-                        if(!skip)rendered_mask|=1u<<mod12(pitch);
+                        if(!skip){
+                            rendered_mask|=1u<<mod12(pitch);
+                            if(sample>=12&&pitch>=0&&pitch<128){
+                                if(pitch<64)output_low[sample-12]|=UINT64_C(1)<<pitch;
+                                else output_high[sample-12]|=UINT64_C(1)<<(pitch-64);
+                            }
+                        }
                     }
                 }
+            }
+            if(sample>=12){
+                int slot=sample-12;output_group[slot]=-1;
+                if(output_low[slot]||output_high[slot]){
+                    output_group[slot]=slot;
+                    for(int previous=0;previous<slot;previous++)
+                        if(output_low[previous]==output_low[slot]&&output_high[previous]==output_high[slot]){output_group[slot]=output_group[previous];break;}
+                }
+                continue;
             }
             if(!rendered_mask)continue;
             unsigned input_bit=1u<<pitch_class;
@@ -4441,7 +4475,12 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             if(scale.valid&&!(rendered_mask&~scale.pitch_mask))scale_inputs|=input_bit;
             if(scale.valid&&rendered_mask==(1u<<mod12(scale.root_pc)))tonic_inputs|=input_bit;
         }
-        return snprintf(buffer,(size_t)length,"%u,%u,%u,%d,%u,%d,%d,%d,%d,%d|tonic1,%u|full1,%d,%u",current_inputs,effective_inputs,scale_inputs,ready,lookahead_inputs,g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4],tonic_inputs,full_lookahead.valid!=0,full_inputs);
+        int used=snprintf(buffer,(size_t)length,"%u,%u,%u,%d,%u,%d,%d,%d,%d,%d|tonic1,%u|full1,%d,%u",current_inputs,effective_inputs,scale_inputs,ready,lookahead_inputs,g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4],tonic_inputs,full_lookahead.valid!=0,full_inputs);
+        if(pad_count&&used>=0&&used<length){
+            used+=snprintf(buffer+used,(size_t)(length-used),"|outputs1");
+            for(int slot=0;slot<pad_count&&used<length;slot++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",output_group[slot]);
+        }
+        return used;
     }
     return snprintf(buffer,(size_t)length,"%u,%u,%u,%d",
         current.valid?(unsigned)hb_harmony_chord_mask(current):0u,

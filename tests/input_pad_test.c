@@ -28,7 +28,23 @@ static void replay_roles_do_not_recolor_live_pads(void){
     }
     API.destroy_instance(instance);
 }
+static void visible_output_groups(void){
+    Inst *instance=fixture();instance->travel_map=6;
+    hb_commit_observed_harmony(chord(0,0,0));
+    char request[80]="pad_view@",view[2048],plain[2048];
+    for(int slot=0;slot<32;slot++)snprintf(request+9+slot*2,3,"%02x",slot<2?60:slot==2?64:255);
+    API.get_param(instance,request,view,sizeof(view));
+    const char *groups=strstr(view,"|outputs1,");assert(groups);
+    int first,second,third,gap;
+    assert(sscanf(groups,"|outputs1,%d,%d,%d,%d",&first,&second,&third,&gap)==4);
+    assert(first>=0&&first==second&&third>=0&&third!=first&&gap==-1);
+    API.get_param(instance,"pad_view",plain,sizeof(plain));
+    assert(!strncmp(view,plain,(size_t)(groups-view)));
+    assert(instance->player.keys[0].used==0);
+    API.destroy_instance(instance);
+}
 int main(void){
+    visible_output_groups();
     replay_roles_do_not_recolor_live_pads();
     Inst *instance=fixture();
     /* Source triad membership cannot change when the destination gains a

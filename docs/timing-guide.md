@@ -421,3 +421,5 @@ The default pulse rate and Standard preset use 1/4-note pulses again. None keeps
 Pad previews discard replay-only source-role and chromatic-target coordinates on their private mapping copy, matching a fresh live note-on. Recorded note rendering retains those coordinates. Regression coverage samples three loop passes with lookahead off/on and compares all pad masks before and after replay metadata changes.
 
 Input Tonic Color in Pads Global selects the follower input-root background. It defaults to Track and also offers Grey (the scale-tone color) and the named harmony colors. Harmony overlays remain above this background. The setting is shared across follower tracks.
+
+Horizontally adjacent pads with the same base color alternate between nearby palette shades when their effective rendered note sets differ. Pads with identical outputs retain the same shade. The remembered last-played note no longer paints a white pad; explicit step-hold editing still shows its note selection.
