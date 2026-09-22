@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.159'
+          assert module['version']=='0.2.160'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -52,7 +52,7 @@ jobs:
           assert next(p for p in levels['root']['params'] if p.get('key')=='receive_channel')['options']==[str(i) for i in range(1,17)]
           assert levels['chord_player']['name']=='Auto Chord'
           assert levels['pad_display']['name']=='Pads Global'
-          assert len(levels['pad_display']['knobs'])==5
+          assert len(levels['pad_display']['knobs'])==6
           assert 'Lookahead' in levels['pad_display']['params'][0]['options']
           assert 'ui_test' not in levels
           assert levels['arp_player']['name']=='Arp / Strum'
@@ -81,7 +81,7 @@ jobs:
           assert next(p for p in levels['next_harm']['params'] if p.get('key')=='boundary_buffer_ms')==buffer
           assert levels['global_transpose']['name']=='Global'
           assert levels['global_transpose']['knobs']==[
-              'master_transpose','transpose','pretranspose_root','final_root','final_harmony','accidentals','touch_hold_ms'
+              'master_transpose','transpose','accidentals','touch_hold_ms','hpath_0','hpath_1','hpath_2','hpath_3'
           ]
           assert any(item.get('level')=='global_transpose' for item in levels['root']['params'])
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
@@ -231,7 +231,7 @@ jobs:
           global_panel=module['capabilities']['ui_hierarchy']['levels']['global_transpose']
           assert global_panel['knobs'][0]=='master_transpose'
           assert global_panel['knobs'][1]=='transpose'
-          assert global_panel['knobs'][3]=='final_root'
+          assert global_panel['knobs'][3]=='touch_hold_ms'
           PY
 
       - name: Preserve tested device package
@@ -249,12 +249,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Track-volume gesture scales routed MIDI velocity without changing recorded inputs or double-scaling local audio. Pair with Movy hbclean.68."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Track-volume gesture scales routed MIDI velocity without changing recorded inputs or double-scaling local audio. Pair with Movy hbclean.69."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Track-volume gesture scales routed MIDI velocity without changing recorded inputs or double-scaling local audio. Pair with Movy hbclean.68." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Track-volume gesture scales routed MIDI velocity without changing recorded inputs or double-scaling local audio. Pair with Movy hbclean.69." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

@@ -84,7 +84,7 @@ static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
     if(config.mode==1||config.quality){
         int quality=config.quality;
         if(config.mode==1&&!quality&&!(scale&(1u<<hb_cp_mod(input)))){
-            static const int chromatic_qualities[]={0,5,6,9};
+            static const int chromatic_qualities[]={0,5,6,9,7,8};
             quality=chromatic_qualities[config.chromatic_quality];
         }
         if(quality){

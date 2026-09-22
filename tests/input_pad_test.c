@@ -67,6 +67,23 @@ int main(void){
         assert(sscanf(metadata,"|input1,%d,%d,%d,%u,%u",&root,&selected,&resolved,&mask,&roles)==5);
         assert(roles==hb_harmony_chord_mask(g_bus.observed_harmony));
     }
+    /* Auto Chord classifies the generated root, never every extension. */
+    g_bus.observed_harmony=chord(0,0,0);hb_effective_write(g_bus.observed_harmony);
+    instance->player.config.mode=1;
+    for(int form=0;form<12;form++)for(int inversion=0;inversion<7;inversion++){
+        instance->player.config.size=form;instance->player.config.inversion=inversion;
+        API.get_param(instance,"pad_render",view,sizeof(view));
+        unsigned current,effective;assert(sscanf(view,"%u,%u",&current,&effective)==2);
+        assert(effective==((1u<<0)|(1u<<4)|(1u<<7)));
+    }
+    API.set_param(instance,"pad_effective_color","Purple");
+    API.set_param(instance,"pad_current_color","Track");
+    char saved[8192];API.get_param(instance,"state",saved,sizeof(saved));
+    hb_pad_defaults();API.set_param(instance,"state",saved);
+    API.get_param(instance,"pad_effective_color",view,sizeof(view));assert(!strcmp(view,"Purple"));
+    API.get_param(instance,"pad_current_color",view,sizeof(view));assert(!strcmp(view,"Track"));
+    API.set_param(instance,"pad_display","Standard");
+    assert(g_pad_effective_color==8&&g_pad_settings[1]==0);
     API.set_param(instance,"role","Conductor");API.set_param(instance,"pad_display","Both");
     API.get_param(instance,"pad_view",view,sizeof(view));assert(!strncmp(view,"0,0,0,0,0,0,",12));assert(!strstr(view,"|input1,"));
     API.destroy_instance(instance);

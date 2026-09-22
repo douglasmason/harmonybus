@@ -18,7 +18,10 @@ int main(void){
     Inst *instance=fixture();char state[8192],value[64];
     API.set_param(instance,"boundary_buffer_ms","0 ms");
     attack(instance,127,127);
+    API.set_param(instance,"render_velocity_percent","75");attack(instance,100,75);
+    API.get_param(instance,"render_velocity_gain",value,sizeof(value));assert(!strcmp(value,"0.7500"));
     API.set_param(instance,"render_velocity_gain","0.5");attack(instance,127,64);
+    API.get_param(instance,"render_velocity_percent",value,sizeof(value));assert(!strcmp(value,"50"));
     API.set_param(instance,"hb_movy_playback","1");attack(instance,100,50);
     API.set_param(instance,"hb_movy_playback","0");
     API.get_param(instance,"state",state,sizeof(state));assert(strstr(state,";rv1,5000"));
