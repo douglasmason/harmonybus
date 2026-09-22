@@ -4,6 +4,31 @@
 #undef main
 int main(void){
     Inst *instance=fixture();
+    /* Source triad membership cannot change when the destination gains a
+       seventh or substitutes a suspended tone for its third. */
+    const int destination_intervals[][4]={{0,4,7,-1},{0,3,7,-1},{0,4,7,10},{0,5,7,-1},{0,2,7,-1},{0,3,6,-1}};
+    for(int source_root=0;source_root<12;source_root++)for(int source_scale=1;source_scale<=9;source_scale++){
+        globals.follower_explicit_root=source_root;hb_set_shared_follower_scale(source_scale);
+        uint16_t source_mask=hb_follower_input_scale(instance,source_root);
+        for(int destination=0;destination<6;destination++)for(int root=0;root<12;root++){
+            uint8_t notes[4];int count=0;
+            for(int index=0;index<4;index++)if(destination_intervals[destination][index]>=0)
+                notes[count++]=(uint8_t)(48+root+destination_intervals[destination][index]);
+            hb_harmony_t harmony=hb_infer_harmony(notes,count);
+            g_bus.observed_harmony=harmony;hb_effective_write(harmony);
+            unsigned chord_mask=hb_harmony_chord_mask(harmony);
+            instance->content_map=1;instance->follower_split_map=0;
+            for(int degree=0;degree<7;degree++){
+                int input=48+source_root+hb_nth_scale_interval_from_root(source_mask,source_root,degree);
+                for(int variant=0;variant<2;variant++){
+                    instance->travel_map=variant?6:3;
+                    int output=hb_map_follower_note_now(instance,input);
+                    assert(!!(chord_mask&(1u<<mod12(output)))==(degree==0||degree==2||degree==4));
+                }
+            }
+        }
+    }
+    API.destroy_instance(instance);instance=fixture();
     const int roots[]={2,7,0,9},minor[]={1,0,0,1};
     char view[2048];
     for(int scale=1;scale<=9;scale++)for(int h=0;h<4;h++){

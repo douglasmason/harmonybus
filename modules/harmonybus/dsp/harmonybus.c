@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.161"
+#define HB_VERSION "0.2.162"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1876,9 +1876,13 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
             uint16_t out_mask=(uint16_t)(chord_scale&(uint16_t)(~active_mask)&0x0FFFu);
             preferred=(uint16_t)(legal&(is_on?active_mask:out_mask));
         }else{
-            int is_on=(inferred_chord_mask&(1u<<degree_pc))!=0;
+            /* Classify the SOURCE tonic triad (degrees 1/3/5). The rendered
+               chord selects destination pitches, never input membership. */
+            int is_on=(on_bits_135&(1u<<degree))!=0;
             uint16_t out_mask=(uint16_t)(chord_scale&(uint16_t)(~inferred_chord_mask)&0x0FFFu);
-            preferred=(uint16_t)(legal&(is_on?inferred_chord_mask:out_mask));
+            uint16_t pool=is_on?inferred_chord_mask:out_mask;
+            preferred=(uint16_t)(legal&pool);
+            if(!preferred)preferred=pool; /* Content filters must not cross groups. */
         }
         allowed_by_degree[degree]=(unsigned int)(preferred?preferred:legal);
     }

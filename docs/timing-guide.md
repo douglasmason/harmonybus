@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.161 / Movy 0.34.1-hbclean.70.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.162 / Movy 0.34.1-hbclean.70.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -396,10 +396,14 @@ Movy saves per-input relative operation outcomes beside source notes. Ordinary n
 
 The quiet default pad overlay uses the track's active rendering harmony, and only on followers. Highlighted inputs are those whose actual rendered voices belong to that chord, including Travel None, transpose and lookahead. Inputs rendering the output tonic retain full track color. Other inputs rendering output-scale tones get grey backgrounds, blended with the harmony color when they also render chord tones. Input-scale membership does not change this coloring. Live and recorded-input green feedback retains priority. Optional Current, Effective, Both and Lookahead display choices remain available; conductor tracks keep ordinary keyboard colors.
 
-## Control layout updates (0.2.161 / hbclean.70)
+## Control layout updates (0.2.162 / hbclean.70)
 
 Global places Harmony Flow on its bottom row. Tap / Hold (ms) is the gesture threshold, not harmony persistence. Follow Play exposes Render Velocity %, sharing the existing routed gain with track + volume; Reset and Bypass sit together in Play Tools, the final panel. Operations exposes the global Steps / Perform switch.
 
 Chromatic Auto Chord adds Minor / Min7 and Dim / Min7b5. Chord Grid Free is now labeled Observed: it retains observed harmonic change positions without fixed-grid snapping. The Chord Timing page shows the selected grid, anticipation, model event count and loop position. Per-clip grids are not yet implemented.
 
 Holding a step and Left/Right for 350 ms moves the entry one step; continued holding repeats. Short presses retain timing nudges. Moving retains note metadata and supports Undo. See [the controls review](controls-160.md) for scope and pending conductor-source design.
+
+## Closest Split source groups (0.2.162)
+
+In Harm. / Out, both Closest Split variants classify the source tonic triad from follower root and scale (degrees 1, 3, 5), then choose nearby pitches in the rendered chord or its scale complement. A conductor seventh or suspension does not reclassify the source melody. Content filters narrow the destination group when possible but cannot force a crossing into the other group. Explicit 135 / 2467, 1357 / 246, and Active / Outside splits retain their own policies. Closest Split Chromatic retains its approach-note behavior for chromatic source inputs; source-scale chord tones use the ordinary split assignment. Auto follower scale remains inferred from observed harmony; choose an explicit scale to keep the source context fixed.
