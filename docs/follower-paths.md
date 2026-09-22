@@ -4,7 +4,7 @@ Input roles are relative to the follower root. With Explicit C, G is always
 fifth. Neither current harmony, lookahead nor master transpose changes that
 input reference. An explicit follower scale refines ambiguous chromatic degrees
 (e.g. F-sharp is #4 in C Lydian and b5 in C Locrian). Infer uses stable input
-interval buckets; inference still chooses the output parent scale.
+interval buckets; the explicit scale also supplies the output baseline, with chord-tone alterations. Only Infer chooses a parent from harmony.
 
 New instances and Movy hbclean.54 fresh follower tracks use **Scale** content.
 Saved sets retain their chosen content.
