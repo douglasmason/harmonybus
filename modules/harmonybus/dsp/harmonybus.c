@@ -4214,9 +4214,9 @@ static void hb_capture_follower_display(Inst *instance){
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
 /* Optional visible-pad list: 32 hex MIDI notes (ff means a layout gap).
    Preview only visible notes, in the same snapshot as their harmony colors. */
-const char *pad_request=NULL;int pad_notes[32],pad_count=0;
+const char *pad_request=0;int pad_notes[32],pad_count=0;
 if(!strncmp(key,"pad_view@",9)||!strncmp(key,"pad_render@",11)){
-    pad_request=strchr(key,'@')+1;
+    pad_request=key+(!strncmp(key,"pad_view@",9)?9:11);
     if(strlen(pad_request)!=64)return -1;
     for(int index=0;index<32;index++){
         unsigned note=0;
