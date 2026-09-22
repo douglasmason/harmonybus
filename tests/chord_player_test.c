@@ -1242,7 +1242,8 @@ static void pad_render_mapping(void){
             for(int event=0;event<render_count;event++)if((rendered[event][1]&0xf0)==0x90&&rendered[event][3])actual|=1u<<mod12(rendered[event][2]);
             assert(actual);
             unsigned chord_mask=(1u<<7)|(1u<<11)|(1u<<2);
-            assert(!!(current&(1u<<pitch_class))==!(actual&~chord_mask));
+            unsigned representative=mode==1?(1u<<pitch_class):mode==2?(1u<<7):actual;
+            assert(!!(current&(1u<<pitch_class))==!(representative&~chord_mask));
             midi(instance,0,60+pitch_class);advance(instance,1,64);
         }
     }
@@ -1282,6 +1283,22 @@ static void pad_harmony_snapshot(void){
     }
 }
 
+static void chromatic_minor_families(void){
+    const char *families[]={"Minor / Min7","Dim / Min7b5"};
+    for(int family=0;family<2;family++){
+        Inst *instance=fixture();API.set_param(instance,"chord_mode","Scale Degree");
+        /* Exercise the DSP setter, voicer and persisted enum indices. */
+        API.set_param(instance,"chromatic_quality",families[family]);
+        hb_cp_config config=instance->player.config;config.mode=1;config.size=3;
+        int notes[HB_CP_VOICES];int count=hb_cp_voice(config,61,0,0,0xAB5,notes);
+        assert(count==4&&mod12(notes[0])==1&&mod12(notes[1])==4);
+        assert(mod12(notes[2])==(family?7:8)&&mod12(notes[3])==11);
+        char state[8192],value[64];API.get_param(instance,"state",state,sizeof(state));
+        API.set_param(instance,"chromatic_quality","Scale");API.set_param(instance,"state",state);
+        API.get_param(instance,"chromatic_quality",value,sizeof(value));assert(!strcmp(value,families[family]));
+        API.destroy_instance(instance);
+    }
+}
 static void input_latch_controls(void){
     for(int mode=4;mode<=5;mode++){
         hb_chord_player player={0};hb_cp_defaults(&player.config);player.config.latch=mode;
@@ -1308,4 +1325,4 @@ static void input_latch_controls(void){
     assert(instance->player.config.latch==5&&instance->player.config.clear_harmony==1);
     API.destroy_instance(instance);
 }
-int main(void){input_latch_controls();shuffle_cycles();cycle_rate();latch_replacement_with_off();latch_acc_with_off();pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+int main(void){chromatic_minor_families();input_latch_controls();shuffle_cycles();cycle_rate();latch_replacement_with_off();latch_acc_with_off();pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
