@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.163 / Movy 0.34.1-hbclean.71.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.164 / Movy 0.34.1-hbclean.71.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -408,10 +408,14 @@ Holding a step and Left/Right for 350 ms moves the entry one step; continued hol
 
 In Harm. / Out, both Closest Split variants classify the source tonic triad from follower root and scale (degrees 1, 3, 5), then choose nearby pitches in the rendered chord or its scale complement. A conductor seventh or suspension does not reclassify the source melody. Content filters narrow the destination group when possible but cannot force a crossing into the other group. Explicit 135 / 2467, 1357 / 246, and Active / Outside splits retain their own policies. Closest Split Chromatic retains its approach-note behavior for chromatic source inputs; source-scale chord tones use the ordinary split assignment. Auto follower scale remains inferred from observed harmony; choose an explicit scale to keep the source context fixed.
 
-## Pad overlays (0.2.163 / hbclean.71)
+## Pad overlays (0.2.164 / hbclean.71)
 
 Harmony colors replace the scale background while lit; grey returns when the pulse is off. Only Current and Lookahead colors mix. Output-tonic track color and playing-input feedback retain priority. Full Lookahead displays the next known observed-loop chord throughout the lead-up to its boundary, including when the render lookahead offset is zero. Both Full Lookahead combines Current with that full preview. At an observed boundary, the full preview advances to the following loop event, wrapping at the loop end. No full preview is shown until a valid loop model is available. These display choices do not alter MIDI mapping or playback timing.
 
 Both Color defaults to Blend, mixing the selected Current and Lookahead colors on shared pads. A specific color (including Track) instead colors shared pads in Both and Both Full Lookahead, while nonshared pads retain their own harmony color. Pulse Shape None produces steady colors and preserves the stored pulse rate. New options are appended so existing saved selections retain their meanings.
 
 The default pulse rate and Standard preset use 1/4-note pulses again. None keeps the display steady without changing the selected rate.
+
+## Live pad preview isolation (0.2.164)
+
+Pad previews discard replay-only source-role and chromatic-target coordinates on their private mapping copy, matching a fresh live note-on. Recorded note rendering retains those coordinates. Regression coverage samples three loop passes with lookahead off/on and compares all pad masks before and after replay metadata changes.

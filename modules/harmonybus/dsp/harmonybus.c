@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.163"
+#define HB_VERSION "0.2.164"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4391,6 +4391,11 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         Inst preview=*instance;
         preview.render_harmony=effective;preview.render_harmony_active=1;
         preview.movy_playback=0;
+        /* Real live note-ons clear replay-only source coordinates. A pad
+           preview must do the same on its private copy: clip notes can carry
+           different roles as the conductor changes, even at the same pitch. */
+        memset(preview.movy_input_degree,0,sizeof(preview.movy_input_degree));
+        memset(preview.movy_input_target,0,sizeof(preview.movy_input_target));
         unsigned current_inputs=0,effective_inputs=0,lookahead_inputs=0,scale_inputs=0,tonic_inputs=0,full_inputs=0;
         unsigned full_mask=full_lookahead.valid?hb_harmony_chord_mask(full_lookahead):0;
         unsigned current_mask=current.valid?hb_harmony_chord_mask(current):0;

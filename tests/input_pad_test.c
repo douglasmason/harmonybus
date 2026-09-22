@@ -2,7 +2,34 @@
 #define main reference_suite_main
 #include "follower_reference_test.c"
 #undef main
+static void replay_roles_do_not_recolor_live_pads(void){
+    Inst *instance=fixture();
+    hb_set_shared_follower_scale(1);instance->travel_map=6;
+    instance->next_predict=1;instance->next_anti_buffer_ms=0;
+    g_bus.clip_loop_end=8;
+    g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=4,.harmony=chord(5,1,0)};
+    char baseline[2048],replay[2048];
+    for(int offset=0;offset<2;offset++)for(int cycle=0;cycle<3;cycle++)for(int tick=0;tick<768;tick+=6){
+        instance->next_lookahead=offset?3:0;
+        position=cycle*8+(double)tick/96;
+        g_bus.observed_harmony=chord(tick<384?0:5,tick<384?0:1,0);
+        hb_effective_write(g_bus.observed_harmony);
+        memset(instance->movy_input_degree,0,sizeof(instance->movy_input_degree));
+        memset(instance->movy_input_target,0,sizeof(instance->movy_input_target));
+        API.get_param(instance,"pad_view",baseline,sizeof(baseline));
+        /* A recorded chromatic approach can project onto a currently diatonic
+           physical key. Its playback role belongs to that note, not the pad. */
+        API.set_param(instance,"hb_movy_input_role","64,1,65");
+        API.get_param(instance,"pad_view",replay,sizeof(replay));
+        assert(!strcmp(baseline,replay));
+        assert(instance->movy_input_degree[64]==2&&instance->movy_input_target[64]==66);
+    }
+    API.destroy_instance(instance);
+}
 int main(void){
+    replay_roles_do_not_recolor_live_pads();
     Inst *instance=fixture();
     /* Source triad membership cannot change when the destination gains a
        seventh or substitutes a suspended tone for its third. */
