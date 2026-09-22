@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.166 / Movy 0.34.1-hbclean.71.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.167 / Movy 0.34.1-hbclean.74.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -400,7 +400,7 @@ The quiet default pad overlay uses the track's active rendering harmony, and onl
 
 Global places Harmony Flow on its bottom row; the redundant standalone Harmony Flow panel has been removed. Tap / Hold (ms) is the gesture threshold, not harmony persistence. Follow Play exposes Render Velocity %, sharing the existing routed gain with track + volume; Reset and Bypass sit together in Play Tools, the final panel. Operations exposes the global Steps / Perform switch.
 
-Chromatic Auto Chord adds Minor / Min7 and Dim / Min7b5. Chord Grid Free is now labeled Observed: it retains observed harmonic change positions without fixed-grid snapping. The Chord Timing page shows the selected grid, anticipation, model event count and loop position. Per-clip grids are not yet implemented.
+Chromatic Auto Chord adds Minor / Min7 and Dim / Min7b5. Chord Grid Free is now labeled Observed: it retains observed harmonic change positions without fixed-grid snapping. The Chord Timing page shows the selected grid, anticipation, Learning/Locked status and transition count, and current loop position. Its bottom row shows Last At, Next At, Last Chord and Next Chord. Last At is the most recent confirmed change, retaining its original registered position rather than the later confirmation time. Next At is the next change in the learned cycle and stays blank until the cycle is locked. Positions are one-based bar:beat with hundredths of a beat, using four quarter notes per bar; 2:3.50 means bar 2, beat 3 plus half a beat. They are relative to the conductor cycle (the combined repeat cycle when several conductor clips are active), and are not shifted by lookahead. Fixed chord-grid and anticipation settings do affect the registered positions. Learning works with lookahead off. An initial harmony, an unchanged chord, and a duplicate seed are not counted as transitions. A clip/model reset clears stale readouts. Per-clip grids are not yet implemented.
 
 Holding a step and Left/Right for 350 ms moves the entry one step; continued holding repeats. Short presses retain timing nudges. Moving retains note metadata and supports Undo. See [the controls review](controls-160.md) for scope and pending conductor-source design.
 
