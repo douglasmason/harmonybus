@@ -133,7 +133,7 @@ In Free mode, Repeat Arp starts at note-down on both followers and conductors an
 
 ## Dominant scale substitution
 
-**Dominant Scale** appears in Foll Root and Auto Chord. It is per instance and defaults to Off. It changes the output pitch collection used by ordinary follower scale/extension mapping and by auto-chord construction. It does not change the source-root policy, the input key's degree label, or the conductor's recognized chord.
+**Dominant Scale** appears in Foll Root and Auto Chord. It is global and defaults to Off. It changes the output pitch collection used by ordinary follower scale/extension mapping and by auto-chord construction. It does not change the source-root policy, the input key's degree label, or the conductor's recognized chord.
 
 The trigger is a major-third V chord without a major seventh, or a diminished leading-tone chord rooted a semitone below the configured tonic. In C minor, G major/G7 and B diminished qualify. G minor, Gmaj7, Bb major and Bb7 do not. This first implementation recognizes V and raised-vii function relative to the configured tonic; it does not infer secondary dominants or backdoor cadences.
 
@@ -430,3 +430,5 @@ Horizontally adjacent pads with the same base color alternate between nearby pal
 Humanize / Tools reuses the Play Tools panel. Timing, Velocity and Gate are shared settings, initially zero. Timing is a maximum signed offset in milliseconds, rounded down to whole sequencer ticks at the current tempo and clip speed. Gate and Velocity are maximum percentage variations around recorded durations and attack levels. Offsets are deterministic per track, clip and source onset; chord members move together and repeated loops retain the same feel. They do not rewrite notes, consume operation lanes, change live inputs or alter the active recording track.
 
 Timing and Gate apply only to recorded follower inputs. Conductor durations and onset positions remain exact so humanization cannot move the observed harmony schedule. Velocity applies to both recorded conductors and followers, before their normal rendering and velocity gain. Receiver tracks are not processed again. Clip boundaries constrain timing offsets; a note at the beginning cannot play before transport starts. Existing quantization and harmonic-buffer rules still take precedence. Reset and Bypass in the same panel remain Follow Play controls; set the three global amounts to zero to disable humanize.
+
+Dominant Scale and Borrowed Scale are shared across all tracks, like Follower Scale. New presets restore one shared choice; legacy per-track presets seed it from the first non-default dominant setting. Later stale track copies cannot override an edited or restored global choice.

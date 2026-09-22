@@ -334,7 +334,7 @@ static void dominant_shift(void){
     int saw_flat9=0;for(int index=0;index<5;index++)if(output[index][1]%12==8)saw_flat9=1;assert(saw_flat9);
     char state[512],restored[512];API.get_param(instance,"state",state,sizeof(state));
     Inst *copy=API.create_instance("",NULL);API.set_param(copy,"state",state);API.get_param(copy,"state",restored,sizeof(restored));
-    assert(!strcmp(state,restored)&&copy->dominant_scale==3);
+    assert(!strcmp(state,restored)&&hb_shared_dominant_scale()==3);
     API.destroy_instance(copy);API.destroy_instance(instance);
 }
 static void release_harmony_and_state(void){

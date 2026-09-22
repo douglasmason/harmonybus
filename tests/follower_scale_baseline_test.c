@@ -48,10 +48,26 @@ int main(void){
     }
     API.set_param(instance,"follower_scale","Mixolydian b6");
     API.set_param(instance,"borrowed_scale","Mixolydian b6");
-    API.get_param(instance,"state",view,sizeof(view));assert(strstr(view,";bs1,3"));
+    API.get_param(instance,"state",view,sizeof(view));assert(strstr(view,";ss1,0,3"));
     API.destroy_instance(instance);instance=API.create_instance("",0);
     API.set_param(instance,"state",view);
-    assert(hb_shared_follower_scale()==13&&instance->borrowed_scale==3);
+    assert(hb_shared_follower_scale()==13&&hb_shared_borrowed_scale()==3);
     API.destroy_instance(instance);
+    instance=fixture();Inst *other=API.create_instance("",0);
+    API.set_param(instance,"dominant_scale","Altered V");
+    API.set_param(other,"borrowed_scale","Aeolian");
+    char parameter[64],stale[8192],disabled[8192];
+    API.get_param(other,"dominant_scale",parameter,sizeof(parameter));assert(!strcmp(parameter,"Altered V"));
+    API.get_param(instance,"borrowed_scale",parameter,sizeof(parameter));assert(!strcmp(parameter,"Aeolian"));
+    API.get_param(instance,"state",stale,sizeof(stale));
+    API.set_param(other,"dominant_scale","Off");API.set_param(other,"borrowed_scale","Minimal");
+    API.get_param(other,"state",disabled,sizeof(disabled));
+    API.set_param(instance,"state",stale);
+    assert(!hb_shared_dominant_scale()&&!hb_shared_borrowed_scale());
+    API.destroy_instance(other);API.destroy_instance(instance);
+    instance=API.create_instance("",0);other=API.create_instance("",0);
+    API.set_param(instance,"state",disabled);API.set_param(other,"state",stale);
+    assert(!hb_shared_dominant_scale()&&!hb_shared_borrowed_scale());
+    API.destroy_instance(other);API.destroy_instance(instance);
     puts("Follower baseline, truthful pad scale, borrowing, dominant override and melodic-minor modes pass");
 }
