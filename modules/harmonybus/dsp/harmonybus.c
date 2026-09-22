@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.169"
+#define HB_VERSION "0.2.170"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -115,6 +115,10 @@ static hb_global_shared_t *g_global_shared=0;
 static int g_follower_globals_restored=0;
 static int g_scale_restored=0;
 static int g_scale_fallback=0;
+static unsigned g_infer_revision=0,g_infer_cached_revision=0;
+static int g_infer_cached_root=-1,g_infer_cached_transpose=0,g_infer_cached_count=-1;
+static unsigned g_infer_cached_observed=0;
+static int g_infer_scale=1,g_infer_ambiguous=1,g_infer_has_evidence=0;
 static int g_scale_exceptions[2]={0,0},g_scale_exceptions_restored=0;
 static int g_pad_effective_color=8;
 static int g_pad_both_color=0;
@@ -421,7 +425,7 @@ static int hb_sync_conductor_from_monitor(Inst *instance){
     (void)generation;
     return changed;
 }
-static void ensure_init(void){if(g_init)return;g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=0;g_bus.follower_scale=0;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
+static void ensure_init(void){if(g_init)return;g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=0;g_bus.follower_scale=0;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
 
 static char *hb_read_text_file(const char *path,long *size_out){
     FILE *file=fopen(path,"rb");if(!file)return 0;
@@ -1034,6 +1038,7 @@ static int hb_next_is_harmony(hb_harmony_t harmony){
     return harmony.valid&&harmony.chord_index>=0;
 }
 static void hb_next_reset_knowledge(void){
+    g_infer_revision++;g_infer_cached_root=-1;
     next_pending_active=0;
     timing_have_baseline=timing_have_transition=0;
     next_cache_revision=g_bus.cache_rev;
@@ -1088,6 +1093,7 @@ static void hb_next_record_observed(hb_harmony_t harmony){
     hb_loop_harmony_event_t *event=&g_bus.next_learning[g_bus.next_learning_count++];
     event->phase=phase;
     event->harmony=harmony;
+    g_infer_revision++;
 }
 static int hb_next_model_accepts_observed(hb_harmony_t harmony,double phase){
     if(!g_bus.next_model_locked||g_bus.next_model_count<=0||!harmony.valid)return 1;
@@ -1210,6 +1216,7 @@ static void hb_next_promote_learning(void){
     for(int index=0;index<g_bus.next_model_count;index++)g_bus.next_model[index]=g_bus.next_learning[index];
     g_bus.next_learning_count=0;
     g_bus.next_model_locked=1;
+    g_infer_revision++;
     g_bus.next_learning_started=1;
 }
 static void hb_next_apply_effective(double playhead){
@@ -1563,14 +1570,11 @@ static const char *hb_role_name_for_degree(int degree){
     static const char *roles[7]={"Root","2nd","3rd","4th","5th","6th","7th"};
     return (degree>=0&&degree<7)?roles[degree]:"--";
 }
-static int hb_inferred_parent_scale_index(int source_root,hb_harmony_t harmony);
+static int hb_inferred_progression_scale(int source_root);
 static int hb_follower_input_scale_index(Inst *instance,int source_root){
     int selected=hb_shared_follower_scale();
     if(selected>0)return selected;
-    /* Infer from the current observed chord, never the lookahead target or
-       transposition. The same resolved collection drives pads and input roles. */
-    hb_harmony_t current=hb_transpose_harmony(g_bus.observed_harmony,-g_bus.global_transpose);
-    return current.valid?hb_inferred_parent_scale_index(source_root,current):1;
+    return hb_inferred_progression_scale(source_root);
 }
 static uint16_t hb_follower_input_scale(Inst *instance,int source_root){
     return hb_explicit_scale_mask(source_root,hb_follower_input_scale_index(instance,source_root));
@@ -1593,28 +1597,48 @@ static int hb_popcount12(uint16_t mask){
     for(int bit=0;bit<12;bit++)if(mask&(1u<<bit))count++;
     return count;
 }
-static int hb_inferred_parent_scale_index(int source_root,hb_harmony_t harmony){
-    /* Conservative parent-scale inference: choose the candidate tonic scale
-       that contains the detected harmony most completely. Ties prefer Major,
-       then Natural Minor. The explicit follower scale is a separate input collection. */
-    uint16_t chord=hb_harmony_chord_mask(harmony);
-    int best_scale=1;
-    int best_score=-1;
-    for(int scale_index=1;scale_index<=9;scale_index++){
-        uint16_t candidate=hb_explicit_scale_mask(source_root,scale_index);
-        int score=hb_popcount12((uint16_t)(chord&candidate));
-        if(score>best_score){best_score=score;best_scale=scale_index;}
+/* One baseline for input roles, output mapping and display. The learned
+   progression is independent of the current/lookahead rendering position.
+   Recompute only when knowledge, reference root or transpose changes. */
+static int hb_inferred_progression_scale(int source_root){
+    int locked=g_bus.next_model_locked&&g_bus.next_model_count>0&&!g_movy_blocked;
+    int count=locked?g_bus.next_model_count:(!g_movy_blocked?g_bus.next_learning_count:0);
+    const hb_loop_harmony_event_t *events=locked?g_bus.next_model:g_bus.next_learning;
+    unsigned observed=count?0:hb_harmony_chord_mask(g_bus.observed_harmony);
+    if(g_infer_cached_root==source_root&&g_infer_cached_transpose==g_bus.global_transpose&&
+       g_infer_cached_revision==g_infer_revision&&g_infer_cached_count==count&&g_infer_cached_observed==observed)
+        return g_infer_scale;
+    int previous=g_infer_cached_root==source_root?g_infer_scale:1;
+    int scores[15]={0},evidence=0;
+    for(int event=0;event<(count?count:1);event++){
+        hb_harmony_t harmony=count?events[event].harmony:g_bus.observed_harmony;
+        if(!harmony.valid)continue;
+        harmony=hb_transpose_harmony(harmony,-g_bus.global_transpose);
+        unsigned chord=hb_harmony_chord_mask(harmony);
+        if(!chord)continue;
+        evidence++;
+        for(int scale=1;scale<=15;scale++){
+            unsigned candidate=hb_explicit_scale_mask(source_root,scale);
+            /* Every registered harmony contributes equally. A borrowed chord
+               is evidence, not permission to replace the entire baseline. */
+            scores[scale-1]+=hb_popcount12((uint16_t)(chord&candidate));
+        }
     }
-    return best_scale;
+    int best=0,ties=0;
+    for(int scale=1;scale<15;scale++)if(scores[scale]>scores[best])best=scale;
+    for(int scale=0;scale<15;scale++)if(scores[scale]==scores[best])ties++;
+    if(!evidence)best=0;
+    else if(previous>=1&&previous<=15&&scores[previous-1]==scores[best])best=previous-1;
+    g_infer_scale=best+1;g_infer_ambiguous=ties>1;g_infer_has_evidence=evidence>0;
+    g_infer_cached_root=source_root;g_infer_cached_transpose=g_bus.global_transpose;
+    g_infer_cached_revision=g_infer_revision;g_infer_cached_count=count;g_infer_cached_observed=observed;
+    return g_infer_scale;
 }
 static int hb_parent_scale_at_transpose(Inst *instance,hb_harmony_t harmony,int transpose){
-    /* Explicit follower scale is the output baseline as well as the input
-       collection. Only Infer asks the harmony to choose a parent scale. */
-    int selected=hb_shared_follower_scale();
-    if(selected>0)return selected;
+    (void)transpose;
     int source_root=0;
-    if(!hb_resolve_follower_reference_root(instance,&source_root))source_root=harmony.root_pc;
-    return hb_inferred_parent_scale_index(source_root,hb_transpose_harmony(harmony,-transpose));
+    if(!hb_resolve_follower_reference_root(instance,&source_root))source_root=mod12(harmony.root_pc-g_bus.global_transpose);
+    return hb_follower_input_scale_index(instance,source_root);
 }
 static int hb_parent_scale_index(Inst *instance,hb_harmony_t harmony){
     return hb_parent_scale_at_transpose(instance,harmony,g_bus.global_transpose);
@@ -4394,6 +4418,11 @@ if(!strcmp(key,"follower_input_context_v2")){
         if(source->used&&source->role<=1&&source->movy_track>=0&&source->movy_track<16)mask|=1u<<source->movy_track;
     }
     return used+snprintf(buffer+used,(size_t)(length-used),"|hu1,%d,%d,%d,%u",g_humanize[0],g_humanize[1],g_humanize[2],mask);
+}
+if(!strcmp(key,"used_scale")){
+    int root=0;if(!hb_resolve_follower_reference_root(instance,&root))return snprintf(buffer,(size_t)length,"--");
+    int selected=hb_shared_follower_scale(),resolved=hb_follower_input_scale_index(instance,root);
+    return snprintf(buffer,(size_t)length,"%s%s",FOLLOWER_SCALE_OPTS[resolved],selected?"":!g_infer_has_evidence?" (default)":g_infer_ambiguous?" ?":"");
 }
 if(!strcmp(key,"follower_input_context")){
     int root=hb_global_explicit_root();hb_resolve_follower_reference_root(instance,&root);

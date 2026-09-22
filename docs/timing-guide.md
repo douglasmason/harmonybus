@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.169 / Movy 0.34.1-hbclean.77.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.170 / Movy 0.34.1-hbclean.77.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -356,7 +356,7 @@ so either location edits the same saved value and shows the effective value.
 
 ## Follower input scale and pad roles (0.2.153)
 
-Follower Scale describes the input keyboard. Explicit scales never borrow accidentals from the current or lookahead chord. Infer resolves a collection around the follower root from the current observed harmony, with Major as the initial/tie preference. Movy mirrors that resolved collection without disabling Infer.
+Follower Scale describes the input keyboard. Explicit scales never borrow accidentals from the current or lookahead chord. Infer scores the confirmed conductor progression around the follower root, using the complete learned loop when available. Before any transitions are registered it uses the observed chord, or Major with no evidence. All fifteen scales are considered. Ties retain the previous best scale (initially Major); Used Scale shows a question mark when tied. The input layout and rendering share this baseline regardless of lookahead position. Movy mirrors that resolved collection without disabling Infer.
 
 Output collections start from the explicit follower scale and accommodate actual chord tones, preserving the remaining scale degrees. Only Infer selects a parent scale from harmony. Borrowed Scale can select Aeolian, Dorian or Mixolydian b6 for the parallel-minor borrowing family; Dominant Scale remains the higher-priority override. Thus C Phrygian as an input scale cannot introduce E-flat into the third of a C-major output chord. Ordinary Closest Split uses the stable degree bucket for a chromatic input (marked with `*` in the input-role display). Closest Split Chromatic instead maps the next higher in-scale input and approaches its rendered note from one semitone below (marked `-1`). Output roles use ordinal degree labels; the Note column gives the exact rendered pitch.
 
