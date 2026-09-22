@@ -114,7 +114,32 @@ int main(void){
     API.get_param(instance,"pad_effective_color",view,sizeof(view));assert(!strcmp(view,"Purple"));
     API.get_param(instance,"pad_current_color",view,sizeof(view));assert(!strcmp(view,"Track"));
     API.set_param(instance,"pad_display","Standard");
-    assert(g_pad_effective_color==8&&g_pad_settings[1]==0);
+    assert(g_pad_effective_color==8&&g_pad_settings[1]==3);
+    /* Full preview reads the next loop event even with zero render offset. */
+    instance->player.config.mode=0;instance->travel_map=7;
+    instance->next_predict=1;instance->next_lookahead=0;
+    g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    g_bus.next_model[0].phase=0;g_bus.next_model[0].harmony=chord(0,0,0);
+    g_bus.next_model[1].phase=2;g_bus.next_model[1].harmony=chord(2,0,0);
+    for(int index=0;index<3;index++){
+        position=index==0?0.5:index==1?2.0:3.5;
+        API.get_param(instance,"pad_view",view,sizeof(view));
+        int known;unsigned full;
+        const char *section=strstr(view,"|full1,");assert(section);
+        assert(sscanf(section,"|full1,%d,%u",&known,&full)==2);
+        assert(known&&full==hb_harmony_chord_mask(chord(index==0?2:0,0,0)));
+        assert(!hb_prediction_ready_for(instance));
+    }
+    g_bus.next_model_locked=0;
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(strstr(view,"|full1,0,0"));
+    API.set_param(instance,"pad_display","Both Full Lookahead");
+    API.set_param(instance,"pad_both_color","Pink");
+    API.set_param(instance,"pad_pulse_shape","None");
+    API.get_param(instance,"state",saved,sizeof(saved));
+    hb_pad_defaults();API.set_param(instance,"state",saved);
+    API.get_param(instance,"pad_display",view,sizeof(view));assert(!strcmp(view,"Both Full Lookahead"));
+    API.get_param(instance,"pad_both_color",view,sizeof(view));assert(!strcmp(view,"Pink"));
+    API.get_param(instance,"pad_pulse_shape",view,sizeof(view));assert(!strcmp(view,"None"));
     API.set_param(instance,"role","Conductor");API.set_param(instance,"pad_display","Both");
     API.get_param(instance,"pad_view",view,sizeof(view));assert(!strncmp(view,"0,0,0,0,0,0,",12));assert(!strstr(view,"|input1,"));
     API.destroy_instance(instance);

@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.162'
+          assert module['version']=='0.2.163'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -52,7 +52,7 @@ jobs:
           assert next(p for p in levels['root']['params'] if p.get('key')=='receive_channel')['options']==[str(i) for i in range(1,17)]
           assert levels['chord_player']['name']=='Auto Chord'
           assert levels['pad_display']['name']=='Pads Global'
-          assert len(levels['pad_display']['knobs'])==6
+          assert len(levels['pad_display']['knobs'])==7
           assert 'Lookahead' in levels['pad_display']['params'][0]['options']
           assert 'ui_test' not in levels
           assert levels['arp_player']['name']=='Arp / Strum'
@@ -249,12 +249,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Closest Split and Closest Split Chromatic classify source triad membership using the follower root and scale, independently of the rendered chord. Pair with Movy hbclean.70."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Pure harmony overlays, full upcoming-harmony preview, Both Color with Blend default, and None pulse shape. Pair with Movy hbclean.71."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Closest Split and Closest Split Chromatic classify source triad membership using the follower root and scale, independently of the rendered chord. Pair with Movy hbclean.70." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Pure harmony overlays, full upcoming-harmony preview, Both Color with Blend default, and None pulse shape. Pair with Movy hbclean.71." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
