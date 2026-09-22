@@ -61,7 +61,78 @@ static void extended_offsets(void){
     }
     }
 }
+static void timing_panel(void){
+    char text[64],expected[64];
+    reset_fixture();
+    g_bus.next_lookahead=0;
+    hb_commit_observed_harmony(chord(0));
+    advance(0.06);
+    API.get_param(&g_pool[0],"chord_grid_status",text,sizeof(text));
+    assert(!strcmp(text,"Learning 0")); /* Initial harmony is not a change. */
+    API.get_param(&g_pool[0],"timing_last_at",text,sizeof(text));
+    assert(!strcmp(text,"--"));
+    advance(2.0);
+    hb_commit_observed_harmony(chord(7));
+    API.get_param(&g_pool[0],"timing_last_at",text,sizeof(text));
+    assert(!strcmp(text,"--")); /* Pending candidate is not registered yet. */
+    advance(2.06);
+    API.get_param(&g_pool[0],"timing_last_at",text,sizeof(text));
+    assert(!strcmp(text,"1:3.00")); /* Original phase, not confirmation time. */
+    API.get_param(&g_pool[0],"timing_last_chord",text,sizeof(text));
+    hb_format_harmony(expected,sizeof(expected),chord(7));
+    assert(!strcmp(text,expected));
+    API.get_param(&g_pool[0],"timing_next_at",text,sizeof(text));
+    assert(!strcmp(text,"--")); /* No future schedule before a full pass. */
+    advance(4.06);
+    API.get_param(&g_pool[0],"chord_grid_status",text,sizeof(text));
+    assert(!strcmp(text,"Locked 2"));
+    API.get_param(&g_pool[0],"timing_next_at",text,sizeof(text));
+    assert(!strcmp(text,"1:3.00"));
+    g_pool[0].next_lookahead=3;
+    API.get_param(&g_pool[0],"timing_next_at",text,sizeof(text));
+    assert(!strcmp(text,"1:3.00")); /* Lookahead never shifts these positions. */
+    advance(6.0);
+    API.get_param(&g_pool[0],"timing_next_at",text,sizeof(text));
+    assert(!strcmp(text,"1:1.00")); /* Next change is at the cycle wrap. */
+    API.get_param(&g_pool[0],"timing_last_at",text,sizeof(text));
+    assert(!strcmp(text,"1:3.00")); /* Playhead alone never registers a change. */
+
+    /* A pass may start mid-loop. Ignore a duplicate initial seed, retain
+       fractional positions, and find the next change in cycle order. */
+    g_bus.next_model_count=4;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=2,.harmony=chord(7)};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=3.25,.harmony=chord(2)};
+    g_bus.next_model[2]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0)};
+    g_bus.next_model[3]=(hb_loop_harmony_event_t){.phase=1.5,.harmony=chord(7)};
+    API.get_param(&g_pool[0],"chord_grid_status",text,sizeof(text));
+    assert(!strcmp(text,"Locked 3"));
+    API.get_param(&g_pool[0],"timing_next_at",text,sizeof(text));
+    assert(!strcmp(text,"1:4.25"));
+    API.get_param(&g_pool[0],"timing_next_chord",text,sizeof(text));
+    hb_format_harmony(expected,sizeof(expected),chord(2));
+    assert(!strcmp(text,expected));
+    /* An unexpected real change invalidates prediction but still registers. */
+    hb_commit_observed_harmony(chord(5));
+    advance(6.06);
+    assert(!g_bus.next_model_locked);
+    API.get_param(&g_pool[0],"timing_last_at",text,sizeof(text));
+    assert(!strcmp(text,"1:3.00"));
+    API.get_param(&g_pool[0],"timing_last_chord",text,sizeof(text));
+    hb_format_harmony(expected,sizeof(expected),chord(5));
+    assert(!strcmp(text,expected));
+    g_movy_blocked=3;
+    API.get_param(&g_pool[0],"timing_last_at",text,sizeof(text));
+    assert(!strcmp(text,"--"));
+    g_movy_blocked=0;
+    hb_next_reset_knowledge();
+    API.get_param(&g_pool[0],"timing_last_at",text,sizeof(text));
+    assert(!strcmp(text,"--"));
+    g_bus.next_model_locked=1;g_bus.next_model_count=1;
+    API.get_param(&g_pool[0],"timing_next_at",text,sizeof(text));
+    assert(!strcmp(text,"--")); /* Constant harmony has no transitions. */
+}
 int main(void){
+    timing_panel();
     extended_offsets();
     hb_harmony_t tonic=chord(0), dominant=chord(7), other=chord(2);
     hb_harmony_t unknown={0}, unresolved={.valid=1,.chord_index=-1};

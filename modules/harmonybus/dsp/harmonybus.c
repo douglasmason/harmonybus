@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.166"
+#define HB_VERSION "0.2.167"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1007,6 +1007,10 @@ static double next_loop_start, next_loop_end;
 static hb_harmony_t next_pending;
 static double next_pending_beat, next_pending_phase;
 static int next_pending_active;
+/* Confirmation receipt: an initial harmony establishes a baseline, not a change. */
+static hb_harmony_t timing_last_harmony;
+static double timing_last_phase;
+static int timing_have_baseline, timing_have_transition;
 static double hb_next_transport_beat(void){
     if(g_movy_present)return (double)g_movy_tick/g_movy_ppqn;
     double beat=(g_host&&g_host->get_beat_position)?g_host->get_beat_position():-1.0;
@@ -1017,6 +1021,7 @@ static int hb_next_is_harmony(hb_harmony_t harmony){
 }
 static void hb_next_reset_knowledge(void){
     next_pending_active=0;
+    timing_have_baseline=timing_have_transition=0;
     next_cache_revision=g_bus.cache_rev;
     next_configuration=hb_next_configuration();
     next_loop_start=g_bus.clip_loop_start;
@@ -1132,11 +1137,20 @@ static void hb_next_confirm_observed(double beat){
     if(beat-next_pending_beat+1e-9<confirmation)return;
     hb_harmony_t harmony=next_pending;
     double phase=next_pending_phase;
+    int observed_change=timing_have_baseline&&!hb_harmony_equal_effective(timing_last_harmony,harmony);
     if(g_bus.next_model_locked&&!hb_next_model_accepts_observed(harmony,phase)){
         hb_next_begin_relearning();
         next_pending_phase=phase;
     }
     hb_next_record_observed(harmony);
+    if(!g_movy_blocked){
+        if(observed_change){
+            timing_last_phase=phase;
+            timing_have_transition=1;
+        }
+        timing_last_harmony=harmony;
+        timing_have_baseline=1;
+    }
     next_pending_active=0;
 }
 
@@ -4211,6 +4225,29 @@ static void hb_capture_follower_display(Inst *instance){
     }
     instance->follower_display_valid=1;
 }
+/* One-based bar:beat within the conductor cycle; 4 quarter notes per bar,
+   matching the timing controls. Keep hundredths so off-grid events are visible. */
+static int hb_timing_position(char *buffer,int length,double phase){
+    long hundredths=(long)(phase*100.0+0.5);
+    return snprintf(buffer,(size_t)length,"%ld:%ld.%02ld",hundredths/400+1,
+        (hundredths%400)/100+1,hundredths%100);
+}
+/* Return actual registered changes. The first entry
+   of an incomplete pass is an initial observation, not a known transition.
+   Once locked, compare cyclic predecessors, including the loop wrap. */
+static int hb_timing_events(hb_loop_harmony_event_t *events){
+    if(g_movy_blocked)return 0;
+    int locked=g_bus.next_model_locked;
+    int count=locked?g_bus.next_model_count:g_bus.next_learning_count;
+    hb_loop_harmony_event_t *source=locked?g_bus.next_model:g_bus.next_learning;
+    int used=0;
+    for(int index=locked?0:1;index<count;index++){
+        int previous=(index+count-1)%count;
+        if(hb_harmony_equal_effective(source[index].harmony,source[previous].harmony))continue;
+        events[used++]=source[index];
+    }
+    return used;
+}
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
 /* Optional visible-pad list: 32 hex MIDI notes (ff means a layout gap).
    Preview only visible notes, in the same snapshot as their harmony colors. */
@@ -4230,7 +4267,35 @@ if(!strcmp(key,"render_velocity_percent"))return snprintf(buffer,(size_t)length,
 if(!strcmp(key,"pad_tonic_color"))return snprintf(buffer,(size_t)length,"%s",PAD_TONIC_COLORS[g_pad_tonic_color]);
 if(!strcmp(key,"pad_both_color"))return snprintf(buffer,(size_t)length,"%s",PAD_BOTH_COLORS[g_pad_both_color]);
 if(!strcmp(key,"pad_effective_color"))return snprintf(buffer,(size_t)length,"%s",PAD_COLORS[g_pad_effective_color]);
-if(!strcmp(key,"chord_grid_status"))return snprintf(buffer,(size_t)length,"%s / %d events",g_bus.chord_timing?TIMING_OPTS[g_bus.chord_timing]:"Observed",g_bus.next_model_count);
+if(!strcmp(key,"chord_grid_status")){
+    if(g_movy_blocked)return snprintf(buffer,(size_t)length,"%s",g_movy_blocked==1?"No clips":g_movy_blocked==2?"Cycle too long":g_movy_blocked==3?"Non-repeating":"Too many changes");
+    hb_loop_harmony_event_t events[HB_MAX_LOOP_HARMONIES];
+    int count=hb_timing_events(events);
+    return snprintf(buffer,(size_t)length,"%s %d",g_bus.next_model_locked?"Locked":"Learning",count);
+}
+if(!strcmp(key,"timing_position")){
+    if(g_movy_blocked||hb_next_loop_length()<=0.0)return snprintf(buffer,(size_t)length,"--");
+    return hb_timing_position(buffer,length,hb_next_phase(hb_clip_playhead()));
+}
+if(!strcmp(key,"timing_last_at")||!strcmp(key,"timing_last_chord")){
+    if(!timing_have_transition||g_movy_blocked)return snprintf(buffer,(size_t)length,"--");
+    return !strcmp(key,"timing_last_at")?hb_timing_position(buffer,length,timing_last_phase):
+        hb_format_harmony(buffer,length,timing_last_harmony);
+}
+if(!strcmp(key,"timing_next_at")||!strcmp(key,"timing_next_chord")){
+    if(!g_bus.next_model_locked||g_movy_blocked)return snprintf(buffer,(size_t)length,"--");
+    hb_loop_harmony_event_t events[HB_MAX_LOOP_HARMONIES];
+    int count=hb_timing_events(events),selected=-1;
+    double phase=hb_next_phase(hb_clip_playhead()),cycle=hb_next_loop_length(),best=1e99;
+    for(int index=0;index<count;index++){
+        double distance=events[index].phase-phase;
+        if(distance<=1e-6)distance+=cycle;
+        if(distance<best){selected=index;best=distance;}
+    }
+    if(selected<0)return snprintf(buffer,(size_t)length,"--");
+    return !strcmp(key,"timing_next_at")?hb_timing_position(buffer,length,events[selected].phase):
+        hb_format_harmony(buffer,length,events[selected].harmony);
+}
 if(!strcmp(key,"render_velocity_gain"))return snprintf(buffer,(size_t)length,"%.4f",instance->render_velocity_gain/10000.0);
 if(!strcmp(key,"follower_input_context")){
     int root=hb_global_explicit_root();hb_resolve_follower_reference_root(instance,&root);
