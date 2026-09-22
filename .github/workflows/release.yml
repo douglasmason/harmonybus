@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.165'
+          assert module['version']=='0.2.166'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -52,7 +52,7 @@ jobs:
           assert next(p for p in levels['root']['params'] if p.get('key')=='receive_channel')['options']==[str(i) for i in range(1,17)]
           assert levels['chord_player']['name']=='Auto Chord'
           assert levels['pad_display']['name']=='Pads Global'
-          assert len(levels['pad_display']['knobs'])==7
+          assert len(levels['pad_display']['knobs'])==8
           assert 'Lookahead' in levels['pad_display']['params'][0]['options']
           assert 'ui_test' not in levels
           assert levels['arp_player']['name']=='Arp / Strum'
@@ -249,12 +249,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Remove the redundant Harmony Flow panel; its four readouts remain in the bottom row of Global. Compatible with Movy hbclean.72."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add global Input Tonic Color, default Track, with Grey matching scale tones. Pair with Movy hbclean.73."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Remove the redundant Harmony Flow panel; its four readouts remain in the bottom row of Global. Compatible with Movy hbclean.72." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add global Input Tonic Color, default Track, with Grey matching scale tones. Pair with Movy hbclean.73." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

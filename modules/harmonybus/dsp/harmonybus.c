@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.165"
+#define HB_VERSION "0.2.166"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -116,6 +116,7 @@ static int g_scale_restored=0;
 static int g_scale_fallback=0;
 static int g_pad_effective_color=8;
 static int g_pad_both_color=0;
+static int g_pad_tonic_color=8;
 static int g_pad_settings[5]={0,3,0,4,2};
 static int g_pad_restored=0;
 static const char *PAD_KEYS[]={"pad_display","pad_pulse_rate","pad_pulse_shape","pad_current_color","pad_lookahead_color"};
@@ -124,9 +125,10 @@ static const char *PAD_MODES[]={"Standard","Current","Effective","Both","Lookahe
 static const char *PAD_RATES[]={"Off","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};
 static const char *PAD_SHAPES[]={"Smooth","Triangle","Square","None"};
 static const char *PAD_COLORS[]={"Red","Orange","Yellow","Green","Cyan","Blue","Purple","Pink","Track"};
+static const char *PAD_TONIC_COLORS[]={"Red","Orange","Yellow","Green","Cyan","Blue","Purple","Pink","Track","Grey"};
 static const char *PAD_BOTH_COLORS[]={"Blend","Red","Orange","Yellow","Green","Cyan","Blue","Purple","Pink","Track"};
 static const char **PAD_OPTIONS[]={PAD_MODES,PAD_RATES,PAD_SHAPES,PAD_COLORS,PAD_COLORS};
-static void hb_pad_defaults(void){int defaults[5]={0,3,0,4,2};g_pad_effective_color=8;g_pad_both_color=0;memcpy(g_pad_settings,defaults,sizeof(defaults));g_pad_restored=0;}
+static void hb_pad_defaults(void){int defaults[5]={0,3,0,4,2};g_pad_effective_color=8;g_pad_both_color=0;g_pad_tonic_color=8;memcpy(g_pad_settings,defaults,sizeof(defaults));g_pad_restored=0;}
 
 static int g_buffer_restored=0;
 static int g_lookahead_restored=0;
@@ -3631,6 +3633,7 @@ static void hb_set_master_transpose(int semitones){
 }
 static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
 if(!strcmp(key,"render_velocity_percent")){instance->render_velocity_gain=hb_cp_clamp(parse_i(parameter,100),0,400)*100;return;}
+if(!strcmp(key,"pad_tonic_color")){g_pad_tonic_color=enum_index(parameter,PAD_TONIC_COLORS,10,g_pad_tonic_color);g_pad_restored=1;return;}
 if(!strcmp(key,"pad_both_color")){g_pad_both_color=enum_index(parameter,PAD_BOTH_COLORS,10,g_pad_both_color);g_pad_restored=1;return;}
 if(!strcmp(key,"pad_effective_color")){g_pad_effective_color=enum_index(parameter,PAD_COLORS,9,g_pad_effective_color);g_pad_restored=1;return;}
 if(!strcmp(key,"render_velocity_gain")){
@@ -4060,11 +4063,13 @@ static void hb_restore_state(Inst *instance,const char *state){
     instance->motion_render.enclosure_revision=0;instance->motion_render.performance_valid=0;
     const char *pad_suffix=strstr(state,";pd1,");
     int restored_pads[5],restore_colors=!g_pad_restored;
+    const char *tonic_suffix=strstr(state,";pt1,");int restored_tonic=-1;
+    if(restore_colors&&tonic_suffix&&sscanf(tonic_suffix,";pt1,%d",&restored_tonic)==1&&restored_tonic>=0&&restored_tonic<10){g_pad_tonic_color=restored_tonic;g_pad_restored=1;}
     const char *both_suffix=strstr(state,";pb1,");int restored_both=-1;
     if(restore_colors&&both_suffix&&sscanf(both_suffix,";pb1,%d",&restored_both)==1&&restored_both>=0&&restored_both<10)g_pad_both_color=restored_both;
     const char *color_suffix=strstr(state,";pc2,");int restored_color=-1;
     if(restore_colors&&color_suffix&&sscanf(color_suffix,";pc2,%d",&restored_color)==1&&restored_color>=0&&restored_color<9)g_pad_effective_color=restored_color;
-    if(!g_pad_restored&&pad_suffix&&sscanf(pad_suffix,";pd1,%d,%d,%d,%d,%d",&restored_pads[0],&restored_pads[1],&restored_pads[2],&restored_pads[3],&restored_pads[4])==5){
+    if(restore_colors&&pad_suffix&&sscanf(pad_suffix,";pd1,%d,%d,%d,%d,%d",&restored_pads[0],&restored_pads[1],&restored_pads[2],&restored_pads[3],&restored_pads[4])==5){
         int valid=1;for(int index=0;index<5;index++)if(restored_pads[index]<0||restored_pads[index]>=PAD_LIMITS[index])valid=0;
         if(valid){memcpy(g_pad_settings,restored_pads,sizeof(restored_pads));g_pad_restored=1;}
     }
@@ -4208,6 +4213,7 @@ static void hb_capture_follower_display(Inst *instance){
 }
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;hb_harmony_t harmony=bus_read();
 if(!strcmp(key,"render_velocity_percent"))return snprintf(buffer,(size_t)length,"%d",(instance->render_velocity_gain+50)/100);
+if(!strcmp(key,"pad_tonic_color"))return snprintf(buffer,(size_t)length,"%s",PAD_TONIC_COLORS[g_pad_tonic_color]);
 if(!strcmp(key,"pad_both_color"))return snprintf(buffer,(size_t)length,"%s",PAD_BOTH_COLORS[g_pad_both_color]);
 if(!strcmp(key,"pad_effective_color"))return snprintf(buffer,(size_t)length,"%s",PAD_COLORS[g_pad_effective_color]);
 if(!strcmp(key,"chord_grid_status"))return snprintf(buffer,(size_t)length,"%s / %d events",g_bus.chord_timing?TIMING_OPTS[g_bus.chord_timing]:"Observed",g_bus.next_model_count);
@@ -4290,6 +4296,7 @@ if(!strcmp(key,"state")){
     if(used<0||used>=length)return used;
     if(!(g_pad_settings[0]==0&&g_pad_settings[1]==3&&g_pad_settings[2]==0&&g_pad_settings[3]==4&&g_pad_settings[4]==2))used+=snprintf(buffer+used,(size_t)(length-used),";pd1,%d,%d,%d,%d,%d",g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4]);
     if(used<0||used>=length)return used;
+    if(g_pad_tonic_color!=8)used+=snprintf(buffer+used,(size_t)(length-used),";pt1,%d",g_pad_tonic_color);
     if(g_pad_both_color)used+=snprintf(buffer+used,(size_t)(length-used),";pb1,%d",g_pad_both_color);
     if(used<0||used>=length)return used;
     if(g_pad_effective_color!=8)used+=snprintf(buffer+used,(size_t)(length-used),";pc2,%d",g_pad_effective_color);
@@ -4313,7 +4320,7 @@ if(!strcmp(key,"pad_view")){
     int used=get_param(value,"pad_render",buffer,length);
     if(used<0||used>=length)return used;
     int active=hb_cp_enabled(&instance->player);
-    used+=snprintf(buffer+used,(size_t)(length-used),"|colors2,%d|both1,%d|arp1,%d",g_pad_effective_color,g_pad_both_color,active);
+    used+=snprintf(buffer+used,(size_t)(length-used),"|colors2,%d|both1,%d|toniccolor1,%d|arp1,%d",g_pad_effective_color,g_pad_both_color,g_pad_tonic_color,active);
     uint8_t seen[128]={0};
     if(active)for(int index=0;index<HB_CP_KEYS;index++){
         const hb_cp_key *key=&instance->player.keys[index];

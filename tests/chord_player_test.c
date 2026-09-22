@@ -1205,13 +1205,20 @@ static void rapid_latched_arp(void){
 static void pad_global_settings(void){
     Inst *first=fixture(),*second=API.create_instance("",NULL);
     char state[2048],value[128];
+    API.get_param(first,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Track"));
+    API.set_param(first,"pad_tonic_color","Grey");
+    API.get_param(second,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Grey"));
     API.set_param(first,"pad_display","Lookahead");API.set_param(first,"pad_pulse_rate","2 Bars");
     API.get_param(second,"pad_display",value,sizeof(value));assert(!strcmp(value,"Lookahead"));
     API.get_param(second,"state",state,sizeof(state));assert(strstr(state,";pd1,4,6,0,4,2"));
+    assert(strstr(state,";pt1,9"));
+    API.set_param(second,"pad_tonic_color","Purple");
     API.set_param(second,"pad_display","Current");API.set_param(first,"state",state);
+    API.get_param(first,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Purple"));
     API.get_param(second,"pad_display",value,sizeof(value));assert(!strcmp(value,"Current")); /* stale state cannot overwrite live global */
     API.destroy_instance(first);API.destroy_instance(second);
     first=API.create_instance("",NULL);API.set_param(first,"state",state);
+    API.get_param(first,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Grey"));
     API.get_param(first,"pad_display",value,sizeof(value));assert(!strcmp(value,"Lookahead"));
     API.get_param(first,"pad_pulse_rate",value,sizeof(value));assert(!strcmp(value,"2 Bars"));
     API.destroy_instance(first);
