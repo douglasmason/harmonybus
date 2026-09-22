@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.167 / Movy 0.34.1-hbclean.74.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.168 / Movy 0.34.1-hbclean.74.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -423,3 +423,10 @@ Pad previews discard replay-only source-role and chromatic-target coordinates on
 Input Tonic Color in Pads Global selects the follower input-root background. It defaults to Track and also offers Grey (the scale-tone color) and the named harmony colors. Harmony overlays remain above this background. The setting is shared across follower tracks.
 
 Horizontally adjacent pads with the same base color alternate between nearby palette shades when their effective rendered note sets differ. Pads with identical outputs retain the same shade. The remembered last-played note no longer paints a white pad; explicit step-hold editing still shows its note selection.
+
+
+## Global humanize (Movy hbclean.76)
+
+Humanize / Tools reuses the Play Tools panel. Timing, Velocity and Gate are shared settings, initially zero. Timing is a maximum signed offset in milliseconds, rounded down to whole sequencer ticks at the current tempo and clip speed. Gate and Velocity are maximum percentage variations around recorded durations and attack levels. Offsets are deterministic per track, clip and source onset; chord members move together and repeated loops retain the same feel. They do not rewrite notes, consume operation lanes, change live inputs or alter the active recording track.
+
+Timing and Gate apply only to recorded follower inputs. Conductor durations and onset positions remain exact so humanization cannot move the observed harmony schedule. Velocity applies to both recorded conductors and followers, before their normal rendering and velocity gain. Receiver tracks are not processed again. Clip boundaries constrain timing offsets; a note at the beginning cannot play before transport starts. Existing quantization and harmonic-buffer rules still take precedence. Reset and Bypass in the same panel remain Follow Play controls; set the three global amounts to zero to disable humanize.

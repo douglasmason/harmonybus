@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.167"
+#define HB_VERSION "0.2.168"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -119,6 +119,7 @@ static int g_pad_both_color=0;
 static int g_pad_tonic_color=8;
 static int g_pad_settings[5]={0,3,0,4,2};
 static int g_pad_restored=0;
+static int g_humanize[3]={0,0,0},g_humanize_restored=0;
 static const char *PAD_KEYS[]={"pad_display","pad_pulse_rate","pad_pulse_shape","pad_current_color","pad_lookahead_color"};
 static const int PAD_LIMITS[]={7,8,4,9,9};
 static const char *PAD_MODES[]={"Standard","Current","Effective","Both","Lookahead","Full Lookahead","Both Full Lookahead"};
@@ -407,7 +408,7 @@ static int hb_sync_conductor_from_monitor(Inst *instance){
     (void)generation;
     return changed;
 }
-static void ensure_init(void){if(g_init)return;g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=0;g_bus.follower_scale=0;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
+static void ensure_init(void){if(g_init)return;g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=0;g_bus.follower_scale=0;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
 
 static char *hb_read_text_file(const char *path,long *size_out){
     FILE *file=fopen(path,"rb");if(!file)return 0;
@@ -3646,6 +3647,11 @@ static void hb_set_master_transpose(int semitones){
     next_configuration=hb_next_configuration();
 }
 static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
+if(!strcmp(key,"humanize_timing")||!strcmp(key,"humanize_velocity")||!strcmp(key,"humanize_gate")){
+    int index=!strcmp(key,"humanize_timing")?0:!strcmp(key,"humanize_velocity")?1:2;
+    g_humanize[index]=hb_cp_clamp(parse_i(parameter,0),0,30);g_humanize_restored=1;return;
+}
+
 if(!strcmp(key,"render_velocity_percent")){instance->render_velocity_gain=hb_cp_clamp(parse_i(parameter,100),0,400)*100;return;}
 if(!strcmp(key,"pad_tonic_color")){g_pad_tonic_color=enum_index(parameter,PAD_TONIC_COLORS,10,g_pad_tonic_color);g_pad_restored=1;return;}
 if(!strcmp(key,"pad_both_color")){g_pad_both_color=enum_index(parameter,PAD_BOTH_COLORS,10,g_pad_both_color);g_pad_restored=1;return;}
@@ -4075,6 +4081,13 @@ static void hb_restore_state(Inst *instance,const char *state){
     }else {int host=instance->motion.host_capabilities;hb_mo_defaults(&instance->motion);instance->motion.host_capabilities=host;hb_motion_copy_settings(&instance->motion,&g_motion_settings);}
     instance->motion_local.enclosure_revision=0;instance->motion_local.performance_valid=0;
     instance->motion_render.enclosure_revision=0;instance->motion_render.performance_valid=0;
+    if(!g_humanize_restored){
+        int timing=0,velocity=0,gate=0;const char *human=strstr(state,";hu1,");
+        if(!human||(sscanf(human,";hu1,%d,%d,%d",&timing,&velocity,&gate)==3&&
+            timing>=0&&timing<=30&&velocity>=0&&velocity<=30&&gate>=0&&gate<=30)){
+            g_humanize[0]=timing;g_humanize[1]=velocity;g_humanize[2]=gate;g_humanize_restored=1;
+        }
+    }
     const char *pad_suffix=strstr(state,";pd1,");
     int restored_pads[5],restore_colors=!g_pad_restored;
     const char *tonic_suffix=strstr(state,";pt1,");int restored_tonic=-1;
@@ -4297,6 +4310,20 @@ if(!strcmp(key,"timing_next_at")||!strcmp(key,"timing_next_chord")){
         hb_format_harmony(buffer,length,events[selected].harmony);
 }
 if(!strcmp(key,"render_velocity_gain"))return snprintf(buffer,(size_t)length,"%.4f",instance->render_velocity_gain/10000.0);
+if(!strcmp(key,"humanize_timing")||!strcmp(key,"humanize_velocity")||!strcmp(key,"humanize_gate")){
+    int index=!strcmp(key,"humanize_timing")?0:!strcmp(key,"humanize_velocity")?1:2;
+    return snprintf(buffer,(size_t)length,"%d",g_humanize[index]);
+}
+if(!strcmp(key,"humanize_scope"))return snprintf(buffer,(size_t)length,"Clips");
+if(!strcmp(key,"follower_input_context_v2")){
+    int used=get_param(value,"follower_input_context",buffer,length);if(used<0||used>=length)return -1;
+    unsigned mask=0;
+    for(int index=0;index<HB_MAX_INSTANCES;index++){
+        Inst *source=&g_pool[index];
+        if(source->used&&source->role<=1&&source->movy_track>=0&&source->movy_track<16)mask|=1u<<source->movy_track;
+    }
+    return used+snprintf(buffer+used,(size_t)(length-used),"|hu1,%d,%d,%d,%u",g_humanize[0],g_humanize[1],g_humanize[2],mask);
+}
 if(!strcmp(key,"follower_input_context")){
     int root=hb_global_explicit_root();hb_resolve_follower_reference_root(instance,&root);
     unsigned mask=0;
@@ -4383,6 +4410,7 @@ if(!strcmp(key,"state")){
     if(instance->next_lookahead||instance->next_anti_buffer_ms!=25)
         used+=snprintf(buffer+used,(size_t)(length-used),";la1,%d,%d",instance->next_lookahead,instance->next_anti_buffer_ms);
     if(used<0||used>=length)return used;
+    used+=snprintf(buffer+used,(size_t)(length-used),";hu1,%d,%d,%d",g_humanize[0],g_humanize[1],g_humanize[2]);
     if(instance->render_velocity_gain!=10000)used+=snprintf(buffer+used,(size_t)(length-used),";rv1,%d",instance->render_velocity_gain);
     if(used<0||used>=length)return used;
     if(instance->player.config.clear_harmony)used+=snprintf(buffer+used,(size_t)(length-used),";ac1,1");

@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.167'
+          assert module['version']=='0.2.168'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -150,6 +150,8 @@ jobs:
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/loop_learning_test.c src/harmony_core.c -lm -o /tmp/loop_learning_test
           /tmp/loop_learning_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/humanize_settings_test.c src/harmony_core.c -lm -o /tmp/humanize_settings_test
+          /tmp/humanize_settings_test
 
       - name: Verify follower boundary mapping and conductor ordering
         run: |
@@ -249,12 +251,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Show last confirmed and next learned chord transition positions in Chord Timing, with chord names and Learning/Locked status. Positions use the unshifted conductor cycle. Compatible with Movy hbclean.74."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add global recorded-input Humanize controls to the existing Play Tools panel. Requires Movy hbclean.76. Conductor timing and gate remain exact; all settings default off."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Show last confirmed and next learned chord transition positions in Chord Timing, with chord names and Learning/Locked status. Positions use the unshifted conductor cycle. Compatible with Movy hbclean.74." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add global recorded-input Humanize controls to the existing Play Tools panel. Requires Movy hbclean.76. Conductor timing and gate remain exact; all settings default off." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
