@@ -4423,7 +4423,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         unsigned current_mask=current.valid?hb_harmony_chord_mask(current):0;
         unsigned effective_mask=effective.valid?hb_harmony_chord_mask(effective):0;
         unsigned lookahead_mask=ready&&lookahead.valid?hb_harmony_chord_mask(lookahead):0;
-        uint64_t output_low[32]={0},output_high[32]={0};int output_group[32];
+        unsigned long long output_low[32]={0},output_high[32]={0};int output_group[32];
         for(int sample=0;sample<12+pad_count;sample++){
             int source_note=sample<12?60+sample:pad_notes[sample-12];
             if(source_note<0){output_group[sample-12]=-1;continue;}
@@ -4450,8 +4450,8 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
                         if(!skip){
                             rendered_mask|=1u<<mod12(pitch);
                             if(sample>=12&&pitch>=0&&pitch<128){
-                                if(pitch<64)output_low[sample-12]|=UINT64_C(1)<<pitch;
-                                else output_high[sample-12]|=UINT64_C(1)<<(pitch-64);
+                                if(pitch<64)output_low[sample-12]|=1ULL<<pitch;
+                                else output_high[sample-12]|=1ULL<<(pitch-64);
                             }
                         }
                     }
