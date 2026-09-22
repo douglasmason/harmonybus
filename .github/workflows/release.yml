@@ -221,7 +221,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           module=json.load(open('/tmp/hb-verify/harmonybus/module.json'))
-          assert module['version']==os.environ['VERSION']=='0.2.159'
+          assert module['version']==os.environ['VERSION']
           panel=module['capabilities']['ui_hierarchy']['levels']['follower_source']
           assert panel['knobs'][1]=='travel_map'
           next_panel=module['capabilities']['ui_hierarchy']['levels']['next_harm']
