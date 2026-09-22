@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.160'
+          assert module['version']=='0.2.161'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -72,7 +72,7 @@ jobs:
               'content_map','travel_map','split_map','retrigger_held',
               'approach','approach_reset','approach_scale_next','approach_chrom_next'
           ]
-          assert [item['level'] for item in levels['root']['params'] if 'level' in item][-1]=='diagnostics'
+          assert [item['level'] for item in levels['root']['params'] if 'level' in item][-1]=='follower_play_tools'
           assert levels['next_harm']['name']=='Next Harm'
           assert levels['next_harm']['knobs']==[
               'next_lookahead','next_anti_buffer_ms','boundary_buffer_ms','next_model',
@@ -249,12 +249,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Track-volume gesture scales routed MIDI velocity without changing recorded inputs or double-scaling local audio. Pair with Movy hbclean.69."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Move Reset and Bypass to the final Play Tools panel. Paired Movy update gives equivalent chord-tone inputs a consistent grey/harmony tint. Pair with Movy hbclean.70."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Track-volume gesture scales routed MIDI velocity without changing recorded inputs or double-scaling local audio. Pair with Movy hbclean.69." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Move Reset and Bypass to the final Play Tools panel. Paired Movy update gives equivalent chord-tone inputs a consistent grey/harmony tint. Pair with Movy hbclean.70." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

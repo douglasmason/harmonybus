@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.160 / Movy 0.34.1-hbclean.69.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.161 / Movy 0.34.1-hbclean.70.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -394,11 +394,11 @@ Operation lane assignments and settings, input root/scale, master transpose, cho
 
 Movy saves per-input relative operation outcomes beside source notes. Ordinary non-evolving operation values and approach/enclosure steps are captured at input onset; explicitly evolving automatic lanes remain live. These records survive clip persistence and copying and are supplied before source-note playback. Live held lane controls temporarily replace that lane's recorded action instead of applying it twice. Repeat, reverse, time-shift and speed gestures recorded on a clip retain their timed intervals, independent of later button assignments. Existing clips without these records continue their prior behavior; already baked rendered notes remain absolute.
 
-The quiet default pad overlay uses the track's active rendering harmony, and only on followers. Highlighted inputs are those whose actual rendered voices belong to that chord, including Travel None, transpose and lookahead. Input root retains track color; chord-producing inputs mix grey and track color; other scale notes stay grey. Live and recorded-input green feedback retains priority. Optional Current, Effective, Both and Lookahead display choices remain available; conductor tracks keep ordinary keyboard colors.
+The quiet default pad overlay uses the track's active rendering harmony, and only on followers. Highlighted inputs are those whose actual rendered voices belong to that chord, including Travel None, transpose and lookahead. Inputs rendering the output tonic retain full track color. Other inputs rendering output-scale tones get grey backgrounds, blended with the harmony color when they also render chord tones. Input-scale membership does not change this coloring. Live and recorded-input green feedback retains priority. Optional Current, Effective, Both and Lookahead display choices remain available; conductor tracks keep ordinary keyboard colors.
 
-## Control layout updates (0.2.160 / hbclean.69)
+## Control layout updates (0.2.161 / hbclean.70)
 
-Global places Harmony Flow on its bottom row. Tap / Hold (ms) is the gesture threshold, not harmony persistence. Follow Play exposes Render Velocity %, sharing the existing routed gain with track + volume; Reset and Bypass move to Play Tools. Operations exposes the global Steps / Perform switch.
+Global places Harmony Flow on its bottom row. Tap / Hold (ms) is the gesture threshold, not harmony persistence. Follow Play exposes Render Velocity %, sharing the existing routed gain with track + volume; Reset and Bypass sit together in Play Tools, the final panel. Operations exposes the global Steps / Perform switch.
 
 Chromatic Auto Chord adds Minor / Min7 and Dim / Min7b5. Chord Grid Free is now labeled Observed: it retains observed harmonic change positions without fixed-grid snapping. The Chord Timing page shows the selected grid, anticipation, model event count and loop position. Per-clip grids are not yet implemented.
 

@@ -19,9 +19,15 @@ int main(void){
         int root,selected,resolved;unsigned mask,roles;
         assert(sscanf(metadata,"|input1,%d,%d,%d,%u,%u",&root,&selected,&resolved,&mask,&roles)==5);
         assert(root==0&&selected==scale&&resolved==scale&&mask==input);
+        unsigned current_inputs,effective_inputs,scale_inputs,tonic_inputs;
+        assert(sscanf(view,"%u,%u,%u",&current_inputs,&effective_inputs,&scale_inputs)==3);
+        const char *tonic_metadata=strstr(view,"|tonic1,");assert(tonic_metadata);
+        assert(sscanf(tonic_metadata,"|tonic1,%u",&tonic_inputs)==1);
         for(int pitch_class=0;pitch_class<12;pitch_class++){
             int rendered=hb_map_follower_note_now(instance,60+pitch_class);
             assert(!!(roles&(1u<<pitch_class))==!!(chord_mask&(1u<<mod12(rendered))));
+            assert(!!(scale_inputs&(1u<<pitch_class))==!!(target.pitch_mask&(1u<<mod12(rendered))));
+            assert(!!(tonic_inputs&(1u<<pitch_class))==(mod12(rendered)==target.root_pc));
         }
         for(int degree=0;degree<7;degree++){
             int pitch=60+hb_nth_scale_interval_from_root(input,0,degree);

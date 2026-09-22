@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.160"
+#define HB_VERSION "0.2.161"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4367,7 +4367,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         Inst preview=*instance;
         preview.render_harmony=effective;preview.render_harmony_active=1;
         preview.movy_playback=0;
-        unsigned current_inputs=0,effective_inputs=0,lookahead_inputs=0,scale_inputs=0;
+        unsigned current_inputs=0,effective_inputs=0,lookahead_inputs=0,scale_inputs=0,tonic_inputs=0;
         unsigned current_mask=current.valid?hb_harmony_chord_mask(current):0;
         unsigned effective_mask=effective.valid?hb_harmony_chord_mask(effective):0;
         unsigned lookahead_mask=ready&&lookahead.valid?hb_harmony_chord_mask(lookahead):0;
@@ -4401,8 +4401,9 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             if(!(rendered_mask&~effective_mask))effective_inputs|=input_bit;
             if(!(rendered_mask&~lookahead_mask))lookahead_inputs|=input_bit;
             if(scale.valid&&!(rendered_mask&~scale.pitch_mask))scale_inputs|=input_bit;
+            if(scale.valid&&rendered_mask==(1u<<mod12(scale.root_pc)))tonic_inputs|=input_bit;
         }
-        return snprintf(buffer,(size_t)length,"%u,%u,%u,%d,%u,%d,%d,%d,%d,%d",current_inputs,effective_inputs,scale_inputs,ready,lookahead_inputs,g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4]);
+        return snprintf(buffer,(size_t)length,"%u,%u,%u,%d,%u,%d,%d,%d,%d,%d|tonic1,%u",current_inputs,effective_inputs,scale_inputs,ready,lookahead_inputs,g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4],tonic_inputs);
     }
     return snprintf(buffer,(size_t)length,"%u,%u,%u,%d",
         current.valid?(unsigned)hb_harmony_chord_mask(current):0u,
