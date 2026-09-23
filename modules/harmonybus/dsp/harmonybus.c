@@ -1184,6 +1184,7 @@ static void hb_movy_refresh(void){
         g_movy_revision=revision;g_movy_blocked=blocked;
         hb_next_reset_knowledge();
         hb_clip_cache_restore(cache_key);
+        hb_effective_write(g_bus.observed_harmony);
         /* Do not seed a newly launched clip with the previous clip's chord. */
     }
 }
@@ -1293,6 +1294,15 @@ static int hb_next_model_event_for_phase_for(const Inst *instance,double phase,i
         if(age<0.0)age+=length;
         if(age<best_age){best_age=age;best=index;}
     }
+    if(best>=0&&g_movy_present&&g_clip_cache_key_valid){
+        /* Before the new clip's first event, keep the actual previous harmony.
+           A cached wraparound chord has not sounded in this launch yet. Query
+           phases ahead of the playhead (buffered followers) remain usable. */
+        double now=hb_next_transport_beat();
+        double delta=phase-hb_next_phase(hb_clip_playhead());
+        if(delta< -1e-6)delta+=length;
+        if(now+delta-best_age+lookahead+1e-6<g_clip_cache_activated)return -1;
+    }
     return best;
 }
 static int hb_next_model_event_for_phase(double phase,int shifted){return hb_next_model_event_for_phase_for(0,phase,shifted);}
@@ -1335,7 +1345,7 @@ static void hb_next_apply_effective(double playhead){
     }
     double phase=hb_next_phase(playhead);
     int index=hb_next_model_event_for_phase(phase,1);
-    if(index<0)return;
+    if(index<0){g_bus.next_shift_active=0;hb_effective_write(g_bus.observed_harmony);return;}
     hb_loop_harmony_event_t *event=&g_bus.next_model[index];
     hb_effective_write(event->harmony);
     /* Report a shift whenever the signed offset selects another event. */

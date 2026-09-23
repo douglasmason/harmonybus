@@ -48,6 +48,16 @@ int main(void){
     API.set_param(&g_pool[0],"next_reset","Reset");
     launch(1,200,3072,0);
     launch(0,100,3456,0);assert(!g_bus.next_model_locked);
+    /* Initial silence does not invent a previous-loop chord on launch. */
+    reset_cache();launch(0,100,0,0);
+    g_bus.next_learning_count=2;
+    g_bus.next_learning[0]=(hb_loop_harmony_event_t){.phase=1,.harmony=chord(0)};
+    g_bus.next_learning[1]=(hb_loop_harmony_event_t){.phase=3,.harmony=chord(5)};
+    hb_next_promote_learning();
+    launch(1,200,384,0);launch(0,100,768,0);
+    assert(g_bus.next_model_locked);
+    assert(hb_next_model_event_for_phase(0,0)==-1);
+    assert(hb_next_model_event_for_phase(1,0)==0);
     /* An absent transition must invalidate without receiving a new chord. */
     reset_cache();launch(0,100,0,0);learn(0);
     g_bus.observed_harmony=chord(0);

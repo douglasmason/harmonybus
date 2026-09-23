@@ -434,7 +434,7 @@ Timing and Gate apply only to recorded follower inputs. Conductor durations and 
 Dominant Scale and Borrowed Scale are shared across all tracks, like Follower Scale. New presets restore one shared choice; legacy per-track presets seed it from the first non-default dominant setting. Later stale track copies cannot override an edited or restored global choice.
 
 
-### Retained clip predictions
+## Retained clip predictions
 
 HarmonyBus retains proven schedules for 32 recently used conductor clip configurations in memory. Returning to a known clip restores its timeline relative to the actual launch position. Replacing or editing a slot invalidates its older retained schedules. Confirmed disagreement, including an expected transition that never occurs, evicts the active schedule and starts learning again. Event confirmation avoids invalidating on individual staggered MIDI arrivals. Reset also evicts the active entry.
 
