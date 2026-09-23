@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.170"
+#define HB_VERSION "0.2.171"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -22,6 +22,7 @@ extern void free(void *);
 extern FILE *fopen(const char *, const char *);
 extern int fclose(FILE *);
 extern size_t fread(void *, size_t, size_t, FILE *);
+extern size_t fwrite(const void *, size_t, size_t, FILE *);
 extern int fseek(FILE *, long, int);
 extern long ftell(FILE *);
 extern char *fgets(char *, int, FILE *);
@@ -1054,6 +1055,108 @@ static void hb_next_reset_knowledge(void){
     g_bus.next_learning_started=0;
     g_bus.next_learning_progress_beats=0.0;
 }
+/* Retain proven schedules across launches. Keys exclude absolute launch time:
+   phases are relative to the first conductor; additional lanes retain their
+   relative phase. Fixed storage bounds both memory and callback work. */
+#define HB_CLIP_CACHE_CAPACITY 32
+typedef struct {
+    hb_tick_t revision,period,relative_origin;
+    int track,slot;
+} hb_clip_cache_lane_t;
+typedef struct {
+    int count;
+    unsigned configuration;
+    hb_tick_t rendering;
+    hb_clip_cache_lane_t lanes[HB_MAX_INSTANCES];
+} hb_clip_cache_key_t;
+typedef struct {
+    int used,count;
+    unsigned long long age;
+    hb_clip_cache_key_t key;
+    hb_loop_harmony_event_t events[HB_MAX_LOOP_HARMONIES];
+} hb_clip_cache_entry_t;
+static hb_clip_cache_entry_t g_clip_cache[HB_CLIP_CACHE_CAPACITY];
+static hb_clip_cache_key_t g_clip_cache_key;
+static unsigned long long g_clip_cache_age;
+static int g_clip_cache_key_valid;
+static double g_clip_cache_activated;
+static hb_tick_t hb_clip_hash(hb_tick_t hash,hb_tick_t value){return (hash^value)*1099511628211ULL;}
+static hb_clip_cache_key_t hb_clip_cache_current_key(void){
+    hb_clip_cache_key_t key;memset(&key,0,sizeof(key));
+    key.configuration=hb_next_configuration();
+    key.rendering=14695981039346656037ULL;
+    int globals[]={hb_shared_follower_scale(),hb_shared_dominant_scale(),hb_shared_borrowed_scale(),
+        hb_global_root_policy(),hb_global_explicit_root(),g_bus.global_input_root};
+    for(unsigned index=0;index<sizeof(globals)/sizeof(globals[0]);index++)
+        key.rendering=hb_clip_hash(key.rendering,(unsigned)globals[index]);
+    hb_tick_t origin=0;
+    for(int index=0;index<HB_MAX_INSTANCES;index++){
+        Inst *instance=&g_pool[index];hb_movy_clip_t *clip=&g_movy_clips[index];
+        if(!instance->used||instance->role!=0||!clip->present||!clip->active)continue;
+        if(!key.count)origin=clip->origin;
+        hb_clip_cache_lane_t *lane=&key.lanes[key.count++];
+        lane->track=instance->movy_track>=0?instance->movy_track:index;
+        lane->slot=clip->slot;lane->revision=clip->revision;lane->period=clip->period;
+        lane->relative_origin=(clip->origin+clip->period-origin%clip->period)%clip->period;
+        const unsigned char *config=(const unsigned char *)&instance->player.config;
+        for(unsigned byte=0;byte<sizeof(instance->player.config);byte++)
+            key.rendering=hb_clip_hash(key.rendering,config[byte]);
+        config=(const unsigned char *)&instance->play;
+        for(unsigned byte=0;byte<sizeof(instance->play);byte++)key.rendering=hb_clip_hash(key.rendering,config[byte]);
+        for(int lane=0;lane<HB_MOTION_LANES;lane++)key.rendering=hb_clip_hash(key.rendering,instance->motion.revision[lane]);
+        key.rendering=hb_clip_hash(key.rendering,instance->motion.held);
+        key.rendering=hb_clip_hash(key.rendering,instance->motion.bypass);
+    }
+    return key;
+}
+static int hb_clip_cache_equal(const hb_clip_cache_key_t *left,const hb_clip_cache_key_t *right){
+    return !memcmp(left,right,sizeof(*left));
+}
+static void hb_clip_cache_evict_active(void){
+    if(!g_clip_cache_key_valid)return;
+    for(int index=0;index<HB_CLIP_CACHE_CAPACITY;index++)
+        if(g_clip_cache[index].used&&hb_clip_cache_equal(&g_clip_cache[index].key,&g_clip_cache_key))
+            g_clip_cache[index].used=0;
+}
+static void hb_clip_cache_store(void){
+    if(!g_clip_cache_key_valid||g_movy_blocked||!g_bus.next_model_locked||!g_bus.next_model_count)return;
+    int target=0;
+    for(int index=0;index<HB_CLIP_CACHE_CAPACITY;index++){
+        hb_clip_cache_entry_t *entry=&g_clip_cache[index];
+        if(!entry->used||hb_clip_cache_equal(&entry->key,&g_clip_cache_key)){target=index;break;}
+        if(entry->age<g_clip_cache[target].age)target=index;
+    }
+    hb_clip_cache_entry_t *entry=&g_clip_cache[target];
+    entry->key=g_clip_cache_key;entry->used=1;entry->age=++g_clip_cache_age;
+    entry->count=g_bus.next_model_count;
+    memcpy(entry->events,g_bus.next_model,entry->count*sizeof(entry->events[0]));
+}
+static int hb_clip_cache_restore(hb_clip_cache_key_t key){
+    /* Editing/replacing a known slot invalidates every retained combination
+       containing that old slot content, including inactive combinations. */
+    for(int index=0;index<HB_CLIP_CACHE_CAPACITY;index++){
+        hb_clip_cache_entry_t *entry=&g_clip_cache[index];
+        if(!entry->used)continue;
+        for(int current=0;current<key.count;current++)for(int old=0;old<entry->key.count;old++){
+            hb_clip_cache_lane_t *now=&key.lanes[current],*before=&entry->key.lanes[old];
+            if(now->slot>=0&&now->track==before->track&&now->slot==before->slot&&now->revision!=before->revision)
+                entry->used=0;
+        }
+    }
+    g_clip_cache_key=key;g_clip_cache_key_valid=key.count>0&&!g_movy_blocked;
+    g_clip_cache_activated=hb_next_transport_beat();
+    if(!g_clip_cache_key_valid)return 0;
+    for(int index=0;index<HB_CLIP_CACHE_CAPACITY;index++){
+        hb_clip_cache_entry_t *entry=&g_clip_cache[index];
+        if(!entry->used||!hb_clip_cache_equal(&entry->key,&key))continue;
+        entry->age=++g_clip_cache_age;
+        g_bus.next_model_count=entry->count;
+        memcpy(g_bus.next_model,entry->events,entry->count*sizeof(entry->events[0]));
+        g_bus.next_model_locked=1;g_infer_revision++;
+        return 1;
+    }
+    return 0;
+}
 static void hb_commit_observed_harmony(hb_harmony_t harmony);
 static void hb_movy_refresh(void){
     int present=0,running=0,blocked=0,count=0;
@@ -1074,11 +1177,14 @@ static void hb_movy_refresh(void){
     if(present&&!count)blocked=1;
     if(revision==g_movy_revision&&g_movy_blocked==4)blocked=4;
     g_movy_tick=tick;g_movy_running=running;
-    if(present!=g_movy_present||revision!=g_movy_revision||blocked!=g_movy_blocked){
+    hb_clip_cache_key_t cache_key=hb_clip_cache_current_key();
+    if(present!=g_movy_present||revision!=g_movy_revision||blocked!=g_movy_blocked||
+       (present&&!hb_clip_cache_equal(&cache_key,&g_clip_cache_key))){
         g_movy_present=present;g_movy_period=period;g_movy_origin=origin;g_movy_ppqn=ppqn;
         g_movy_revision=revision;g_movy_blocked=blocked;
         hb_next_reset_knowledge();
-        if(!blocked&&hb_next_is_harmony(g_bus.observed_harmony))hb_commit_observed_harmony(g_bus.observed_harmony);
+        hb_clip_cache_restore(cache_key);
+        /* Do not seed a newly launched clip with the previous clip's chord. */
     }
 }
 static void hb_next_record_observed(hb_harmony_t harmony){
@@ -1123,6 +1229,7 @@ static int hb_next_model_accepts_observed(hb_harmony_t harmony,double phase){
     return 0;
 }
 static void hb_next_begin_relearning(void){
+    hb_clip_cache_evict_active();
     hb_next_reset_knowledge();
 }
 static void hb_commit_observed_harmony(hb_harmony_t harmony){
@@ -1218,6 +1325,7 @@ static void hb_next_promote_learning(void){
     g_bus.next_model_locked=1;
     g_infer_revision++;
     g_bus.next_learning_started=1;
+    hb_clip_cache_store();
 }
 static void hb_next_apply_effective(double playhead){
     if(!g_bus.next_predict||hb_next_lookahead_beats()==0.0||!g_bus.next_model_locked||g_bus.next_model_count<=0){
@@ -1251,6 +1359,24 @@ static void hb_next_update_playhead(int frames,int sample_rate){
         delta=0.0;
     }
     hb_next_confirm_observed(beat);
+    /* A missing transition produces no commit to compare. Validate the held
+       observed harmony too, after the complete-event confirmation window.
+       Never treat a pre-launch cached event as a missed live observation. */
+    if(g_movy_present&&g_clip_cache_key_valid&&g_bus.next_model_locked){
+        double phase=hb_next_phase(hb_clip_playhead());
+        int expected=hb_next_model_event_for_phase(phase,0);
+        if(expected>=0){
+            double age=phase-g_bus.next_model[expected].phase;if(age<0)age+=length;
+            double bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
+            double grace=(g_bus.inference_window_ms+25)*(bpm>0?bpm:120.0)/60000.0;
+            if(grace<0.125)grace=0.125;
+            if(age>grace&&beat-age+1e-6>=g_clip_cache_activated&&
+               !hb_harmony_equal_effective(g_bus.next_model[expected].harmony,g_bus.observed_harmony)){
+                hb_next_begin_relearning();
+                if(hb_next_is_harmony(g_bus.observed_harmony))hb_commit_observed_harmony(g_bus.observed_harmony);
+            }
+        }
+    }
     if(!g_bus.next_model_locked&&length>0.0&&g_bus.next_learning_count>0){
         if(g_bus.next_learning_started)g_bus.next_learning_progress_beats+=delta;
         g_bus.next_learning_started=1;
@@ -2856,7 +2982,7 @@ if(instance){
     hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);
     hb_receiver_remove_source(instance);
     instance->used=0;
-}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(0);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;hb_pad_defaults();}
+}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;memset(g_clip_cache,0,sizeof(g_clip_cache));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(0);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;hb_pad_defaults();}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
     if(instance->source_channel>=0)return midi_channel==instance->source_channel;
@@ -3726,6 +3852,14 @@ static void hb_set_scale_exceptions(int dominant,int borrowed){
     g_scale_exceptions_restored=1;
 }
 static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
+if(!strcmp(key,"hb_tempo")){
+    /* Control-message path only: request the host's shared Link tempo.
+       Never alter an independent DSP clock or save tempo in track presets. */
+    int bpm=hb_cp_clamp(parse_i(parameter,120),20,300);
+    FILE *request=fopen("/data/UserData/schwung/desired-tempo","w");
+    if(request){char text[24];int bytes=snprintf(text,sizeof(text),"%d\n",bpm);fwrite(text,1,(size_t)bytes,request);fclose(request);}
+    return;
+}
 if(!strcmp(key,"humanize_timing")||!strcmp(key,"humanize_velocity")||!strcmp(key,"humanize_gate")){
     int index=!strcmp(key,"humanize_timing")?0:!strcmp(key,"humanize_velocity")?1:2;
     g_humanize[index]=hb_cp_clamp(parse_i(parameter,0),0,30);g_humanize_restored=1;return;
@@ -3885,9 +4019,12 @@ if(!strcmp(key,"hb_movy_block")){
     return;
 }
 if(!strcmp(key,"hb_movy_clip")){
-    hb_movy_clip_t clip={0};
+    hb_movy_clip_t clip={0};clip.slot=-1;
     if(sscanf(parameter,"%llu,%llu,%llu,%llu,%u,%u,%u",&clip.tick,&clip.period,&clip.origin,&clip.revision,&clip.active,&clip.running,&clip.ppqn)==7&&clip.ppqn==96&&clip.active<=2&&clip.running<=1&&(!clip.active||clip.period>0)&&clip.period<=9007199254740991ULL){
-        clip.present=1;g_movy_clips[instance-g_pool]=clip;
+        clip.present=1;
+        int slot=-1,ignored_track=-1;
+        if(sscanf(parameter,"%llu,%llu,%llu,%llu,%u,%u,%u,%d,%d",&clip.tick,&clip.period,&clip.origin,&clip.revision,&clip.active,&clip.running,&clip.ppqn,&ignored_track,&slot)==9&&slot>=0&&slot<128)clip.slot=slot;
+        g_movy_clips[instance-g_pool]=clip;
         int track=-1;
         if(sscanf(parameter,"%llu,%llu,%llu,%llu,%u,%u,%u,%d",
             &clip.tick,&clip.period,&clip.origin,&clip.revision,
@@ -3928,7 +4065,7 @@ if(!strcmp(key,"next_anti_buffer_ms")){
     return;
 }
 if(!strcmp(key,"next_lookahead")){instance->lookahead_restored=1;instance->next_lookahead=enum_index(parameter,NEXT_LOOKAHEAD_OPTS,25,instance->next_lookahead);if(instance->next_predict&&g_bus.next_model_locked)hb_next_apply_effective(hb_clip_playhead());return;}
-if(!strcmp(key,"next_reset")){if(parameter[0]=='1'||!strcmp(parameter,"Reset")){hb_next_reset_knowledge();hb_effective_write(g_bus.observed_harmony);}return;}
+if(!strcmp(key,"next_reset")){if(parameter[0]=='1'||!strcmp(parameter,"Reset")){hb_clip_cache_evict_active();hb_next_reset_knowledge();hb_effective_write(g_bus.observed_harmony);}return;}
 if(!strcmp(key,"live_press")){if(parameter[0]=='1')hb_receive_live_vouch(instance);return;}
 if(!strcmp(key,"approach_below_pad")){if(parameter[0]=='1'){instance->approach_pad_armed=HB_APPROACH_CHROM_BELOW;}return;}
 if(!strcmp(key,"approach_above_pad")){if(parameter[0]=='1'){instance->approach_pad_armed=HB_APPROACH_SCALE_ABOVE;}return;}
@@ -4405,6 +4542,10 @@ if(!strcmp(key,"timing_next_at")||!strcmp(key,"timing_next_chord")){
         hb_format_harmony(buffer,length,events[selected].harmony);
 }
 if(!strcmp(key,"render_velocity_gain"))return snprintf(buffer,(size_t)length,"%.4f",instance->render_velocity_gain/10000.0);
+if(!strcmp(key,"hb_tempo")){
+    double bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
+    return snprintf(buffer,(size_t)length,"%.0f",bpm>0?bpm:120.0);
+}
 if(!strcmp(key,"humanize_timing")||!strcmp(key,"humanize_velocity")||!strcmp(key,"humanize_gate")){
     int index=!strcmp(key,"humanize_timing")?0:!strcmp(key,"humanize_velocity")?1:2;
     return snprintf(buffer,(size_t)length,"%d",g_humanize[index]);

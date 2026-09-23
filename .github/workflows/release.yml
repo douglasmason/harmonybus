@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.170'
+          assert module['version']=='0.2.171'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -150,6 +150,8 @@ jobs:
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/loop_learning_test.c src/harmony_core.c -lm -o /tmp/loop_learning_test
           /tmp/loop_learning_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/clip_cache_test.c src/harmony_core.c -lm -o /tmp/clip_cache_test
+          /tmp/clip_cache_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/humanize_settings_test.c src/harmony_core.c -lm -o /tmp/humanize_settings_test
           /tmp/humanize_settings_test
 

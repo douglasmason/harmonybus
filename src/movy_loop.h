@@ -7,6 +7,7 @@ typedef struct {
     hb_tick_t tick, period, origin, revision;
     unsigned active, running, ppqn;
     int present;
+    int slot; /* optional protocol field; -1 for legacy senders */
 } hb_movy_clip_t;
 static hb_tick_t hb_tick_gcd(hb_tick_t left,hb_tick_t right){
     while(right){hb_tick_t remainder=left%right;left=right;right=remainder;}return left;

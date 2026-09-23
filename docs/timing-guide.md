@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.170 / Movy 0.34.1-hbclean.77.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.171 / Movy 0.34.1-hbclean.77.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -432,3 +432,12 @@ Humanize / Tools reuses the Play Tools panel. Timing, Velocity and Gate are shar
 Timing and Gate apply only to recorded follower inputs. Conductor durations and onset positions remain exact so humanization cannot move the observed harmony schedule. Velocity applies to both recorded conductors and followers, before their normal rendering and velocity gain. Receiver tracks are not processed again. Clip boundaries constrain timing offsets; a note at the beginning cannot play before transport starts. Existing quantization and harmonic-buffer rules still take precedence. Reset and Bypass in the same panel remain Follow Play controls; set the three global amounts to zero to disable humanize.
 
 Dominant Scale and Borrowed Scale are shared across all tracks, like Follower Scale. New presets restore one shared choice; legacy per-track presets seed it from the first non-default dominant setting. Later stale track copies cannot override an edited or restored global choice.
+
+
+### Retained clip predictions
+
+HarmonyBus retains proven schedules for 32 recently used conductor clip configurations in memory. Returning to a known clip restores its timeline relative to the actual launch position. Replacing or editing a slot invalidates its older retained schedules. Confirmed disagreement, including an expected transition that never occurs, evicts the active schedule and starts learning again. Event confirmation avoids invalidating on individual staggered MIDI arrivals. Reset also evicts the active entry.
+
+This cache lasts until the module session ends. New clips and changed chord-rendering settings still require observation; this version does not scan an unplayed clip or predict a queued launch. Multiple-conductor configurations are cached together, including relative phases. Probability and multi-pass clips retain the existing nonperiodic fallback.
+
+Humanize / Tools has a seventh control, Tempo (20–300 BPM). It requests the shared host tempo rather than saving a tempo in each track preset. In Movy this also updates the sequencer immediately. The shared request requires Schwung's Link sidecar; an external Link session can retain tempo ownership.
