@@ -58,6 +58,12 @@ int main(void){
     assert(g_bus.next_model_locked);
     assert(hb_next_model_event_for_phase(0,0)==-1);
     assert(hb_next_model_event_for_phase(1,0)==0);
+    /* Restarting the same clip resets its launch boundary despite an unchanged
+       content key and origin; an old absolute activation beat must not linger. */
+    launch(0,100,0,0);
+    assert(g_clip_cache_activated==0);
+    assert(hb_next_model_event_for_phase(0,0)==-1);
+    assert(hb_next_model_event_for_phase(1,0)==0);
     /* An absent transition must invalidate without receiving a new chord. */
     reset_cache();launch(0,100,0,0);learn(0);
     g_bus.observed_harmony=chord(0);

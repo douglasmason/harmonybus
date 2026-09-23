@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.171"
+#define HB_VERSION "0.2.172"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1176,7 +1176,9 @@ static void hb_movy_refresh(void){
     }
     if(present&&!count)blocked=1;
     if(revision==g_movy_revision&&g_movy_blocked==4)blocked=4;
+    int restart=present&&running&&(!g_movy_running||tick<g_movy_tick);
     g_movy_tick=tick;g_movy_running=running;
+    if(restart)g_clip_cache_activated=(double)tick/ppqn;
     hb_clip_cache_key_t cache_key=hb_clip_cache_current_key();
     if(present!=g_movy_present||revision!=g_movy_revision||blocked!=g_movy_blocked||
        (present&&!hb_clip_cache_equal(&cache_key,&g_clip_cache_key))){
