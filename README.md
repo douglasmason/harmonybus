@@ -1,3 +1,5 @@
+> 0.2.174: learned next-harmony knowledge is independent of the Lookahead time. At Lookahead Off, Full Lookahead pad modes, Next Harmony, chord-transition diagnostics and explicit Next harmony operations remain available; ordinary effective harmony and note rendering stay current and are not shifted early.
+
 > 0.2.173: Chords adds Shell 7, Shell 9, Shell 6/9, Rootless 7 and Rootless 9. Voicing omissions retain semantic chord tones for followers and pads. Form, quality and voicing edits apply at the next input onset. Chord Form joins existing Operations, including cycle conditions and recorded outcomes (Movy hbclean.79). Learned conductor timelines are now retained independently and recomposed at actual launch, including full deterministic form-operation cycles. New clips/settings still need observation; unplayed source scanning and whole-event reshaping of old baked captures are not included.
 
 > 0.2.172: restarting the same cached clip resets its launch boundary, including clips that begin with silence.

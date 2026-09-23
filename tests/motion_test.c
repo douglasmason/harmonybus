@@ -124,6 +124,13 @@ static void harmony_choice(void){
     API.set_param(instance,"motion_operation","Harmony");API.set_param(instance,"motion_amount","100");
     assert(hb_render_harmony(instance).root_pc==upcoming.root_pc);
     API.set_param(instance,"motion_amount","0");assert(hb_render_harmony(instance).root_pc==current.root_pc);
+    /* Lookahead Off keeps the learned future available to an explicit Next
+       operation without shifting ordinary rendered harmony early. */
+    instance->next_lookahead=0;
+    assert(hb_harmony_knowledge_ready_for(instance));assert(!hb_render_shift_ready_for(instance));
+    API.set_param(instance,"motion_amount","100");assert(hb_render_harmony(instance).root_pc==upcoming.root_pc);
+    API.set_param(instance,"motion_operation","Off");assert(hb_render_harmony(instance).root_pc==current.root_pc);
+    API.set_param(instance,"motion_operation","Harmony");
     assert(bus_read().root_pc==current.root_pc); /* lane never mutates the shared bus */
     g_bus.next_model_locked=0;API.set_param(instance,"motion_amount","100");
     assert(hb_render_harmony(instance).root_pc==current.root_pc);

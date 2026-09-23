@@ -171,7 +171,12 @@ int main(void){
         const char *section=strstr(view,"|full1,");assert(section);
         assert(sscanf(section,"|full1,%d,%u",&known,&full)==2);
         assert(known&&full==hb_harmony_chord_mask(chord(index==0?2:0,0,0)));
-        assert(!hb_prediction_ready_for(instance));
+        assert(!hb_render_shift_ready_for(instance));
+        assert(hb_harmony_knowledge_ready_for(instance));
+        unsigned current,effective,scale,lookahead;int render_shift_ready;
+        assert(sscanf(view,"%u,%u,%u,%d,%u",&current,&effective,&scale,&render_shift_ready,&lookahead)==5);
+        assert(!render_shift_ready);
+        assert(hb_harmony_equal_effective(hb_render_harmony(instance),bus_read()));
     }
     g_bus.next_model_locked=0;
     API.get_param(instance,"pad_view",view,sizeof(view));assert(strstr(view,"|full1,0,0"));

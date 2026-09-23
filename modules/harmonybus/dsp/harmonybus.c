@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.173"
+#define HB_VERSION "0.2.174"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1443,21 +1443,26 @@ static double hb_next_effective_boundary(double absolute_beat){return hb_next_ef
 
 /* A predicted note uses a private harmony context, never a speculative bus write. */
 
-static int hb_prediction_ready_for(const Inst *instance){
-    return (instance?instance->next_predict:g_bus.next_predict) && hb_next_lookahead_beats_for(instance)!=0.0 &&
+static int hb_harmony_knowledge_ready_for(const Inst *instance){
+    return (instance?instance->next_predict:g_bus.next_predict) &&
         g_bus.next_model_locked && g_bus.next_model_count>0 &&
         !g_movy_blocked && hb_next_loop_length()>0.0;
 }
-static int hb_prediction_ready(void){return hb_prediction_ready_for(0);}
+static int hb_render_shift_ready_for(const Inst *instance){
+    /* Prediction knowledge remains usable at Lookahead Off. This narrower
+       gate is only for behavior that moves effective/rendering time. */
+    return hb_harmony_knowledge_ready_for(instance) &&
+        hb_next_lookahead_beats_for(instance)!=0.0;
+}
 
 static double hb_follower_playback_target(Inst *instance,int slot){
-    if(instance->follower_queue_harmony_beat[slot]>=0.0 && hb_prediction_ready_for(instance))
+    if(instance->follower_queue_harmony_beat[slot]>=0.0 && hb_render_shift_ready_for(instance))
         return instance->follower_queue_quant_beat[slot];
     return instance->follower_queue_target_beat[slot];
 }
 static hb_harmony_t hb_render_harmony(Inst *instance){
     hb_harmony_t harmony=instance->render_harmony_active?instance->render_harmony:bus_read();
-    if(!instance->render_harmony_active&&hb_prediction_ready_for(instance)){
+    if(!instance->render_harmony_active&&hb_render_shift_ready_for(instance)){
         int event=hb_next_model_event_for_phase_for(instance,hb_next_phase(hb_clip_playhead()),1);
         if(event>=0)harmony=g_bus.next_model[event].harmony;
     }
@@ -1466,8 +1471,14 @@ static hb_harmony_t hb_render_harmony(Inst *instance){
         double choice;
         if(!hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&choice))continue;
         harmony=g_bus.observed_harmony;
-        if(hb_prediction_ready_for(instance)){
-            int event=hb_next_model_event_for_phase_for(instance,hb_next_phase(hb_clip_playhead()),choice>=50.0);
+        if(hb_harmony_knowledge_ready_for(instance)){
+            double phase=hb_next_phase(hb_clip_playhead());
+            int wants_next=choice>=50.0;
+            /* At Lookahead Off, an explicit Next selection still means the
+               next observed transition; Off disables early rendering only. */
+            int event=wants_next&&hb_next_lookahead_beats_for(instance)==0.0?
+                hb_next_upcoming_event(phase):
+                hb_next_model_event_for_phase_for(instance,phase,wants_next);
             if(event>=0)harmony=g_bus.next_model[event].harmony;
         }
     }
@@ -2496,7 +2507,7 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
         }
         instance->render_harmony_active=0;
         double harmony_beat=instance->follower_queue_harmony_beat[index];
-        if(harmony_beat>=0.0 && hb_prediction_ready_for(instance)){
+        if(harmony_beat>=0.0 && hb_render_shift_ready_for(instance)){
             double now=hb_current_beat();
             if(harmony_beat<now)harmony_beat=now;
             double phase=hb_next_phase(hb_clip_playhead()+harmony_beat-now+1e-7);
@@ -4836,7 +4847,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
     hb_harmony_t current=g_bus.observed_harmony;
     hb_harmony_t effective=hb_render_harmony(instance);
     hb_harmony_t lookahead=effective;
-    int ready=hb_prediction_ready_for(instance);
+    int ready=hb_render_shift_ready_for(instance);
     if(ready){
         double now=hb_current_beat();
         double phase=hb_next_phase(hb_clip_playhead());
@@ -4857,8 +4868,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
     /* Full preview uses the next observed loop event, independently of the
        render offset. It never changes effective harmony or playback timing. */
     hb_harmony_t full_lookahead={0};
-    if(instance->next_predict&&g_bus.next_model_locked&&g_bus.next_model_count>0&&
-       !g_movy_blocked&&hb_next_loop_length()>0.0){
+    if(hb_harmony_knowledge_ready_for(instance)){
         double phase=hb_next_phase(hb_clip_playhead()),length=hb_next_loop_length(),nearest=1e99;
         for(int index=0;index<g_bus.next_model_count;index++){
             double distance=g_bus.next_model[index].phase-phase;
@@ -5004,7 +5014,7 @@ if(!strcmp(key,"next_lookahead")){int index=instance->next_lookahead;if(index<0|
 if(!strcmp(key,"next_model"))return snprintf(buffer,(size_t)length,"%s",g_movy_blocked==1?"No clips":g_movy_blocked==2?"Cycle too long":g_movy_blocked==3?"Non-repeating":g_movy_blocked==4?"Too many changes":g_bus.next_model_locked?"Locked":"Learning");
 if(!strcmp(key,"next_shift")){
     double phase=hb_next_phase(hb_clip_playhead());
-    int shifted=hb_prediction_ready_for(instance)&&hb_next_model_event_for_phase_for(instance,phase,1)!=hb_next_model_event_for_phase_for(instance,phase,0);
+    int shifted=hb_render_shift_ready_for(instance)&&hb_next_model_event_for_phase_for(instance,phase,1)!=hb_next_model_event_for_phase_for(instance,phase,0);
     return snprintf(buffer,(size_t)length,"%s",shifted?(hb_next_lookahead_beats_for(instance)<0.0?"Late":"Early"):"Live");
 }
 if(!strcmp(key,"next_loop_length")){double beats=hb_next_loop_length();if(beats<=0.0)return snprintf(buffer,(size_t)length,"--");if(((long)(beats+0.5))%4==0&&beats>=4.0)return snprintf(buffer,(size_t)length,"%.2f Bars",beats/4.0);return snprintf(buffer,(size_t)length,"%.2f Beats",beats);}
