@@ -1184,7 +1184,7 @@ static void hb_movy_refresh(void){
         g_movy_revision=revision;g_movy_blocked=blocked;
         hb_next_reset_knowledge();
         hb_clip_cache_restore(cache_key);
-        hb_effective_write(g_bus.observed_harmony);
+        if(present)hb_effective_write(g_bus.observed_harmony);
         /* Do not seed a newly launched clip with the previous clip's chord. */
     }
 }
@@ -3137,6 +3137,13 @@ static void hb_clear_instance_note_state(Inst *instance){
     instance->dirty=1;
     instance->frames_since_change=0;
 }
+static void hb_stop_instance_note_state(Inst *instance){
+    /* Clearing the maps first loses the actual sounding pitch for raw and
+       baked notes. Preserve local OFFs and release the original render route
+       before discarding those owners; CP/motion voices retain their own drain. */
+    hb_prepare_role_change_flush(instance);
+    hb_clear_instance_note_state(instance);
+}
 static void hb_publish_instance_notes(Inst *instance){
     if(!instance)return;
     if(instance->role==0){
@@ -3182,7 +3189,7 @@ static int hb_format_trace_event(const Inst *instance,int ordinal,char *buffer,i
 static int pass(const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){if(!input||length<1||length>3||max_output<1)return 0;memcpy(output[0],input,(size_t)length);lengths[0]=length;return 1;}
 static int process_core(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;hb_movy_refresh();g_bus.global_process_count++;g_bus.global_last_status=input[0];g_bus.global_last_instance=hb_instance_index(instance);
 if(input[0]==0xFC){
-    hb_clear_instance_note_state(instance);
+    hb_stop_instance_note_state(instance);
     instance->resolved_source_channel=-1;
 }
 else if(input[0]==0xFA){
@@ -3194,7 +3201,7 @@ else if(instance->role==0&&input[0]==0xF8){
 instance->rx_count++;int status=input[0]&0xF0,is_on=(status==0x90&&length>=3&&input[2]>0),is_off=(status==0x80&&length>=3)||(status==0x90&&length>=3&&input[2]==0);if(is_on||is_off){g_bus.global_note_event_count++;g_bus.global_last_note=input[1]&0x7F;g_bus.global_last_channel=input[0]&0x0F;}
 if(status==0xB0&&length>=3&&(input[1]==120||input[1]==123)){
     int control_channel=input[0]&0x0F;
-    if(hb_source_channel_matches(instance,control_channel))hb_clear_instance_note_state(instance);
+    if(hb_source_channel_matches(instance,control_channel))hb_stop_instance_note_state(instance);
     return pass(input,length,output,lengths,max_output);
 }
 /* Pressure belongs to the original held input, before chord expansion.
@@ -3525,7 +3532,7 @@ static void hb_prepare_conductors(int frames,int sample_rate){
         if(!conductor->used||conductor->role!=0)continue;
         hb_sync_conductor_from_monitor(conductor);
         if(conductor->last_transport_playing&&hb_clock_status()!=MOVE_CLOCK_STATUS_RUNNING)
-            hb_clear_instance_note_state(conductor);
+            hb_stop_instance_note_state(conductor);
         conductor->last_transport_playing=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;
         hb_tick_conductor(conductor,frames,sample_rate);
     }
@@ -3593,7 +3600,7 @@ static int tick_core(void *value,int frames,int sample_rate,uint8_t output[][3],
         if(instance->last_transport_playing&&!is_playing){
             /* Pause/stop is a safe one-way boundary: bias toward extra note-offs
                by clearing all held state rather than allowing stuck notes. */
-            hb_clear_instance_note_state(instance);
+            hb_stop_instance_note_state(instance);
         }
         instance->last_transport_playing=is_playing;
     }
@@ -3646,7 +3653,7 @@ static int tick_core(void *value,int frames,int sample_rate,uint8_t output[][3],
 
 static void hb_motion_tick_routes(Inst *instance){
     if(instance->last_transport_playing&&hb_clock_status()!=MOVE_CLOCK_STATUS_RUNNING){
-        hb_clear_instance_note_state(instance);instance->last_transport_playing=0;
+        hb_stop_instance_note_state(instance);instance->last_transport_playing=0;
     }
     double beat=hb_motion_position(instance);
     hb_mo_due(&instance->motion_local,beat);hb_mo_due(&instance->motion_render,beat);
