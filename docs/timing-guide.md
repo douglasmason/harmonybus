@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.172 / Movy 0.34.1-hbclean.77.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.173 / Movy 0.34.1-hbclean.79.** Playback time and harmony-selection time are separate. With locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -438,6 +438,19 @@ Dominant Scale and Borrowed Scale are shared across all tracks, like Follower Sc
 
 HarmonyBus retains proven schedules for 32 recently used conductor clip configurations in memory. Returning to a known clip restores its timeline relative to the actual launch position. Replacing or editing a slot invalidates its older retained schedules. Confirmed disagreement, including an expected transition that never occurs, evicts the active schedule and starts learning again. Event confirmation avoids invalidating on individual staggered MIDI arrivals. Reset also evicts the active entry.
 
-This cache lasts until the module session ends. New clips and changed chord-rendering settings still require observation; this version does not scan an unplayed clip or predict a queued launch. Multiple-conductor configurations are cached together, including relative phases. Probability and multi-pass clips retain the existing nonperiodic fallback.
+This cache lasts until the module session ends. New clips and changed chord-rendering settings still require observation; this version does not scan an unplayed clip or predict a queued launch. Each conductor clip now retains its own learned timeline; known clips can be recombined at new relative launch positions without learning every combination. The previous combination cache remains a compatibility fallback. Deterministic clock-based Chord Form operations extend learning to the full operation cycle. Evolving or note-advanced form operations, and probability/multi-pass clips, retain a nonperiodic fallback.
 
 Humanize / Tools has a seventh control, Tempo (20–300 BPM). It requests the shared host tempo rather than saving a tempo in each track preset. In Movy this also updates the sequencer immediately. The shared request requires Schwung's Link sidecar; an external Link session can retain tempo ownership.
+
+
+## Chords and section forms (0.2.173)
+
+The former Auto Chord page is now Chords, with the same eight controls. Form adds Shell 7 (137), Shell 9 (1379), Shell 6/9 (1369), Rootless 7 (37), and Rootless 9 (379). Existing form IDs and the legacy Shell voicing remain compatible. The follower scale and global Dominant/Borrowed choices supply added tones. In Conductor Chord mode, recognized defining tones retain their quality.
+
+The conductor's harmonic identity includes omitted roots and fifths. A rootless Cmaj9 can sound E, B and D while followers and harmony pads still receive the full Cmaj9 identity. Conductor Notes continues to show actual sounding pitches. Generated collections without an exact named template retain every semantic pitch; a + suffix indicates additional colors beyond the displayed quality.
+
+Changing Form, Quality, Chromatic Quality, Inversion or Voicing affects the next input onset. Existing held notes keep their onset settings, including during later follower reharmonization. Note ownership remains intact until normal release or Pause/Stop.
+
+In Operations, choose Chord Form and use its Form control to select the desired form. Constant is the straightforward section setting; existing Auto, hold/latch, Every, From and Through controls determine when it applies. The highest numbered active form lane wins. This changes chord generation only when Chords mode is enabled; it does not turn every raw melody note into a chord. Movy hbclean.79 preserves recorded form-operation outcomes. Live overrides still follow the existing operation rules.
+
+Auto Chord inputs recorded with Movy hbclean.78 or later remain editable single presses. Old baked recordings and explicitly rendered captures remain literal; this release does not convert those notes back into source chord events. Use Chords mode Off for literal original input. Unplayed source-clip scanning and direct regeneration of cached timelines after changing rendering settings remain separate work: a new or changed rendering configuration must first be observed over its complete cycle.

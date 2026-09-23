@@ -4,13 +4,16 @@
    by the host adapter; the adapter decides which role owns the output. */
 #define HB_CP_KEYS 16
 #define HB_CP_VOICES 12
+#define HB_CP_FORMS 17
+static const char *CP_CHORD_FORM[]={"Auto","Power","Triad","Seventh","Ninth","Add9","Sixth","6/9","Eleventh","Thirteenth","Sus2","Sus4","Shell 7","Shell 9","Shell 6/9","Rootless 7","Rootless 9"};
 typedef struct {
     int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread, phase;
     int quality, chromatic_quality, note_phase, clear_harmony;
 } hb_cp_config;
 typedef struct {
     int used, held, source, channel, velocity, count, fresh, root_pc, recordable;
-    unsigned sequence, harmony_mask, harmony_sequence;
+    unsigned sequence, harmony_mask, harmony_sequence, semantic_mask;
+    hb_cp_config onset_config;
     int harmony_root, playback_origin, range;
     unsigned transform_revision;
     int notes[HB_CP_VOICES];
@@ -52,8 +55,10 @@ static void hb_cp_sort(int *notes,int count){
 /* Inversion: Auto, Root, First through Sixth. Auto is From Key for
    Conductor Chord and root position for Scale Root. Preserve the chosen bass
    through spread voicings. Shift the WHOLE voicing at MIDI range edges. */
-static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
-                       unsigned scale,int *output){
+static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned chord,
+                       unsigned scale,int *output,unsigned *semantic){
+    if(semantic)*semantic=0;
+    config.size=hb_cp_clamp(config.size,0,HB_CP_FORMS-1);
     if(input<0)input=0;if(input>127)input=127;
     if(config.mode==0){output[0]=input;return 1;}
     int ordered[12],count=0,bass=input,tones[7];
@@ -98,11 +103,13 @@ static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
     }
     /* Form: Auto, Power, Triad, Seventh, Ninth, Add9, Sixth, 6/9,
        Eleventh, Thirteenth, Sus2, Sus4. Values are zero-based scale degrees. */
-    static const int forms[12][7]={
+    static const int forms[HB_CP_FORMS][7]={
         {0,2,4,-1,-1,-1,-1},{0,4,-1,-1,-1,-1,-1},{0,2,4,-1,-1,-1,-1},
         {0,2,4,6,-1,-1,-1},{0,2,4,6,1,-1,-1},{0,2,4,1,-1,-1,-1},
         {0,2,4,5,-1,-1,-1},{0,2,4,5,1,-1,-1},{0,2,4,6,1,3,-1},
-        {0,2,4,6,1,3,5},{0,1,4,-1,-1,-1,-1},{0,3,4,-1,-1,-1,-1}
+        {0,2,4,6,1,3,5},{0,1,4,-1,-1,-1,-1},{0,3,4,-1,-1,-1,-1},
+        {0,2,6,-1,-1,-1,-1},{0,2,6,1,-1,-1,-1},{0,2,5,1,-1,-1,-1},
+        {2,6,-1,-1,-1,-1,-1},{2,6,1,-1,-1,-1,-1}
     };
     unsigned selected=0;
     if(config.mode==2&&config.size==0&&!config.quality){
@@ -127,6 +134,13 @@ static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
         if(!(selected&(1u<<pitch))){ordered[count++]=pitch;selected|=1u<<pitch;}
     }
     if(!count)return 0;
+    /* Omitted roots/fifths are voicing choices, not changes of chord identity.
+       Power keeps its scale-derived quality; suspensions remain suspensions. */
+    if(semantic){
+        *semantic=selected;
+        if(config.size==1||config.size>=12)
+            *semantic|=(1u<<root)|(1u<<tones[2])|(1u<<tones[4]);
+    }
     int inversion=0;
     if(config.inversion>0){
         inversion=(config.inversion-1)%count;
@@ -162,6 +176,10 @@ static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
     while(output[0]<0)for(int index=0;index<count;index++)output[index]+=12;
     while(output[count-1]>127)for(int index=0;index<count;index++)output[index]-=12;
     return output[0]>=0?count:0;
+}
+static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
+                       unsigned scale,int *output){
+    return hb_cp_voice_semantic(config,input,root,chord,scale,output,0);
 }
 static void hb_cp_defaults(hb_cp_config *config){
     memset(config,0,sizeof(*config));config->rate=2;config->gate=1;config->phase=1;

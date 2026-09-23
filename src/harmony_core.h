@@ -13,6 +13,8 @@ typedef unsigned int uint32_t;
 extern "C" {
 #endif
 
+/* Generated chords may carry exact semantic tones beyond a named template. */
+#define HB_HARMONY_EXPLICIT_TONES 256
 typedef struct {
     int valid;
     int root_pc;

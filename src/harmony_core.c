@@ -30,7 +30,10 @@ static const chord_template_t templates[] = {
     {"add9",BIT(0)|BIT(2)|BIT(4)|BIT(7),4,1},{"minAdd9",BIT(0)|BIT(2)|BIT(3)|BIT(7),4,1},{"maj9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(11),5,1},
     {"9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(10),5,1},{"min9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(10),5,1},
     {"11",BIT(0)|BIT(2)|BIT(4)|BIT(5)|BIT(7)|BIT(10),6,0},{"min11",BIT(0)|BIT(2)|BIT(3)|BIT(5)|BIT(7)|BIT(10),6,0},
-    {"13",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(9)|BIT(10),6,0}
+    {"13",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(9)|BIT(10),6,0},
+    {"6/9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(9),5,0},
+    {"min6/9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(9),5,0},
+    {"min(b6,9)",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(8),5,0}
 };
 static const int template_count=(int)(sizeof(templates)/sizeof(templates[0]));
 static uint16_t rotate_to_root(uint16_t mask,int root) {
@@ -251,7 +254,8 @@ uint16_t hb_harmony_chord_mask(hb_harmony_t harmony) {
 hb_harmony_t hb_transpose_harmony(hb_harmony_t harmony,int semitones) {
     if(!harmony.valid||semitones==0)return harmony;harmony.root_pc=mod12(harmony.root_pc+semitones);harmony.bass_pc=mod12(harmony.bass_pc+semitones);
     uint16_t mask=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(harmony.pitch_mask&BIT(pitch_class))mask|=BIT(mod12(pitch_class+semitones));harmony.pitch_mask=mask;
-    if(harmony.chord_index>=0&&harmony.chord_index<template_count){snprintf(harmony.name,sizeof(harmony.name),"%s%s",hb_pc_name(harmony.root_pc),templates[harmony.chord_index].suffix);
+    int template_index=harmony.chord_index&~HB_HARMONY_EXPLICIT_TONES;
+    if(template_index>=0&&template_index<template_count){snprintf(harmony.name,sizeof(harmony.name),"%s%s%s",hb_pc_name(harmony.root_pc),templates[template_index].suffix,(harmony.chord_index&HB_HARMONY_EXPLICIT_TONES)?"+":"");
         if(harmony.bass_pc!=harmony.root_pc){size_t used=strlen(harmony.name);snprintf(harmony.name+used,sizeof(harmony.name)-used,"/%s",hb_pc_name(harmony.bass_pc));}}
     return harmony;
 }
