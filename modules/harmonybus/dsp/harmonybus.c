@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.174"
+#define HB_VERSION "0.2.175"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -3656,6 +3656,9 @@ static void hb_prepare_conductors(int frames,int sample_rate){
         conductor->last_transport_playing=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;
         hb_tick_conductor(conductor,frames,sample_rate);
     }
+    /* The clip snapshot for this block arrived before its MIDI. Promote a
+       complete learned traversal only now, after the wrap chord was visible. */
+    hb_timeline_finalize();
 }
 
 static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int max_output){

@@ -15,6 +15,7 @@ static void begin(void){
 static void timeline_tick(unsigned tick){
     for(int index=0;index<2;index++)g_movy_clips[index].tick=tick;
     hb_movy_refresh();
+    hb_timeline_finalize();
 }
 static void hear(int index,int root){hb_timeline_observe(&g_pool[index],chord(root));}
 int main(void){
@@ -48,6 +49,22 @@ int main(void){
     assert(g_timelines[g_timeline_owners[0].entry-1].ready);
     assert(g_bus.next_model_locked&&g_bus.next_model_count==4);
     assert(g_bus.next_model[2].phase==4&&g_bus.next_model[2].harmony.root_pc==2);
+
+    /* Startup can miss the chord already sounding at phase zero. Metadata for
+       the first wrap arrives before its conductor MIDI, so the boundary chord
+       must join that first traversal before the model is promoted. */
+    begin();g_pool[1].role=1;hb_movy_refresh();
+    const unsigned ticks[]={96,192,288};const int learned[]={7,5,2};
+    for(int index=0;index<3;index++){
+        for(int lane=0;lane<2;lane++)g_movy_clips[lane].tick=ticks[index];
+        hb_movy_refresh();hear(0,learned[index]);hb_timeline_finalize();
+    }
+    for(int lane=0;lane<2;lane++)g_movy_clips[lane].tick=384;
+    hb_movy_refresh();
+    assert(!g_bus.next_model_locked); /* Boundary MIDI has not arrived yet. */
+    hear(0,0);hb_timeline_finalize();
+    assert(g_bus.next_model_locked&&g_bus.next_model_count==4);
+    assert(g_bus.next_model[0].phase==0&&g_bus.next_model[0].harmony.root_pc==0);
     puts("clip timelines: independent learning, unseen combinations, relative launches and per-track divergence pass");
     return 0;
 }

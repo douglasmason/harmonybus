@@ -124,7 +124,6 @@ static void hb_timeline_refresh(int configuration_changed,int restart){
         }
         if(clip->running&&clip->tick>=owner->tick&&clip->tick-owner->tick<=clip->period)owner->progress+=clip->tick-owner->tick;
         owner->tick=clip->tick;
-        if(!entry->ready&&entry->count&&owner->progress>=entry->period){entry->ready=1;g_timeline_dirty=1;}
         if(entry->ready&&clip->running){
             double age;int expected=hb_timeline_expected(entry,hb_timeline_phase(clip,entry->period),&age);
             double bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120;
@@ -135,6 +134,22 @@ static void hb_timeline_refresh(int configuration_changed,int restart){
     }
     if(configuration_changed)g_timeline_dirty=1;
     if(g_timeline_dirty){g_timeline_dirty=0;hb_timeline_compose();}
+}
+/* Clip metadata is published before the conductor MIDI batch for that tick.
+   Finalizing inside hb_timeline_refresh could therefore declare a traversal
+   complete just before the wrap chord is heard. If startup missed the first
+   chord, that incomplete model contradicted itself immediately and forced a
+   second learning pass. Finalize only after every conductor has consumed the
+   boundary batch. */
+static void hb_timeline_finalize(void){
+    int changed=0;
+    for(int index=0;index<HB_MAX_INSTANCES;index++){
+        hb_clip_timeline_owner *owner=&g_timeline_owners[index];
+        if(!owner->entry)continue;
+        hb_clip_timeline *entry=&g_timelines[owner->entry-1];
+        if(!entry->ready&&entry->count&&owner->progress>=entry->period){entry->ready=1;changed=1;}
+    }
+    if(changed){g_timeline_dirty=0;hb_timeline_compose();}
 }
 static void hb_timeline_observe(Inst *instance,hb_harmony_t harmony){
     int index=(int)(instance-g_pool);if(index<0||index>=HB_MAX_INSTANCES||!hb_next_is_harmony(harmony))return;
