@@ -177,3 +177,31 @@ globalThis.canvas_overlays = {
     follower_mod: { onOpen, onMidi, draw, onClose, onExit },
     ui_test: { onOpen: uiTestOpen, onMidi: uiTestMidi, draw: uiTestDraw }
 };
+
+/* Compact pulse glyphs. None is a steady level, never a sine fallback.
+   Frame-local coordinates keep this usable in both Schwung and Movy cells. */
+function drawPulseShape(ctx, payload) {
+    const key = payload.group.keys[0];
+    const raw = payload.values[key];
+    const names = ["Smooth", "Triangle", "Square", "None"];
+    const shape = typeof raw === "string" && names.includes(raw) ? names.indexOf(raw) : Number(raw);
+    const width = Math.max(1, Math.min(24, ctx.width - 4));
+    const left = Math.floor((ctx.width - width) / 2);
+    const middle = Math.floor(ctx.height / 2);
+    const amplitude = Math.max(0, Math.min(5, middle - 1));
+    if (shape === 3) { ctx.fillRect(left, middle, width, 1, 1); return; }
+    let previous = middle;
+    for (let x = 0; x < width; x++) {
+        const phase = x / Math.max(1, width - 1);
+        const level = shape === 1 ? 1 - 4 * Math.abs(phase - 0.5)
+            : shape === 2 ? (phase < 0.5 ? 1 : -1) : Math.sin(phase * 2 * Math.PI);
+        const y = middle - Math.round(amplitude * level);
+        if (x) ctx.line(left + x - 1, previous, left + x, y, 1);
+        else ctx.fillRect(left, y, 1, 1, 1);
+        previous = y;
+    }
+}
+globalThis.canvas_overlay = {
+    widgetKind: "custom:hb-pulse-shape",
+    drawCell: drawPulseShape
+};

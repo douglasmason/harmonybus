@@ -154,10 +154,25 @@ int main(void){
     API.set_param(instance,"pad_current_color","Track");
     char saved[8192];API.get_param(instance,"state",saved,sizeof(saved));
     hb_pad_defaults();API.set_param(instance,"state",saved);
-    API.get_param(instance,"pad_effective_color",view,sizeof(view));assert(!strcmp(view,"Purple"));
+    API.get_param(instance,"pad_effective_color",view,sizeof(view));assert(!strcmp(view,"Track"));
     API.get_param(instance,"pad_current_color",view,sizeof(view));assert(!strcmp(view,"Track"));
     API.set_param(instance,"pad_display","Standard");
-    assert(g_pad_effective_color==8&&g_pad_settings[1]==3);
+    assert(g_pad_settings[0]==2&&g_pad_settings[3]==8&&g_pad_settings[1]==3);
+    API.set_param(instance,"pad_play_color","Off");
+    API.set_param(instance,"pad_current_color","Purple");
+    API.get_param(instance,"state",saved,sizeof(saved));
+    hb_pad_defaults();API.set_param(instance,"state",saved);
+    API.get_param(instance,"pad_play_color",view,sizeof(view));assert(!strcmp(view,"Off"));
+    API.get_param(instance,"pad_effective_color",view,sizeof(view));assert(!strcmp(view,"Purple"));
+    API.get_param(instance,"pad_display",view,sizeof(view));assert(!strcmp(view,"Effective"));
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(strstr(view,"|playcolor1,11"));
+    /* Stale state on another track must not undo live global settings. */
+    API.set_param(instance,"pad_play_color","Red");API.set_param(instance,"state",saved);
+    API.get_param(instance,"pad_play_color",view,sizeof(view));assert(!strcmp(view,"Red"));
+    API.get_param(instance,"pad_state_base",saved,sizeof(saved));
+    strcat(saved,";pd1,0,3,0,4,2;pc2,6");
+    hb_pad_defaults();API.set_param(instance,"state",saved);
+    assert(g_pad_settings[0]==2&&g_pad_settings[3]==6&&g_pad_play_color==8);
     /* Full preview reads the next loop event even with zero render offset. */
     instance->player.config.mode=0;instance->travel_map=7;
     instance->next_predict=1;instance->next_lookahead=0;

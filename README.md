@@ -1,3 +1,5 @@
+> 0.2.176: Pads Global adds Play Color for live, recorded and retained input highlights, including Off. Input Tonic defaults to Grey; Play Color defaults to Track. Effective is the default; redundant Standard is removed. Effective shares Current Color. Requires Movy hbclean.82 for configurable playback LEDs.
+
 > 0.2.175: complete a learned conductor-clip traversal only after the wrap boundary's MIDI batch has been processed. A restart that misses the already-sounding opening chord no longer locks an incomplete schedule, invalidates it at the wrap, and waits through a second pass; deterministic clips lock after their first complete traversal.
 
 > 0.2.174: learned next-harmony knowledge is independent of the Lookahead time. At Lookahead Off, Full Lookahead pad modes, Next Harmony, chord-transition diagnostics and explicit Next harmony operations remain available; ordinary effective harmony and note rendering stay current and are not shifted early.

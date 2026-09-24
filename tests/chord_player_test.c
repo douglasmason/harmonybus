@@ -1205,13 +1205,15 @@ static void rapid_latched_arp(void){
 static void pad_global_settings(void){
     Inst *first=fixture(),*second=API.create_instance("",NULL);
     char state[2048],value[128];
-    API.get_param(first,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Track"));
+    API.get_param(first,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Grey"));
+    API.get_param(first,"pad_play_color",value,sizeof(value));assert(!strcmp(value,"Track"));
+    API.get_param(first,"pad_pulse_shape",value,sizeof(value));assert(!strcmp(value,"None"));
     API.set_param(first,"pad_tonic_color","Grey");
     API.get_param(second,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Grey"));
     API.set_param(first,"pad_display","Lookahead");API.set_param(first,"pad_pulse_rate","2 Bars");
     API.get_param(second,"pad_display",value,sizeof(value));assert(!strcmp(value,"Lookahead"));
-    API.get_param(second,"state",state,sizeof(state));assert(strstr(state,";pd1,4,6,0,4,2"));
-    assert(strstr(state,";pt1,9"));
+    API.get_param(second,"state",state,sizeof(state));assert(strstr(state,";pd1,4,6,3,4,2"));
+    assert(strstr(state,";pp1,8"));
     API.set_param(second,"pad_tonic_color","Purple");
     API.set_param(second,"pad_display","Current");API.set_param(first,"state",state);
     API.get_param(first,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Purple"));

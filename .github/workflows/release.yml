@@ -25,6 +25,7 @@ jobs:
           echo "HB=dist/harmonybus-v${VERSION}-module.tar.gz" >> "$GITHUB_ENV"
           grep -q "#define HB_VERSION \"${VERSION}\"" modules/harmonybus/dsp/harmonybus.c
           node --check modules/harmonybus/canvas.js
+          node tests/pad_pulse_widget_test.mjs
           python3 scripts/build_motion_metadata.py
           git diff --exit-code -- src/motion_metadata.h
           python3 scripts/verify_motion_metadata.py
@@ -33,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.175'
+          assert module['version']=='0.2.176'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -263,7 +264,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Keep learned next-harmony knowledge available when Lookahead is Off. Full Lookahead pad modes, Next Harmony and transition diagnostics continue to use the learned timeline, while ordinary effective harmony and note rendering remain unshifted. Explicit Next harmony operations also select the next observed transition at zero lookahead."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Global Play Color for live and recorded input. Effective replaces Standard and shares Current Color. Defaults: tonic Grey, play Track, pulse shape None with a flat-line graphic. Pair with Movy hbclean.82 for configurable play LEDs and steady selected-track buttons."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
