@@ -1,0 +1,45 @@
+name: Virtual track CI
+
+on:
+  push:
+    branches: [hb-virtual-tracks-mainline]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install compiler
+        run: sudo apt-get update && sudo apt-get install -y clang
+      - name: Run virtual track tests
+        run: |
+          clang -std=c11 -O2 tests/harmony_core_test.c src/harmony_core.c -o /tmp/harmony_core_test
+          /tmp/harmony_core_test
+          clang -std=c11 -O2 tests/hb_virtual_bank_test.c src/hb_virtual_bank.c -o /tmp/hb_virtual_bank_test
+          /tmp/hb_virtual_bank_test
+          clang -std=c11 -O2 tests/hb_virtual_router_test.c src/hb_virtual_bank.c src/hb_virtual_router.c -o /tmp/hb_virtual_router_test
+          /tmp/hb_virtual_router_test
+          clang -std=c11 -O2 tests/hb_virtual_midi_test.c src/hb_virtual_midi.c -o /tmp/hb_virtual_midi_test
+          /tmp/hb_virtual_midi_test
+          python3 tests/test_movy_harmonybus_profile.py
+      - name: Validate conductor-monitor transform against current HarmonyBus
+        run: |
+          cp modules/harmonybus/dsp/harmonybus.c /tmp/harmonybus.c
+          python3 scripts/apply_conductor_monitor.py /tmp/harmonybus.c
+          python3 scripts/apply_conductor_monitor.py /tmp/harmonybus.c
+          grep -q 'HB conductor monitor injection' /tmp/harmonybus.c
+      - name: Validate and build HarmonyBus Movy integration against current upstream
+        run: |
+          git clone --depth 1 https://github.com/DimaDake/schwung-movy.git /tmp/schwung-movy
+          python3 scripts/apply_movy_harmonybus.py /tmp/schwung-movy
+          python3 scripts/apply_movy_harmonybus.py /tmp/schwung-movy
+          cd /tmp/schwung-movy
+          npm install
+          npm run typecheck
+          npm run build:device
