@@ -1206,14 +1206,19 @@ static void pad_global_settings(void){
     Inst *first=fixture(),*second=API.create_instance("",NULL);
     char state[2048],value[128];
     API.get_param(first,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Grey"));
-    API.get_param(first,"pad_play_color",value,sizeof(value));assert(!strcmp(value,"Track"));
+    API.get_param(first,"pad_play_color",value,sizeof(value));assert(!strcmp(value,"Green"));
     API.get_param(first,"pad_pulse_shape",value,sizeof(value));assert(!strcmp(value,"None"));
+    API.get_param(first,"pad_display",value,sizeof(value));assert(!strcmp(value,"Both Full Lookahead"));
+    API.get_param(first,"pad_pulse_rate",value,sizeof(value));assert(!strcmp(value,"1/4"));
+    API.get_param(first,"pad_lookahead_color",value,sizeof(value));assert(!strcmp(value,"Red"));
+    API.get_param(first,"pad_both_color",value,sizeof(value));assert(!strcmp(value,"Orange"));
+    API.get_param(first,"pad_current_color",value,sizeof(value));assert(!strcmp(value,"Yellow"));
     API.set_param(first,"pad_tonic_color","Grey");
     API.get_param(second,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Grey"));
     API.set_param(first,"pad_display","Lookahead");API.set_param(first,"pad_pulse_rate","2 Bars");
     API.get_param(second,"pad_display",value,sizeof(value));assert(!strcmp(value,"Lookahead"));
-    API.get_param(second,"state",state,sizeof(state));assert(strstr(state,";pd1,4,6,3,4,2"));
-    assert(strstr(state,";pp1,8"));
+    API.get_param(second,"state",state,sizeof(state));assert(strstr(state,";pd1,4,6,3,2,0"));
+    assert(strstr(state,";pp1,3"));
     API.set_param(second,"pad_tonic_color","Purple");
     API.set_param(second,"pad_display","Current");API.set_param(first,"state",state);
     API.get_param(first,"pad_tonic_color",value,sizeof(value));assert(!strcmp(value,"Purple"));
@@ -1284,7 +1289,9 @@ static void pad_harmony_snapshot(void){
         instance->approach_pad_armed=HB_APPROACH_OFF;
         API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
         sscanf(snapshot,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&lookahead);
-        if(!late)assert(lookahead!=effective); /* buffer advances beyond plain lookahead */
+        /* Relative Chord travel maps every input into either target chord:
+           different harmonies can correctly highlight the same input keys. */
+        assert(lookahead==effective&&effective==0xFFFu);
         g_bus.next_model_locked=0;
         API.get_param(instance,"pad_harmony",snapshot,sizeof(snapshot));
         sscanf(snapshot,"%u,%u,%u,%d",&current,&effective,&scale,&ready);assert(!ready);

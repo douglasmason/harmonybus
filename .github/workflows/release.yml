@@ -171,6 +171,8 @@ jobs:
           /tmp/follower_reference_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/input_pad_test.c src/harmony_core.c -lm -o /tmp/input_pad_test
           /tmp/input_pad_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_arrival_test.c src/harmony_core.c -lm -o /tmp/pad_arrival_test
+          /tmp/pad_arrival_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/global_scale_test.c src/harmony_core.c -lm -o /tmp/global_scale_test
           /tmp/global_scale_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/follower_scale_baseline_test.c src/harmony_core.c -lm -o /tmp/follower_scale_baseline_test
@@ -264,7 +266,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Global Play Color for live and recorded input. Effective replaces Standard and shares Current Color. Defaults: tonic Grey, play Track, pulse shape None with a flat-line graphic. Pair with Movy hbclean.82 for configurable play LEDs and steady selected-track buttons."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Lookahead pad colors preview follower travel under the upcoming chord, so highlighted input keys target chord tones on arrival. Defaults: Both Full Lookahead, pulse 1/4 with None shape, Current Yellow, Play Green, Lookahead Red, Both Orange, Input Tonic Grey. Existing saved settings are preserved. Compatible with Movy hbclean.85; no Movy update needed."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
