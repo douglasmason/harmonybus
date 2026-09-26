@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.176'
+          assert module['version']=='0.2.177'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -54,6 +54,9 @@ jobs:
           assert levels['chord_player']['name']=='Chords'
           assert levels['pad_display']['name']=='Pads Global'
           assert len(levels['pad_display']['knobs'])==8
+          for parameter in levels['pad_display']['params']:
+              canonical=next(item for item in module['capabilities']['chain_params'] if item['key']==parameter['key'])
+              assert parameter.get('default')==canonical.get('default'), parameter['key']
           assert 'Lookahead' in levels['pad_display']['params'][0]['options']
           assert 'ui_test' not in levels
           assert levels['arp_player']['name']=='Arp / Strum'
