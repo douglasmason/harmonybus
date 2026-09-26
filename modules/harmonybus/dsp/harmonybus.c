@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.177"
+#define HB_VERSION "0.2.178"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4920,11 +4920,17 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
     hb_harmony_t effective=hb_render_harmony(instance);
     hb_harmony_t lookahead=effective;
     int ready=hb_render_shift_ready_for(instance);
+    int known=hb_harmony_knowledge_ready_for(instance);
+    double playhead=hb_clip_playhead(),display_phase=hb_next_phase(playhead);
+    /* Current and full-next share one learned phase, even at Lookahead Off.
+       Live inference may still be settling when the timeline crosses a chord. */
+    if(known){
+        int current_event=hb_next_model_event_for_phase_for(instance,display_phase,0);
+        if(current_event>=0)current=g_bus.next_model[current_event].harmony;
+    }
     if(ready){
         double now=hb_current_beat();
-        double phase=hb_next_phase(hb_clip_playhead());
-        int current_event=hb_next_model_event_for_phase_for(instance,phase,0);
-        if(current_event>=0)current=g_bus.next_model[current_event].harmony;
+        double phase=display_phase;
         int look_event=hb_next_model_event_for_phase_for(instance,phase,1);
         if(look_event>=0)lookahead=g_bus.next_model[look_event].harmony;
         if(instance->player.config.playback!=1){
@@ -4932,7 +4938,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             double boundary=hb_next_effective_boundary_for(instance,now);
             if(boundary>=now-1e-6&&boundary-now<=capture+1e-6&&
                (hb_next_allows_precapture_for(instance)||boundary-now<=1e-6))
-                phase=hb_next_phase(hb_clip_playhead()+boundary-now+1e-7);
+                phase=hb_next_phase(playhead+boundary-now+1e-7);
         }
         int event=hb_next_model_event_for_phase_for(instance,phase,1);
         if(event>=0)effective=g_bus.next_model[event].harmony;
@@ -4940,11 +4946,11 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
     /* Full preview uses the next observed loop event, independently of the
        render offset. It never changes effective harmony or playback timing. */
     hb_harmony_t full_lookahead={0};
-    if(hb_harmony_knowledge_ready_for(instance)){
-        double phase=hb_next_phase(hb_clip_playhead()),length=hb_next_loop_length(),nearest=1e99;
+    if(known){
+        double phase=display_phase,length=hb_next_loop_length(),nearest=1e99;
         for(int index=0;index<g_bus.next_model_count;index++){
             double distance=g_bus.next_model[index].phase-phase;
-            if(distance<=1e-6)distance+=length;
+            if(distance<=0.0)distance+=length;
             if(distance<nearest){nearest=distance;full_lookahead=g_bus.next_model[index].harmony;}
         }
     }
@@ -4985,17 +4991,20 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
                 continue;
             }
             unsigned input_bit=1u<<pitch_class;
-            if(rendered_mask&&!(rendered_mask&~current_mask))current_inputs|=input_bit;
             if(rendered_mask&&!(rendered_mask&~effective_mask))effective_inputs|=input_bit;
             if(rendered_mask&&scale.valid&&!(rendered_mask&~scale.pitch_mask))scale_inputs|=input_bit;
             if(rendered_mask&&scale.valid&&rendered_mask==(1u<<mod12(scale.root_pc)))tonic_inputs|=input_bit;
         }
         /* Batch each harmony so Closest Split can reuse its assignment cache.
            Identical effective/lookahead targets need no extra rendering. */
+        if(current_mask)current_inputs=hb_harmony_equal_effective(current,effective)?effective_inputs:
+            hb_pad_target_inputs(&preview,instance,current);
         if(lookahead_mask)lookahead_inputs=hb_harmony_equal_effective(lookahead,effective)?effective_inputs:
+            current_mask&&hb_harmony_equal_effective(lookahead,current)?current_inputs:
             hb_pad_target_inputs(&preview,instance,lookahead);
         if(full_mask)full_inputs=hb_harmony_equal_effective(full_lookahead,effective)?effective_inputs:
             lookahead_mask&&hb_harmony_equal_effective(full_lookahead,lookahead)?lookahead_inputs:
+            current_mask&&hb_harmony_equal_effective(full_lookahead,current)?current_inputs:
             hb_pad_target_inputs(&preview,instance,full_lookahead);
         int used=snprintf(buffer,(size_t)length,"%u,%u,%u,%d,%u,%d,%d,%d,%d,%d|tonic1,%u|full1,%d,%u",current_inputs,effective_inputs,scale_inputs,ready,lookahead_inputs,g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4],tonic_inputs,full_lookahead.valid!=0,full_inputs);
         if(pad_count&&used>=0&&used<length){

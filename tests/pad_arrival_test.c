@@ -94,7 +94,50 @@ static void arrival_membership(void){
     API.destroy_instance(instance);
 }
 
+/* Poll while the live detector is old, intermediate, and finally settled.
+   A locked timeline must advance both display halves in one frame. */
+static void boundary_frames(void){
+    Inst *instance=fixture();hb_set_shared_follower_scale(1);
+    instance->next_predict=1;instance->next_anti_buffer_ms=0;
+    g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    hb_harmony_t harmonies[2]={chord(0,0,0),chord(2,1,0)};
+    for(int event=0;event<2;event++)g_bus.next_model[event]=(hb_loop_harmony_event_t){.phase=event*2,.harmony=harmonies[event]};
+    const double offsets[]={-0.26,-0.125,-0.0000005,0,0.0000005,0.01,0.1};
+    char view[2048];
+    for(int travel=0;travel<8;travel++)for(int shift=0;shift<2;shift++)for(int wrap=0;wrap<2;wrap++){
+        instance->travel_map=travel;instance->next_lookahead=shift?3:0;
+        for(int tick=0;tick<7;tick++){
+            position=(wrap?4:2)+offsets[tick];
+            int current_index=offsets[tick]<0?(wrap?1:0):(wrap?0:1);
+            unsigned masks[2]={0,0};
+            for(int target=0;target<2;target++){
+                Inst oracle=*instance;oracle.next_lookahead=0;
+                oracle.render_harmony_active=1;oracle.render_harmony=harmonies[target];
+                for(int pitch=60;pitch<72;pitch++){
+                    int rendered=hb_map_follower_note_now(&oracle,pitch);
+                    if(hb_harmony_chord_mask(harmonies[target])&(1u<<mod12(rendered)))masks[target]|=1u<<mod12(pitch);
+                }
+            }
+            for(int detector=0;detector<3;detector++){
+                g_bus.observed_harmony=detector==2?harmonies[wrap?0:1]:detector==0?harmonies[wrap?1:0]:chord(7,0,1);
+                hb_effective_write(g_bus.observed_harmony);
+                API.get_param(instance,"pad_render",view,sizeof(view));
+                unsigned current,effective,scale,future;int ready;
+                assert(sscanf(view,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&future)==5);
+                const char *full=strstr(view,"|full1,");int known;unsigned next;
+                assert(full&&sscanf(full,"|full1,%d,%u",&known,&next)==2&&known);
+                if(current!=masks[current_index]||next!=masks[1-current_index]){
+                    fprintf(stderr,"boundary frame mismatch travel=%d shift=%d wrap=%d tick=%d detector=%d current=%u/%u next=%u/%u\n",travel,shift,wrap,tick,detector,current,masks[current_index],next,masks[1-current_index]);
+                    assert(0);
+                }
+            }
+        }
+    }
+    API.destroy_instance(instance);
+}
+
 int main(void){
+    boundary_frames();
     default_and_saved_colors();
     arrival_membership();
     puts("pad arrival: all travel modes, split modes, content, chord generation, approaches, and wrap pass");

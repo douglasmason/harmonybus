@@ -1,3 +1,5 @@
+> 0.2.178: Current and Full Lookahead colors advance together on the learned boundary, including Lookahead Off while live chord detection settles. Current colors use their own follower mapping instead of the early effective mapping. MIDI timing and saved settings are unchanged; no Movy update required.
+
 > 0.2.177: Lookahead pad colors now preview the upcoming chord’s follower mapping, so highlighted input keys land on chord tones when it arrives. Defaults: Both Full Lookahead, pulse rate 1/4, pulse shape None, Current Yellow, Play Green, Lookahead Red, Both Orange, Input Tonic Grey. Existing saved settings are preserved. Works with Movy hbclean.85; no Movy update required.
 
 > 0.2.176: Pads Global adds Play Color for live, recorded and retained input highlights, including Off. Input Tonic defaults to Grey; Play Color defaults to Track. Effective is the default; redundant Standard is removed. Effective shares Current Color. Requires Movy hbclean.82 for configurable playback LEDs.
