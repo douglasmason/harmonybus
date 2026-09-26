@@ -3207,6 +3207,7 @@ static int hb_emit_role_change_flush(Inst *instance,uint8_t output[][3],int leng
 }
 static void hb_clear_instance_note_state(Inst *instance){
     if(!instance)return;
+    instance->movy_pad_pending=0;memset(instance->movy_pad_shift,0,sizeof(instance->movy_pad_shift));
     instance->motion.held=0;instance->motion.pitch_held=0;instance->motion.enclosure=0;hb_mo_gesture_reset(&instance->motion);
     hb_mo_input_reset(&instance->motion);
     hb_mo_panic(&instance->motion_local);hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);
@@ -3319,11 +3320,11 @@ if(status==0xA0&&length>=3&&instance->role<2&&instance->player.config.playback==
     }
     return 0;
 }
+if(is_on&&!instance->movy_playback&&instance->movy_pad_pending==(input[1]&127)+1&&(instance->role!=1||instance->travel_map!=6)){
+    instance->movy_pad_pending=0;return 0;
+}
 if(instance->role==3)return (is_on||is_off)?0:pass(input,length,output,lengths,max_output);
 if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note=input[1]&0x7F,mapped;if(is_on&&!instance->movy_playback){instance->movy_input_degree[note]=0;instance->movy_input_target[note]=0;}if(is_on){
-    if(!instance->movy_playback&&instance->movy_pad_pending==note+1&&(instance->role!=1||instance->travel_map!=6)){
-        instance->movy_pad_pending=0;return 0;
-    }
     unsigned long long marker=instance->movy_playback&&instance->recorded_action_valid[note]?instance->recorded_actions[note][HB_MOTION_LANES]>>2:0;
     instance->movy_pad_shift[note]=marker==1?-36:marker==2?36:0;
     if(!instance->movy_playback&&instance->movy_pad_pending==note+1&&instance->role==1&&instance->travel_map==6)

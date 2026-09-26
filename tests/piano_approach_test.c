@@ -36,5 +36,8 @@ int main(void){
         memset(i->movy_pad_shift,0,sizeof(i->movy_pad_shift));i->travel_map=mode;API.get_param(i,"pad_view",view,sizeof(view));assert(strstr(view,mode==6?"|piano1,1":"|piano1,0"));
         API.set_param(i,"hb_movy_input_approach",param);event(i,alias,1);assert((i->movy_pad_shift[alias]!=0)==(mode==6));event(i,alias,0);
     }
+    i->role=3;API.set_param(i,"hb_movy_input_approach",param);event(i,alias,1);assert(!i->movy_pad_pending);
+    i->role=1;i->travel_map=6;API.set_param(i,"hb_movy_input_approach",param);event(i,alias,1);
+    hb_clear_instance_note_state(i);assert(!i->movy_pad_pending&&!i->movy_pad_shift[alias]);
     puts("piano approaches: all scales and MIDI targets, exact mapped resolution, independent ownership, recording and travel gating pass");
 }
