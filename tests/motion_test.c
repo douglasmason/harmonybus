@@ -16,6 +16,7 @@ static double motion_test_beat(void){return transport==MOVE_CLOCK_STATUS_STOPPED
 static Inst *motion_fixture(void){
     host.get_beat_position=motion_test_beat;
     Inst *instance=fixture();API.set_param(instance,"boundary_buffer_ms","0 ms");
+    for(int k=12;k<16;k++)instance->motion.lanes[k].operation=HB_MO_BELOW+k-12; /* Legacy suite assignments. */
     return instance;
 }
 static void controls_and_state(void){

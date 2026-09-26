@@ -29,6 +29,7 @@ static Inst *fixture(void){
     Inst *instance=API.create_instance("",NULL);
     instance->content_map=0; /* Legacy tests explicitly exercise Chord content. */
     instance->next_anti_buffer_ms=0; /* Legacy timing fixture: no onset guard. */
+    instance->chromatic_map=0; /* Existing suites exercise unmodified travel. */
     API.set_param(instance,"role","Follower");API.set_param(instance,"source_channel","1");
     API.set_param(instance,"render_channel","4");
     API.set_param(instance,"follower_root_policy","Explicit");API.set_param(instance,"follower_explicit_root","C");
@@ -595,7 +596,7 @@ static void split2_and_master(void){
     char state[8192],label[64];
     API.get_param(instance,"state",state,sizeof(state));
     API.set_param(instance,"travel_map","Relative");API.set_param(instance,"state",state);
-    API.get_param(instance,"travel_map",label,sizeof(label));assert(!strcmp(label,"Closest Split Chromatic"));
+    API.get_param(instance,"travel_map",label,sizeof(label));assert(!strcmp(label,"Closest Split"));
     globals.follower_explicit_root=0;instance->follower_split_map=1;
     API.set_param(instance,"follower_scale","Major");
     for(int pitch=61;pitch<=62;pitch++){

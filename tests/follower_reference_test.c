@@ -19,6 +19,7 @@ static Inst *fixture(void){
     g_movy_present=g_movy_blocked=0;g_monitor=0;
     move_midi_fx_init(&host);
     Inst *instance=API.create_instance("",0);
+    instance->chromatic_map=0; /* Existing suites exercise unmodified travel. */
     API.set_param(instance,"role","Follower");
     API.set_param(instance,"follower_root_policy","Explicit");
     API.set_param(instance,"follower_explicit_root","C");
@@ -81,7 +82,7 @@ static void transpose_last_at_limits(void){
     Inst *instance=fixture();
     API.set_param(instance,"travel_map","Closest Split 2");
     char label[64];API.get_param(instance,"travel_map",label,sizeof(label));
-    assert(!strcmp(label,"Closest Split Chromatic"));
+    assert(!strcmp(label,"Closest Split"));
     const int pitches[]={0,1,7,12,60,67,115,120,126,127};
     for(int root=0;root<12;root++)for(int travel=0;travel<8;travel++){
         instance->travel_map=travel;hb_set_shared_follower_scale(1);

@@ -1,5 +1,7 @@
 > 0.2.179: supports Movy hbclean.87 piano-gap approaches in Closest Split Chromatic. Each gap approaches the effective mapped output of its lower pad, with independent note ownership and recorded identity. Other travel modes leave gaps silent. Pad coloring rules are unchanged. Update both modules.
 
+> 0.2.180: Chromatic is an independent follower setting, On by default, supporting Relative, Closest and the other Travel modes. Follow Touch has eight assignable lane selectors (1, 2, 3, 4, 13, 14, 15, 16): turn to select, tap to trigger, hold for momentary operation. New factory lanes 15/16 are Scale Above/Chrom Below; touch order determines the pending enclosure. Saved lane assignments and legacy travel sounds are preserved. Pair with Movy hbclean.88.
+
 > 0.2.178: Current and Full Lookahead colors advance together on the learned boundary, including Lookahead Off while live chord detection settles. Current colors use their own follower mapping instead of the early effective mapping. MIDI timing and saved settings are unchanged; no Movy update required.
 
 > 0.2.177: Lookahead pad colors now preview the upcoming chord’s follower mapping, so highlighted input keys land on chord tones when it arrives. Defaults: Both Full Lookahead, pulse rate 1/4, pulse shape None, Current Yellow, Play Green, Lookahead Red, Both Orange, Input Tonic Grey. Existing saved settings are preserved. Works with Movy hbclean.85; no Movy update required.

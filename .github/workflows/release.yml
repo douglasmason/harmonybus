@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.179'
+          assert module['version']=='0.2.180'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -46,7 +46,7 @@ jobs:
           assert len(master['options'])==13 and master['default']=='As Played'
           assert levels['global_transpose']['knobs'][0]=='master_transpose'
           travel=next(p for p in module['capabilities']['chain_params'] if p.get('key')=='travel_map')
-          assert travel['options'][0]=='None' and travel['options'][-1]=='Closest Split Chromatic'
+          assert travel['options'][0]=='None' and travel['options'][-1]=='Direct'
           assert 'receiver' not in levels
           assert levels['root']['knobs']==['version','track_role','render_channel','receive_channel','quant_timing','chord_timing','anticipation','boundary_buffer_ms']
           assert next(p for p in levels['root']['params'] if p.get('key')=='track_role')['options']==['Conductor','Follower','Receiver','Off']
@@ -69,12 +69,13 @@ jobs:
           assert chord_mode['default']=='Off'
           dominant=next(parameter for parameter in levels['follower_root']['params'] if parameter.get('key')=='dominant_scale')
           assert dominant['options']==['Off','Harmonic Minor','Melodic Minor','Altered V'] and dominant['default']=='Off'
+          assert levels['follower_touch']['knobs']==[f'follow_touch_{i}' for i in range(1,9)]
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
           assert 'follower_mod' not in levels
           assert levels['follower_source']['knobs']==[
               'content_map','travel_map','split_map','retrigger_held',
-              'approach','approach_reset','approach_scale_next','approach_chrom_next'
+              'chromatic_map'
           ]
           assert [item['level'] for item in levels['root']['params'] if 'level' in item][-1]=='follower_play_tools'
           assert levels['next_harm']['name']=='Next Harm'
@@ -186,6 +187,8 @@ jobs:
           /tmp/recorded_input_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/piano_approach_test.c src/harmony_core.c -lm -o /tmp/piano_approach_test
           /tmp/piano_approach_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/follow_touch_test.c src/harmony_core.c -lm -o /tmp/follow_touch_test
+          /tmp/follow_touch_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/operation_recording_test.c src/harmony_core.c -lm -o /tmp/operation_recording_test
           /tmp/operation_recording_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/render_velocity_test.c src/harmony_core.c -lm -o /tmp/render_velocity_test

@@ -39,7 +39,8 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     if(!strcmp(key,"performance_gesture_below"))gesture=17;
     if(gesture>=0){
         int elapsed=-1;if(!strncmp(value,"Up,",3))elapsed=parse_i(value+3,-1);
-        hb_mo_gesture(config,gesture,!strcmp(value,"Down"),elapsed);return 1;
+        int saved=gesture<16?config->lanes[gesture].touch_mode:2;if(gesture<16&&!strcmp(value,"Touch"))config->lanes[gesture].touch_mode=2;
+        hb_mo_gesture(config,gesture,!strcmp(value,"Down")||!strcmp(value,"Touch"),elapsed);if(gesture<16)config->lanes[gesture].touch_mode=saved;return 1;
     }
     if(!strcmp(key,"motion_host")){config->host_capabilities=!strcmp(value,"movy-clip-v2")?2:!strcmp(value,"movy-clip-v1");return 1;}
     if(!strcmp(key,"performance_reset")){
@@ -257,6 +258,7 @@ static int hb_mo_save(hb_motion_config *config,char *buffer,int length,int used)
 }
 static void hb_mo_restore(hb_motion_config *config,const char *state){
     int capabilities=config->host_capabilities;hb_mo_defaults(config);config->host_capabilities=capabilities;
+    if(!strstr(state,";ft1,"))for(int k=12;k<16;k++)config->lanes[k].operation=HB_MO_BELOW+k-12; /* preserve pre-Follow-Touch factory assignments */
     const char *gesture_state=strstr(state,";gt1,");int hold_ms;
     if(!g_hb_hold_restored&&gesture_state&&sscanf(gesture_state,";gt1,%d",&hold_ms)==1&&hold_ms>=150&&hold_ms<=500){g_hb_hold_ms=hold_ms;g_hb_hold_restored=1;}
     gesture_state=state;

@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.179 / Movy 0.34.1-hbclean.85.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. With a nonzero locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.180 / Movy 0.34.1-hbclean.85.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. With a nonzero locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -217,7 +217,15 @@ Follower Content choices now omit the “In” prefix. Saved indices and older t
 
 Closest Split with **135 / 2467** keeps degree 7 in the 2467 group. Previously, Chord content over a triad could leave that group empty and fall back to all chord tones, sending B to C over C major. Explicit 135 / 2467 and 1357 / 246 groups now remain intact: Content narrows the group when possible; otherwise the full group is available. Other split modes retain their existing behavior.
 
-## Closest Split Chromatic and Master Transpose
+## Chromatic travel and Follow Touch
+
+Chromatic is a separate Foll Map switch, On for new instances and sets. It applies to Relative, Closest, Closest Split, Upward, Downward, Direct and None: resolve the next higher in-scale input using the chosen travel, then approach that output from one semitone below. In Movy Piano, gap pads approach the mapped pad below them while Chromatic is On. Live notes use effective harmony; lookahead colors use the harmony expected at arrival. Saved Closest Split Chromatic becomes Closest Split with Chromatic On; other saved travel modes retain their previous sound.
+
+Foll Touch sits beside Foll Play. Its eight knobs select operation lanes, defaulting to 1, 2, 3, 4, 13, 14, 15, 16. Turning changes the assignment; touching triggers the selected lane with Tap/Hold semantics. A short tap arms an approach/enclosure or toggles a continuous operation; a held touch is momentary. Turning during a touch cancels that gesture. Assignments are saved per follower. Step controls retain access to the same lanes.
+
+New factory lanes 13 and 14 select the two enclosure orders; 15 is Scale Above and 16 is Chrom Below. Tapping both 15 and 16 arms a three-note enclosure in touch-down order, even if releases arrive in the opposite order. Existing saved lane assignments are preserved.
+
+## Closest Split chromatic behavior and Master Transpose
 
 **Follower Travel: Closest Split Chromatic** keeps the normal Closest Split rendering for in-scale inputs. An out-of-scale input instead approaches the rendering of the next higher in-scale input: find that input, run its normal split mapping in the same register, then subtract one semitone from the output. The existing Split selection still chooses the groups.
 

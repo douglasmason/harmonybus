@@ -48,7 +48,7 @@ static double hb_mo_cycle(int index){static const double lengths[]={0.5,1,2,4,8,
 static void hb_mo_lane_default(hb_motion_lane *lane){memset(lane,0,sizeof(*lane));lane->enabled=1;lane->grid=3;lane->cycle=3;lane->probability=100;lane->every=lane->from=lane->through=1;lane->touch_mode=2;}
 static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*config));for(int index=0;index<HB_MOTION_LANES;index++)hb_mo_lane_default(&config->lanes[index]);
     config->enclosure_lane=-1;
-    for(int index=12;index<16;index++){config->lanes[index].operation=HB_MO_BELOW+index-12;config->lanes[index].enabled=0;config->lanes[index].amount=1;}
+    for(int index=12;index<16;index++){config->lanes[index].operation=index==12?HB_MO_ENCLOSE_AB:index==13?HB_MO_ENCLOSE_BA:index==14?HB_MO_ABOVE:HB_MO_BELOW;config->lanes[index].enabled=0;config->lanes[index].amount=1;}
 }
 static void hb_mo_route_init(hb_motion_route *route){memset(route,0,sizeof(*route));for(int channel=0;channel<16;channel++)route->base_pan[channel]=64;}
 /* ra1 event words store an operation outcome, never an output MIDI pitch.
