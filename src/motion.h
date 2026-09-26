@@ -169,7 +169,7 @@ static int hb_mo_source_modifier(const hb_motion_config *config){
         for(int gesture=0;gesture<18;gesture++)if((config->gesture_down&(1u<<gesture))&&config->gesture_mode[gesture]!=1&&(config->gesture_operation[gesture]==HB_MO_BELOW||config->gesture_operation[gesture]==HB_MO_ABOVE))return 0;
     }
     const unsigned long long *events=config->event_override?config->event_override:config->events;
-    return events[HB_MOTION_LANES]==1?-1:events[HB_MOTION_LANES]==2?1:0;
+    return (events[HB_MOTION_LANES]&3)==1?-1:(events[HB_MOTION_LANES]&3)==2?1:0;
 }
 static const char *hb_mo_pending_status(const hb_motion_config *config){
     if(!config->enclosure)return "Off";
