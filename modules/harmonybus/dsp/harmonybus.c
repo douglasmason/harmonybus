@@ -1478,7 +1478,7 @@ static int hb_next_touch_expired(const Inst *instance){
     double now=hb_current_beat();
     if(now<instance->next_touch_started)return 1;
     if(instance->next_touch_until>=0&&now>=instance->next_touch_until)return 1;
-    if(!hb_harmony_knowledge_ready_for(instance)&&g_bus.observed_harmony.valid&&
+    if((instance->next_touch_until<0||!hb_harmony_knowledge_ready_for(instance))&&g_bus.observed_harmony.valid&&
        instance->next_touch_observed.valid&&!hb_harmony_equal_effective(instance->next_touch_observed,g_bus.observed_harmony))return 1;
     return 0;
 }
