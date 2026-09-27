@@ -465,7 +465,7 @@ Auto Chord inputs recorded with Movy hbclean.78 or later remain editable single 
 
 New pad settings default to Both Full Lookahead, Pulse Rate 1/4, Pulse Shape None, Current Yellow, Play Green, Lookahead Red, Both Orange, and Input Tonic Grey. Current Color defaults to Yellow. Existing saved choices are restored unchanged.
 
-### Auto Off on Conditions
+## Auto Off on Conditions
 
 The Conditions panel uses its former duplicate Cycle slot for Auto Off; Cycle remains on Timing. No extra panel is added. For Harmony and approach/enclosure operations, Normal retains natural completion (one source note/chord for a single approach, the whole three-step enclosure for a combined pattern); Manual repeats the armed approach or enclosure until toggled off; Chord Change ends it at the next harmony boundary. Continuous Harmony selection stays active under Normal or Manual. This setting governs touch/step activation, separately from automatic lane scheduling. Lane 5 defaults to Chord Change and lane 6 to Manual.
 
