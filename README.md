@@ -1,3 +1,5 @@
+> 0.2.186: Piano approach gaps report their actual scale/current/next harmony membership for Movy hbclean.94 coloring. Remove redundant Direct travel from the selector; saved Direct sounds are preserved as None.
+
 > 0.2.179: supports Movy hbclean.87 piano-gap approaches in Closest Split Chromatic. Each gap approaches the effective mapped output of its lower pad, with independent note ownership and recorded identity. Other travel modes leave gaps silent. Pad coloring rules are unchanged. Update both modules.
 
 > 0.2.185: Lookahead now groups Off, Immediate, After, Before and Late in the existing selector. After measures from the current chord start and resets at each chord change; old saved offsets retain their meanings. Both Full Lookahead keeps current/next pad interpretations visible independently of the rendering switch. The timing guide explains this look-back reference. Compatible with Movy hbclean.91.

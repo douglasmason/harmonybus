@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.185'
+          assert module['version']=='0.2.186'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -46,7 +46,7 @@ jobs:
           assert len(master['options'])==13 and master['default']=='As Played'
           assert levels['global_transpose']['knobs'][0]=='master_transpose'
           travel=next(p for p in module['capabilities']['chain_params'] if p.get('key')=='travel_map')
-          assert travel['options'][0]=='None' and travel['options'][-1]=='Direct'
+          assert travel['options'][0]=='None' and 'Direct' not in travel['options']
           assert 'receiver' not in levels
           assert levels['root']['knobs']==['version','track_role','render_channel','receive_channel','quant_timing','chord_timing','anticipation','boundary_buffer_ms']
           assert next(p for p in levels['root']['params'] if p.get('key')=='track_role')['options']==['Conductor','Follower','Receiver','Off']
@@ -276,12 +276,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add After chord-start Lookahead alongside Immediate, Before and Late in the existing selector. Preserve saved timing IDs and legacy API labels. Document Both Full Lookahead as a stable current/next harmony comparison, including its look-back role after rendering advances."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add rendered membership colors for chromatic approach pads and support Movy Approach layout. Remove redundant Direct travel; saved Direct settings display as None without changing sound. Includes updated timing and layout guide."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add After chord-start Lookahead alongside Immediate, Before and Late in the existing selector. Preserve saved timing IDs and legacy API labels. Document Both Full Lookahead as a stable current/next harmony comparison, including its look-back role after rendering advances." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add rendered membership colors for chromatic approach pads and support Movy Approach layout. Remove redundant Direct travel; saved Direct settings display as None without changing sound. Includes updated timing and layout guide." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

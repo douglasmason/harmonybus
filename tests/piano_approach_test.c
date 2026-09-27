@@ -5,7 +5,56 @@ static void event(Inst *i,int pitch,int on){
     uint8_t m[3]={(uint8_t)(on?0x90:0x80),(uint8_t)pitch,(uint8_t)(on?100:0)},o[64][3];int lens[64];
     API.process_midi(i,m,3,o,lens,64);
 }
+
+static void approach_pad_membership(void){
+    Inst *instance=fixture();instance->chromatic_map=1;instance->content_map=1;
+    instance->boundary_buffer_ms=0;instance->next_anti_buffer_ms=0;
+    instance->next_lookahead=0;instance->approach_control=HB_APPROACH_OFF;
+    hb_harmony_t current=chord(0,0,0),next=chord(2,1,0);
+    g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=current};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=2,.harmony=next};
+    g_bus.observed_harmony=current;hb_effective_write(current);position=1;
+    char request[160]="pad_view@",view[4096],label[40];
+    for(int slot=0;slot<32;slot++)sprintf(request+9+slot*2,"ff");
+    request[73]=':';
+    for(int slot=0;slot<32;slot++)sprintf(request+74+slot*2,"%02x",slot<12?61+slot:0);
+    API.set_param(instance,"pad_preview_inputs",request+9);
+    int scales[]={1,4,15},travels[]={0,1,2,3,4,5,7};
+    for(int scale=0;scale<3;scale++)for(int travel=0;travel<7;travel++){
+        hb_set_shared_follower_scale(scales[scale]);instance->travel_map=travels[travel];
+        Inst before=*instance;
+        assert(API.get_param(instance,"pad_view",view,sizeof(view))>0);
+        assert(!memcmp(&before,instance,sizeof(before)));
+        const char *cursor=strstr(view,"|gapcolors1");assert(cursor);cursor+=11;
+        for(int slot=0;slot<32;slot++){
+            int flags;assert(sscanf(cursor,",%d",&flags)==1);cursor=strchr(cursor+1,',');
+            if(slot>=12){assert(flags==-1);continue;}
+            int target=60+slot,identity=target<64?target+36:target-36;
+            instance->movy_pad_shift[identity]=target-identity;
+            instance->render_harmony_active=1;instance->render_harmony=current;
+            int current_pitch=hb_map_follower_note_now(instance,identity);
+            hb_harmony_t scale_target=hb_follower_scale_target(instance,current);
+            instance->render_harmony=next;
+            int next_pitch=hb_map_follower_note_now(instance,identity);
+            instance->render_harmony_active=0;instance->movy_pad_shift[identity]=0;
+            unsigned current_bit=1u<<mod12(current_pitch),next_bit=1u<<mod12(next_pitch);
+            assert(!!(flags&1)==!!(current_bit&hb_harmony_chord_mask(current)));
+            assert(!!(flags&2)==!!(current_bit&hb_harmony_chord_mask(current)));
+            assert(!!(flags&4)==!!(current_bit&scale_target.pitch_mask));
+            assert(!!(flags&16)==!!(next_bit&hb_harmony_chord_mask(next)));
+        }
+    }
+    API.set_param(instance,"travel_map","Direct");
+    API.get_param(instance,"travel_map",label,sizeof(label));assert(!strcmp(label,"None"));
+    char state[8192];API.get_param(instance,"state",state,sizeof(state));
+    Inst *restored=API.create_instance("",0);API.set_param(restored,"state",state);
+    API.get_param(restored,"travel_map",label,sizeof(label));assert(!strcmp(label,"None"));
+    API.destroy_instance(restored);API.destroy_instance(instance);
+}
+
 int main(void){
+    approach_pad_membership();
     Inst *i=fixture();i->travel_map=6;i->content_map=1;g_bus.boundary_buffer_ms=0;
     char param[80],view[1024];
     for(int scale=1;scale<=15;scale++)for(int root=0;root<12;root++){
