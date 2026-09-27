@@ -525,3 +525,45 @@ Movy hbclean.94 adds Approach to the existing Pad Layout selector. Rows 1 and 3 
 On a HarmonyBus follower with Chromatic On, this arrangement follows the linked input root and scale. Movy's root control selects the follower's Explicit input root; its scale control edits the shared follower scale. HarmonyBus's resolved input root/scale also updates Movy's keyboard. These input coordinates are separate from the current and next conductor harmonies. The latter determine the rendering and the two harmony-color interpretations.
 
 The upper approach rows require a follower with Chromatic On. With Chromatic Off or without a supporting follower, those positions remain empty. Existing layouts and saved layout indices keep their meanings. Piano retains its familiar geometry, while Approach provides a scale-relative alternative for all supported keys and scales.
+
+
+## Tonal and parallel extended harmony
+
+The keyboard input root and scale define stable playing coordinates. They do not restrict every output chord to that scale. Scale content starts from the follower's parent collection and adjusts it to accommodate the rendered chord; inferred chord tones are preserved. Chord content uses the chord-tone collection instead. Lookahead changes which chord is rendered, including its output collection, while the input coordinates remain unchanged when the input root and scale are explicit.
+
+The production-mapper regression compares three learned four-chord loops, with input C Major, Scale content, Dominant Off and Borrowed Minimal:
+
+| Test | Progression | Result |
+| --- | --- | --- |
+| Tonal ii–V–I–vi | Dm11 → G9 → Cmaj9 → Am11 | All four output collections remain C major. |
+| Parallel minor 11 | Cm11 → C♯m11 → Em11 → E♭m11 | Each chord's tones survive; the output collection changes at every event. |
+| Parallel major 9 | Cmaj9 → C♯maj9 → Emaj9 → E♭maj9 | Each chord's tones survive; the output collection changes at every event. |
+
+The parallel loops contain more than seven distinct chord-tone pitch classes across the loop, so neither fits one seven-note parent scale. Tests verify learned extensions, one-beat-early rendering before and after its boundary, loop wrap, five travel modes, stable input coordinates, effective/scale pad membership, full-next pad membership across the chord boundary, and the Approach layout's semitone-below relationship. These are automated native-code checks, not a listening test or a Move hardware test. Extended chords are supplied through root establishment followed by color refinement; the test does not establish automatic root recognition for every ambiguous live voicing.
+
+## Limits of automatic chord scales
+
+Accommodating a chord is different from selecting an independent mode for that chord. HarmonyBus currently retains the parent collection where possible. It does not promise Dorian for every minor-11 chord or Lydian for every major-9 chord in a parallel progression.
+
+For example, with C Major as the input reference and Minimal borrowing, Cm11 yields C D E♭ F G A B♭. C♯m11 yields C C♯ E♭ E F F♯ A♭ B: all six chord tones are present, but the result has eight pitch classes. The spellings here identify pitch classes; they are not a theoretical spelling of a C♯ chord scale. This is chord accommodation, not a fresh Dorian scale rooted on C♯.
+
+For predictable chord-tone playing, use Chord content. Scale content provides the current parent-based accommodation. Independent per-chord mode selection would need an additional output-scale policy, separate from the input keyboard scale; it is not implemented by these tests. The learned loop and full lookahead can carry changing chord content without requiring a common parent scale. Approach pads still resolve one semitone below the lower pad's output under whichever harmony is rendering.
+
+## Verification and pending integration
+
+The latest implemented layout and color behavior is described in Approach layout and linked input controls, together with the preceding timing, operation and pad-color sections. The parallel-harmony regression adds coverage and documents limits without changing musical mapping behavior or release defaults.
+
+Synchronizing Movy's four banks with the four native Move track colors remains pending. Movy's existing color table is not yet a live mirror of the native tracks. Saved-set colors and native LED highlights must be distinguished before claiming synchronization. Automated touch-release and transition checks also do not substitute for measuring those behaviors on the physical Move.
+
+
+## Temporary Auto Chord Repeat operation
+
+Choose Auto Chord Repeat in any existing operation lane. Selecting it leaves Auto off, ready for touch or step activation. Assign that lane to a Follow Touch knob if desired. Tap latches it; another tap switches it off. Hold uses the existing momentary behavior and releases on knob-up. No new panel or default lane assignment is added.
+
+While active, this operation forces Repeat Arp playback. The existing Auto Chord and Arp panels supply form, quality, inversion, voicing, rate, order, gate, latch and other details. If Chord Mode is Off, the temporary mode is Conductor Chord; if Scale Degree or Conductor Chord is selected, that selection is retained. Without an established harmony, the conductor uses its existing scale-degree bootstrap behavior.
+
+The operation never overwrites the saved Chord Mode or playback setting. When the last activating lane turns off, those settings take effect again. With both Chord Mode Off and playback Together, that means ordinary mapped note playing. If the panel was already configured to generate chords or arpeggiate, that earlier behavior resumes instead. Edits to voicing details while the operation is active remain in the panel afterward.
+
+Changing between normal and temporary-repeat modes releases existing note ownership, including latched generated notes. Press a pad again to start notes in the new mode; switching modes does not convert an already-held note. This avoids leaving notes sounding after the operation ends. Multiple active lanes keep Repeat enabled until all have released. Auto scheduling can also enable the operation using the lane's conditions. The gate is evaluated live for the track, including clip playback; it is not baked into each recorded note's operation snapshot.
+
+Automated tests exercise emitted repeat notes, momentary release, tap latching, overlapping lanes, unchanged serialized panel settings, saved lane assignment and return to normal playing without stuck generated notes. Physical Move touch-release latency remains a separate hardware check.

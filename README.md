@@ -1,3 +1,5 @@
+> 0.2.187: Auto Chord Repeat operation temporarily enables repeated chord playback using existing panel settings; tap latches, hold is momentary. Turning it off restores the saved mode. Tonal/parallel-harmony tests and guide updates are included.
+
 > 0.2.186: Piano approach gaps report their actual scale/current/next harmony membership for Movy hbclean.94 coloring. Remove redundant Direct travel from the selector; saved Direct sounds are preserved as None.
 
 > 0.2.179: supports Movy hbclean.87 piano-gap approaches in Closest Split Chromatic. Each gap approaches the effective mapped output of its lower pad, with independent note ownership and recorded identity. Other travel modes leave gaps silent. Pad coloring rules are unchanged. Update both modules.
@@ -163,3 +165,7 @@ Dominant Scale and Borrowed Scale are shared across all tracks, like Follower Sc
 Infer now uses confirmed conductor transitions during learning and the full registered loop once learned. Each harmony contributes equally to scale membership scoring across all fifteen scales around the existing follower reference root. Ties retain the previous best choice; no evidence defaults to Major. Input layout, rendering and Used Scale share this baseline, independently of lookahead position. Explicit scales still take precedence, and chord alterations plus global borrowing/dominant overrides still apply to rendering.
 
 The existing Foll Root panel's final slot is now Used Scale. A `?` marks equally scoring alternatives; `(default)` means no harmony evidence yet. `--` means the follower reference root is unresolved. Inferred Root and Used Root keep their root-policy meanings. This estimates a collection, not tonal function or modulation: it does not infer the tonic from a progression, inspect unplayed raw clip notes, or automatically identify secondary ii-Vs. The learned progression is available after playback observation, even with the lookahead offset off.
+
+### Parallel-harmony regression coverage
+
+`tests/parallel_harmony_test.c` compares Dm11–G9–Cmaj9–Am11 with parallel minor-11 and major-9 loops. It checks chord preservation, changing output collections, learned-loop lookahead, pad membership and chromatic approach mapping through the production mapper. The [timing guide](docs/timing-guide.md) explains the results and the distinction between parent-scale accommodation and independent per-chord modes. These tests do not add automatic per-chord mode selection.

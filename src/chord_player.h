@@ -22,6 +22,7 @@ typedef struct {
 } hb_cp_key;
 typedef struct {
     hb_cp_config config;
+    int repeat_override; /* Runtime operation; never written into saved panel settings. */
     hb_cp_key keys[HB_CP_KEYS];
     uint8_t sounding[16][128], retrigger[16][128];
     int sounding_channels[16];
@@ -31,6 +32,11 @@ typedef struct {
     int shuffle_order[HB_CP_KEYS*HB_CP_VOICES*4];
     double seconds, beat, next_beat, gate_beat;
 } hb_chord_player;
+static int hb_cp_mode(const hb_chord_player *player){return player->repeat_override&&!player->config.mode?2:player->config.mode;}
+static int hb_cp_playback(const hb_chord_player *player){return player->repeat_override?1:player->config.playback;}
+static hb_cp_config hb_cp_effective_config(const hb_chord_player *player){
+    hb_cp_config config=player->config;config.mode=hb_cp_mode(player);config.playback=hb_cp_playback(player);return config;
+}
 static int hb_cp_mod(int value){value%=12;return value<0?value+12:value;}
 static int hb_cp_clamp(int value,int low,int high){return value<low?low:value>high?high:value;}
 static int hb_cp_abs(int value){return value<0?-value:value;}
@@ -185,7 +191,7 @@ static void hb_cp_defaults(hb_cp_config *config){
     memset(config,0,sizeof(*config));config->rate=2;config->gate=1;config->phase=1;
 }
 static int hb_cp_enabled(const hb_chord_player *player){
-    return player->config.mode||player->config.playback;
+    return hb_cp_mode(player)||hb_cp_playback(player);
 }
 static void hb_cp_clear(hb_chord_player *player){
     memset(player->keys,0,sizeof(player->keys));
@@ -217,7 +223,7 @@ static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,
     if(player->config.latch==4||player->config.latch==5||((player->config.latch==1||player->config.latch==2)&&!hb_cp_held(player))){
         /* A latched replacement changes the pitch pool, not the running clock.
            Re-arming Auto here can postpone every division under rapid input. */
-        if(player->config.playback!=1){
+        if(hb_cp_playback(player)!=1){
             memcpy(player->retrigger,player->sounding,sizeof(player->retrigger));
             player->running=0;player->step=0;
         }
@@ -231,7 +237,7 @@ static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,
     }
     if(slot<0)return 0;
     hb_cp_key *key=&player->keys[slot];
-    if(key->used&&player->config.playback!=1)for(int voice=0;voice<key->count;voice++){
+    if(key->used&&hb_cp_playback(player)!=1)for(int voice=0;voice<key->count;voice++){
         int pitch=key->notes[voice],shared=0;
         for(int other=0;other<HB_CP_KEYS;other++)if(other!=slot&&player->keys[other].used&&player->keys[other].channel==channel)
             for(int tone=0;tone<player->keys[other].count;tone++)if(player->keys[other].notes[tone]==pitch)shared=1;
@@ -280,11 +286,11 @@ static int hb_cp_entries(hb_chord_player *player,hb_cp_entry *entries,int fresh)
         hb_cp_key *owner=&player->keys[key];
         if(!owner->used||(fresh&&!owner->fresh))continue;
         for(int voice=0;voice<owner->count;voice++){
-            int octaves=player->config.playback==1?hb_cp_clamp(owner->range,1,4):1;
+            int octaves=hb_cp_playback(player)==1?hb_cp_clamp(owner->range,1,4):1;
             for(int octave=0;octave<octaves;octave++){
                 int pitch=owner->notes[voice]+12*octave;
                 if(pitch>127)continue;
-                if(player->config.playback==1){
+                if(hb_cp_playback(player)==1){
                     if(seen[owner->channel][pitch])continue;
                     seen[owner->channel][pitch]=1;
                 }
@@ -325,7 +331,7 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
         return emitted;
     }
     hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
-    if(player->config.playback==1){
+    if(hb_cp_playback(player)==1){
         int count=hb_cp_entries(player,entries,0);
         int cycle=player->config.order==2&&count>1?2*count-2:count;
         double rate=hb_cp_division(player->config.rate%9);
@@ -395,7 +401,7 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
         }
     }else{
         int count=hb_cp_entries(player,entries,1);
-        double duration=player->config.playback==2?(player->config.spread<0?
+        double duration=hb_cp_playback(player)==2?(player->config.spread<0?
             hb_cp_division(-player->config.spread-1):player->config.spread/1000.0):0.0;
         double now=player->config.spread<0?player->beat:player->seconds;
         for(int index=0;index<count;index++){

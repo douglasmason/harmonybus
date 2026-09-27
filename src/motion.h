@@ -9,7 +9,7 @@
 enum { HB_MO_OFF, HB_MO_VELOCITY, HB_MO_PAN, HB_MO_OCTAVE, HB_MO_ROTATE,
        HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY, HB_MO_BELOW, HB_MO_ABOVE,
        HB_MO_ENCLOSE_AB, HB_MO_ENCLOSE_BA, HB_MO_REPEAT, HB_MO_REVERSE,
-       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO, HB_MO_CHORD_FORM };
+       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO, HB_MO_CHORD_FORM, HB_MO_AUTO_CHORD_REPEAT };
 typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through,touch_mode,auto_off; } hb_motion_lane;
 typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned held;
     unsigned revision[HB_MOTION_LANES];
@@ -299,7 +299,7 @@ static void hb_mo_capture(hb_motion_config *config,double beat,double condition,
         int active=hb_mo_value_at(config,lane,beat,condition,voice,&value);
         if((config->held&(1u<<lane))&&(settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE))active=0;
         /* Explicitly evolving automatic lanes remain live on replay. */
-        if(settings.evolve&&!(config->held&(1u<<lane))){result[lane]=config->events[lane];continue;}
+        if(settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!(config->held&(1u<<lane)))){result[lane]=config->events[lane];continue;}
         result[lane]=HB_MO_RECORDED|((unsigned long long)(active?settings.operation:0)<<32)|
             ((unsigned long long)settings.grid<<37)|((unsigned long long)(settings.offset+400)<<41)|
             (unsigned long long)(uint32_t)(int32_t)hb_mo_round(value*1000.0);

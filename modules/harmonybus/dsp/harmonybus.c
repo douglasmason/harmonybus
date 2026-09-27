@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.186"
+#define HB_VERSION "0.2.187"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1712,7 +1712,7 @@ static int hb_queue_follower_event(Inst *instance,int note,int velocity,int is_o
     /* Repeat Arp owns its timing through Rate/Phase. Keep input in the
        conductor-first audio queue, but never capture either edge to a
        follower boundary or inherit a delayed note-off. */
-    if(instance->player.config.playback==1){
+    if(hb_cp_playback(&instance->player)==1){
         instance->follower_queue_age_frames[slot]=0;
         return 1;
     }
@@ -2372,7 +2372,7 @@ static void hb_prepare_conductors(int frames,int sample_rate);
 static double hb_motion_position(Inst *instance);
 static double hb_motion_condition_position(void);
 static hb_cp_config hb_chord_config_at(Inst *instance,int source,double beat,double condition){
-    hb_cp_config config=instance->player.config;
+    hb_cp_config config=hb_cp_effective_config(&instance->player);
     for(int index=0;index<HB_MOTION_LANES;index++){
         hb_motion_lane lane=hb_mo_settings(&instance->motion,index);double value;
         if(lane.operation==HB_MO_CHORD_FORM&&hb_mo_value_at(&instance->motion,index,beat,condition,source,&value))
@@ -2391,9 +2391,9 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
     hb_harmony_t untransposed=hb_transpose_harmony(harmony,-g_bus.global_transpose);
     int scale_root=untransposed.root_pc;
     hb_resolve_follower_reference_root(instance,&scale_root);
-    unsigned scale=player->config.mode==1?hb_follower_input_scale(instance,scale_root):
+    unsigned scale=hb_cp_mode(player)==1?hb_follower_input_scale(instance,scale_root):
         hb_explicit_scale_mask(scale_root,hb_parent_scale_index(instance,harmony));
-    if(player->config.mode!=1&&harmony.valid)
+    if(hb_cp_mode(player)!=1&&harmony.valid)
         scale=hb_output_chord_scale_at_transpose(instance,untransposed,scale_root,(uint16_t)scale,0);
     uint16_t dominant=hb_dominant_scale_mask(instance,harmony,mod12(scale_root+g_bus.global_transpose));
     if(dominant){
@@ -2709,7 +2709,7 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
    The player's owned-note diff drains OFFs before ONs, even at small capacity. */
 static void hb_reharmonize_held_chords(Inst *instance){
     int transform_changed=instance->play_applied!=instance->play_revision;
-    if(!transform_changed&&instance->player.config.mode!=2&&!(instance->player.config.mode==0&&instance->player.config.playback))return;
+    if(!transform_changed&&hb_cp_mode(&instance->player)!=2&&!(hb_cp_mode(&instance->player)==0&&hb_cp_playback(&instance->player)))return;
     /* Pending input owns its future onset, not the harmony of existing owners.
        Due input is released before this call; remaining queued notes must not
        block revoicing the held chord before this tick's arp step is emitted. */
@@ -2717,7 +2717,7 @@ static void hb_reharmonize_held_chords(Inst *instance){
     if(sequence==instance->follower_bus_seq&&!transform_changed)return;
     instance->follower_bus_seq=sequence;
     instance->play_applied=instance->play_revision;
-    if(!instance->retrigger_held&&!(transform_changed&&instance->player.config.playback==1))return;
+    if(!instance->retrigger_held&&!(transform_changed&&hb_cp_playback(&instance->player)==1))return;
     hb_harmony_t harmony=hb_render_harmony(instance);if(!harmony.valid)return;
     hb_chord_player *player=&instance->player;
     unsigned mask=hb_harmony_chord_mask(harmony);
@@ -2747,7 +2747,7 @@ static void hb_reharmonize_held_chords(Inst *instance){
     player->config.latch=latch;instance->approach_pad_armed=armed;
     /* Revoicing is not a new gesture. In particular, resetting Auto at a
        due division would arm the following division and drop this hit. */
-    if(changed&&player->config.playback!=1){player->running=0;player->step=0;}
+    if(changed&&hb_cp_playback(player)!=1){player->running=0;player->step=0;}
 }
 static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int lengths[],int max_output){
     if(!instance||instance->role!=1||!output||!lengths||max_output<=0)return 0;
@@ -3362,7 +3362,22 @@ static int hb_format_trace_event(const Inst *instance,int ordinal,char *buffer,i
     return snprintf(buffer,(size_t)length,"%s %s Ch%d",instance->trace_on[index]?"ON":"OFF",note_name,(int)instance->trace_channel[index]+1);
 }
 static int pass(const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){if(!input||length<1||length>3||max_output<1)return 0;memcpy(output[0],input,(size_t)length);lengths[0]=length;return 1;}
-static int process_core(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;hb_movy_refresh();hb_next_touch_clear_expired(instance);g_bus.global_process_count++;g_bus.global_last_status=input[0];g_bus.global_last_instance=hb_instance_index(instance);
+/* Repeat is a runtime overlay. Panel settings remain authoritative and serializable. */
+static void hb_auto_chord_repeat_sync(Inst *instance){
+    int active=0;
+    if(instance->role<2)for(int lane=0;lane<HB_MOTION_LANES;lane++){
+        double value;
+        if(instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT&&
+           hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&value))active=1;
+    }
+    if(active==instance->player.repeat_override)return;
+    /* Mode boundaries release all old ownership before accepting new presses.
+       Preserve the operation gesture that caused the boundary. */
+    hb_motion_config motion=instance->motion;
+    hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);
+    instance->motion=motion;instance->player.repeat_override=active;
+}
+static int process_core(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;hb_auto_chord_repeat_sync(instance);hb_movy_refresh();hb_next_touch_clear_expired(instance);g_bus.global_process_count++;g_bus.global_last_status=input[0];g_bus.global_last_instance=hb_instance_index(instance);
 if(input[0]==0xFC){
     hb_stop_instance_note_state(instance);
     instance->resolved_source_channel=-1;
@@ -3381,7 +3396,7 @@ if(status==0xB0&&length>=3&&(input[1]==120||input[1]==123)){
 }
 /* Pressure belongs to the original held input, before chord expansion.
    Update future arp attacks without restarting the clock or current gate. */
-if(status==0xA0&&length>=3&&instance->role<2&&instance->player.config.playback==1&&
+if(status==0xA0&&length>=3&&instance->role<2&&hb_cp_playback(&instance->player)==1&&
    hb_source_channel_matches(instance,input[0]&15)){
     int source=input[1]&127,channel=input[0]&15,velocity=input[2]&127;
     if(velocity==0)velocity=1; /* Never turn a generated note-on into note-off. */
@@ -3643,7 +3658,7 @@ static int hb_tick_conductor(Inst *instance,int frames,int sample_rate){
        root turns F -> Dm into F -> F6, and G -> Em into G -> G6, because
        the previous root and third are shared. Raw performance input retains
        contextual interpretation for partial/rolling voicings. */
-    hb_harmony_t candidate=instance->player.config.mode!=0
+    hb_harmony_t candidate=hb_cp_mode(&instance->player)!=0
         ?hb_infer_harmony(notes,count)
         :hb_infer_harmony_contextual(notes,count,committed_sensor);
     /* A generated gesture supplies its root explicitly, even when the
@@ -3781,7 +3796,7 @@ static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int m
                 if(!key->used||!key->recordable||key->channel!=channel)continue;
                 for(int voice=0;voice<key->count;voice++){
                     int offset=pitch-key->notes[voice];
-                    int range=player->config.playback==1?key->range:1;
+                    int range=hb_cp_playback(player)==1?key->range:1;
                     if(offset>=0&&offset%12==0&&offset<12*range)recordable=1;
                 }
             }
@@ -3946,6 +3961,7 @@ static int hb_motion_pending_trigger(const Inst *instance){
 
 static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int capacity){
     Inst *instance=(Inst*)value;if(!instance)return 0;
+    for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
     if(frames>0&&sample_rate>0){double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120.0;if(bpm<=0)bpm=120.0;instance->motion_beat+=(double)frames*bpm/(60.0*sample_rate);}
     if(instance->role>=2||(!hb_mo_enabled(&instance->motion)&&!instance->motion_local.owned&&!instance->motion_local.count&&!instance->motion_render.owned&&!hb_motion_pending_trigger(instance))){
         hb_motion_tick_routes(instance);
@@ -4107,7 +4123,7 @@ static void hb_set_scale_exceptions(int dominant,int borrowed){
     }
     g_scale_exceptions_restored=1;
 }
-static void set_param(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
+static void set_param_base(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
 if(!strcmp(key,"pad_preview_inputs")){
     size_t size=strlen(parameter);int notes[32],targets[32];
     if(size!=64&&(size!=129||parameter[64]!=':'))return;
@@ -5117,7 +5133,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         double phase=display_phase;
         int look_event=hb_next_model_event_for_phase_for(instance,phase,1);
         if(look_event>=0)lookahead=g_bus.next_model[look_event].harmony;
-        if(instance->player.config.playback!=1&&!hb_next_elapsed_for(instance)){
+        if(hb_cp_playback(&instance->player)!=1&&!hb_next_elapsed_for(instance)){
             double capture=hb_follower_capture_beats_for(instance);
             double boundary=hb_next_effective_boundary_for(instance,now);
             if(boundary>=now-1e-6&&boundary-now<=capture+1e-6&&
@@ -5383,6 +5399,10 @@ int move_midi_fx_process_with_source(void *value,
         return pass(input,length,output,lengths,max_output);
     }
     return process(value,input,length,output,lengths,max_output);
+}
+static void set_param(void *value,const char *key,const char *parameter){
+    set_param_base(value,key,parameter);
+    for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
 }
 static midi_fx_api_v1_t API={MIDI_FX_API_VERSION,create_inst,destroy_inst,process,tick,set_param,get_param};
 __attribute__((visibility("default")))
