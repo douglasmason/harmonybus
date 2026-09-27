@@ -108,4 +108,38 @@ static void approach_policies(void){
     API.set_param(i,"motion_gesture_16","Touch");API.set_param(i,"motion_gesture_16","Up,20");
     for(int n=0;n<5;n++){hb_mo_input(&i->motion,60,n,0.01);assert(i->motion.events[16]==(unsigned)(n==1?1:n==2?0:2));}
 }
-int main(void){assignments();mapping();expiry();approach_policies();puts("Next Touch: global assignments, first restore, next mapping, chromatic and piano approaches, matching previews and tap/hold pass");}
+static void immediate_lookahead(void){
+    Inst *i=fixture();char value[8192],view[4096];position=0.25;g_bus.clip_loop_end=8;
+    g_bus.next_model_locked=1;g_bus.next_model_count=3;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=1,.harmony=chord(2,1,0)};
+    g_bus.next_model[2]=(hb_loop_harmony_event_t){.phase=5,.harmony=chord(7,0,7)};
+    g_bus.observed_harmony=g_bus.next_model[0].harmony;hb_effective_write(g_bus.observed_harmony);
+    API.get_param(i,"next_lookahead",value,sizeof(value));assert(!strcmp(value,"Off"));
+    API.set_param(i,"next_lookahead","Immediate");
+    API.get_param(i,"next_lookahead",value,sizeof(value));assert(!strcmp(value,"Immediate"));
+    assert(hb_render_harmony(i).root_pc==2);
+    assert(!i->motion.held); /* selector does not activate an operation lane */
+    API.set_param(i,"motion_hold_6","On");assert(hb_render_harmony(i).root_pc==2);
+    API.set_param(i,"motion_hold_6","Off");assert(hb_render_harmony(i).root_pc==2);
+    for(int guard=0;guard<2;guard++){
+        i->next_anti_buffer_ms=guard?1000:0;
+        assert(hb_effective_follower_buffer_for(i)==0&&!hb_next_allows_precapture_for(i));
+    }
+    const double positions[]={1-1e-7,1,4.9,5,7.99,0};
+    const int roots[]={2,7,7,0,0,2};
+    for(int n=0;n<6;n++){
+        position=positions[n];assert(hb_render_harmony(i).root_pc==roots[n]);
+        API.get_param(i,"pad_harmony",view,sizeof(view));
+        unsigned current,effective,scale;assert(sscanf(view,"%u,%u,%u",&current,&effective,&scale)==3);
+        assert(effective==hb_harmony_chord_mask(hb_render_harmony(i)));
+    }
+    API.get_param(i,"state",value,sizeof(value));
+    Inst *other=API.create_instance("",0);API.set_param(other,"state",value);
+    assert(other->next_lookahead==HB_LOOKAHEAD_IMMEDIATE);
+    API.set_param(other,"next_lookahead","Off");assert(i->next_lookahead==HB_LOOKAHEAD_IMMEDIATE);
+    API.set_param(i,"next_lookahead","Off");assert(hb_render_harmony(i).root_pc==0);
+    API.set_param(i,"next_lookahead","Immediate");g_bus.next_model_locked=0;
+    assert(hb_render_harmony(i).root_pc==0); /* safe fallback during learning */
+}
+int main(void){immediate_lookahead();assignments();mapping();expiry();approach_policies();puts("Next Touch: global assignments, first restore, next mapping, chromatic and piano approaches, matching previews and tap/hold pass");}
