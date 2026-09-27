@@ -2,20 +2,24 @@
 #include "follower_reference_test.c"
 #undef main
 static void assignments(void){
-    Inst *a=fixture(),*b=API.create_instance("",0);char saved[8192],value[32];
+    Inst *a=fixture(),*b=API.create_instance("",0);char saved[8192],value[512];
+    assert(a->touch_lanes[9]==6);
+    API.get_param(a,"follow_touch_labels",value,sizeof(value));assert(strstr(value,"5:Next Once|6:Next Latch"));
+    API.set_param(a,"motion_lane","6");API.set_param(a,"motion_operation","Velocity");
+    API.get_param(a,"follow_touch_labels",value,sizeof(value));assert(strstr(value,"6:Velocity"));
     assert(a->touch_lanes[8]==5&&a->motion.lanes[4].operation==HB_MO_HARMONY);
     assert(a->motion.lanes[4].amount==100&&!a->motion.lanes[4].enabled);
     API.get_param(a,"state",saved,sizeof(saved));
-    for(int k=1;k<=9;k++){
+    for(int k=1;k<=10;k++){
         char key[32],number[8];snprintf(key,sizeof(key),"follow_touch_%d",k);snprintf(number,sizeof(number),"%d",17-k);
         API.set_param(a,key,number);API.get_param(b,key,value,sizeof(value));assert(!strcmp(number,value));
     }
     API.set_param(b,"state",saved); /* stale per-track state must not reset global edits */
-    for(int k=0;k<9;k++)assert(a->touch_lanes[k]==16-k&&b->touch_lanes[k]==16-k);
-    Inst *c=API.create_instance("",0);for(int k=0;k<9;k++)assert(c->touch_lanes[k]==16-k);
+    for(int k=0;k<10;k++)assert(a->touch_lanes[k]==16-k&&b->touch_lanes[k]==16-k);
+    Inst *c=API.create_instance("",0);for(int k=0;k<10;k++)assert(c->touch_lanes[k]==16-k);
     API.get_param(c,"state",saved,sizeof(saved));
-    a=fixture();API.set_param(a,"state",saved);for(int k=0;k<9;k++)assert(a->touch_lanes[k]==16-k);
-    b=API.create_instance("",0);for(int k=0;k<9;k++)assert(b->touch_lanes[k]==16-k);
+    a=fixture();API.set_param(a,"state",saved);for(int k=0;k<10;k++)assert(a->touch_lanes[k]==16-k);
+    b=API.create_instance("",0);for(int k=0;k<10;k++)assert(b->touch_lanes[k]==16-k);
 }
 static void mapping(void){
     Inst *i=fixture();i->chromatic_map=1;i->content_map=0;i->boundary_buffer_ms=0;
