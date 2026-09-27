@@ -26,7 +26,7 @@ int main(void){
     char saved[16384];API.get_param(first,"state",saved,sizeof(saved));
     API.destroy_instance(first);API.destroy_instance(second);
     first=API.create_instance("",NULL);API.set_param(first,"state",saved);
-    expect(first,"next_lookahead","3/4");expect(first,"boundary_buffer_ms","350 ms");
+    expect(first,"next_lookahead","Before 3/4");expect(first,"boundary_buffer_ms","350 ms");
     API.destroy_instance(first);
     puts("scope: global grids, independent capture/lookahead, private harmony and state round-trip pass");
 }
