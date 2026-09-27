@@ -10,7 +10,7 @@ enum { HB_MO_OFF, HB_MO_VELOCITY, HB_MO_PAN, HB_MO_OCTAVE, HB_MO_ROTATE,
        HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY, HB_MO_BELOW, HB_MO_ABOVE,
        HB_MO_ENCLOSE_AB, HB_MO_ENCLOSE_BA, HB_MO_REPEAT, HB_MO_REVERSE,
        HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO, HB_MO_CHORD_FORM };
-typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through,touch_mode; } hb_motion_lane;
+typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through,touch_mode,auto_off; } hb_motion_lane;
 typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned held;
     unsigned revision[HB_MOTION_LANES];
     unsigned long long events[HB_MOTION_LANES+1]; /* final slot snapshots the source-gesture approach */
@@ -19,7 +19,7 @@ typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host
     unsigned pitch_held,enclosure_revision; int pitch_last,enclosure;
     unsigned gesture_down,gesture_used,gesture_was_latched,gesture_latched;
     unsigned gesture_serial[18]; int gesture_operation[18],gesture_mode[18],gesture_threshold[18];
-    unsigned tap_mask,tap_serial[2]; int tap_first,tap_started,enclosure_step;
+    unsigned tap_mask,tap_serial[2]; int tap_owner[2],tap_policy[2],enclosure_auto_off; int tap_first,tap_started,enclosure_step;
 } hb_motion_config;
 typedef struct { int used,channel,source,pitch,sounding; double off_beat; unsigned long long serial; double repeat_off; int generated,lane,manual; unsigned revision,held_serial; } hb_motion_owner;
 typedef struct {
@@ -48,6 +48,8 @@ static double hb_mo_cycle(int index){static const double lengths[]={0.5,1,2,4,8,
 static void hb_mo_lane_default(hb_motion_lane *lane){memset(lane,0,sizeof(*lane));lane->enabled=1;lane->grid=3;lane->cycle=3;lane->probability=100;lane->every=lane->from=lane->through=1;lane->touch_mode=2;}
 static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*config));for(int index=0;index<HB_MOTION_LANES;index++)hb_mo_lane_default(&config->lanes[index]);
     config->enclosure_lane=-1;
+    for(int lane=4;lane<=5;lane++){config->lanes[lane].operation=HB_MO_HARMONY;config->lanes[lane].amount=100;config->lanes[lane].enabled=0;}
+    config->lanes[4].auto_off=1;config->lanes[5].auto_off=2;
     for(int index=12;index<16;index++){config->lanes[index].operation=index==12?HB_MO_ENCLOSE_AB:index==13?HB_MO_ENCLOSE_BA:index==14?HB_MO_ABOVE:HB_MO_BELOW;config->lanes[index].enabled=0;config->lanes[index].amount=1;}
 }
 static void hb_mo_route_init(hb_motion_route *route){memset(route,0,sizeof(*route));for(int channel=0;channel<16;channel++)route->base_pan[channel]=64;}
@@ -84,11 +86,34 @@ static void hb_mo_tap_rebuild(hb_motion_config *config){
     config->enclosure_lane=-1;config->tap_started=0;config->enclosure_step=0;config->input_valid=0;config->enclosure_revision++;
 }
 static void hb_mo_tap_toggle_at(hb_motion_config *config,unsigned bit,unsigned serial){
-    if(config->tap_started){config->tap_mask=0;config->tap_started=0;}
+    if(config->tap_started){unsigned keep=0;for(int k=0;k<2;k++)if(config->tap_policy[k])keep|=1u<<k;config->tap_mask&=keep;config->tap_started=0;}
     if(config->tap_mask&bit){config->tap_mask&=~bit;config->tap_first=(int)config->tap_mask;}
-    else {if(!config->tap_mask)config->tap_first=(int)bit;config->tap_mask|=bit;config->tap_serial[bit==2]=serial;
+    else {config->tap_owner[bit==2]=config->tap_policy[bit==2]=0;if(!config->tap_mask)config->tap_first=(int)bit;config->tap_mask|=bit;config->tap_serial[bit==2]=serial;
         if(config->tap_mask==3)config->tap_first=config->tap_serial[1]<config->tap_serial[0]?2:1;}
     hb_mo_tap_rebuild(config);
+}
+static void hb_mo_tap_owned(hb_motion_config *config,unsigned bit,unsigned serial,int lane){
+    hb_mo_tap_toggle_at(config,bit,serial);
+    int index=bit==2;
+    if(config->tap_mask&bit){config->tap_owner[index]=lane<16?lane+1:0;config->tap_policy[index]=lane<16?config->lanes[lane].auto_off:0;}
+}
+static unsigned hb_mo_pending_lanes(const hb_motion_config *config){
+    unsigned mask=0;
+    if(config->enclosure){
+        if(config->enclosure_lane>=0)mask|=1u<<config->enclosure_lane;
+        else for(int k=0;k<2;k++)if((config->tap_mask&(1u<<k))&&config->tap_owner[k]>0)mask|=1u<<(config->tap_owner[k]-1);
+    }
+    return mask;
+}
+static void hb_mo_end_lanes(hb_motion_config *config,unsigned mask){
+    config->held&=~mask;config->gesture_latched&=~mask;
+    config->gesture_down&=~mask;config->gesture_was_latched&=~mask;
+    if(config->enclosure_lane>=0&&(mask&(1u<<config->enclosure_lane))){config->enclosure=0;config->tap_mask=0;}
+    else if(config->enclosure_lane<0){
+        unsigned before=config->tap_mask;
+        for(int k=0;k<2;k++)if(config->tap_owner[k]>0&&(mask&(1u<<(config->tap_owner[k]-1))))config->tap_mask&=~(1u<<k);
+        if(before!=config->tap_mask){config->tap_first=(int)config->tap_mask;hb_mo_tap_rebuild(config);}
+    }
 }
 static void hb_mo_tap_toggle(hb_motion_config *config,unsigned bit){hb_mo_tap_toggle_at(config,bit,++config->serial);}
 static void hb_mo_tap_remove(hb_motion_config *config,unsigned bit){
@@ -112,12 +137,12 @@ static void hb_mo_gesture(hb_motion_config *config,int id,int down,int elapsed){
         config->gesture_serial[id]=++config->serial;
         if(config->gesture_latched&bit)config->gesture_was_latched|=bit;else config->gesture_was_latched&=~bit;
         if(operation==HB_MO_BELOW||operation==HB_MO_ABOVE){
-            if(mode==1)hb_mo_tap_toggle(config,operation==HB_MO_ABOVE?2:1);
+            if(mode==1)hb_mo_tap_owned(config,operation==HB_MO_ABOVE?2:1,config->gesture_serial[id],id);
             else if(id<16){config->held|=bit;config->held_serial[id]=config->gesture_serial[id];}
         }else if(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA){
             int wanted=operation==HB_MO_ENCLOSE_AB?1:2;
-            if(config->enclosure==wanted&&!config->tap_started){config->enclosure=0;config->tap_mask=0;}
-            else {config->tap_mask=3;config->tap_first=wanted==1?2:1;hb_mo_tap_rebuild(config);config->enclosure_lane=id;}
+            if(config->enclosure==wanted&&(!config->tap_started||config->enclosure_auto_off)){config->enclosure=0;config->tap_mask=0;}
+            else {config->tap_mask=3;config->tap_first=wanted==1?2:1;hb_mo_tap_rebuild(config);config->enclosure_lane=id;config->enclosure_auto_off=id<16?config->lanes[id].auto_off:0;}
         }else if(id<16){
             if(mode==1){config->gesture_latched^=bit;if(config->gesture_latched&bit)config->held|=bit;else config->held&=~bit;}
             else config->held|=bit;
@@ -132,7 +157,7 @@ static void hb_mo_gesture(hb_motion_config *config,int id,int down,int elapsed){
     if(operation==HB_MO_BELOW||operation==HB_MO_ABOVE){
         unsigned modifier=operation==HB_MO_ABOVE?2u:1u;
         if(id<16)config->held&=~bit;
-        if(mode==2&&short_tap&&!(config->gesture_used&bit))hb_mo_tap_toggle_at(config,modifier,config->gesture_serial[id]);
+        if(mode==2&&short_tap&&!(config->gesture_used&bit))hb_mo_tap_owned(config,modifier,config->gesture_serial[id],id);
         else if(mode!=1||elapsed<0)hb_mo_tap_remove(config,modifier);
     }else if(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA){
         if(elapsed<0||mode==0||(!short_tap&&mode!=1)){config->enclosure=0;config->tap_mask=0;}
@@ -205,7 +230,17 @@ static void hb_mo_input(hb_motion_config *config,int pitch,double beat,double gr
             int step=config->enclosure_step++;
             modifier=config->enclosure>=3?(config->enclosure==3?1:-1):step>=2?0:((config->enclosure==1)==(step==0)?1:-1);
             config->tap_started=1;
-            if(config->enclosure>=3||config->enclosure_step>=3)config->enclosure=0;
+            if(config->enclosure>=3||config->enclosure_step>=3){
+                int repeat=config->enclosure_lane>=0?config->enclosure_auto_off:0;
+                if(config->enclosure_lane<0){
+                    unsigned keep=0;
+                    for(int k=0;k<2;k++)if(config->tap_policy[k]&&(config->tap_mask&(1u<<k)))keep|=1u<<k;
+                    config->tap_mask=keep;
+                    if(keep){config->enclosure=keep==3?(config->tap_first==2?1:2):keep==2?3:4;repeat=1;}
+                }
+                if(repeat){config->enclosure_step=0;config->tap_started=0;}
+                else config->enclosure=0;
+            }
         }
         config->events[HB_MOTION_LANES]=modifier<0?1:modifier>0?2:0;
     }

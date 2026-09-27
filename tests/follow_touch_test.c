@@ -23,8 +23,8 @@ int main(void){
     API.set_param(i,"chromatic_map","Off");assert(!hb_chromatic_travel(i));
     API.set_param(i,"chromatic_map","On");API.set_param(i,"follow_touch_1","16");
     API.get_param(i,"state",saved,sizeof(saved));API.set_param(i,"follow_touch_1","2");API.set_param(i,"state",saved);
-    assert(i->chromatic_map==1&&i->touch_lanes[0]==16);
-    char *marker=strstr(saved,";ct1,");assert(marker);*marker=0;API.set_param(i,"state",saved);assert(!i->chromatic_map&&i->touch_lanes[0]==1);
+    assert(i->chromatic_map==1&&i->touch_lanes[0]==2);
+    char *marker=strstr(saved,";ct1,");assert(marker);*marker=0;API.set_param(i,"state",saved);assert(!i->chromatic_map&&i->touch_lanes[0]==2);
     for(int reverse=0;reverse<2;reverse++){
         hb_mo_defaults(&i->motion);
         const char *first=reverse?"motion_gesture_16":"motion_gesture_15",*second=reverse?"motion_gesture_15":"motion_gesture_16";
