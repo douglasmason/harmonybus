@@ -56,6 +56,11 @@ static void expiry(void){
         assert(hb_render_harmony(i).root_pc==2&&i->next_touch_mask);
         position=2;g_bus.observed_harmony=g_bus.next_model[1].harmony;hb_effective_write(g_bus.observed_harmony);
         assert(hb_render_harmony(i).root_pc==2); /* not the chord after the arrival */
+        char view[2048];unsigned current,effective,scale,expected=0;
+        for(int n=0;n<12;n++)if(hb_harmony_chord_mask(g_bus.observed_harmony)&(1u<<mod12(hb_map_follower_note_now(i,60+n))))expected|=1u<<n;
+        Inst unchanged=*i;API.get_param(i,"pad_render",view,sizeof(view));
+        assert(!memcmp(&unchanged,i,sizeof(unchanged)));
+        assert(sscanf(view,"%u,%u,%u",&current,&effective,&scale)==3&&effective==expected);
         hb_next_touch_clear_expired(i);assert(!(i->motion.held&(1u<<4))&&!(i->motion.gesture_latched&(1u<<4)));
         API.set_param(i,"motion_gesture_5","Up,40");assert(!(i->motion.held&(1u<<4)));
         position=2.1;API.set_param(i,"motion_gesture_5","Touch");assert(hb_render_harmony(i).root_pc==0);

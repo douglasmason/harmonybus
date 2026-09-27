@@ -4764,7 +4764,7 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
     hb_cp_config config=instance->player.config;
     memset(&preview->player,0,sizeof(preview->player));preview->player.config=config;
     preview->approach_pad_armed=instance->approach_pad_armed;
-    preview->motion=instance->motion;preview->motion.event_override=0;hb_next_touch_clear_expired(preview);
+    preview->motion=instance->motion;preview->motion.event_override=0;preview->next_touch_mask=instance->next_touch_mask;hb_next_touch_clear_expired(preview);
     hb_mo_input(&preview->motion,source_note,hb_motion_position(preview),hb_ms_to_beats(25));
     hb_player_note_on(preview,source_note,0,100);
     for(int owner=0;owner<HB_CP_KEYS;owner++)if(preview->player.keys[owner].used){
