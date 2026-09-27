@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.182'
+          assert module['version']=='0.2.183'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -75,7 +75,7 @@ jobs:
           assert 'follower_mod' not in levels
           assert levels['follower_source']['knobs']==[
               'content_map','travel_map','split_map','retrigger_held',
-              'chromatic_map','follow_touch_9','follow_touch_10'
+              'chromatic_map','follow_touch_9','motion_hold_6'
           ]
           assert [item['level'] for item in levels['root']['params'] if 'level' in item][-1]=='follower_play_tools'
           assert levels['next_harm']['name']=='Next Harm'
