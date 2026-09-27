@@ -52,7 +52,8 @@ static void extended_offsets(void){
     for(int i=0;i<10;i++){
         char label[32];API.set_param(&g_pool[0],"next_lookahead",labels[i]);
         API.get_param(&g_pool[0],"next_lookahead",label,sizeof(label));
-        assert(!strcmp(label,labels[i])&&hb_next_lookahead_beats_for(&g_pool[0])==offsets[i]);
+        char expected[40];snprintf(expected,sizeof(expected),"%s %s",labels[i][0]=='-'?"Late":"Before",labels[i]+(labels[i][0]=='-'));
+        assert(!strcmp(label,expected)&&hb_next_lookahead_beats_for(&g_pool[0])==offsets[i]);
         for(int cycle=0;cycle<2;cycle++){
             double boundary=length/2-offsets[i]+cycle*length;
             assert(g_bus.next_model[hb_next_model_event_for_phase_for(&g_pool[0],hb_next_phase(boundary-0.001),1)].harmony.root_pc==0);

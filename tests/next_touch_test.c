@@ -142,4 +142,56 @@ static void immediate_lookahead(void){
     API.set_param(i,"next_lookahead","Immediate");g_bus.next_model_locked=0;
     assert(hb_render_harmony(i).root_pc==0); /* safe fallback during learning */
 }
-int main(void){immediate_lookahead();assignments();mapping();expiry();approach_policies();puts("Next Touch: global assignments, first restore, next mapping, chromatic and piano approaches, matching previews and tap/hold pass");}
+static void after_lookahead(void){
+    Inst *i=fixture();char value[8192],view[4096];position=0;g_bus.clip_loop_end=8;
+    g_bus.next_model_locked=1;g_bus.next_model_count=3;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=4,.harmony=chord(2,1,0)};
+    g_bus.next_model[2]=(hb_loop_harmony_event_t){.phase=5,.harmony=chord(7,0,7)};
+    g_bus.observed_harmony=g_bus.next_model[0].harmony;hb_effective_write(g_bus.observed_harmony);
+    API.set_param(i,"next_lookahead","After 1/4");
+    assert(i->next_lookahead==29&&hb_next_after_beats_for(i)==1.0);
+    const double positions[]={0,1-1e-7,1,3.9999,4,4.9999,5,5.9999,6,7.9999,0};
+    const int roots[]={0,0,2,2,2,2,7,7,0,0,0};
+    for(int n=0;n<11;n++){
+        position=positions[n];assert(hb_render_harmony(i).root_pc==roots[n]);
+        API.get_param(i,"pad_harmony",view,sizeof(view));
+        unsigned current,effective,scale;assert(sscanf(view,"%u,%u,%u",&current,&effective,&scale)==3);
+        assert(effective==hb_harmony_chord_mask(hb_render_harmony(i)));
+    }
+    position=0.5;assert(hb_next_effective_boundary_for(i,0.5)==1.0);
+    position=4;assert(hb_next_effective_boundary_for(i,4)==5.0); // delay coincides with next chord: reset
+    API.set_param(i,"next_lookahead","After 1/2");position=4.5;
+    assert(hb_render_harmony(i).root_pc==2); // chord shorter than delay: no stale activation
+    for(int guard=0;guard<2;guard++){
+        i->next_anti_buffer_ms=guard?1000:0;position=2;
+        assert(hb_render_harmony(i).root_pc==2&&hb_effective_follower_buffer_for(i)==0&&!hb_next_allows_precapture_for(i));
+    }
+    // Current/full-next pad targets stay fixed within a chord while the effective
+    // renderer moves from current to next. Compare every follower travel mode.
+    for(int travel=0;travel<7;travel++){
+        i->travel_map=travel;unsigned baseline_current=0,baseline_full=0;
+        const char *choices[]={"Off","After 1/4","After 1/4","Immediate","Before 1/4","Late 1/4"};
+        for(int choice=0;choice<6;choice++){
+            position=choice==2?2:0.5;API.set_param(i,"next_lookahead",choices[choice]);
+            API.get_param(i,"pad_render",view,sizeof(view));
+            unsigned current,effective,scale,full;int enabled;
+            assert(sscanf(view,"%u,%u,%u",&current,&effective,&scale)==3);
+            char *section=strstr(view,"|full1,");assert(section&&sscanf(section,"|full1,%d,%u",&enabled,&full)==2);
+            if(choice==0){baseline_current=current;baseline_full=full;}
+            else assert(current==baseline_current&&full==baseline_full);
+        }
+    }
+    for(int option=0;option<HB_LOOKAHEAD_COUNT;option++){
+        API.set_param(i,"next_lookahead",NEXT_LOOKAHEAD_OPTS[option]);
+        assert(i->next_lookahead==NEXT_LOOKAHEAD_IDS[option]);
+        API.get_param(i,"next_lookahead",value,sizeof(value));assert(!strcmp(value,NEXT_LOOKAHEAD_OPTS[option]));
+        API.get_param(i,"state",value,sizeof(value));Inst *restored=API.create_instance("",0);
+        API.set_param(restored,"state",value);assert(restored->next_lookahead==i->next_lookahead);API.destroy_instance(restored);
+    }
+    API.set_param(i,"next_lookahead","1/4");assert(i->next_lookahead==4);
+    API.set_param(i,"next_lookahead","-1/4");assert(i->next_lookahead==10);
+    API.set_param(i,"next_lookahead","19");assert(i->next_lookahead==19);
+    API.set_param(i,"next_lookahead","After 1/4");g_bus.next_model_locked=0;assert(hb_render_harmony(i).root_pc==0);
+}
+int main(void){after_lookahead();immediate_lookahead();assignments();mapping();expiry();approach_policies();puts("Next Touch: global assignments, first restore, next mapping, chromatic and piano approaches, matching previews and tap/hold pass");}

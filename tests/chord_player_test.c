@@ -758,7 +758,7 @@ static void four_bar_timing(void){
     char value[32],state[8192],restored[8192];
     for(int index=0;index<6;index++){
         API.set_param(instance,keys[index],"4 Bars");
-        API.get_param(instance,keys[index],value,sizeof(value));assert(!strcmp(value,"4 Bars"));
+        API.get_param(instance,keys[index],value,sizeof(value));assert(!strcmp(value,index==5?"Before 4 Bars":"4 Bars"));
     }
     assert(hb_quant_grid_beats_for(instance)==16.0&&hb_chord_grid_beats()==16.0);
     assert(hb_next_lookahead_beats_for(instance)==16.0);
@@ -766,7 +766,7 @@ static void four_bar_timing(void){
     assert(hb_cp_division(-instance->player.config.spread-1)==16.0);
     assert(instance->boundary_buffer_ms==-9);
     API.set_param(instance,"next_lookahead","-4 Bars");assert(hb_next_lookahead_beats_for(instance)==-16.0);
-    API.get_param(instance,"next_lookahead",value,sizeof(value));assert(!strcmp(value,"-4 Bars"));
+    API.get_param(instance,"next_lookahead",value,sizeof(value));assert(!strcmp(value,"Late 4 Bars"));
     // Legacy lookahead IDs and two-bar durations remain unchanged.
     API.set_param(instance,"next_lookahead","19");assert(hb_next_lookahead_beats_for(instance)==8.0);
     API.set_param(instance,"next_lookahead","21");assert(hb_next_lookahead_beats_for(instance)==-8.0);

@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.184 / Movy 0.34.1-hbclean.91.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. With a nonzero locked lookahead, harmonic-buffer notes play immediately using the upcoming harmony. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.185 / Movy 0.34.1-hbclean.91.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. Before and Late provide shifted harmony boundaries for harmonic capture. Immediate and After select harmony from the actual chord timeline and disable harmonic precapture, so the selected elapsed-time threshold is not brought forward by the buffer. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -14,7 +14,7 @@
 
 ## Follower Buffer chooses among boundaries
 
-While lookahead is off or learning, the buffer is a pre-boundary capture window, not a fixed delay. Candidate release points come from the chord schedule and the follower's Quant Grid. **The earliest eligible boundary wins.** A boundary exactly at arrival is eligible and does not defer the note to the next point.
+With Lookahead Off, or a timed Before/Late setting using fallback capture during learning, the buffer is a pre-boundary capture window, not a fixed delay. Immediate and After do not use harmonic precapture. Candidate release points come from the chord schedule and the follower's Quant Grid. **The earliest eligible boundary wins.** A boundary exactly at arrival is eligible and does not defer the note to the next point.
 
 **Musical-window margin:** division-based buffers subtract 1 ms, excluding their nominal leading edge. This applies to every schedule. Grid targets and millisecond buffers stay exact. Already-on-grid notes stay there.
 
@@ -34,23 +34,23 @@ The examples use C to D at 2000 ms, a keypress at 1600 ms, a 350 ms buffer, Chor
 
 **Anticipation only: 1/8 Early.** The periodic chord capture boundary moves to 1750 ms, but the effective harmony is still C. Anticipation does not predict a future chord.
 
-**Lookahead only: 1/8.** A usable learned schedule makes D effective at 1750 ms and supplies that shifted boundary for capture. Inside the capture window, the follower plays immediately using D; it does not wait for 1750 ms. The chosen recognized harmony persists until the next shifted transition.
+**Lookahead only: Before 1/8.** A usable learned schedule makes D effective at 1750 ms and supplies that shifted boundary for capture. Inside the capture window, the follower plays immediately using D; it does not wait for 1750 ms. The chosen recognized harmony persists until the next shifted transition.
 
 **Both enabled:** lookahead supplies the chord schedule while prediction is usable; Chord Grid and Anticipation do not add another offset. Quant Grid remains an independent playback-timing control. The harmonic capture window selects the upcoming harmony without adding playback delay. While the model is unavailable, ordinary Chord Grid / Anticipation is the fallback.
 
 Only contributing conductor clips enter the prediction cycle. A 3-bar and a 4-bar conductor jointly repeat after 12 bars, including their launch phases and effective playback speeds. Editing content or changing contributing clips invalidates the model; unchanged loops retain it. Non-repeating conditional clips and unsupported cycle sizes fall back to observed harmony.
 
-## Negative lookahead moves the buffer window too
+## Late lookahead moves the buffer window too
 
-**Lookahead = -1/4, Follower Buffer = 1/16, Quant Grid = Off.** The conductor changes C to D at the bar line (2000 ms). The learned effective harmony changes at 2500 ms, one quarter note later. This shifts harmony selection; it does not postpone the conductor MIDI.
+**Lookahead = Late 1/4 (formerly -1/4), Follower Buffer = 1/16, Quant Grid = Off.** The conductor changes C to D at the bar line (2000 ms). The learned effective harmony changes at 2500 ms, one quarter note later. This shifts harmony selection; it does not postpone the conductor MIDI.
 
 ![Negative lookahead shifts harmony to one quarter note after the bar line, with the buffer immediately before that shifted boundary](timing/negative-lookahead.svg)
 
 The capture window is **2376 to 2500 ms**: the nominal 2375 ms leading edge is shortened by 1 ms. A note arriving at 2300 ms plays with C without intentional delay. A note arriving at 2400 ms plays immediately using D from the 2500 ms boundary. A note arriving exactly at 2500 ms plays with D immediately. Quant Grid, if enabled, still delays to its eligible grid point; harmony selection uses the later of that playback time and the captured harmonic boundary.
 
-Positive values advance each learned harmony transition; negative values postpone it. Choices are 1/32, 1/16, 1/8, 1/4, 3/8, 1/2, 3/4, 1 Bar, 1.5 Bars, 2 Bars and 3 Bars in either direction, plus Off. In 4/4, 3/8 is 1.5 beats, 3/4 is 3 beats, 1.5 Bars is 6 beats, 2 Bars is 8 beats, and 3 Bars is 12 beats. Positive values bring the next harmony forward; negative values retain the previous harmony longer for late phrasing. The same signed shift applies around loop wrap. The Shift display reads Early, Late or Live according to the effective schedule.
+Before advances each learned harmony transition; Late postpones it. Their divisions are 1/32, 1/16, 1/8, 1/4, 3/8, 1/2, 3/4, 1 Bar, 1.5 Bars, 2 Bars, 3 Bars and 4 Bars. In 4/4, 3/8 is 1.5 beats, 3/4 is 3 beats, and 1.5 Bars is 6 beats. Before/Late retain the prior signed-offset behavior, including offsets spanning multiple chords or a loop wrap. Existing states keep their historical IDs; old API labels such as 1/4 and -1/4 are still accepted as Before 1/4 and Late 1/4. Older diagrams use these legacy signed labels.
 
-Both directions require a usable learned model. During learning or after invalidation, HB uses observed harmony and the ordinary Chord Grid / Anticipation capture schedule. Lookahead remains Off by default.
+All predictive modes require a usable learned model. During learning or after invalidation, rendering falls back to observed harmony. Immediate and After do not re-enable harmonic capture during that fallback. Lookahead remains per track and defaults to Off.
 
 ## At release: conductors first, followers second
 
@@ -352,7 +352,7 @@ start. As of 0.2.144, enabled nonzero lookahead with a nonzero anti-buffer also
 forces the effective **Follower Buffer to 0 ms**, including during learning.
 This disables early capture for both harmony and Quant Grid. The displayed
 buffer is 0 ms; its configured value is preserved in saved state and returns
-when lookahead is off or the anti-buffer is zero. This buffer override also
+when lookahead is off or a Before/Late mode has zero anti-buffer. Immediate and After always bypass harmonic precapture and ignore Anti Buffer. This buffer override also
 applies to negative lookahead; the negative harmony offset itself is unchanged.
 The earlier timing diagrams describe the **0 ms** compatibility setting. See
 [follower paths and timing](follower-paths.md) for examples and diagnostics.
@@ -474,3 +474,38 @@ A combined Scale Above/Chrom Below pattern finishes all three steps before natur
 ## Immediate Lookahead
 
 Lookahead offers Immediate in addition to Off and the timed offsets. Immediate always selects the next known chord, switching targets at each actual chord boundary and at loop wrap. It ignores Anti Buffer and does not capture notes for a future harmony boundary; explicit Quant Grid remains independent. Without a usable prediction, rendering falls back to current harmony. The setting is saved per track and defaults to Off. Next Latch remains a separate operation override: turning it off restores the selected Lookahead mode, including Immediate when selected. Enabling both does not advance two chords.
+
+## One Lookahead selector, two timing references
+
+The existing selector is grouped as Off, Immediate, After, Before and Late. No additional knob or panel is needed. Each timed group offers the same divisions through 4 Bars. Compact knob values use A for After, B for Before and L for Late (for example A1/4); the touched header and option list show the full names. The division describes a duration: After 1/4 means one quarter note after the current chord began, not the next quarter-note grid line.
+
+| Choice | Rendering behavior |
+| --- | --- |
+| Off | Normal current-harmony rendering; explicit operation overrides remain available. |
+| Immediate | Target the next known harmony as soon as the current chord starts. |
+| After 1/4 | Render the current harmony for one quarter note, then target the next harmony for the rest of this chord. |
+| Before 1/4 | Bring the scheduled harmony transition forward by one quarter note, subject to Anti Buffer and the existing capture rules. |
+| Late 1/4 | Keep the previous harmony for one quarter note after its scheduled transition, subject to the existing capture rules. This is not After. |
+
+Example with C beginning at beat 0 and D beginning at beat 4, using zero Anti Buffer and no harmonic precapture: Immediate renders D throughout beats 0–4; After 1/4 renders C until beat 1 and D thereafter; Before 1/4 renders C until beat 3 and D thereafter. After measures elapsed time from the most recent actual chord change. Before measures its offset from the upcoming scheduled change.
+
+Every actual chord change restarts the After timer, including loop wrap. If another chord arrives before, or exactly when, the delay would expire, the timer restarts for that new chord. There is no stale delayed activation from the previous chord. With variable chord lengths, a short chord may never switch ahead while a longer chord does. A single-chord loop has no distinct next harmony to select.
+
+After and Immediate ignore Anti Buffer and bypass harmonic precapture so their switches happen at the specified elapsed time. They change the harmony used to render incoming notes, rather than creating a queue that waits for the After duration. Other explicit playback settings remain separate. Next Latch is an operation override, not an edit to the selector: turning it off returns to the selected Lookahead mode. Off is still the default.
+
+## Both Full Lookahead: a stable view of the relationship
+
+Both Full Lookahead presents two simultaneous questions: which pads would render chord tones under the current harmony, and which would render chord tones under the next known harmony? Each side uses its own harmony's follower mapping, including travel and chromatic approach behavior. These targets come from the chord timeline, independently of when Lookahead chooses to switch actual rendering.
+
+| Pad interpretation | What it tells the player |
+| --- | --- |
+| Current harmony | Which pads map to chord tones of the accompaniment's current chord. |
+| Full next harmony | Which pads will map to chord tones under the next known chord. This remains visible even with Lookahead Off. |
+| Both | Which pads satisfy both interpretations; the configured Both Color identifies their overlap. |
+| Effective rendering | The harmony actually used for notes now. Off, Immediate, After, Before, Late and operation overrides determine it; it is distinct from the two comparison targets. |
+
+With C on beats 0–4 and D next, Both Full Lookahead keeps the C and D interpretations visible throughout that interval. Under After 1/4, actual rendering changes from C to D at beat 1; under Before 1/4 it changes at beat 3; under Immediate it uses D from beat 0. Those switches do not replace the C/D comparison on the pads.
+
+Once rendering is ahead on D, the still-visible C interpretation gives a useful look-back reference: the player can see how the same input relates to both the accompaniment and the anticipated harmony. This is a view of the current/next relationship, not a separate history buffer. At the actual transition to D, the pair becomes D and the following known chord.
+
+The colors show chord-tone membership under each mapping; they do not by themselves name every output pitch or interval. Pulse and color settings control the presentation, while Play Color may overlay pads being played. With Late rendering, the effective harmony can instead be the previous chord, so Both Full Lookahead's current/next pair is not a complete display of every possible effective harmony. This distinction keeps the two-reference view predictable.

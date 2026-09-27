@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.184"
+#define HB_VERSION "0.2.185"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -949,7 +949,13 @@ static void hb_effective_write(hb_harmony_t harmony){
     if(!hb_harmony_equal_effective(bus_read(),harmony))bus_write(harmony);
 }
 
-enum { HB_LOOKAHEAD_IMMEDIATE=25 };
+enum { HB_LOOKAHEAD_IMMEDIATE=25, HB_LOOKAHEAD_AFTER=26, HB_LOOKAHEAD_COUNT=38 };
+static double hb_next_after_beats_for(const Inst *instance){
+    static const double delays[12]={0.125,0.25,0.5,1,1.5,2,3,4,6,8,12,16};
+    int index=(instance?instance->next_lookahead:g_bus.next_lookahead)-HB_LOOKAHEAD_AFTER;
+    return index>=0&&index<12?delays[index]:-1.0;
+}
+static int hb_next_elapsed_for(const Inst *instance){return (instance?instance->next_lookahead:g_bus.next_lookahead)>=HB_LOOKAHEAD_IMMEDIATE;}
 static int hb_next_immediate_for(const Inst *instance){return (instance?instance->next_lookahead:g_bus.next_lookahead)==HB_LOOKAHEAD_IMMEDIATE;}
 static int hb_next_enabled_for(const Inst *instance){return (instance?instance->next_lookahead:g_bus.next_lookahead)!=0;}
 static double hb_next_lookahead_beats_for(const Inst *instance){
@@ -974,7 +980,7 @@ static double hb_next_shift_beats(void){return hb_next_shift_beats_for(0);}
 
 
 static int hb_next_allows_precapture_for(const Inst *instance){
-    if(hb_next_immediate_for(instance))return 0;
+    if(hb_next_elapsed_for(instance))return 0;
     return hb_next_lookahead_beats_for(instance)<=0.0||(instance?instance->next_anti_buffer_ms:g_bus.next_anti_buffer_ms)==0;
 }
 static int hb_next_allows_precapture(void){return hb_next_allows_precapture_for(0);}
@@ -983,7 +989,7 @@ static int hb_next_allows_precapture(void){return hb_next_allows_precapture_for(
    disables follower capture even while the prediction model is learning. */
 
 static int hb_effective_follower_buffer_for(const Inst *instance){
-    if((instance?instance->next_predict:g_bus.next_predict)&&hb_next_immediate_for(instance))return 0;
+    if((instance?instance->next_predict:g_bus.next_predict)&&hb_next_elapsed_for(instance))return 0;
     return (instance?instance->next_predict:g_bus.next_predict) && hb_next_enabled_for(instance) &&
         (instance?instance->next_anti_buffer_ms:g_bus.next_anti_buffer_ms)!=0 ? 0 : (instance?instance->boundary_buffer_ms:g_bus.boundary_buffer_ms);
 }
@@ -1326,6 +1332,14 @@ static void hb_next_confirm_observed(double beat){
 static int hb_next_upcoming_event(double phase);
 static int hb_next_model_event_for_phase_for(const Inst *instance,double phase,int shifted){
     if(shifted&&hb_next_immediate_for(instance))return hb_next_upcoming_event(phase);
+    double delay=hb_next_after_beats_for(instance);
+    if(shifted&&delay>=0.0){
+        int current=hb_next_model_event_for_phase_for(instance,phase,0);
+        if(current<0)return current;
+        double age=phase-g_bus.next_model[current].phase;
+        if(age<0.0)age+=hb_next_loop_length();
+        return age>=delay?hb_next_upcoming_event(phase):current;
+    }
     if(!g_bus.next_model_locked||g_bus.next_model_count<=0)return -1;
     double length=hb_next_loop_length();
     if(length<=0.0)return -1;
@@ -1445,6 +1459,16 @@ static double hb_next_effective_boundary_for(const Inst *instance,double absolut
     double length=hb_next_loop_length();
     if(length<=0.0)return -1.0;
     double phase=hb_next_phase(hb_clip_playhead());
+    double delay=hb_next_after_beats_for(instance);
+    if(delay>=0.0){
+        int current=hb_next_model_event_for_phase_for(instance,phase,0),next=hb_next_upcoming_event(phase);
+        if(current<0||next<0)return -1.0;
+        double age=phase-g_bus.next_model[current].phase;if(age<0.0)age+=length;
+        double remaining=g_bus.next_model[next].phase-phase;if(remaining<=0.0)remaining+=length;
+        double wait=delay-age;
+        if(wait>=0.0&&wait<remaining)remaining=wait;
+        return absolute_beat+remaining;
+    }
     double lookahead=hb_next_shift_beats_for(instance);
     double best=1e99;
     for(int index=0;index<g_bus.next_model_count;index++){
@@ -2572,7 +2596,7 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
         }
         instance->render_harmony_active=0;
         double harmony_beat=instance->follower_queue_harmony_beat[index];
-        if(harmony_beat>=0.0 && hb_render_shift_ready_for(instance)&&!hb_next_immediate_for(instance)){
+        if(harmony_beat>=0.0 && hb_render_shift_ready_for(instance)&&!hb_next_elapsed_for(instance)){
             double now=hb_current_beat();
             if(harmony_beat<now)harmony_beat=now;
             double phase=hb_next_phase(hb_clip_playhead()+harmony_beat-now+1e-7);
@@ -3955,7 +3979,22 @@ static int enum_index(const char *value,const char *const *options,int count,int
     return fallback;
 }
 #include "../../../src/motion_params.h"
-static const char *NEXT_PREDICT_OPTS[]={"Off","On"};static const char *NEXT_LOOKAHEAD_OPTS[]={"Off","1/32","1/16","1/8","1/4","1/2","1 Bar","-1/32","-1/16","-1/8","-1/4","-1/2","-1 Bar","3/8","3/4","1.5 Bars","-3/8","-3/4","-1.5 Bars","2 Bars","3 Bars","-2 Bars","-3 Bars","4 Bars","-4 Bars","Immediate"};static const char *ROLE_OPTS[]={"Conductor","Follower","Off","Receiver"};static const char *RETRIGGER_OPTS[]={"Off","On"};static const char *APPROACH_OPTS[]={"Chrom Below","Off","Scale Above"};static const char *APPROACH_MODE_OPTS[]={"Next","Held","Off"};static const char *QUANT_GRID_OPTS[]={"Off","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SOURCE_POLICY_OPTS[]={"Infer Input","Infer Notes","Explicit"};static const char *CLIP_SLOT_OPTS[]={"Auto","1","2","3","4","5","6","7","8"};static const char *SENSOR_SOURCE_OPTS[]={"Realtime","Realtime + Clip","Clip"};static const char *CLIP_CONTEXT_OPTS[]={"Clip + Realtime","Realtime Only"};static const char *SOURCE_CH_OPTS[]={"Auto","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *RENDER_CH_OPTS[]={"Off","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *MODE_OPTS[]={"Relative","Smooth","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *MAP_TARGET_OPTS[]={"Chord","Scale"};static const char *TIMING_OPTS[]={"Observed","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SCALE_OPTS[]={"Infer","Major","Natural Minor","Dorian","Phrygian","Lydian","Mixolydian","Locrian","Harmonic Minor","Melodic Minor","Dorian b2","Lydian Augmented","Lydian Dominant","Mixolydian b6","Locrian #2","Altered"};static const char *ANTICIPATION_OPTS[]={"On Grid","1/64 Early","1/32 Early","1/16 Early","1/8 Early","1/4 Early"};static const char *CONTEXT_OPTS[]={"Live","1/32","1/16","1/8","1/4","1/2","1 Bar"};static const char *TIMESCALE_OPTS[]={"Free","1/16","1/8","1/4","1/2","1 Bar"};static const char *STABILITY_OPTS[]={"Responsive","Balanced","Stable"};static const char *ACCIDENTAL_OPTS[]={"Auto","Sharps","C#D#F#G#Bb","C#EbF#G#Bb","C#EbF#AbBb","DbEbF#AbBb","Flats"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
+static const char *NEXT_PREDICT_OPTS[]={"Off","On"};static const char *NEXT_LOOKAHEAD_OPTS[]={"Off","Immediate","After 1/32","After 1/16","After 1/8","After 1/4","After 3/8","After 1/2","After 3/4","After 1 Bar","After 1.5 Bars","After 2 Bars","After 3 Bars","After 4 Bars","Before 1/32","Before 1/16","Before 1/8","Before 1/4","Before 3/8","Before 1/2","Before 3/4","Before 1 Bar","Before 1.5 Bars","Before 2 Bars","Before 3 Bars","Before 4 Bars","Late 1/32","Late 1/16","Late 1/8","Late 1/4","Late 3/8","Late 1/2","Late 3/4","Late 1 Bar","Late 1.5 Bars","Late 2 Bars","Late 3 Bars","Late 4 Bars"};
+static const int NEXT_LOOKAHEAD_IDS[]={0,25,26,27,28,29,30,31,32,33,34,35,36,37,1,2,3,4,13,5,14,6,15,19,20,23,7,8,9,10,16,11,17,12,18,21,22,24};
+static int hb_next_parse_lookahead(const char *value,int fallback){
+    for(int option=0;option<HB_LOOKAHEAD_COUNT;option++){
+        const char *label=NEXT_LOOKAHEAD_OPTS[option];
+        if(!strcmp(value,label)||(!strncmp(label,"Before ",7)&&!strcmp(value,label+7))||
+           (!strncmp(label,"Late ",5)&&value[0]=='-'&&!strcmp(value+1,label+5)))return NEXT_LOOKAHEAD_IDS[option];
+    }
+    char *end=0;long index=strtol(value,&end,10);
+    return end!=value&&!*end&&index>=0&&index<HB_LOOKAHEAD_COUNT?(int)index:fallback;
+}
+static const char *hb_next_lookahead_label(int index){
+    for(int option=0;option<HB_LOOKAHEAD_COUNT;option++)if(NEXT_LOOKAHEAD_IDS[option]==index)return NEXT_LOOKAHEAD_OPTS[option];
+    return "Off";
+}
+static const char *ROLE_OPTS[]={"Conductor","Follower","Off","Receiver"};static const char *RETRIGGER_OPTS[]={"Off","On"};static const char *APPROACH_OPTS[]={"Chrom Below","Off","Scale Above"};static const char *APPROACH_MODE_OPTS[]={"Next","Held","Off"};static const char *QUANT_GRID_OPTS[]={"Off","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SOURCE_POLICY_OPTS[]={"Infer Input","Infer Notes","Explicit"};static const char *CLIP_SLOT_OPTS[]={"Auto","1","2","3","4","5","6","7","8"};static const char *SENSOR_SOURCE_OPTS[]={"Realtime","Realtime + Clip","Clip"};static const char *CLIP_CONTEXT_OPTS[]={"Clip + Realtime","Realtime Only"};static const char *SOURCE_CH_OPTS[]={"Auto","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *RENDER_CH_OPTS[]={"Off","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *MODE_OPTS[]={"Relative","Smooth","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *MAP_TARGET_OPTS[]={"Chord","Scale"};static const char *TIMING_OPTS[]={"Observed","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SCALE_OPTS[]={"Infer","Major","Natural Minor","Dorian","Phrygian","Lydian","Mixolydian","Locrian","Harmonic Minor","Melodic Minor","Dorian b2","Lydian Augmented","Lydian Dominant","Mixolydian b6","Locrian #2","Altered"};static const char *ANTICIPATION_OPTS[]={"On Grid","1/64 Early","1/32 Early","1/16 Early","1/8 Early","1/4 Early"};static const char *CONTEXT_OPTS[]={"Live","1/32","1/16","1/8","1/4","1/2","1 Bar"};static const char *TIMESCALE_OPTS[]={"Free","1/16","1/8","1/4","1/2","1 Bar"};static const char *STABILITY_OPTS[]={"Responsive","Balanced","Stable"};static const char *ACCIDENTAL_OPTS[]={"Auto","Sharps","C#D#F#G#Bb","C#EbF#G#Bb","C#EbF#AbBb","DbEbF#AbBb","Flats"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
 static const char *MASTER_ROOT_OPTS[]={"As Played","C","C# / Db","D","D# / Eb","E","F","F# / Gb","G","G# / Ab","A","A# / Bb","B"};
 static int hb_timing_to_legacy_timescale(int timing){
     /* Chord Grid is a musical-boundary hint, not a mandatory dwell time. */
@@ -4298,7 +4337,7 @@ if(!strcmp(key,"next_anti_buffer_ms")){
     if(setting>=-9&&setting<=1000){instance->next_anti_buffer_ms=setting;instance->lookahead_restored=1;hb_next_apply_effective(hb_clip_playhead());}
     return;
 }
-if(!strcmp(key,"next_lookahead")){instance->lookahead_restored=1;instance->next_lookahead=enum_index(parameter,NEXT_LOOKAHEAD_OPTS,26,instance->next_lookahead);if(instance->next_predict&&g_bus.next_model_locked)hb_next_apply_effective(hb_clip_playhead());return;}
+if(!strcmp(key,"next_lookahead")){instance->lookahead_restored=1;instance->next_lookahead=hb_next_parse_lookahead(parameter,instance->next_lookahead);if(instance->next_predict&&g_bus.next_model_locked)hb_next_apply_effective(hb_clip_playhead());return;}
 if(!strcmp(key,"next_reset")){if(parameter[0]=='1'||!strcmp(parameter,"Reset")){hb_timeline_reset_active();hb_clip_cache_evict_active();hb_next_reset_knowledge();hb_effective_write(g_bus.observed_harmony);}return;}
 if(!strcmp(key,"live_press")){if(parameter[0]=='1')hb_receive_live_vouch(instance);return;}
 if(!strcmp(key,"approach_below_pad")){if(parameter[0]=='1'){instance->approach_pad_armed=HB_APPROACH_CHROM_BELOW;}return;}
@@ -4627,7 +4666,7 @@ static void hb_restore_state(Inst *instance,const char *state){
     const char *lookahead_suffix=strstr(state,";la1,");
     int lookahead=0,anti_buffer=25;
     if(!instance->lookahead_restored&&lookahead_suffix&&sscanf(lookahead_suffix,";la1,%d,%d",&lookahead,&anti_buffer)==2&&
-       lookahead>=0&&lookahead<26&&anti_buffer>=-9&&anti_buffer<=1000){
+       lookahead>=0&&lookahead<HB_LOOKAHEAD_COUNT&&anti_buffer>=-9&&anti_buffer<=1000){
         instance->next_lookahead=lookahead;instance->next_anti_buffer_ms=anti_buffer;instance->lookahead_restored=1;
         hb_next_apply_effective(hb_clip_playhead());
     }
@@ -5056,7 +5095,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         double phase=display_phase;
         int look_event=hb_next_model_event_for_phase_for(instance,phase,1);
         if(look_event>=0)lookahead=g_bus.next_model[look_event].harmony;
-        if(instance->player.config.playback!=1&&!hb_next_immediate_for(instance)){
+        if(instance->player.config.playback!=1&&!hb_next_elapsed_for(instance)){
             double capture=hb_follower_capture_beats_for(instance);
             double boundary=hb_next_effective_boundary_for(instance,now);
             if(boundary>=now-1e-6&&boundary-now<=capture+1e-6&&
@@ -5202,12 +5241,12 @@ if(!strcmp(key,"next_anti_buffer_ms")){
     int setting=instance->next_anti_buffer_ms;
     return setting<0?snprintf(buffer,(size_t)length,"%s",BUFFER_DIVISIONS[-setting-1]):snprintf(buffer,(size_t)length,"%d ms",setting);
 }
-if(!strcmp(key,"next_lookahead")){int index=instance->next_lookahead;if(index<0||index>25)index=0;return snprintf(buffer,(size_t)length,"%s",NEXT_LOOKAHEAD_OPTS[index]);}
+if(!strcmp(key,"next_lookahead")){int index=instance->next_lookahead;return snprintf(buffer,(size_t)length,"%s",hb_next_lookahead_label(index));}
 if(!strcmp(key,"next_model"))return snprintf(buffer,(size_t)length,"%s",g_movy_blocked==1?"No clips":g_movy_blocked==2?"Cycle too long":g_movy_blocked==3?"Non-repeating":g_movy_blocked==4?"Too many changes":g_bus.next_model_locked?"Locked":"Learning");
 if(!strcmp(key,"next_shift")){
     double phase=hb_next_phase(hb_clip_playhead());
     int shifted=hb_render_shift_ready_for(instance)&&hb_next_model_event_for_phase_for(instance,phase,1)!=hb_next_model_event_for_phase_for(instance,phase,0);
-    return snprintf(buffer,(size_t)length,"%s",shifted?(hb_next_immediate_for(instance)?"Immediate":hb_next_lookahead_beats_for(instance)<0.0?"Late":"Early"):"Live");
+    return snprintf(buffer,(size_t)length,"%s",shifted?(hb_next_immediate_for(instance)?"Immediate":hb_next_after_beats_for(instance)>=0.0?"After":hb_next_lookahead_beats_for(instance)<0.0?"Late":"Early"):"Live");
 }
 if(!strcmp(key,"next_loop_length")){double beats=hb_next_loop_length();if(beats<=0.0)return snprintf(buffer,(size_t)length,"--");if(((long)(beats+0.5))%4==0&&beats>=4.0)return snprintf(buffer,(size_t)length,"%.2f Bars",beats/4.0);return snprintf(buffer,(size_t)length,"%.2f Beats",beats);}
 if(!strcmp(key,"next_position")){double beats=hb_next_loop_length();if(beats<=0.0||!g_bus.have_last_clip_playhead)return snprintf(buffer,(size_t)length,"--");double phase=hb_next_phase(g_bus.last_clip_playhead);if(((long)(beats+0.5))%4==0&&beats>=4.0)return snprintf(buffer,(size_t)length,"%.2f Bars",phase/4.0);return snprintf(buffer,(size_t)length,"%.2f Beats",phase);}
