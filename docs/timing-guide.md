@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.191 / Movy 0.34.1-hbclean.99.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. Before and Late provide shifted harmony boundaries for harmonic capture. Immediate and After select harmony from the actual chord timeline and disable harmonic precapture, so the selected elapsed-time threshold is not brought forward by the buffer. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.192 / Movy 0.34.1-hbclean.100.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. Before and Late provide shifted harmony boundaries for harmonic capture. Immediate and After select harmony from the actual chord timeline and disable harmonic precapture, so the selected elapsed-time threshold is not brought forward by the buffer. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -587,4 +587,29 @@ For example, in C major with None travel, the approach pad below F renders E. Wi
 
 New instances and fresh Movy sets default Chromatic Keys to **Dim / Dim7**. Existing saved selections are preserved, including legacy Scale defaults. On an existing set, choose Dim / Dim7 on the Chords panel if that is the desired family. Pad previews use the same role-aware chord generator as playback.
 
-Chromatic Below operations use the same family selection for new chord gestures, including held touches, tap-triggered notes, recorded modifiers and the below step of an enclosure. The existing operation still supplies the semitone lowering; quality selection does not lower the notes a second time. Automatic operation conditions select the family at the source onset. Existing held/arp gestures retain their onset quality; subsequent per-voice operation timing still runs normally. Chord Mode Off remains single-note playback.
+Chromatic Below operations use the same family selection for new chord gestures, including held touches, tap-triggered notes, recorded modifiers and the below step of an enclosure. The approach is applied to the rendered target before chord construction, so the selected family is voiced once on the approach root. Automatic operation conditions select the family at the source onset. Existing held/arp gestures retain their onset approach and quality; unrelated per-voice operations still run normally. Chord Mode Off remains single-note playback.
+
+
+## Secondary cadences and linked approaches
+
+Assign **Secondary II**, **Secondary V** or **Secondary VI** to any existing operation lane. Bind the lane to an existing Follow Touch knob if desired. These operations never enable Auto Chord: with Chord Mode Off they produce single notes; with Auto Chord enabled they use the current Form, Inversion and Voicing settings. Existing lane and knob assignments remain unchanged.
+
+The target is the note after the effective follower mapping, including the selected current/next harmony. A target on the harmony root uses that chord's major/minor third; other targets use the rendered parent scale. The seventh-form behavior is:
+
+| Operation | Single-note movement | Major target | Minor target |
+| --- | --- | --- | --- |
+| Secondary VI | Minor third below major target; major third below minor target | vi min7 | ♭VI maj7 |
+| Secondary II | Whole step above target | ii min7 | ii min7♭5 |
+| Secondary V | Perfect fourth below target | V7 | V7 |
+| Scale Above | Next parent-scale degree | Parent-scale chord | Parent-scale chord |
+| Chromatic Below | Semitone below target | Selected Chromatic Keys family | Selected Chromatic Keys family |
+
+**Chromatic Keys → Auto Dim7 / Min7b5** chooses min7♭5 below a major target and dim7 below a minor target. These are the rootless V9 and V7♭9 collections respectively. Triad form gives a diminished triad in either case. This is an additional choice on the existing Chords panel; the default remains Dim / Dim7 and saved selections are preserved. Chromatic approach pads and Chromatic Below use the same rule, including approaches whose pitch is also a scale tone.
+
+Scale Above and Secondary II remain distinct. For E minor as a target in C major, Scale Above gives Fmaj7; Secondary II gives F♯min7♭5. Secondary V gives B7 and Secondary VI gives Cmaj7. With Auto Chord off those operations produce F, F♯, B and C respectively.
+
+Tap an upper approach (**Secondary II or Scale Above**) and a lower/dominant approach (**Secondary V or Chromatic Below**) to arm both in touch order, followed by the target. Either order works. Add **Secondary VI** for three approaches followed by the target. For C major, tapping VI, II, V and playing the target four times gives **Am7 → Dm7 → G7 → Cmaj7**. For A minor it gives **Fmaj7 → Bmin7♭5 → E7 → Am7**. A sequence containing a secondary operation resolves to the target's scale-degree chord. The original Scale Above / Chromatic Below enclosure returns to the normal configured chord mode.
+
+Only one upper and one lower/dominant approach can be armed at a time; choosing an alternative replaces that side while preserving the others. Tap an already armed operation to cancel it. A single operation applies to the next gesture. Holding applies momentarily, and a hold used while playing does not arm an extra trigger on release. A linked sequence advances once per source gesture, never per generated voice or arp step. The existing Auto Off setting applies: Normal consumes the sequence; Chord Change and Manual keep the applicable triggers until their configured reset. Pending status shows the remaining ordered steps.
+
+Recorded operation snapshots preserve secondary steps, target resolution and chromatic-pad identities, so clip playback retains the same approach roles after piano remapping. Pad previews use the same chord construction without consuming the pending sequence.

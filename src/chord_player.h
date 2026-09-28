@@ -86,6 +86,17 @@ static int hb_cp_top_note(int *notes,int count,int top,int root,int fifth,int vo
 /* Inversion: Auto, Root, First through Sixth. Auto is From Key for
    Conductor Chord and root position for Scale Root. Preserve the chosen bass
    through spread voicings. Shift the WHOLE voicing at MIDI range edges. */
+static int hb_cp_target_minor(int target,unsigned scale,int harmony_root,unsigned chord){
+    target=hb_cp_mod(target);
+    unsigned third_minor=1u<<hb_cp_mod(target+3),third_major=1u<<hb_cp_mod(target+4);
+    if(target==harmony_root&&(chord&(third_minor|third_major)))return (chord&third_minor)&&!(chord&third_major);
+    if((scale&third_minor)&&!(scale&third_major))return 1;
+    if((scale&third_major)&&!(scale&third_minor))return 0;
+    int degree=0;
+    for(int offset=1;offset<12;offset++)if(scale&(1u<<hb_cp_mod(target+offset)))
+        if(++degree==2)return offset<=3;
+    return 0;
+}
 static int hb_cp_chromatic_quality(int selection){
     static const int qualities[]={0,5,6,9,7,8};
     return qualities[hb_cp_clamp(selection,0,5)];
@@ -124,7 +135,11 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
     if(config.mode==1||config.quality){
         int quality=config.quality;
         if(config.mode==1&&!quality&&!(scale&(1u<<hb_cp_mod(input)))){
-            quality=hb_cp_chromatic_quality(config.chromatic_quality);
+            if(config.chromatic_quality==6){
+                int target=input+1;
+                while(target<input+12&&!(scale&(1u<<hb_cp_mod(target))))target++;
+                quality=hb_cp_target_minor(target,scale,root,chord)?9:8;
+            }else quality=hb_cp_chromatic_quality(config.chromatic_quality);
         }
         if(quality){
             static const int third[]={0,4,3,3,4,4,4,3,3,3};

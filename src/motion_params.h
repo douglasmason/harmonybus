@@ -2,7 +2,7 @@
 #define HB_MOTION_PARAMS_H
 #include "motion_metadata.h"
 /* The selected lane is an editor cursor. Holds are runtime-only, never state. */
-static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Chrom Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat"};
+static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Chrom Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI"};
 static const char *MO_PATTERNS[]={"Constant","Alternate","Rise","Fall","Triangle","Backbeat","Random"};
 static const char *MO_GRIDS[]={"1/64","1/32","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};
 static const char *MO_CYCLES[]={"1/8","1/4","1/2","1 Bar","2 Bars","3 Bars","4 Bars"};
@@ -14,13 +14,13 @@ static const char *MO_TOUCH[]={"Hold","Latch","Tap/Hold"};
 static const char *MO_TRIGGER_TOUCH[]={"Hold","Arm","Tap/Hold"};
 static const char *const *hb_mo_touch_options(hb_motion_config *config){
     int operation=config->lanes[config->selected].operation;
-    return operation>=HB_MO_BELOW&&operation<=HB_MO_ENCLOSE_BA?MO_TRIGGER_TOUCH:MO_TOUCH;
+    return ((operation>=HB_MO_BELOW&&operation<=HB_MO_ENCLOSE_BA)||operation>=HB_MO_SECONDARY_II)?MO_TRIGGER_TOUCH:MO_TOUCH;
 }
 static const char *MO_RANDOM[]={"Repeat","Evolve"};
 typedef struct { const char *key; size_t offset; int low,high; const char *const *options; } hb_motion_parameter;
 #define MO_FIELD(name,low,high,options) {"motion_" #name,__builtin_offsetof(hb_motion_lane,name),low,high,options}
 static const hb_motion_parameter MO_PARAMETERS[]={
-    MO_FIELD(operation,0,20,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
+    MO_FIELD(operation,0,23,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
     MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM)
@@ -34,7 +34,7 @@ static int hb_mo_slot_key(const char *key,const char *prefix){
 }
 static int hb_mo_set(hb_motion_config *config,const char *key,const char *value){
     if(!strcmp(key,"touch_hold_ms")){g_hb_hold_ms=hb_mo_clamp(parse_i(value,g_hb_hold_ms),150,500);g_hb_hold_restored=1;return 1;}
-    if(!strcmp(key,"motion_auto_off")){int op=config->lanes[config->selected].operation;if(op<HB_MO_HARMONY||op>HB_MO_ENCLOSE_BA)return 1;config->lanes[config->selected].auto_off=enum_index(value,MO_AUTO_OFF,3,config->lanes[config->selected].auto_off);return 1;}
+    if(!strcmp(key,"motion_auto_off")){int op=config->lanes[config->selected].operation;if((op<HB_MO_HARMONY||op>HB_MO_ENCLOSE_BA)&&op<HB_MO_SECONDARY_II)return 1;config->lanes[config->selected].auto_off=enum_index(value,MO_AUTO_OFF,3,config->lanes[config->selected].auto_off);return 1;}
     if(!strcmp(key,"motion_touch_mode")){config->lanes[config->selected].touch_mode=!strcmp(value,"Toggle")?1:enum_index(value,hb_mo_touch_options(config),3,config->lanes[config->selected].touch_mode);return 1;}
     int gesture=hb_mo_slot_key(key,"motion_gesture_");
     if(!strcmp(key,"performance_gesture_above"))gesture=16;
@@ -103,7 +103,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         if(down&&!(config->held&bit)){
             config->held|=bit;config->held_serial[slot]=++config->serial;
             int operation=config->lanes[slot].operation;
-            if(operation==HB_MO_BELOW||operation==HB_MO_ABOVE)config->enclosure=0;
+            if(hb_mo_trigger_bit(operation)){config->enclosure=0;config->tap_mask=0;}
             if(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA){
                 int wanted=operation==HB_MO_ENCLOSE_AB?1:2;
                 if(config->enclosure==wanted&&!config->tap_started){config->enclosure=0;config->tap_mask=0;}
@@ -121,10 +121,10 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
             parsed=enum_index(value,CP_CHORD_FORM,HB_CP_FORMS,*field);
         else parsed=spec->options?enum_index(value,spec->options,spec->high+1,*field):hb_mo_clamp(parse_i(value,*field),spec->low,spec->high);
         if(index==0&&parsed!=*field){
-            static const int amounts[]={0,25,50,1,1,50,100,100,1,1,1,1,1,1,1,2,1,4,3,3,1};
+            static const int amounts[]={0,25,50,1,1,50,100,100,1,1,1,1,1,1,1,2,1,4,3,3,1,1,1,1};
             config->lanes[config->selected].amount=amounts[parsed];
             config->lanes[config->selected].offset=parsed==HB_MO_ECHO?25:0;
-            if(parsed==HB_MO_AUTO_CHORD_REPEAT||(parsed>=HB_MO_ENCLOSE_AB&&parsed<=HB_MO_SPEED))config->lanes[config->selected].enabled=0;
+            if(parsed>=HB_MO_AUTO_CHORD_REPEAT||(parsed>=HB_MO_ENCLOSE_AB&&parsed<=HB_MO_SPEED))config->lanes[config->selected].enabled=0;
         }
         if(index==4&&(config->lanes[config->selected].operation==HB_MO_ENCLOSE_AB||config->lanes[config->selected].operation==HB_MO_ENCLOSE_BA||
             (config->lanes[config->selected].operation>=HB_MO_REPEAT&&config->lanes[config->selected].operation<=HB_MO_SPEED&&config->host_capabilities<2)))parsed=0;
@@ -144,7 +144,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
-        for(int operation=0;operation<21;operation++){
+        for(int operation=0;operation<24;operation++){
             if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&!config->host_capabilities&&operation!=selected)continue;
             if(used<0||used>=length)return -1;
             used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",count++?",":"",MO_OPERATIONS[operation]);
@@ -156,7 +156,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_touch_mode\",\"name\":\"Touch Mode\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Hold\",\"%s\",\"Tap/Hold\"]}]",hb_mo_touch_options(config)[1]);
         if(used<0||used>=length)return -1;
         used--;
-        used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_auto_off\",\"name\":\"Auto Off\",\"short_name\":\"Auto Off\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Normal\",\"Chord Change\",\"Manual\"],\"default\":\"Normal\",\"readOnly\":%s}]",selected>=HB_MO_HARMONY&&selected<=HB_MO_ENCLOSE_BA?"false":"true");
+        used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_auto_off\",\"name\":\"Auto Off\",\"short_name\":\"Auto Off\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Normal\",\"Chord Change\",\"Manual\"],\"default\":\"Normal\",\"readOnly\":%s}]",((selected>=HB_MO_HARMONY&&selected<=HB_MO_ENCLOSE_BA)||selected>=HB_MO_SECONDARY_II)?"false":"true");
         if(used<0||used>=length)return -1;
         used--; /* Replace the closing array bracket with contextual metadata. */
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":100,\"step\":1,\"default\":0}]",selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_ECHO?0:-100);

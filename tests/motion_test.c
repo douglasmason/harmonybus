@@ -565,7 +565,7 @@ static void source_gesture_consumption(void){
     expect_param(instance,"approach_reset","Below > Target");
     for(int key=0;key<HB_CP_KEYS;key++)if(instance->player.keys[key].used){
         assert(instance->player.keys[key].notes[0]==62);
-        assert(instance->motion_player_events[key][HB_MOTION_LANES]==2);
+        assert(instance->motion_player_events[key][HB_MOTION_LANES]==(2|HB_MO_CHORD_APPROACH));
     }
     midi(instance,0,60);advance(instance,0,64);
     midi(instance,1,60);advance(instance,0,64);
