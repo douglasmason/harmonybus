@@ -1,8 +1,8 @@
-# Operation lanes (HarmonyBus 0.2.135 / Movy hbclean.50)
+# Operation lanes (HarmonyBus 0.2.194 / Movy hbclean.102)
 
 Each HarmonyBus instance has sixteen independent slots. The Operation,
 Timing / Trigger, and Conditions panels share one lane selector. Duplicate operations compose
-in lane order. Existing assignments in slots 1–4 are retained. Unassigned slots 5–12 start Off; slots 13–16 default to the four approaches below. These defaults are inactive until pressed. The sixteen-slot performance row requires hbclean.47 or newer; the Conditions editor uses hbclean.50 or newer.
+in lane order. Existing assignments in slots 1–4 are retained. Lanes 5 and 6 select Next Harmony once/persistently; unassigned slots 7–12 start Off. Slots 13–16 default to the four approaches below. These defaults are inactive until pressed. The sixteen-slot performance row requires hbclean.47 or newer; the Conditions editor uses hbclean.50 or newer.
 
 ## Signal path and recording
 
@@ -42,10 +42,10 @@ in MIDI FX 1 on the active track even while editing its synth or another panel:
 | Step | Action | Gesture |
 |---|---|---|
 | 1–12 | Assigned operation (Off unless configured or restored) | Hold |
-| 13 | Chromatic semitone below target | Hold |
-| 14 | Next scale tone above target | Hold |
-| 15 | Scale above → chromatic below → target | Press to arm |
-| 16 | Chromatic below → scale above → target | Press to arm |
+| 13 | Secondary VI | Tap to arm; hold momentarily |
+| 14 | Next scale tone above target | Tap to arm; hold momentarily |
+| 15 | Secondary V | Tap to arm; hold momentarily |
+| 16 | Chromatic semitone below target | Tap to arm; hold momentarily |
 
 Every button maps directly to its numbered slot. All sixteen assignments can be
 changed, including the last four. Approaches/enclosures are ordinary operations
@@ -273,3 +273,5 @@ placement. Movy's real Schwung controller test verifies both panels, their share
 cursor, the Conditions page, immediate dependent-value refresh, and inert knob-touch activation.
 
 Release workflows build the ARM packages and run native and UI gates. This release still needs the on-device check after installation. Earlier eight-button approach/enclosure gestures were confirmed on Move; the expanded assignment row and clip operations are new.
+
+For scale-aware chord families, ordered combinations and Auto Off behavior, see [Secondary cadences and linked approaches](timing-guide.md#secondary-cadences-and-linked-approaches). Untouched modern defaults adopt the new assignments on load. Explicit saved assignments remain intact.

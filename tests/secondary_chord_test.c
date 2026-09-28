@@ -44,7 +44,7 @@ static void automatic_approaches(void){
         Inst *instance=setup();instance->player.config.mode=1;instance->player.config.inversion=top?8:0;
         API.set_param(instance,"chromatic_quality","Auto Dim7 / Min7b5");assert(instance->player.config.chromatic_quality==6);
         int target=minor?69:60;
-        tap(instance,above?15:16);
+        tap(instance,above?14:16);
         unsigned expected=above?(minor?tones(target+2,3,6,10):tones(target+2,3,7,10)):tones(target-1,3,6,minor?9:10);
         assert(played(instance,target)==expected);release(instance,target);API.destroy_instance(instance);
     }
@@ -74,7 +74,7 @@ static void linked_sequences(void){
     for(int minor=0;minor<2;minor++)for(int mode=0;mode<3;mode++){
         Inst *instance=setup();instance->player.config.mode=mode;instance->player.config.chromatic_quality=6;
         /* E minor makes Scale Above Fmaj7 distinct from Secondary II F# halfdim. */
-        int target=minor?64:60,lanes[3]={3,upper?15:1,lower?16:2};
+        int target=minor?64:60,lanes[3]={3,upper?14:1,lower?16:2};
         int count=triple?3:2,steps[3];
         for(int index=0;index<count;index++){
             steps[index]=triple?permutations[order][index]:1+(index^order);

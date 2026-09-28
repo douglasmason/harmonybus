@@ -75,7 +75,7 @@ static void expiry(void){
     assert(hb_render_harmony(i).root_pc==0);position=4;hb_effective_write(g_bus.next_model[0].harmony);
     hb_next_touch_clear_expired(i);assert(i->motion.gesture_latched&(1u<<5));assert(hb_render_harmony(i).root_pc==2);
     API.set_param(i,"motion_gesture_6","Touch");API.set_param(i,"motion_gesture_6","Up,30");assert(!(i->motion.held&(1u<<5)));
-    hb_mo_defaults(&i->motion);i->motion.lanes[14].auto_off=1;i->motion.lanes[15].auto_off=2;
+    hb_mo_defaults(&i->motion);i->motion.lanes[12].operation=HB_MO_ENCLOSE_AB;i->motion.lanes[14].operation=HB_MO_ABOVE; /* explicit enclosure fixture */i->motion.lanes[14].auto_off=1;i->motion.lanes[15].auto_off=2;
     position=1.9;g_bus.observed_harmony=g_bus.next_model[0].harmony;
     API.set_param(i,"motion_gesture_15","Touch");API.set_param(i,"motion_gesture_16","Touch");
     API.set_param(i,"motion_gesture_15","Up,30");API.set_param(i,"motion_gesture_16","Up,30");
@@ -90,7 +90,7 @@ static void expiry(void){
 static void approach_policies(void){
     Inst *i=fixture();
     for(int mode=0;mode<3;mode++){
-        hb_mo_defaults(&i->motion);i->motion.lanes[14].auto_off=mode;i->motion.lanes[15].auto_off=mode;
+        hb_mo_defaults(&i->motion);i->motion.lanes[12].operation=HB_MO_ENCLOSE_AB;i->motion.lanes[14].operation=HB_MO_ABOVE; /* explicit enclosure fixture */i->motion.lanes[14].auto_off=mode;i->motion.lanes[15].auto_off=mode;
         API.set_param(i,"motion_gesture_15","Touch");API.set_param(i,"motion_gesture_15","Up,20");
         for(int n=0;n<3;n++){hb_mo_input(&i->motion,60,n,0.01);assert(i->motion.events[16]==(unsigned)(n==0||mode?2:0));}
         API.set_param(i,"performance_reset","1");
@@ -98,12 +98,12 @@ static void approach_policies(void){
         API.set_param(i,"motion_gesture_16","Up,20");API.set_param(i,"motion_gesture_15","Up,30");
         for(int n=0;n<6;n++){hb_mo_input(&i->motion,60,n,0.01);int step=n%3;int expected=n>=3&&!mode?0:step==0?2:step==1?1:0;assert(i->motion.events[16]==(unsigned)expected);}
         if(mode){hb_mo_end_lanes(&i->motion,(1u<<14)|(1u<<15));assert(!i->motion.enclosure);}
-        hb_mo_defaults(&i->motion);i->motion.lanes[12].auto_off=mode;
+        hb_mo_defaults(&i->motion);i->motion.lanes[12].operation=HB_MO_ENCLOSE_AB;i->motion.lanes[14].operation=HB_MO_ABOVE; /* explicit enclosure fixture */i->motion.lanes[12].auto_off=mode;
         API.set_param(i,"motion_gesture_13","Touch");API.set_param(i,"motion_gesture_13","Up,20");
         for(int n=0;n<6;n++){hb_mo_input(&i->motion,60,n,0.01);int step=n%3;int expected=n>=3&&!mode?0:step==0?2:step==1?1:0;assert(i->motion.events[16]==(unsigned)expected);}
     }
     /* A mixed enclosure finishes once, then retains only its persistent side. */
-    hb_mo_defaults(&i->motion);i->motion.lanes[14].auto_off=2;
+    hb_mo_defaults(&i->motion);i->motion.lanes[12].operation=HB_MO_ENCLOSE_AB;i->motion.lanes[14].operation=HB_MO_ABOVE; /* explicit enclosure fixture */i->motion.lanes[14].auto_off=2;
     API.set_param(i,"motion_gesture_15","Touch");API.set_param(i,"motion_gesture_15","Up,20");
     API.set_param(i,"motion_gesture_16","Touch");API.set_param(i,"motion_gesture_16","Up,20");
     for(int n=0;n<5;n++){hb_mo_input(&i->motion,60,n,0.01);assert(i->motion.events[16]==(unsigned)(n==1?1:n==2?0:2));}

@@ -1,4 +1,4 @@
-> 0.2.193: Secondary VI / II / V and Auto Dim7 / Min7b5 now use the full effective follower scale, including melodic minor and its modes. Ordered cadences preserve Auto Chord mode.
+> 0.2.194: Default lanes 13–16 are Secondary VI, Scale Above, Secondary V and Chrom Below. Follow Touch knobs 5–8 retain those lane assignments; explicit saved operations are preserved.
 
 > 0.2.190: Chromatic approach pads generate the selected chromatic chord family on their rendered root, even when that root is diatonic. Fresh instances default to Dim / Dim7; saved settings remain intact.
 

@@ -5,7 +5,8 @@ int main(void){
     Inst *i=fixture();char text[8192],saved[8192];
     Inst *fresh=API.create_instance("",0);assert(fresh->chromatic_map==1);
     for(int k=0;k<8;k++)assert(fresh->touch_lanes[k]==(k<4?k+1:k+9));
-    assert(fresh->motion.lanes[14].operation==HB_MO_ABOVE&&fresh->motion.lanes[15].operation==HB_MO_BELOW);
+    assert(fresh->motion.lanes[12].operation==HB_MO_SECONDARY_VI&&fresh->motion.lanes[13].operation==HB_MO_ABOVE);
+    assert(fresh->motion.lanes[14].operation==HB_MO_SECONDARY_V&&fresh->motion.lanes[15].operation==HB_MO_BELOW);
     for(int mode=0;mode<8;mode++)for(int scale=1;scale<=15;scale++)for(int root=0;root<12;root++){
         i->travel_map=mode;i->chromatic_map=1;hb_set_shared_follower_scale(scale);
         hb_harmony_t h=chord(root,root&1,0);hb_effective_write(h);
@@ -27,15 +28,15 @@ int main(void){
     char *marker=strstr(saved,";ct1,");assert(marker);*marker=0;API.set_param(i,"state",saved);assert(!i->chromatic_map&&i->touch_lanes[0]==2);
     for(int reverse=0;reverse<2;reverse++){
         hb_mo_defaults(&i->motion);
-        const char *first=reverse?"motion_gesture_16":"motion_gesture_15",*second=reverse?"motion_gesture_15":"motion_gesture_16";
-        i->motion.lanes[14].touch_mode=0;i->motion.lanes[15].touch_mode=1;
+        const char *first=reverse?"motion_gesture_16":"motion_gesture_14",*second=reverse?"motion_gesture_14":"motion_gesture_16";
+        i->motion.lanes[13].touch_mode=0;i->motion.lanes[15].touch_mode=1;
         API.set_param(i,first,"Touch");API.set_param(i,second,"Touch");
         API.set_param(i,second,"Up,60");API.set_param(i,first,"Up,100");
         assert(i->motion.enclosure==(reverse?2:1)); /* down order, not release order */
         for(int n=0;n<3;n++){hb_mo_input(&i->motion,60,n,0.01);int expected=n==2?0:((n==0)!=reverse?2:1);assert(i->motion.events[16]==(unsigned)expected);}
         API.set_param(i,first,"Touch");API.set_param(i,first,"Up,500");assert(!i->motion.gesture_down&&!i->motion.enclosure);
         API.set_param(i,second,"Touch");API.set_param(i,second,"Cancel");assert(!i->motion.enclosure);
-        assert(i->motion.lanes[14].touch_mode==0&&i->motion.lanes[15].touch_mode==1);
+        assert(i->motion.lanes[13].touch_mode==0&&i->motion.lanes[15].touch_mode==1);
     }
     puts("Follow Touch: defaults, independent chromatic travel, save/legacy restore, touch order and forced tap/hold pass");
 }

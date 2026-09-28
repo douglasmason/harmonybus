@@ -50,7 +50,7 @@ static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*con
     config->enclosure_lane=-1;
     for(int lane=4;lane<=5;lane++){config->lanes[lane].operation=HB_MO_HARMONY;config->lanes[lane].amount=100;config->lanes[lane].enabled=0;}
     config->lanes[4].auto_off=1;config->lanes[5].auto_off=2;
-    for(int index=12;index<16;index++){config->lanes[index].operation=index==12?HB_MO_ENCLOSE_AB:index==13?HB_MO_ENCLOSE_BA:index==14?HB_MO_ABOVE:HB_MO_BELOW;config->lanes[index].enabled=0;config->lanes[index].amount=1;}
+    for(int index=12;index<16;index++){config->lanes[index].operation=index==12?HB_MO_SECONDARY_VI:index==13?HB_MO_ABOVE:index==14?HB_MO_SECONDARY_V:HB_MO_BELOW;config->lanes[index].enabled=0;config->lanes[index].amount=1;}
 }
 static void hb_mo_route_init(hb_motion_route *route){memset(route,0,sizeof(*route));for(int channel=0;channel<16;channel++)route->base_pan[channel]=64;}
 /* ra1 event words store an operation outcome, never an output MIDI pitch.
