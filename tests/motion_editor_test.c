@@ -5,7 +5,7 @@ int main(void){
     Inst *instance=fixture();API.set_param(instance,"motion_host","movy-clip-v2");
     char snapshot[32768],value[128],expected[256],small[24];
     const char *keys[]={"motion_lane","motion_operation","motion_amount","motion_offset","motion_every","motion_from","motion_through","motion_condition_range","motion_condition_status"};
-    for(int operation=0;operation<=HB_MO_BACKDOOR_V;operation++){
+    for(int operation=0;operation<=HB_MO_CADENCE_TRITONE;operation++){
         API.set_param(instance,"motion_operation",MO_OPERATIONS[operation]);
         API.set_param(instance,"motion_every","8");API.set_param(instance,"motion_from","3");
         int count=API.get_param(instance,"motion_editor",snapshot,sizeof(snapshot));

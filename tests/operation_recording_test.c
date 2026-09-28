@@ -18,7 +18,7 @@ int main(void){
     Inst *instance=motion_fixture();char saved[2048];
     API.set_param(instance,"motion_lane","1");API.set_param(instance,"motion_operation","Octave");API.set_param(instance,"motion_amount","1");
     assert(send_note(instance,1,60)==1&&output[0][1]==72);send_note(instance,0,60);
-    API.get_param(instance,"hb_record_action",saved,sizeof(saved));assert(!strncmp(saved,"ra1,60,",7));
+    API.get_param(instance,"hb_record_action",saved,sizeof(saved));assert(!strncmp(saved,"ra2,60,",7));
     API.set_param(instance,"motion_operation","Transpose");API.set_param(instance,"motion_amount","5");
     recorded_note(instance,60,saved,72); /* captured operation wins over reassignment */
     API.set_param(instance,"motion_enabled","Off");

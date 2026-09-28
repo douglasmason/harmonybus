@@ -1,3 +1,5 @@
+> 0.2.197 / Movy hbclean.105: Pitch Play and Pitch Cadences have dedicated named controls; Ops 1–8 and 9–16 are fixed to the sixteen Step Seq slots. Added three-press ii–V–target cadences, Chrom Above (tritone-sub dominant in chord mode), and Tritone II. Install both modules for named-control recording.
+
 > 0.2.196 / Movy hbclean.104: Backdoor II/V operations, relative cadences over chromatic approach pads, destination-relative dominant colors, Whole Tone/Augmented input scales, and expanded altered/extended chord recognition. Existing lane defaults are unchanged.
 
 > 0.2.195: Tap to arm, hold momentarily, double-tap for persistence on operation knobs and steps. Persistent activation pulses smoothly; armed/held lanes stay solid. One Next Harmony control replaces Next Once / Next Latch; lane 6 is available.

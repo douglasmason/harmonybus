@@ -9,7 +9,8 @@
 enum {
     HB_APPROACH_CHROM_BELOW = 0,
     HB_APPROACH_OFF = 1,
-    HB_APPROACH_SCALE_ABOVE = 2
+    HB_APPROACH_SCALE_ABOVE = 2,
+    HB_APPROACH_CHROM_ABOVE = 3 /* operation-only; legacy direct selector is unchanged */
 };
 
 static inline int hb_approach_normalize(int value) {

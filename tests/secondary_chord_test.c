@@ -10,7 +10,7 @@ static unsigned played(Inst *instance,int input){
 static void release(Inst *instance,int input){midi(instance,0,input);advance(instance,80,64);assert(!instance->player.sounding_count);}
 static unsigned tones(int root,int third,int fifth,int seventh){return (1u<<mod12(root))|(1u<<mod12(root+third))|(1u<<mod12(root+fifth))|(1u<<mod12(root+seventh));}
 static Inst *setup(void){
-    Inst *instance=fixture();instance->travel_map=7;instance->content_map=1;
+    Inst *instance=fixture();instance->motion.lanes[4].operation=HB_MO_HARMONY;instance->motion.lanes[4].amount=100;instance->motion.lanes[4].enabled=0;instance->motion.lanes[4].auto_off=1;instance->motion.lanes[13].operation=HB_MO_ABOVE;instance->motion.lanes[13].enabled=0;instance->motion.lanes[15].operation=HB_MO_BELOW;instance->motion.lanes[15].enabled=0;instance->travel_map=7;instance->content_map=1;
     API.set_param(instance,"chord_form","Seventh");
     API.set_param(instance,"motion_lane","1");API.set_param(instance,"motion_operation","Secondary II");
     API.set_param(instance,"motion_lane","2");API.set_param(instance,"motion_operation","Secondary V");
@@ -110,7 +110,7 @@ static void source_sequence_lifecycle(void){
     for(int lane=0;lane<HB_MOTION_LANES;lane++)used+=snprintf(message+used,sizeof(message)-(size_t)used,",0");
     snprintf(message+used,sizeof(message)-(size_t)used,",68");
     API.set_param(instance,"hb_movy_actions",message);
-    assert(instance->recorded_action_valid[60]&&instance->recorded_actions[60][16]==68);
+    assert(instance->recorded_action_valid[60]&&instance->recorded_actions[60][HB_MOTION_LANES]==68);
     API.destroy_instance(instance);
 }
 
@@ -126,8 +126,8 @@ static void pending_policies(void){
     hb_mo_end_lanes(&instance->motion,7);
     assert(!instance->motion.enclosure&&!hb_mo_pending_lanes(&instance->motion));
     API.set_param(instance,"motion_gesture_3","Touch");
-    unsigned long long captured[17];hb_mo_capture(&instance->motion,0,0,60,captured);
-    assert(captured[16]==64);
+    unsigned long long captured[HB_MOTION_LANES+1];hb_mo_capture(&instance->motion,0,0,60,captured);
+    assert(captured[HB_MOTION_LANES]==64);
     API.set_param(instance,"motion_gesture_3","Up,500");
     assert(!instance->motion.enclosure);
     API.destroy_instance(instance);

@@ -16,7 +16,8 @@ static double motion_test_beat(void){return transport==MOVE_CLOCK_STATUS_STOPPED
 static Inst *motion_fixture(void){
     host.get_beat_position=motion_test_beat;
     Inst *instance=fixture();API.set_param(instance,"boundary_buffer_ms","0 ms");
-    for(int k=12;k<16;k++)instance->motion.lanes[k].operation=HB_MO_BELOW+k-12; /* Legacy suite assignments. */
+    instance->motion.lanes[4].operation=HB_MO_HARMONY;instance->motion.lanes[4].amount=100;instance->motion.lanes[4].enabled=0;instance->motion.lanes[4].auto_off=1;
+    for(int k=12;k<16;k++){instance->motion.lanes[k].operation=HB_MO_BELOW+k-12;instance->motion.lanes[k].enabled=0;} /* Legacy suite assignments. */
     return instance;
 }
 static void controls_and_state(void){
@@ -47,7 +48,7 @@ static void controls_and_state(void){
     }
     Inst *other=API.create_instance("",NULL);expect_param(other,"motion_operation","Velocity");
     g_motion_settings_ready=g_motion_settings_restored=0;API.set_param(instance,"state",legacy);assert(!hb_mo_enabled(&instance->motion));
-    expect_param(instance,"motion_lane","1");expect_param(instance,"motion_bypass","Off");
+    expect_param(instance,"motion_lane","Step Seq 1: Off");expect_param(instance,"motion_bypass","Off");
     API.destroy_instance(other);API.destroy_instance(instance);instance=API.create_instance("",NULL);
     API.set_param(instance,"state",saved);API.get_param(instance,"state",after,sizeof(after));assert(!strcmp(saved,after));
     char small[16];assert(API.get_param(instance,"state",small,sizeof(small))>=16);assert(small[15]==0);

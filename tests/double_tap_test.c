@@ -38,7 +38,7 @@ static void continuous_once(void){
     API.destroy_instance(instance);
 }
 static void chord_expiry_and_lights(void){
-    Inst *instance=fixture();
+    Inst *instance=setup();
     modern_tap(instance,5,1000);assert(instance->next_touch_mask&(1u<<4));
     modern_tap(instance,5,1100);assert(instance->motion.gesture_persistent&(1u<<4));assert(!instance->next_touch_mask);
     uint8_t notes[3]={62,65,69};hb_commit_observed_harmony(hb_infer_harmony(notes,3));hb_next_touch_clear_expired(instance);

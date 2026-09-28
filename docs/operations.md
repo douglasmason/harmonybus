@@ -304,3 +304,45 @@ Release workflows build the ARM packages and run native and UI gates. This relea
 For scale-aware chord families, ordered combinations and Auto Off behavior, see [Secondary cadences and linked approaches](timing-guide.md#secondary-cadences-and-linked-approaches). Untouched modern defaults adopt the new assignments on load. Explicit saved assignments remain intact.
 
 Operation-lane controls now share single-tap automatic completion, momentary hold and double-tap persistent activation. Persistent lanes pulse smoothly; armed and held lanes stay solid, then turn off on deactivation. See [operation gestures and activation lights](timing-guide.md#operation-gestures-and-activation-lights). The separate Next Latch control is removed; lane 5 supplies both Next Harmony behaviors and lane 6 is available.
+
+
+## Named performance panels (0.2.197)
+
+The sixteen **Step Seq** slots always correspond one-to-one to physical steps
+1–16 and the knobs on **Ops 1–8** / **Ops 9–16**. Their mapping is fixed. The
+operation assigned to each slot remains editable; its name labels the knob.
+Turning these knobs adjusts the operation Amount (or Form), never its slot.
+
+Named controls have independent settings and do not consume Step Seq slots.
+The Operation, Timing / Trigger and Conditions editors select them as
+**Pitch Play N: name**, **Chord Play N: name**, or **Harmony Play N: name**.
+Their operation identities are fixed; the other operation settings remain editable.
+
+| Knob | Pitch Play | Pitch Cadences |
+| --- | --- | --- |
+| 1 | Chrom Below | Backdoor II |
+| 2 | Scale Above | Backdoor V |
+| 3 | Chrom Above | Tritone II |
+| 4 | Secondary II | II-V-Target |
+| 5 | Secondary V | Backdoor II-V-Target |
+| 6 | Secondary VI | Tritone II-V-Target |
+| 7 | Chord Form (Chord Play 1) | Enclose Above Below |
+| 8 | Auto Chord Repeat (Chord Play 2) | Enclose Below Above |
+
+**Foll Map knob 6** is fixed to **Next Harmony** (Harmony Play 1).
+Existing tap/hold/double-tap and solid/pulsing LED semantics apply throughout.
+The full cadence operations consume three source gestures, not three generated
+chord voices or arpeggiator steps. A chord played as one gesture advances once.
+
+Relative to C, the cadence families are Dm7–G7–C, Fm7–Bb7–C, and
+Abm7–Db7–C. Chrom Above moves a melody by one semitone; with chords enabled it
+constructs a dominant on bII. Tritone II constructs the preceding minor chord
+on bVI. These offsets are relative to the rendered destination, including
+chromatic approach destinations. The tritone dominant uses Lydian-dominant
+extensions and its ii uses Dorian; both retain their chord quality.
+
+Fresh states have empty Step Seq slots. Existing saved slots are retained,
+including their former defaults, and named controls are added separately.
+New action recordings carry all named-control outcomes; old 16-slot action
+recordings remain readable. Updating both HB and Movy is required for the
+expanded recording format.
