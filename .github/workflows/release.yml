@@ -75,7 +75,7 @@ jobs:
           assert 'follower_mod' not in levels
           assert levels['follower_source']['knobs']==[
               'content_map','travel_map','split_map','retrigger_held',
-              'chromatic_map','follow_touch_9','motion_hold_6'
+              'chromatic_map','follow_touch_9'
           ]
           assert [item['level'] for item in levels['root']['params'] if 'level' in item][-1]=='follower_play_tools'
           assert levels['next_harm']['name']=='Next Harm'
