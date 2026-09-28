@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.187"
+#define HB_VERSION "0.2.188"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4875,6 +4875,26 @@ static unsigned hb_pad_target_inputs(Inst *preview,const Inst *instance,hb_harmo
 }
 
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+if(!strcmp(key,"motion_editor")){
+    /* One control-thread snapshot replaces a page of synchronous IPC reads. */
+    static const char *keys[]={"motion_lane","motion_operation","motion_pattern","motion_amount","motion_offset","motion_enabled","motion_grid","motion_cycle","motion_phase","motion_probability","motion_group","motion_evolve","motion_advance","motion_every","motion_from","motion_through","motion_auto_off","motion_touch_mode","motion_condition_range","motion_condition_status","motion_overview","motion_bypass","motion_punch","touch_hold_ms"};
+    int used=snprintf(buffer,(size_t)length,"{\"params\":");
+    if(used>=length)return -1;
+    int count=hb_mo_get(&instance->motion,"chain_params",buffer+used,length-used);
+    if(count<0||count>=length-used)return -1;used+=count;
+    count=snprintf(buffer+used,(size_t)(length-used),",\"values\":{");
+    if(count>=length-used)return -1;used+=count;
+    for(unsigned index=0;index<sizeof(keys)/sizeof(keys[0]);index++){
+        char result[128];count=get_param(value,keys[index],result,sizeof(result));
+        if(count<0||count>=(int)sizeof(result))return -1;
+        /* These enum/status values are generated locally, never arbitrary text. */
+        count=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\":\"%s\"",index?",":"",keys[index],result);
+        if(count>=length-used)return -1;used+=count;
+    }
+    count=snprintf(buffer+used,(size_t)(length-used),"}}");
+    return count>=length-used?-1:used+count;
+}
+
 /* Optional visible-pad list: 32 hex MIDI notes (ff means a layout gap).
    Preview only visible notes, in the same snapshot as their harmony colors. */
 const char *pad_request=0;int pad_notes[32],pad_targets[32],pad_count=0;

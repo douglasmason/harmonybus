@@ -1,3 +1,5 @@
+> 0.2.188: Bulk operation-editor snapshots remove repeated synchronous page reads in Movy hbclean.96, preserving old-lane pending edits and coherent dependent menus.
+
 > 0.2.187: Auto Chord Repeat operation temporarily enables repeated chord playback using existing panel settings; tap latches, hold is momentary. Turning it off restores the saved mode. Tonal/parallel-harmony tests and guide updates are included.
 
 > 0.2.186: Piano approach gaps report their actual scale/current/next harmony membership for Movy hbclean.94 coloring. Remove redundant Direct travel from the selector; saved Direct sounds are preserved as None.
