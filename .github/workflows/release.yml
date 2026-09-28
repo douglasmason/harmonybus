@@ -299,12 +299,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add shared tap, hold and double-tap operation gestures with activation LEDs. Persistent latches pulse smoothly; armed and held lanes stay solid. Consolidate Next Harmony into one control and keep VI / Scale Above / V / Chrom Below defaults."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add Chrom Above and Tritone II substitutions and three-press II-V-target cadences. Separate named Pitch Play, Chord Play and Harmony Play controls from sixteen fixed Step Seq operation slots, with readable names and editable settings. Preserve existing presets and recorded operations."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add shared tap, hold and double-tap operation gestures with activation LEDs. Persistent latches pulse smoothly; armed and held lanes stay solid. Consolidate Next Harmony into one control and keep VI / Scale Above / V / Chrom Below defaults." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add Chrom Above and Tritone II substitutions and three-press II-V-target cadences. Separate named Pitch Play, Chord Play and Harmony Play controls from sixteen fixed Step Seq operation slots, with readable names and editable settings. Preserve existing presets and recorded operations." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

@@ -1,4 +1,4 @@
-# Operation lanes (HarmonyBus 0.2.196 / Movy hbclean.104)
+# Operation lanes (HarmonyBus 0.2.197 / Movy hbclean.105)
 
 Each HarmonyBus instance has sixteen independent slots. The Operation,
 Timing / Trigger, and Conditions panels share one lane selector. Duplicate operations compose
