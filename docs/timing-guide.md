@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.192 / Movy 0.34.1-hbclean.100.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. Before and Late provide shifted harmony boundaries for harmonic capture. Immediate and After select harmony from the actual chord timeline and disable harmonic precapture, so the selected elapsed-time threshold is not brought forward by the buffer. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.193 / Movy 0.34.1-hbclean.101.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. Before and Late provide shifted harmony boundaries for harmonic capture. Immediate and After select harmony from the actual chord timeline and disable harmonic precapture, so the selected elapsed-time threshold is not brought forward by the buffer. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -594,17 +594,28 @@ Chromatic Below operations use the same family selection for new chord gestures,
 
 Assign **Secondary II**, **Secondary V** or **Secondary VI** to any existing operation lane. Bind the lane to an existing Follow Touch knob if desired. These operations never enable Auto Chord: with Chord Mode Off they produce single notes; with Auto Chord enabled they use the current Form, Inversion and Voicing settings. Existing lane and knob assignments remain unchanged.
 
-The target is the note after the effective follower mapping, including the selected current/next harmony. A target on the harmony root uses that chord's major/minor third; other targets use the rendered parent scale. The seventh-form behavior is:
+The target is the note after the effective follower mapping, including the selected current/next harmony. Cadence construction uses the full effective follower scale, including borrowed/dominant scale adjustments and actual harmony tones. It does not reduce the collection to major versus minor. The seventh-form behavior is:
 
-| Operation | Single-note movement | Major target | Minor target |
-| --- | --- | --- | --- |
-| Secondary VI | Minor third below major target; major third below minor target | vi min7 | ♭VI maj7 |
-| Secondary II | Whole step above target | ii min7 | ii min7♭5 |
-| Secondary V | Perfect fourth below target | V7 | V7 |
-| Scale Above | Next parent-scale degree | Parent-scale chord | Parent-scale chord |
-| Chromatic Below | Semitone below target | Selected Chromatic Keys family | Selected Chromatic Keys family |
+| Operation | Root movement | Chord construction |
+| --- | --- | --- |
+| Secondary VI | Actual sixth degree above target, voiced in the octave below | Stack degrees of the effective scale |
+| Secondary II | Whole step above target | Stack effective-scale tones above the functional root |
+| Secondary V | Perfect fourth below target | Dominant third/fifth/seventh; effective-scale extensions |
+| Scale Above | Next parent-scale degree | Parent-scale chord |
+| Chromatic Below | Semitone below target | Selected Chromatic Keys family |
 
-**Chromatic Keys → Auto Dim7 / Min7b5** chooses min7♭5 below a major target and dim7 below a minor target. These are the rootless V9 and V7♭9 collections respectively. Triad form gives a diminished triad in either case. This is an additional choice on the existing Chords panel; the default remains Dim / Dim7 and saved selections are preserved. Chromatic approach pads and Chromatic Below use the same rule, including approaches whose pitch is also a scale tone.
+Secondary II retains a functional whole-step root even when the parent scale's next degree is a semitone away. Its root may therefore be chromatic; that does not turn it into a Chromatic Keys-family chord. Secondary V deliberately retains dominant function even in a mode whose diatonic fifth chord is minor. Other chord tones and extensions follow the effective collection.
+
+**Chromatic Keys → Auto Dim7 / Min7b5** uses the target collection's sixth: a natural sixth selects min7♭5 and a flat sixth selects dim7. These are the rootless V9 and V7♭9 collections respectively. Thus melodic minor and Dorian select min7♭5; natural and harmonic minor select dim7. Triad form gives a diminished triad in either case. This is an additional choice on the existing Chords panel; the default remains Dim / Dim7 and saved selections are preserved. Chromatic approach pads and Chromatic Below use the same rule, including approaches whose pitch is also a scale tone.
+
+| Target collection | VI | II | V | Target |
+| --- | --- | --- | --- | --- |
+| C major | Am7 | Dm7 | G7 | Cmaj7 |
+| C natural minor | A♭maj7 | Dmin7♭5 | G7 | Cm7 |
+| C harmonic minor | A♭maj7 | Dmin7♭5 | G7 | Cm(maj7) |
+| C melodic minor | Amin7♭5 | Dm7 | G7 | Cm(maj7) |
+| C Dorian | Amin7♭5 | Dm7 | G7 | Cm7 |
+
 
 Scale Above and Secondary II remain distinct. For E minor as a target in C major, Scale Above gives Fmaj7; Secondary II gives F♯min7♭5. Secondary V gives B7 and Secondary VI gives Cmaj7. With Auto Chord off those operations produce F, F♯, B and C respectively.
 

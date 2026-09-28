@@ -132,4 +132,47 @@ static void pending_policies(void){
     assert(!instance->motion.enclosure);
     API.destroy_instance(instance);
 }
-int main(void){pending_policies();linked_sequences();source_sequence_lifecycle();cadence_orders();automatic_approaches();held_and_recorded();puts("secondary chords: major/minor cadences, both orders, single-note mode, top note, pitch approaches, hold, recording and persistence pass");return 0;}
+
+static void parent_scale_cadences(void){
+    const char *scales[]={"Natural Minor","Harmonic Minor","Melodic Minor","Dorian"};
+    const int sixths[]={8,8,9,9},sevenths[]={10,11,11,10};
+    for(int family=0;family<4;family++)for(int mode=0;mode<3;mode++)for(int transpose=0;transpose<=2;transpose+=2){
+        Inst *instance=setup();API.set_param(instance,"follower_scale",scales[family]);
+        uint8_t notes[4]={60,63,67,(uint8_t)(60+sevenths[family])};
+        hb_commit_observed_harmony(hb_infer_harmony(notes,4));
+        hb_set_master_transpose(transpose);instance->player.config.mode=mode;instance->player.config.chromatic_quality=6;
+        int target=60+transpose;
+        const unsigned expected[]={
+            (1u<<mod12(target+sixths[family]))|(1u<<mod12(target))|(1u<<mod12(target+3))|(1u<<mod12(target+7)),
+            (1u<<mod12(target+2))|(1u<<mod12(target+5))|(1u<<mod12(target+sixths[family]))|(1u<<mod12(target)),
+            tones(target-5,4,7,10),
+            tones(target,3,7,sevenths[family])
+        };
+        tap(instance,3);tap(instance,1);tap(instance,2);
+        for(int step=0;step<4;step++){
+            unsigned wanted=mode?expected[step]:1u<<mod12(target+(step==0?sixths[family]-12:step==1?2:step==2?-5:0));
+            unsigned actual=played(instance,60);
+            if(actual!=wanted)fprintf(stderr,"parent %s mode%d transpose%d step%d got%x expected%x\n",scales[family],mode,transpose,step,actual,wanted);
+            assert(actual==wanted);release(instance,60);
+        }
+        tap(instance,16);
+        assert(played(instance,60)==(mode?tones(target-1,3,6,sixths[family]==9?10:9):1u<<mod12(target-1)));
+        release(instance,60);API.destroy_instance(instance);
+    }
+}
+
+static void selected_parent_context(void){
+    Inst *instance=setup();instance->player.config.mode=1;
+    API.set_param(instance,"follower_scale","Melodic Minor");
+    uint8_t major[4]={60,64,67,71},minor[4]={60,63,67,71};
+    position=.25;g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=hb_infer_harmony(major,4)};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=2,.harmony=hb_infer_harmony(minor,4)};
+    g_bus.observed_harmony=g_bus.next_model[0].harmony;hb_effective_write(g_bus.observed_harmony);
+    tap(instance,3);assert(played(instance,60)==tones(57,3,7,10));release(instance,60);
+    API.set_param(instance,"motion_gesture_5","Touch");
+    tap(instance,3);assert(played(instance,60)==tones(57,3,6,10));release(instance,60);
+    API.set_param(instance,"motion_gesture_5","Up,500");
+    API.destroy_instance(instance);
+}
+int main(void){selected_parent_context();parent_scale_cadences();pending_policies();linked_sequences();source_sequence_lifecycle();cadence_orders();automatic_approaches();held_and_recorded();puts("secondary chords: major/minor cadences, both orders, single-note mode, top note, pitch approaches, hold, recording and persistence pass");return 0;}

@@ -1,4 +1,4 @@
-> 0.2.192: Secondary VI / II / V, ordered cross-linked cadences and target-aware Auto Dim7 / Min7b5. Operations leave Auto Chord mode unchanged.
+> 0.2.193: Secondary VI / II / V and Auto Dim7 / Min7b5 now use the full effective follower scale, including melodic minor and its modes. Ordered cadences preserve Auto Chord mode.
 
 > 0.2.190: Chromatic approach pads generate the selected chromatic chord family on their rendered root, even when that root is diatonic. Fresh instances default to Dim / Dim7; saved settings remain intact.
 

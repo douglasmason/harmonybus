@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.192"
+#define HB_VERSION "0.2.193"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2334,14 +2334,19 @@ static int hb_map_follower_note_unoperated(Inst *instance,int source_note){
     while(rendered>127)rendered-=12;
     return rendered;
 }
+static unsigned hb_approach_scale(Inst *instance,hb_harmony_t harmony){
+    if(harmony.valid)return hb_follower_scale_target(instance,harmony).pitch_mask;
+    int root=0;hb_resolve_follower_reference_root(instance,&root);
+    return hb_transpose_mask(hb_follower_input_scale(instance,root),g_bus.global_transpose);
+}
 static int hb_map_follower_note_now(Inst *instance,int source_note){
     int rendered=hb_map_follower_note_unoperated(instance,source_note);
     if(!hb_cp_mode(&instance->player)){
         int secondary=hb_secondary_at(instance,source_note);
         hb_harmony_t harmony=hb_render_harmony(instance);
-        int minor=secondary==4?hb_cp_target_minor(rendered,hb_follower_scale_target(instance,harmony).pitch_mask,
-            harmony.valid?harmony.root_pc:-1,harmony.valid?hb_harmony_chord_mask(harmony):0):0;
-        rendered+=secondary==1?2:secondary==2?-5:secondary==4?(minor?-4:-3):0;
+        unsigned parent=hb_approach_scale(instance,harmony);
+        rendered+=secondary==1?2:secondary==2?-5:secondary==4?
+            hb_nth_scale_interval_from_root((uint16_t)parent,mod12(rendered),5)-12:0;
         while(rendered<0)rendered+=12;while(rendered>127)rendered-=12;
     }
     return rendered;
@@ -2449,9 +2454,8 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
           source_note+instance->movy_pad_shift[source_note]<128)||
          (hb_chromatic_travel(instance)&&hb_chromatic_approach_target(instance,source_note,harmony)>=0));
     int target_note=instance->role==1?hb_map_follower_note_unoperated(instance,source_note):source_note+g_bus.global_transpose;
-    int target_minor=hb_cp_target_minor(target_note,
-        harmony.valid?hb_follower_scale_target(instance,harmony).pitch_mask:scale,
-        harmony.valid?harmony.root_pc:-1,harmony.valid?hb_harmony_chord_mask(harmony):0);
+    unsigned target_scale=harmony.valid?hb_follower_scale_target(instance,harmony).pitch_mask:
+        hb_transpose_mask((uint16_t)scale,g_bus.global_transpose);
     int top_note=config.inversion==8&&chord_active;
     int melody=target_note,modified_note=source_note;
     int chord_modifier=chord_active?(operation_modifier?operation_modifier:
@@ -2461,17 +2465,18 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         int root_note=target_note;
         config.mode=1;
         if(secondary){
-            root_note+=secondary==1?2:secondary==2?-5:secondary==4?(target_minor?-4:-3):0;
-            config.quality=secondary==1?(target_minor?8:7):secondary==2?6:secondary==4?(target_minor?5:7):0;
+            root_note+=secondary==1?2:secondary==2?-5:secondary==4?
+                hb_nth_scale_interval_from_root((uint16_t)target_scale,mod12(target_note),5)-12:0;
+            /* II/VI/target stack the actual parent collection. V retains its
+               dominant function while taking extensions from that collection. */
+            config.quality=secondary==2?6:0;
         }else if(chord_modifier>0){
             root_note=hb_apply_approach(instance,target_note,HB_APPROACH_SCALE_ABOVE);config.quality=0;
         }else{
             if(chord_modifier<0)root_note=root_note>0?root_note-1:0;
             int resolution=chord_modifier<0?target_note:root_note+1;
-            int minor=hb_cp_target_minor(resolution,
-                harmony.valid?hb_follower_scale_target(instance,harmony).pitch_mask:scale,
-                harmony.valid?harmony.root_pc:-1,harmony.valid?hb_harmony_chord_mask(harmony):0);
-            config.quality=config.chromatic_quality==6?(minor?9:8):hb_cp_chromatic_quality(config.chromatic_quality);
+            config.quality=config.chromatic_quality==6?hb_cp_auto_leading_quality(resolution,target_scale):
+                hb_cp_chromatic_quality(config.chromatic_quality);
         }
         while(root_note<0)root_note+=12;while(root_note>127)root_note-=12;
         melody=root_note;modified_note=root_note-g_bus.global_transpose;
@@ -2482,6 +2487,10 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         unsigned parent=hb_follower_scale_target(instance,harmony).pitch_mask;scale=0;
         for(int pitch=0;pitch<12;pitch++)if(parent&(1u<<pitch))scale|=1u<<mod12(pitch-g_bus.global_transpose);
     }
+    /* A functional II can introduce a chromatic root (F# into E minor in
+       C major). Keep its approach identity; do not classify it as a raw
+       chromatic key and replace its scale-derived voices with that family. */
+    if(approach_chord&&secondary)scale|=1u<<mod12(modified_note);
     int scale_mode=config.mode==1;
     if(!scale_mode&&g_bus.global_transpose){
         unsigned shifted=0;
@@ -2579,9 +2588,9 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
     hb_harmony_t harmony=hb_render_harmony(instance);
     if(instance->role==0&&!hb_cp_mode(&instance->player)){
         int secondary=hb_secondary_at(instance,message[1]);
-        int minor=secondary==4?hb_cp_target_minor(*pitch,hb_follower_scale_target(instance,harmony).pitch_mask,
-            harmony.valid?harmony.root_pc:-1,harmony.valid?hb_harmony_chord_mask(harmony):0):0;
-        *pitch+=secondary==1?2:secondary==2?-5:secondary==4?(minor?-4:-3):0;
+        unsigned parent=hb_approach_scale(instance,harmony);
+        *pitch+=secondary==1?2:secondary==2?-5:secondary==4?
+            hb_nth_scale_interval_from_root((uint16_t)parent,mod12(*pitch),5)-12:0;
         while(*pitch<0)*pitch+=12;while(*pitch>127)*pitch-=12;
     }
     for(int index=0;index<HB_MOTION_LANES;index++){
