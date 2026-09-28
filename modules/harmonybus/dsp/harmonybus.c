@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.197"
+#define HB_VERSION "0.2.198"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2341,7 +2341,7 @@ static unsigned hb_approach_scale(Inst *instance,hb_harmony_t harmony){
     return hb_transpose_mask(hb_follower_input_scale(instance,root),g_bus.global_transpose);
 }
 static int hb_relative_approach_offset(int role,int target,unsigned scale){
-    return role==1?2:role==2?-5:role==4?
+    return role==11?2:role==1?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),1):role==8?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),2):role==9?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),3):role==10?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),6)-12:role==2?-5:role==4?
         hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),5)-12:
         role==5?5:role==6?-2:role==7?-4:0;
 }
@@ -2349,6 +2349,10 @@ static int hb_relative_approach_offset(int role,int target,unsigned scale){
    destination for its relative cadence, without changing its landing quality.
    In-scale destinations retain the complete effective parent collection. */
 static unsigned hb_relative_target_scale(Inst *instance,int target,unsigned parent){
+    if(instance->motion.render_flags&HB_MO_SIMPLE){
+        int minor=(parent&(1u<<mod12(target+3)))&&!(parent&(1u<<mod12(target+4)));
+        return hb_explicit_scale_mask(mod12(target),minor?2:1);
+    }
     if(parent&(1u<<mod12(target)))return parent;
     int tonic=0;hb_resolve_follower_reference_root(instance,&tonic);tonic=mod12(tonic+g_bus.global_transpose);
     int relative=mod12(target-tonic);
@@ -2430,18 +2434,23 @@ static hb_cp_config hb_chord_config_at(Inst *instance,int source,double beat,dou
     return config;
 }
 static int hb_secondary_at(Inst *instance,int source_note){
-    if(hb_mo_held_modifier(&instance->motion))return 0;
-    int selected=hb_mo_held_secondary(&instance->motion);
-    if(selected)return selected;
-    selected=hb_mo_source_secondary(&instance->motion);
-    if(selected)return selected;
-    for(int lane=0;lane<HB_MOTION_LANES;lane++){
-        hb_motion_lane settings=hb_mo_settings(&instance->motion,lane);double value=0;
-        if(((settings.operation>=HB_MO_SECONDARY_II&&settings.operation<=HB_MO_BACKDOOR_V)||settings.operation==HB_MO_TRITONE_II)&&
-           hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),source_note,&value)&&value>0)
-            selected=settings.operation==HB_MO_SECONDARY_II?1:settings.operation==HB_MO_SECONDARY_V?2:settings.operation==HB_MO_SECONDARY_VI?4:settings.operation==HB_MO_BACKDOOR_II?5:settings.operation==HB_MO_BACKDOOR_V?6:7;
+    hb_motion_config *motion=&instance->motion;
+    const unsigned long long *events=motion->event_override?motion->event_override:motion->events;
+    motion->render_flags=events[HB_MOTION_LANES]&(HB_MO_SIMPLE|HB_MO_SIMPLE_SCALE|HB_MO_CONNECTOR_ABOVE|HB_MO_LEGACY_II);
+    unsigned held=hb_mo_held_trigger(motion);
+    if(held)motion->render_flags=hb_mo_source_flags(motion,held);
+    if(hb_mo_held_modifier(motion))return 0;
+    int selected=hb_mo_held_secondary(motion);
+    if(!selected)selected=hb_mo_source_secondary(motion);
+    if(!selected)for(int lane=0;lane<HB_MOTION_LANES;lane++){
+        hb_motion_lane settings=hb_mo_settings(motion,lane);double value=0;
+        int role=hb_mo_role(settings.operation);
+        if(role&&hb_mo_value_at(motion,lane,hb_motion_position(instance),hb_motion_condition_position(),source_note,&value)&&value>0){
+            selected=role;
+            motion->render_flags=(motion->render_flags&~(HB_MO_SIMPLE|HB_MO_SIMPLE_SCALE))|((hb_mo_has_scale_mode(settings.operation)&&hb_mo_round(value)>=2)?(HB_MO_SIMPLE|(hb_mo_round(value)==3?HB_MO_SIMPLE_SCALE:0)):0);
+        }
     }
-    return selected;
+    return selected==1&&(motion->render_flags&HB_MO_LEGACY_II)?11:selected;
 }
 /* Freeze each gesture's pitches at its musical onset. On a conductor, the
    first Conductor Chord gesture bootstraps from Scale Root if no harmony has
@@ -2472,9 +2481,11 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
     if(!operation_modifier)operation_modifier=source_modifier;
     for(int lane=0;lane<HB_MOTION_LANES&&!operation_modifier;lane++){
         hb_motion_lane settings=hb_mo_settings(&instance->motion,lane);double value=0;
-        if((settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE||settings.operation==HB_MO_CHROM_ABOVE)&&
+        if((settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE||settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V)&&
             hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),source_note,&value)&&value>0)
-            operation_modifier=settings.operation==HB_MO_BELOW?-1:settings.operation==HB_MO_CHROM_ABOVE?2:1;
+            {operation_modifier=settings.operation==HB_MO_BELOW?-1:(settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V)?2:1;
+            if(settings.operation==HB_MO_CHROM_ABOVE)instance->motion.render_flags|=HB_MO_CONNECTOR_ABOVE;
+            else instance->motion.render_flags&=~HB_MO_CONNECTOR_ABOVE;}
     }
     int direct_approach=hb_approach_effective(instance->approach_control,instance->approach_pad_armed);
     int chord_active=config.mode!=0;
@@ -2494,6 +2505,8 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         int root_note=target_note;
         config.mode=1;
         if(secondary){
+            unsigned parent_collection=target_scale;
+            int parent_root=target_note+hb_relative_approach_offset(secondary,target_note,parent_collection);
             target_scale=hb_relative_target_scale(instance,target_note,target_scale);
             root_note+=hb_relative_approach_offset(secondary,target_note,target_scale);
             if(secondary==5||secondary==6){
@@ -2506,6 +2519,15 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
                dominant function while taking extensions from that collection. */
             if(secondary==7)target_scale=hb_explicit_scale_mask(mod12(root_note),3); /* substitute ii: Dorian */
             config.quality=secondary==2||secondary==6?6:secondary==5||secondary==7?7:0;
+            if((instance->motion.render_flags&HB_MO_SIMPLE)&&!(instance->motion.render_flags&HB_MO_SIMPLE_SCALE)&&secondary!=2&&secondary!=3){
+                int third=hb_nth_scale_interval_from_root((uint16_t)target_scale,mod12(root_note),2);
+                int fifth=hb_nth_scale_interval_from_root((uint16_t)target_scale,mod12(root_note),4);
+                int seventh=hb_nth_scale_interval_from_root((uint16_t)target_scale,mod12(root_note),6);
+                config.quality=third==3?(fifth==6?8:7):(seventh==11?5:6);
+                /* Preserve the parent's remaining ordinal degrees if the
+                   simplified root changes (e.g. B to Bb as VI of D minor). */
+                target_scale=(parent_collection&~(1u<<mod12(parent_root)))|(1u<<mod12(root_note));
+            }
             if(secondary==3&&pad_approach){
                 target_scale=hb_relative_dominant_scale(instance,target_note,target_note+1,1,hb_approach_scale(instance,harmony));
                 config.quality=config.chromatic_quality==6?hb_cp_auto_leading_quality(target_note+1,target_scale):
@@ -2514,7 +2536,9 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         }else if(chord_modifier==2){
             root_note=target_note+1;
             /* subV takes Lydian-dominant extensions, preserving its dominant core. */
-            target_scale=hb_explicit_scale_mask(mod12(root_note),12);config.quality=6;
+            if(instance->motion.render_flags&HB_MO_CONNECTOR_ABOVE){
+                config.quality=config.chromatic_quality==6?hb_cp_auto_leading_quality(target_note,target_scale):hb_cp_chromatic_quality(config.chromatic_quality);
+            }else{target_scale=hb_explicit_scale_mask(mod12(root_note),12);config.quality=6;}
         }else if(chord_modifier>0){
             root_note=hb_apply_approach(instance,target_note,HB_APPROACH_SCALE_ABOVE);config.quality=0;
         }else{
@@ -2656,8 +2680,8 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
             if(*off_beat<0||deadline<*off_beat)*off_beat=deadline;
         }else if(lane->operation==HB_MO_SKIP&&value>0)*skip=1;
         else if(lane->operation==HB_MO_TRANSPOSE)*pitch=hb_mo_clamp(*pitch+hb_mo_round(value),0,127);
-        else if(!hb_mo_chord_approach_done(&instance->motion)&&!(instance->motion.held&(1ULL<<index))&&(lane->operation==HB_MO_BELOW||lane->operation==HB_MO_ABOVE||lane->operation==HB_MO_CHROM_ABOVE)&&value>0)
-            *pitch=hb_apply_approach(instance,*pitch,lane->operation==HB_MO_BELOW?HB_APPROACH_CHROM_BELOW:lane->operation==HB_MO_CHROM_ABOVE?HB_APPROACH_CHROM_ABOVE:HB_APPROACH_SCALE_ABOVE);
+        else if(!hb_mo_chord_approach_done(&instance->motion)&&!(instance->motion.held&(1ULL<<index))&&(lane->operation==HB_MO_BELOW||lane->operation==HB_MO_ABOVE||lane->operation==HB_MO_CHROM_ABOVE||lane->operation==HB_MO_TRITONE_V)&&value>0)
+            *pitch=hb_apply_approach(instance,*pitch,lane->operation==HB_MO_BELOW?HB_APPROACH_CHROM_BELOW:(lane->operation==HB_MO_CHROM_ABOVE||lane->operation==HB_MO_TRITONE_V)?HB_APPROACH_CHROM_ABOVE:HB_APPROACH_SCALE_ABOVE);
     }
 }
 static void hb_motion_output(Inst *instance,hb_motion_route *route,const uint8_t message[3]){
@@ -4517,16 +4541,21 @@ if(!strcmp(key,"hb_movy_actions")){
     char *end=0;long note=strtol(parameter,&end,10);if(note<0||note>127||*end!=',')return;
     unsigned long long words[HB_MOTION_LANES+1]={0};
     int word_count=0;for(const char *scan=end+1;*scan;scan++)if(*scan==',')word_count++;word_count++;
-    if(word_count!=17&&word_count!=HB_MOTION_LANES+1)return;
+    if(word_count!=17&&word_count!=34&&word_count!=HB_MOTION_LANES+1)return;
     int source_lanes=word_count-1;
     for(int lane=0;lane<=source_lanes;lane++){
         const char *start=end+1;words[lane]=strtoull(start,&end,10);
         if(end==start||(lane<source_lanes?*end!=',':*end!=0))return;
-        if(lane==source_lanes&&(words[lane]>123||((words[lane]>>2)&3)>2))return;
+        if(lane==source_lanes&&((words[lane]&~HB_MO_SOURCE_MASK)||((words[lane]>>2)&3)>2||(((words[lane]>>4)&7)|((words[lane]>>5)&8))>10))return;
         if(lane<source_lanes&&!(words[lane]&HB_MO_RECORDED)&&words[lane]>0xffffffffULL)return;
-        if(lane<source_lanes&&(words[lane]&HB_MO_RECORDED)&&((((words[lane]>>32)&31)>HB_MO_CADENCE_TRITONE||((words[lane]>>32)&31)==HB_MO_AUTO_CHORD_REPEAT)||((words[lane]>>37)&15)>8))return;
+        if(lane<source_lanes&&(words[lane]&HB_MO_RECORDED)&&((hb_mo_word_operation(words[lane])>HB_MO_SECONDARY_VII||hb_mo_word_operation(words[lane])==HB_MO_AUTO_CHORD_REPEAT)||((words[lane]>>37)&15)>8))return;
     }
-    if(source_lanes==16){words[HB_MOTION_LANES]=words[16];words[16]=0;}
+    if(source_lanes<HB_MOTION_LANES){
+        unsigned long long marker=words[source_lanes]|HB_MO_LEGACY_II;words[source_lanes]=0;
+        for(int lane=0;lane<source_lanes;lane++)if((words[lane]&HB_MO_RECORDED)&&hb_mo_word_operation(words[lane])==HB_MO_CHROM_ABOVE)
+            words[lane]=(words[lane]&~((31ULL<<32)|(1ULL<<51)))|hb_mo_operation_word(HB_MO_TRITONE_V);
+        words[HB_MOTION_LANES]=marker;
+    }
     memcpy(instance->recorded_actions[note],words,sizeof(words));instance->recorded_action_valid[note]=1;return;
 }
 if(!strcmp(key,"hb_movy_input_approach")){
@@ -5278,7 +5307,7 @@ if(!strcmp(key,"state")){
 }
 if(!strcmp(key,"hb_record_action")){
     if(!instance->action_count)return snprintf(buffer,(size_t)length,"-");
-    int slot=instance->action_head,used=snprintf(buffer,(size_t)length,"ra2,%d",instance->action_pitch[slot]);
+    int slot=instance->action_head,used=snprintf(buffer,(size_t)length,"ra3,%d",instance->action_pitch[slot]);
     for(int lane=0;lane<=HB_MOTION_LANES&&used<length;lane++)used+=snprintf(buffer+used,(size_t)(length-used),",%llu",instance->action_queue[slot][lane]);
     if(used>=length)return used;
     instance->action_head=(slot+1)%64;instance->action_count--;return used;

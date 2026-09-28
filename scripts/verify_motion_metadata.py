@@ -17,8 +17,8 @@ def main() -> None:
     map_module: dict = json.loads((root / 'modules/harmonybus/module.json').read_text())
     map_canonical: dict = {parameter['key']: parameter for parameter in map_module['capabilities']['chain_params']}
     for map_metadata in maps:
-        assert len(map_metadata['motion_lane']['options']) == 33
-        assert map_metadata['motion_lane']['options'][-1] == 'Harmony Play 1: Next Harmony'
+        assert len(map_metadata['motion_lane']['options']) == 37
+        assert map_metadata['motion_lane']['options'][32] == 'Harmony Play 1: Next Harmony'
         assert set(map_metadata) == set(map_canonical)
         for key, parameter in map_canonical.items():
             if not key.startswith('motion_control_') and key not in ('motion_lane','motion_auto_off','motion_touch_mode','motion_operation','motion_enabled','motion_offset','motion_from','motion_through'):
@@ -39,7 +39,7 @@ def main() -> None:
     assert maps[0]['motion_offset'] == map_canonical['motion_offset']
     assert maps[3]['motion_offset']['name'] == 'Decay %' and maps[3]['motion_offset']['min'] == 0
     assert maps[3]['motion_advance']['options'] == ['Clock','Note','Chord']
-    assert maps[3]['motion_operation']['options'][-14:] == ['Ratchet','MIDI Echo','Chord Form','Auto Chord Repeat','Secondary II','Secondary V','Secondary VI','Backdoor II','Backdoor V','Chrom Above','Tritone II','II-V-Target','Backdoor II-V-Target','Tritone II-V-Target']
+    assert maps[3]['motion_operation']['options'][-18:-4] == ['Ratchet','MIDI Echo','Chord Form','Auto Chord Repeat','Secondary II','Secondary V','Secondary VI','Backdoor II','Backdoor V','Chrom Above','Tritone II','II-V-Target','Backdoor II-V-Target','Tritone II-V-Target']
     assert not any(option.startswith('Clip ') for option in maps[0]['motion_operation']['options'])
     assert maps[1]['motion_operation']['options'] == map_canonical['motion_operation']['options']
     assert [option for option in maps[2]['motion_operation']['options'] if option.startswith('Clip ')] == ['Clip Reverse']

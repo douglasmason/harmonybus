@@ -73,7 +73,7 @@ static void linked_sequences(void){
     for(int triple=0;triple<2;triple++)for(int order=0;order<(triple?6:2);order++)
     for(int minor=0;minor<2;minor++)for(int mode=0;mode<3;mode++){
         Inst *instance=setup();instance->player.config.mode=mode;instance->player.config.chromatic_quality=6;
-        /* E minor makes Scale Above Fmaj7 distinct from Secondary II F# halfdim. */
+        /* Parent Scale II and Scale Above both give Fmaj7 into E minor. */
         int target=minor?64:60,lanes[3]={3,upper?14:1,lower?16:2};
         int count=triple?3:2,steps[3];
         for(int index=0;index<count;index++){
@@ -83,7 +83,7 @@ static void linked_sequences(void){
         for(int step=0;step<=count;step++){
             int role=step==count?-1:steps[step];int note=target;unsigned expected=tones(target,minor?3:4,7,minor?10:11);
             if(role==0){note=target-(minor?4:3);expected=tones(note,minor?4:3,7,minor?11:10);}
-            if(role==1){note=target+(upper&&minor?1:2);expected=upper&&minor?tones(note,4,7,11):tones(note,3,minor?6:7,10);}
+            if(role==1){note=target+(minor?1:2);expected=minor?tones(note,4,7,11):tones(note,3,minor?6:7,10);}
             if(role==2){note=target-(lower?1:5);expected=lower?tones(note,3,6,minor?9:10):tones(note,4,7,10);}
             if(role==-1&&!triple&&upper&&lower&&mode==2)expected=tones(60,4,7,11);
             if(!mode)expected=1u<<mod12(note);

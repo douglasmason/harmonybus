@@ -1,4 +1,4 @@
-# Operation lanes (HarmonyBus 0.2.197 / Movy hbclean.105)
+# Operation lanes (HarmonyBus 0.2.198 / Movy hbclean.106)
 
 Each HarmonyBus instance has sixteen independent slots. The Operation,
 Timing / Trigger, and Conditions panels share one lane selector. Duplicate operations compose
@@ -346,3 +346,33 @@ including their former defaults, and named controls are added separately.
 New action recordings carry all named-control outcomes; old 16-slot action
 recordings remain readable. Updating both HB and Movy is required for the
 expanded recording format.
+
+
+## Secondary degrees and connectors (0.2.198)
+
+Parent Scale is the default for Secondary II, III, IV, VI and VII. It counts actual parent-scale degrees relative to the played target and harmonizes from that collection. II therefore agrees with Scale Above; VII approaches from the seventh below and is not necessarily chromatic. Secondary V keeps its dominant quality and existing dominant-color policy.
+
+Turn a secondary control, or its Amount/Scale Mode in the operation editor, to choose:
+
+- **Parent Scale:** parent-derived degree, chord and extensions.
+- **Simple Chord:** degree and core third/fifth/seventh from the target's local major or natural-minor scale; remaining parent-scale degrees supply extensions. When the root changes, its parent degree is replaced rather than adding an eighth scale degree.
+- **Simple Scale:** the local major/natural-minor collection supplies both chord and extensions.
+
+Major/minor is inferred from the target's third in the effective parent collection. A major third takes precedence when both thirds are present; when neither exists the simplified fallback is major. Backdoor and tritone operations retain their explicit identities.
+
+Chrom Above uses Chromatic Keys chord quality (including diminished) at the semitone-up root. Tritone V explicitly supplies the semitone-up dominant with Lydian-dominant extensions. The tritone cadence uses Tritone V, independent of Chromatic Keys.
+
+| Knob | Pitch Play | Secondary | Pitch Cadences |
+|---|---|---|---|
+| 1 | Chrom Below | Secondary II | Backdoor II |
+| 2 | Scale Above | Secondary III | Backdoor V |
+| 3 | Chrom Above | Secondary IV | Tritone II |
+| 4 | Enclose Above Below | Secondary V | Tritone V |
+| 5 | Enclose Below Above | Secondary VI | II-V-Target |
+| 6 | Temporary Chord Form | Secondary VII | Backdoor II-V-Target |
+| 7 | Auto Chord Repeat | Chord Form | Tritone II-V-Target |
+| 8 | Chromatic Keys | Chord Mode | Next Harmony |
+
+II-V-Target also offers the scale policy on its knob; the policy applies to its ii stage, while V retains its dominant behavior and the target stage retains its original identity. Fixed Step Seq 1–16 mapping is unchanged. Named controls retain their existing identities; the four new controls append independent lanes.
+
+Recording format ra3 carries the extra named lanes, extended operation ids and scale policy. Both the prior 17-word and 34-word formats remain readable; old Chrom Above recordings keep their tritone-dominant sound, and old II recordings keep their fixed-whole-step root behavior.

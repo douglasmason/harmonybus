@@ -2,7 +2,8 @@
 #define HB_MOTION_PARAMS_H
 #include "motion_metadata.h"
 /* The selected lane is an editor cursor. Holds are runtime-only, never state. */
-static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Chrom Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Chrom Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target"};
+static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Chrom Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Chrom Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone V","Secondary III","Secondary IV","Secondary VII"};
+static const char *MO_SCALE_MODES[]={"Parent Scale","Simple Chord","Simple Scale"};
 static const char *MO_PATTERNS[]={"Constant","Alternate","Rise","Fall","Triangle","Backbeat","Random"};
 static const char *MO_GRIDS[]={"1/64","1/32","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};
 static const char *MO_CYCLES[]={"1/8","1/4","1/2","1 Bar","2 Bars","3 Bars","4 Bars"};
@@ -20,7 +21,7 @@ static const char *MO_RANDOM[]={"Repeat","Evolve"};
 typedef struct { const char *key; size_t offset; int low,high; const char *const *options; } hb_motion_parameter;
 #define MO_FIELD(name,low,high,options) {"motion_" #name,__builtin_offsetof(hb_motion_lane,name),low,high,options}
 static const hb_motion_parameter MO_PARAMETERS[]={
-    MO_FIELD(operation,0,30,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
+    MO_FIELD(operation,0,34,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
     MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM)
@@ -33,8 +34,8 @@ static int hb_mo_slot_key(const char *key,const char *prefix){
     return end!=key+size&&!*end&&slot>=1&&slot<=HB_MOTION_LANES?(int)slot-1:-1;
 }
 static int hb_mo_edit_label(const hb_motion_config *config,int lane,char *buffer,int length){
-    const char *group=lane<16?"Step Seq":lane<30?"Pitch Play":lane<32?"Chord Play":"Harmony Play";
-    int number=lane<16?lane+1:lane<30?lane-15:lane<32?lane-29:1;
+    const char *group=lane<16?"Step Seq":lane<30?"Pitch Play":lane<32?"Chord Play":lane==32?"Harmony Play":"Pitch Play";
+    int number=lane<16?lane+1:lane<30?lane-15:lane<32?lane-29:lane==32?1:lane-18;
     const char *name=lane==32?"Next Harmony":MO_OPERATIONS[config->lanes[lane].operation];
     return snprintf(buffer,(size_t)length,"%s %d: %s",group,number,name);
 }
@@ -42,7 +43,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     int control=hb_mo_slot_key(key,"motion_control_");
     if(control>=0){
         int operation=config->lanes[control].operation;
-        config->lanes[control].amount=operation==HB_MO_CHORD_FORM?
+        config->lanes[control].amount=hb_mo_has_scale_mode(operation)?1+enum_index(value,MO_SCALE_MODES,3,hb_mo_clamp(config->lanes[control].amount-1,0,2)):operation==HB_MO_CHORD_FORM?
             enum_index(value,CP_CHORD_FORM,HB_CP_FORMS,config->lanes[control].amount):
             hb_mo_clamp(parse_i(value,config->lanes[control].amount),-400,400);
         config->revision[control]++;return 1;
@@ -144,11 +145,12 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         int parsed;
         if(index==2&&config->lanes[config->selected].operation==HB_MO_CHORD_FORM)
             parsed=enum_index(value,CP_CHORD_FORM,HB_CP_FORMS,*field);
+        else if(index==2&&hb_mo_has_scale_mode(config->lanes[config->selected].operation))parsed=1+enum_index(value,MO_SCALE_MODES,3,hb_mo_clamp(*field-1,0,2));
         else parsed=spec->options?enum_index(value,spec->options,spec->high+1,*field):hb_mo_clamp(parse_i(value,*field),spec->low,spec->high);
         if(index==0&&config->selected>=HB_MOTION_USER_LANES)return 1;
         if(index==0&&parsed!=*field){
             static const int amounts[]={0,25,50,1,1,50,100,100,1,1,1,1,1,1,1,2,1,4,3,3,1,1,1,1,1,1,1,1,1,1,1};
-            config->lanes[config->selected].amount=amounts[parsed];
+            config->lanes[config->selected].amount=parsed>30?1:amounts[parsed];
             config->lanes[config->selected].offset=parsed==HB_MO_ECHO?25:0;
             if(parsed>=HB_MO_AUTO_CHORD_REPEAT||(parsed>=HB_MO_ENCLOSE_AB&&parsed<=HB_MO_SPEED))config->lanes[config->selected].enabled=0;
         }
@@ -178,7 +180,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
-        for(int operation=0;operation<=HB_MO_CADENCE_TRITONE;operation++){
+        for(int operation=0;operation<=HB_MO_SECONDARY_VII;operation++){
             if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&!config->host_capabilities&&operation!=selected)continue;
             if(used<0||used>=length)return -1;
             used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",count++?",":"",MO_OPERATIONS[operation]);
@@ -196,7 +198,9 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":100,\"step\":1,\"default\":0}]",selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_ECHO?0:-100);
         if(used<0||used>=length)return -1;
         used--;
-        if(selected==HB_MO_CHORD_FORM){
+        if(hb_mo_has_scale_mode(selected)){
+            used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Scale Mode\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Parent Scale\",\"Simple Chord\",\"Simple Scale\"]}");
+        }else if(selected==HB_MO_CHORD_FORM){
             used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Form\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[");
             for(int form=0;form<HB_CP_FORMS;form++){
                 if(used<0||used>=length)return -1;
@@ -232,8 +236,10 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         for(int lane=0;lane<HB_MOTION_LANES;lane++){
             if(used<0||used>=length)return -1;
             const hb_motion_lane *settings=&config->lanes[lane];
-            used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_control_%d\",\"name\":\"%s\",\"type\":\"%s\",\"min\":-400,\"max\":400,\"step\":1",lane+1,settings->operation==HB_MO_HARMONY?"Next Harmony":MO_OPERATIONS[settings->operation],settings->operation==HB_MO_CHORD_FORM?"enum":"int");
-            if(settings->operation==HB_MO_CHORD_FORM){
+            used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_control_%d\",\"name\":\"%s\",\"type\":\"%s\",\"min\":-400,\"max\":400,\"step\":1",lane+1,settings->operation==HB_MO_HARMONY?"Next Harmony":MO_OPERATIONS[settings->operation],(settings->operation==HB_MO_CHORD_FORM||hb_mo_has_scale_mode(settings->operation))?"enum":"int");
+            if(hb_mo_has_scale_mode(settings->operation)){
+                used+=snprintf(buffer+used,(size_t)(length-used),",\"options_as_string\":true,\"options\":[\"Parent Scale\",\"Simple Chord\",\"Simple Scale\"]");
+            }else if(settings->operation==HB_MO_CHORD_FORM){
                 used+=snprintf(buffer+used,(size_t)(length-used),",\"options_as_string\":true,\"options\":[");
                 for(int form=0;form<HB_CP_FORMS;form++)used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",form?",":"",CP_CHORD_FORM[form]);
                 used+=snprintf(buffer+used,(size_t)(length-used),"]");
@@ -265,7 +271,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"motion_advance"))return snprintf(buffer,(size_t)length,"%s",MO_ADVANCE[config->lanes[config->selected].advance]);
     if(!strcmp(key,"motion_lane"))return hb_mo_edit_label(config,config->selected,buffer,length);
     int control=hb_mo_slot_key(key,"motion_control_");
-    if(control>=0)return config->lanes[control].operation==HB_MO_CHORD_FORM?
+    if(control>=0)return hb_mo_has_scale_mode(config->lanes[control].operation)?snprintf(buffer,(size_t)length,"%s",MO_SCALE_MODES[hb_mo_clamp(config->lanes[control].amount-1,0,2)]):config->lanes[control].operation==HB_MO_CHORD_FORM?
         snprintf(buffer,(size_t)length,"%s",CP_CHORD_FORM[hb_mo_clamp(config->lanes[control].amount,0,HB_CP_FORMS-1)]):
         snprintf(buffer,(size_t)length,"%d",config->lanes[control].amount);
     control=hb_mo_slot_key(key,"motion_status_");
@@ -283,6 +289,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     }
     for(int index=0;index<11;index++)if(!strcmp(key,MO_PARAMETERS[index].key)){
         int field=*hb_mo_field(&config->lanes[config->selected],index);
+        if(index==2&&hb_mo_has_scale_mode(config->lanes[config->selected].operation))return snprintf(buffer,(size_t)length,"%s",MO_SCALE_MODES[hb_mo_clamp(field-1,0,2)]);
         if(index==2&&config->lanes[config->selected].operation==HB_MO_CHORD_FORM)
             return snprintf(buffer,(size_t)length,"%s",CP_CHORD_FORM[hb_mo_clamp(field,0,HB_CP_FORMS-1)]);
         return MO_PARAMETERS[index].options?snprintf(buffer,(size_t)length,"%s",MO_PARAMETERS[index].options[field]):snprintf(buffer,(size_t)length,"%d",field);

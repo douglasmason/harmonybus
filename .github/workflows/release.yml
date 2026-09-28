@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.197'
+          assert module['version']=='0.2.198'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -199,6 +199,8 @@ jobs:
           /tmp/backdoor_chord_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/cadence_sequence_test.c src/harmony_core.c -lm -o /tmp/cadence_sequence_test
           /tmp/cadence_sequence_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/secondary_degrees_test.c src/harmony_core.c -lm -o /tmp/secondary_degrees_test
+          /tmp/secondary_degrees_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/named_controls_test.c src/harmony_core.c -lm -o /tmp/named_controls_test
           /tmp/named_controls_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_family_test.c src/harmony_core.c -lm -o /tmp/chord_family_test
@@ -207,7 +209,7 @@ jobs:
           /tmp/double_tap_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_editor_test.c src/harmony_core.c -lm -o /tmp/motion_editor_test
           /tmp/motion_editor_test > /tmp/motion_editor.jsonl
-          python3 -c 'import json; snapshots=[json.loads(line) for line in open("/tmp/motion_editor.jsonl")]; assert len(snapshots)==31; assert all(isinstance(s["params"],list) for s in snapshots)'
+          python3 -c 'import json; snapshots=[json.loads(line) for line in open("/tmp/motion_editor.jsonl")]; assert len(snapshots)==35; assert all(isinstance(s["params"],list) for s in snapshots)'
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/next_touch_test.c src/harmony_core.c -lm -o /tmp/next_touch_test
           /tmp/next_touch_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/operation_recording_test.c src/harmony_core.c -lm -o /tmp/operation_recording_test
@@ -299,12 +301,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add Chrom Above and Tritone II substitutions and three-press II-V-target cadences. Separate named Pitch Play, Chord Play and Harmony Play controls from sixteen fixed Step Seq operation slots, with readable names and editable settings. Preserve existing presets and recorded operations."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Complete secondary II-VII operations with parent-scale, simple-chord and simple-scale policies. Separate Chrom Above connector harmony from Tritone V. Add a Secondary panel and preserve old recorded approach behavior and fixed step slots."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add Chrom Above and Tritone II substitutions and three-press II-V-target cadences. Separate named Pitch Play, Chord Play and Harmony Play controls from sixteen fixed Step Seq operation slots, with readable names and editable settings. Preserve existing presets and recorded operations." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Complete secondary II-VII operations with parent-scale, simple-chord and simple-scale policies. Separate Chrom Above connector harmony from Tritone V. Add a Secondary panel and preserve old recorded approach behavior and fixed step slots." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
