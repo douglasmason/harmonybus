@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.194'
+          assert module['version']=='0.2.195'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -195,6 +195,8 @@ jobs:
           /tmp/auto_chord_repeat_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/secondary_chord_test.c src/harmony_core.c -lm -o /tmp/secondary_chord_test
           /tmp/secondary_chord_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/double_tap_test.c src/harmony_core.c -lm -o /tmp/double_tap_test
+          /tmp/double_tap_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_editor_test.c src/harmony_core.c -lm -o /tmp/motion_editor_test
           /tmp/motion_editor_test > /tmp/motion_editor.jsonl
           python3 -c 'import json; snapshots=[json.loads(line) for line in open("/tmp/motion_editor.jsonl")]; assert len(snapshots)==24; assert all(isinstance(s["params"],list) for s in snapshots)'
@@ -289,12 +291,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add Secondary VI, II and V operations with touch-ordered cross-linked cadences. Auto Dim7 / Min7b5 follows target quality. Operations preserve Auto Chord mode; includes recording, preview and updated guide support."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add shared tap, hold and double-tap operation gestures with activation LEDs. Persistent latches pulse smoothly; armed and held lanes stay solid. Consolidate Next Harmony into one control and keep VI / Scale Above / V / Chrom Below defaults."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add Secondary VI, II and V operations with touch-ordered cross-linked cadences. Auto Dim7 / Min7b5 follows target quality. Operations preserve Auto Chord mode; includes recording, preview and updated guide support." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add shared tap, hold and double-tap operation gestures with activation LEDs. Persistent latches pulse smoothly; armed and held lanes stay solid. Consolidate Next Harmony into one control and keep VI / Scale Above / V / Chrom Below defaults." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

@@ -18,6 +18,9 @@ typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host
     int input_valid; double input_beat; uint8_t input_notes[128];
     unsigned pitch_held,enclosure_revision; int pitch_last,enclosure;
     unsigned gesture_down,gesture_used,gesture_was_latched,gesture_latched;
+    /* Timestamped host gestures share one detector across knobs and steps. */
+    unsigned gesture_persistent,gesture_once,gesture_once_used,gesture_was_persistent,gesture_double,gesture_suppressed;
+    int gesture_last_lane,gesture_last_valid,gesture_last_off;double gesture_last_up;
     unsigned gesture_serial[18]; int gesture_operation[18],gesture_mode[18],gesture_threshold[18];
     unsigned tap_mask,tap_serial[5]; int tap_owner[5],tap_policy[5],enclosure_auto_off; int tap_first,tap_started,enclosure_step;
 } hb_motion_config;
@@ -48,8 +51,8 @@ static double hb_mo_cycle(int index){static const double lengths[]={0.5,1,2,4,8,
 static void hb_mo_lane_default(hb_motion_lane *lane){memset(lane,0,sizeof(*lane));lane->enabled=1;lane->grid=3;lane->cycle=3;lane->probability=100;lane->every=lane->from=lane->through=1;lane->touch_mode=2;}
 static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*config));for(int index=0;index<HB_MOTION_LANES;index++)hb_mo_lane_default(&config->lanes[index]);
     config->enclosure_lane=-1;
-    for(int lane=4;lane<=5;lane++){config->lanes[lane].operation=HB_MO_HARMONY;config->lanes[lane].amount=100;config->lanes[lane].enabled=0;}
-    config->lanes[4].auto_off=1;config->lanes[5].auto_off=2;
+    for(int lane=4;lane<=4;lane++){config->lanes[lane].operation=HB_MO_HARMONY;config->lanes[lane].amount=100;config->lanes[lane].enabled=0;}
+    config->lanes[4].auto_off=1;
     for(int index=12;index<16;index++){config->lanes[index].operation=index==12?HB_MO_SECONDARY_VI:index==13?HB_MO_ABOVE:index==14?HB_MO_SECONDARY_V:HB_MO_BELOW;config->lanes[index].enabled=0;config->lanes[index].amount=1;}
 }
 static void hb_mo_route_init(hb_motion_route *route){memset(route,0,sizeof(*route));for(int channel=0;channel<16;channel++)route->base_pan[channel]=64;}
@@ -102,6 +105,12 @@ static int hb_mo_first_trigger(const hb_motion_config *config){
 static void hb_mo_tap_rebuild(hb_motion_config *config){
     config->enclosure=hb_mo_sequence(config->tap_mask,config->tap_first);
     config->enclosure_lane=-1;config->tap_started=0;config->enclosure_step=0;config->input_valid=0;config->enclosure_revision++;
+    unsigned owners=0;
+    for(int slot=0;slot<5;slot++)if((config->tap_mask&(1u<<slot))&&config->tap_owner[slot]>0)owners|=1u<<(config->tap_owner[slot]-1);
+    for(int lane=0;lane<16;lane++)if((config->gesture_persistent&(1u<<lane))&&!(owners&(1u<<lane))&&!(config->gesture_down&(1u<<lane))&&
+        (hb_mo_trigger_bit(config->lanes[lane].operation)||config->lanes[lane].operation==HB_MO_ENCLOSE_AB||config->lanes[lane].operation==HB_MO_ENCLOSE_BA)){
+        config->gesture_persistent&=~(1u<<lane);config->gesture_latched&=~(1u<<lane);config->held&=~(1u<<lane);
+    }
 }
 static void hb_mo_tap_toggle_at(hb_motion_config *config,unsigned bit,unsigned serial){
     /* One upper approach (Above/II) and one lower/dominant approach
@@ -134,6 +143,7 @@ static unsigned hb_mo_pending_lanes(const hb_motion_config *config){
 }
 static void hb_mo_end_lanes(hb_motion_config *config,unsigned mask){
     config->held&=~mask;config->gesture_latched&=~mask;
+    config->gesture_persistent&=~mask;config->gesture_once&=~mask;config->gesture_once_used&=~mask;
     config->gesture_down&=~mask;config->gesture_was_latched&=~mask;
     if(config->enclosure_lane>=0&&(mask&(1u<<config->enclosure_lane))){config->enclosure=0;config->tap_mask=0;}
     else if(config->enclosure_lane<0){
@@ -151,6 +161,8 @@ static void hb_mo_tap_remove(hb_motion_config *config,unsigned bit){
 static void hb_mo_gesture_reset(hb_motion_config *config){
     config->held&=~(config->gesture_down|config->gesture_latched);
     config->gesture_down=config->gesture_used=config->gesture_was_latched=config->gesture_latched=0;
+    config->gesture_persistent=config->gesture_once=config->gesture_once_used=0;
+    config->gesture_was_persistent=config->gesture_double=config->gesture_suppressed=0;config->gesture_last_valid=0;
     config->tap_mask=0;config->tap_started=0;config->enclosure_step=0;config->events[HB_MOTION_LANES]=0;
 }
 static void hb_mo_gesture(hb_motion_config *config,int id,int down,int elapsed){
@@ -193,6 +205,71 @@ static void hb_mo_gesture(hb_motion_config *config,int id,int down,int elapsed){
         else config->gesture_latched&=~bit;
         if(config->gesture_latched&bit)config->held|=bit;else config->held&=~bit;
     }else if(elapsed<0&&id<16){config->gesture_latched&=~bit;config->held&=~bit;}
+}
+/* No delayed single-tap dispatch: a second short tap promotes the existing
+   activation. A second tap after switching off is absorbed, not re-armed. */
+static void hb_mo_modern_gesture(hb_motion_config *config,int id,int down,int elapsed,double stamp){
+    unsigned bit=1u<<id;
+    if(down){
+        if(config->gesture_down&bit)return;
+        int pair=config->gesture_last_valid&&config->gesture_last_lane==id&&stamp>=config->gesture_last_up&&stamp-config->gesture_last_up<=300;
+        config->gesture_double=pair?config->gesture_double|bit:config->gesture_double&~bit;
+        config->gesture_suppressed&=~bit;
+        if(pair&&config->gesture_last_off){
+            config->gesture_suppressed|=bit;config->gesture_down|=bit;config->gesture_mode[id]=3;return;
+        }
+        if(config->gesture_persistent&bit)config->gesture_was_persistent|=bit;else config->gesture_was_persistent&=~bit;
+        int operation=id<16?config->lanes[id].operation:0;
+        if((config->gesture_persistent&bit)&&(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA)){
+            config->gesture_down|=bit;config->gesture_used&=~bit;config->gesture_operation[id]=operation;
+            config->gesture_mode[id]=3;config->gesture_threshold[id]=g_hb_hold_ms;return;
+        }
+        int saved=id<16?config->lanes[id].touch_mode:2;if(id<16)config->lanes[id].touch_mode=2;
+        hb_mo_gesture(config,id,1,0);if(id<16)config->lanes[id].touch_mode=saved;
+        config->gesture_mode[id]=3;return;
+    }
+    if(!(config->gesture_down&bit))return;
+    config->gesture_down&=~bit;
+    if(config->gesture_suppressed&bit){config->gesture_suppressed&=~bit;config->gesture_last_valid=0;return;}
+    int operation=config->gesture_operation[id],short_tap=elapsed>=0&&elapsed<config->gesture_threshold[id];
+    unsigned trigger=hb_mo_trigger_bit(operation);
+    int was_persistent=(config->gesture_was_persistent&bit)!=0;
+    if(elapsed<0){hb_mo_end_lanes(config,bit);config->gesture_last_valid=0;return;}
+    if(!short_tap||(!was_persistent&&(config->gesture_used&bit))){
+        if(was_persistent&&trigger)config->held&=~bit;
+        if(!was_persistent){
+            hb_mo_end_lanes(config,bit);
+            if(trigger)hb_mo_tap_remove(config,trigger);
+            else if(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA){config->enclosure=0;config->tap_mask=0;}
+        }
+        config->gesture_last_valid=0;return;
+    }
+    int persistent=(config->gesture_double&bit)&&!was_persistent,turned_off=0;
+    if(was_persistent){hb_mo_end_lanes(config,bit);turned_off=1;}
+    else if(trigger){
+        config->held&=~bit;
+        if(persistent){
+            if(!(config->tap_mask&trigger))hb_mo_tap_owned(config,trigger,config->gesture_serial[id],id);
+            config->tap_policy[hb_mo_tap_index(trigger)]=2;
+            config->gesture_persistent|=bit;config->gesture_latched|=bit;
+        }else{
+            hb_mo_tap_owned(config,trigger,config->gesture_serial[id],id);
+            config->tap_policy[hb_mo_tap_index(trigger)]=id<16&&config->lanes[id].auto_off==1?1:0;
+            turned_off=!(config->tap_mask&trigger);
+        }
+    }else if(operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA){
+        if(persistent){
+            config->tap_mask=3;config->tap_first=operation==HB_MO_ENCLOSE_AB?2:1;
+            hb_mo_tap_rebuild(config);config->enclosure_lane=id;config->enclosure_auto_off=2;
+            config->gesture_persistent|=bit;config->gesture_latched|=bit;
+        }else {config->enclosure_auto_off=id<16&&config->lanes[id].auto_off==1?1:0;turned_off=!config->enclosure;}
+    }else if(id<16&&operation){
+        if(persistent){config->gesture_persistent|=bit;config->gesture_once&=~bit;config->gesture_latched|=bit;config->held|=bit;}
+        else if(config->gesture_was_latched&bit){hb_mo_end_lanes(config,bit);turned_off=1;}
+        else {config->gesture_latched|=bit;config->held|=bit;config->gesture_once|=bit;}
+    }else config->held&=~bit;
+    config->gesture_last_lane=id;config->gesture_last_up=stamp;
+    config->gesture_last_valid=1;config->gesture_last_off=turned_off;
 }
 /* Live gates do not consume pending source gestures. */
 static unsigned hb_mo_held_trigger(hb_motion_config *config){
@@ -274,6 +351,8 @@ static const char *hb_mo_pending_status(const hb_motion_config *config){
 static const char *hb_mo_lane_status(const hb_motion_config *config,int lane){
     unsigned bit=1u<<lane;int operation=config->lanes[lane].operation;
     if(config->gesture_down&bit)return "Held";
+    if(config->gesture_persistent&bit)return "Persistent";
+    if(config->gesture_once&bit)return "Armed";
     if(config->gesture_latched&bit)return "Latched";
     if(config->held&bit)return "Held";
     if(config->enclosure&&((config->enclosure_lane==lane)||
@@ -290,6 +369,7 @@ static void hb_mo_input(hb_motion_config *config,int pitch,double beat,double gr
     int chord=!config->input_valid||elapsed<0||elapsed>grouping||config->input_notes[pitch];
     if(chord){config->input_valid=1;config->input_beat=beat;memset(config->input_notes,0,sizeof(config->input_notes));}
     config->input_notes[pitch]=1;
+    config->gesture_used|=config->gesture_down;
     int held=hb_mo_held_modifier(config)||hb_mo_held_secondary(config); /* mark touches used before buffering */
     if(chord){
         int modifier=0,secondary=0;

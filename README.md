@@ -1,4 +1,4 @@
-> 0.2.194: Default lanes 13–16 are Secondary VI, Scale Above, Secondary V and Chrom Below. Follow Touch knobs 5–8 retain those lane assignments; explicit saved operations are preserved.
+> 0.2.195: Tap to arm, hold momentarily, double-tap for persistence on operation knobs and steps. Persistent activation pulses smoothly; armed/held lanes stay solid. One Next Harmony control replaces Next Once / Next Latch; lane 6 is available.
 
 > 0.2.190: Chromatic approach pads generate the selected chromatic chord family on their rendered root, even when that root is diatonic. Fresh instances default to Dim / Dim7; saved settings remain intact.
 

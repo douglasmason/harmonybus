@@ -34,13 +34,19 @@ static int hb_mo_slot_key(const char *key,const char *prefix){
 }
 static int hb_mo_set(hb_motion_config *config,const char *key,const char *value){
     if(!strcmp(key,"touch_hold_ms")){g_hb_hold_ms=hb_mo_clamp(parse_i(value,g_hb_hold_ms),150,500);g_hb_hold_restored=1;return 1;}
-    if(!strcmp(key,"motion_auto_off")){int op=config->lanes[config->selected].operation;if((op<HB_MO_HARMONY||op>HB_MO_ENCLOSE_BA)&&op<HB_MO_SECONDARY_II)return 1;config->lanes[config->selected].auto_off=enum_index(value,MO_AUTO_OFF,3,config->lanes[config->selected].auto_off);return 1;}
+    if(!strcmp(key,"motion_auto_off")){int op=config->lanes[config->selected].operation;if(op==HB_MO_OFF)return 1;config->lanes[config->selected].auto_off=enum_index(value,MO_AUTO_OFF,3,config->lanes[config->selected].auto_off);return 1;}
     if(!strcmp(key,"motion_touch_mode")){config->lanes[config->selected].touch_mode=!strcmp(value,"Toggle")?1:enum_index(value,hb_mo_touch_options(config),3,config->lanes[config->selected].touch_mode);return 1;}
     int gesture=hb_mo_slot_key(key,"motion_gesture_");
     if(!strcmp(key,"performance_gesture_above"))gesture=16;
     if(!strcmp(key,"performance_gesture_below"))gesture=17;
     if(gesture>=0){
         int elapsed=-1;if(!strncmp(value,"Up,",3))elapsed=parse_i(value+3,-1);
+        int modern_down=!strncmp(value,"Touch,",6)||!strncmp(value,"Down,",5);
+        if(modern_down||((!strncmp(value,"Up,",3)||!strcmp(value,"Cancel"))&&config->gesture_mode[gesture]==3)){
+            const char *comma=strchr(value,',');double stamp=comma?strtod(comma+1,0):0;
+            if(!modern_down&&comma){comma=strchr(comma+1,',');stamp=comma?strtod(comma+1,0):config->gesture_last_up;}
+            hb_mo_modern_gesture(config,gesture,modern_down,elapsed,stamp);return 1;
+        }
         int saved=gesture<16?config->lanes[gesture].touch_mode:2;if(gesture<16&&!strcmp(value,"Touch"))config->lanes[gesture].touch_mode=2;
         hb_mo_gesture(config,gesture,!strcmp(value,"Down")||!strcmp(value,"Touch"),elapsed);if(gesture<16)config->lanes[gesture].touch_mode=saved;return 1;
     }
@@ -135,11 +141,18 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     return 0;
 }
 static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int length){
+    if(!strcmp(key,"motion_lights")){
+        unsigned active=hb_mo_pending_lanes(config)|config->held|config->gesture_down|config->gesture_latched;
+        for(int lane=0;lane<16;lane++)if(hb_mo_lane_active(config,lane))active|=1u<<lane;
+        int used=snprintf(buffer,(size_t)length,"%u,%u,%u",active,config->gesture_persistent,config->gesture_down);
+        for(int lane=0;lane<16&&used<length;lane++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",config->lanes[lane].operation);
+        return used;
+    }
     if(!strcmp(key,"touch_hold_ms"))return snprintf(buffer,(size_t)length,"%d",g_hb_hold_ms);
-    if(!strcmp(key,"motion_auto_off"))return snprintf(buffer,(size_t)length,"%s",MO_AUTO_OFF[config->lanes[config->selected].auto_off]);
+    if(!strcmp(key,"motion_auto_off"))return snprintf(buffer,(size_t)length,"%s",MO_AUTO_OFF[config->lanes[config->selected].auto_off==1?1:0]);
     if(!strcmp(key,"motion_touch_mode"))return snprintf(buffer,(size_t)length,"%s",hb_mo_touch_options(config)[config->lanes[config->selected].touch_mode]);
     int gesture_slot=hb_mo_slot_key(key,"motion_gesture_binding_");
-    if(gesture_slot>=0){hb_motion_lane *lane=&config->lanes[gesture_slot];return snprintf(buffer,(size_t)length,"%d,%d,%d,%d,%d,%d",lane->operation,lane->amount,lane->grid,lane->touch_mode,g_hb_hold_ms,(config->gesture_latched>>gesture_slot)&1);}
+    if(gesture_slot>=0){hb_motion_lane *lane=&config->lanes[gesture_slot];return snprintf(buffer,(size_t)length,"%d,%d,%d,%d,%d,%d,%d",lane->operation,lane->amount,lane->grid,lane->touch_mode,g_hb_hold_ms,(config->gesture_latched>>gesture_slot)&1,(config->gesture_persistent>>gesture_slot)&1);}
 
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
@@ -156,7 +169,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_touch_mode\",\"name\":\"Touch Mode\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Hold\",\"%s\",\"Tap/Hold\"]}]",hb_mo_touch_options(config)[1]);
         if(used<0||used>=length)return -1;
         used--;
-        used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_auto_off\",\"name\":\"Auto Off\",\"short_name\":\"Auto Off\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Normal\",\"Chord Change\",\"Manual\"],\"default\":\"Normal\",\"readOnly\":%s}]",((selected>=HB_MO_HARMONY&&selected<=HB_MO_ENCLOSE_BA)||selected>=HB_MO_SECONDARY_II)?"false":"true");
+        used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_auto_off\",\"name\":\"Auto Off\",\"short_name\":\"Auto Off\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Normal\",\"Chord Change\"],\"default\":\"Normal\",\"readOnly\":%s}]",selected!=HB_MO_OFF?"false":"true");
         if(used<0||used>=length)return -1;
         used--; /* Replace the closing array bracket with contextual metadata. */
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":100,\"step\":1,\"default\":0}]",selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_ECHO?0:-100);
@@ -234,7 +247,7 @@ static int hb_mo_save(hb_motion_config *config,char *buffer,int length,int used)
     if(g_hb_hold_ms!=350)used+=snprintf(buffer+used,(size_t)(length-used),";gt1,%d",g_hb_hold_ms);
     for(int index=0;index<HB_MOTION_LANES;index++)if(config->lanes[index].touch_mode!=2&&used>=0&&used<length)
         used+=snprintf(buffer+used,(size_t)(length-used),";mt1,%d,%d",index,config->lanes[index].touch_mode);
-    for(int index=0;index<HB_MOTION_LANES;index++)if(config->lanes[index].auto_off!=(index==4?1:index==5?2:0)&&used>=0&&used<length)
+    for(int index=0;index<HB_MOTION_LANES;index++)if(config->lanes[index].auto_off!=(index==4?1:0)&&used>=0&&used<length)
         used+=snprintf(buffer+used,(size_t)(length-used),";mn1,%d,%d",index,config->lanes[index].auto_off);
     /* Omit untouched lanes so legacy/default snapshots remain byte-identical. */
     if(config->selected||config->bypass){

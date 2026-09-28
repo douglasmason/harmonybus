@@ -175,4 +175,7 @@ static void selected_parent_context(void){
     API.set_param(instance,"motion_gesture_5","Up,500");
     API.destroy_instance(instance);
 }
+#ifndef HB_SECONDARY_FIXTURE
 int main(void){selected_parent_context();parent_scale_cadences();pending_policies();linked_sequences();source_sequence_lifecycle();cadence_orders();automatic_approaches();held_and_recorded();puts("secondary chords: major/minor cadences, both orders, single-note mode, top note, pitch approaches, hold, recording and persistence pass");return 0;}
+
+#endif

@@ -1,9 +1,10 @@
 #define main reference_suite_main
 #include "follower_reference_test.c"
 #undef main
+static Inst *legacy_next_fixture(void){Inst *instance=fixture();instance->motion.lanes[5].operation=HB_MO_HARMONY;instance->motion.lanes[5].amount=100;instance->motion.lanes[5].enabled=0;instance->motion.lanes[5].auto_off=2;return instance;}
 static void assignments(void){
-    Inst *a=fixture(),*b=API.create_instance("",0);char saved[8192],value[512];
-    API.get_param(a,"follow_touch_labels",value,sizeof(value));assert(strstr(value,"5:Next Once|6:Next Latch"));
+    Inst *a=legacy_next_fixture(),*b=API.create_instance("",0);char saved[8192],value[512];
+    API.get_param(a,"follow_touch_labels",value,sizeof(value));assert(strstr(value,"5:Next Harmony|6:Next Harmony"));
     API.set_param(a,"motion_hold_6","On");API.get_param(a,"motion_hold_6",value,sizeof(value));assert(!strcmp(value,"On"));
     API.set_param(a,"motion_hold_6","Off");API.get_param(a,"motion_hold_6",value,sizeof(value));assert(!strcmp(value,"Off"));
     API.set_param(a,"motion_lane","6");API.set_param(a,"motion_operation","Velocity");
@@ -19,11 +20,11 @@ static void assignments(void){
     for(int k=0;k<9;k++)assert(a->touch_lanes[k]==16-k&&b->touch_lanes[k]==16-k);
     Inst *c=API.create_instance("",0);for(int k=0;k<9;k++)assert(c->touch_lanes[k]==16-k);
     API.get_param(c,"state",saved,sizeof(saved));
-    a=fixture();API.set_param(a,"state",saved);for(int k=0;k<9;k++)assert(a->touch_lanes[k]==16-k);
+    a=legacy_next_fixture();API.set_param(a,"state",saved);for(int k=0;k<9;k++)assert(a->touch_lanes[k]==16-k);
     b=API.create_instance("",0);for(int k=0;k<9;k++)assert(b->touch_lanes[k]==16-k);
 }
 static void mapping(void){
-    Inst *i=fixture();i->chromatic_map=1;i->content_map=0;i->boundary_buffer_ms=0;
+    Inst *i=legacy_next_fixture();i->chromatic_map=1;i->content_map=0;i->boundary_buffer_ms=0;
     hb_set_shared_follower_scale(1);position=0.25;g_bus.clip_loop_end=4;
     g_bus.next_model_locked=1;g_bus.next_model_count=2;
     g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
@@ -50,7 +51,7 @@ static void mapping(void){
     API.set_param(i,"motion_gesture_5","Cancel");assert(!i->motion.gesture_down);
 }
 static void expiry(void){
-    Inst *i=fixture();i->content_map=0;position=1.9;g_bus.clip_loop_end=4;
+    Inst *i=legacy_next_fixture();i->content_map=0;position=1.9;g_bus.clip_loop_end=4;
     g_bus.next_model_locked=1;g_bus.next_model_count=2;
     g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
     g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=2,.harmony=chord(2,1,0)};
@@ -83,12 +84,12 @@ static void expiry(void){
     position=2;g_bus.observed_harmony=g_bus.next_model[1].harmony;hb_next_touch_clear_expired(i);
     assert(i->motion.enclosure==4&&i->motion.tap_mask==1); /* only manual Below remains */
     API.set_param(i,"motion_gesture_15","Up,40");assert(i->motion.tap_mask==1);
-    API.set_param(i,"motion_lane","6");API.set_param(i,"motion_auto_off","Chord Change");
+    API.set_param(i,"motion_lane","6");API.set_param(i,"motion_operation","Harmony");API.set_param(i,"motion_auto_off","Chord Change");
     char saved[8192];API.get_param(i,"state",saved,sizeof(saved));
-    i=fixture();API.set_param(i,"state",saved);assert(i->motion.lanes[5].auto_off==1);
+    i=legacy_next_fixture();API.set_param(i,"state",saved);assert(i->motion.lanes[5].auto_off==1);
 }
 static void approach_policies(void){
-    Inst *i=fixture();
+    Inst *i=legacy_next_fixture();
     for(int mode=0;mode<3;mode++){
         hb_mo_defaults(&i->motion);i->motion.lanes[12].operation=HB_MO_ENCLOSE_AB;i->motion.lanes[14].operation=HB_MO_ABOVE; /* explicit enclosure fixture */i->motion.lanes[14].auto_off=mode;i->motion.lanes[15].auto_off=mode;
         API.set_param(i,"motion_gesture_15","Touch");API.set_param(i,"motion_gesture_15","Up,20");
@@ -109,7 +110,7 @@ static void approach_policies(void){
     for(int n=0;n<5;n++){hb_mo_input(&i->motion,60,n,0.01);assert(i->motion.events[16]==(unsigned)(n==1?1:n==2?0:2));}
 }
 static void immediate_lookahead(void){
-    Inst *i=fixture();char value[8192],view[4096];position=0.25;g_bus.clip_loop_end=8;
+    Inst *i=legacy_next_fixture();char value[8192],view[4096];position=0.25;g_bus.clip_loop_end=8;
     g_bus.next_model_locked=1;g_bus.next_model_count=3;
     g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
     g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=1,.harmony=chord(2,1,0)};
@@ -143,7 +144,7 @@ static void immediate_lookahead(void){
     assert(hb_render_harmony(i).root_pc==0); /* safe fallback during learning */
 }
 static void after_lookahead(void){
-    Inst *i=fixture();char value[8192],view[4096];position=0;g_bus.clip_loop_end=8;
+    Inst *i=legacy_next_fixture();char value[8192],view[4096];position=0;g_bus.clip_loop_end=8;
     g_bus.next_model_locked=1;g_bus.next_model_count=3;
     g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
     g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=4,.harmony=chord(2,1,0)};

@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.194"
+#define HB_VERSION "0.2.195"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -14,6 +14,7 @@ extern int memcmp(const void *, const void *, size_t);
 extern size_t strlen(const char *);
 extern int strcmp(const char *, const char *);
 extern int strncmp(const char *, const char *, size_t);
+extern char *strchr(const char *, int);
 extern long strtol(const char *, char **, int);
 extern unsigned long long strtoull(const char *, char **, int);
 extern double strtod(const char *, char **);
@@ -1516,7 +1517,7 @@ static int hb_next_touch_expired(const Inst *instance){
 }
 static void hb_next_touch_clear_expired(Inst *instance){
     if(!hb_next_touch_expired(instance))return;
-    unsigned mask=instance->next_touch_mask;
+    unsigned mask=instance->next_touch_mask&~instance->motion.gesture_persistent;
     hb_mo_end_lanes(&instance->motion,mask);
     instance->next_touch_mask=0;
 }
@@ -1544,7 +1545,7 @@ static hb_harmony_t hb_render_harmony(Inst *instance){
     }
     for(int lane=0;lane<HB_MOTION_LANES;lane++){
         if(hb_mo_settings(&instance->motion,lane).operation!=HB_MO_HARMONY)continue;
-        if((instance->next_touch_mask&(1u<<lane))&&hb_next_touch_expired(instance))continue;
+        if((instance->next_touch_mask&(1u<<lane))&&!(instance->motion.gesture_persistent&(1u<<lane))&&hb_next_touch_expired(instance))continue;
         double choice;
         if(!hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&choice))continue;
         harmony=g_bus.observed_harmony;
@@ -3528,6 +3529,7 @@ if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note
 }int input_channel=input[0]&0x0F;if(instance->role==2)return pass(input,length,output,lengths,max_output);if(!hb_source_channel_matches(instance,input_channel))return pass(input,length,output,lengths,max_output);if(is_on){
     if(instance->movy_playback&&instance->recorded_action_valid[note])instance->motion.event_override=instance->recorded_actions[note];
     else hb_mo_input(&instance->motion,note,instance->motion_beat,hb_ms_to_beats(25));
+    instance->motion.gesture_once_used|=instance->motion.gesture_once&~instance->next_touch_mask;
     if(!instance->movy_playback&&instance->role==1&&instance->action_count<64){
         int slot=(instance->action_head+instance->action_count)%64;
         hb_mo_capture(&instance->motion,hb_motion_position(instance),hb_motion_condition_position(),note,instance->action_queue[slot]);
@@ -4062,12 +4064,17 @@ static int process_with_actions(void *value,const uint8_t *input,int length,uint
     }
     return hb_motion_local_drain(instance,output,lengths,capacity);
 }
+static void hb_gesture_finish_use(Inst *instance){
+    if(instance->active_count||instance->follower_queue_count)return;
+    unsigned mask=instance->motion.gesture_once_used&instance->motion.gesture_once&~instance->motion.gesture_persistent;
+    if(mask){hb_mo_end_lanes(&instance->motion,mask);hb_auto_chord_repeat_sync(instance);}
+}
 static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int capacity){
     Inst *instance=(Inst*)value;
     if(instance&&length>=3&&(input[0]&0xf0)==0x90&&input[2]&&instance->movy_playback&&instance->recorded_action_valid[input[1]&127])
         instance->motion.event_override=instance->recorded_actions[input[1]&127];
     int count=process_with_actions(value,input,length,output,lengths,capacity);
-    if(instance)instance->motion.event_override=0;
+    if(instance){instance->motion.event_override=0;hb_gesture_finish_use(instance);}
     return count;
 }
 static int hb_motion_recorded_active(const unsigned long long *events){
@@ -4085,6 +4092,7 @@ static int hb_motion_pending_trigger(const Inst *instance){
 
 static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int capacity){
     Inst *instance=(Inst*)value;if(!instance)return 0;
+    hb_gesture_finish_use(instance);
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
     if(frames>0&&sample_rate>0){double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120.0;if(bpm<=0)bpm=120.0;instance->motion_beat+=(double)frames*bpm/(60.0*sample_rate);}
     if(instance->role>=2||(!hb_mo_enabled(&instance->motion)&&!instance->motion_local.owned&&!instance->motion_local.count&&!instance->motion_render.owned&&!hb_motion_pending_trigger(instance))){
@@ -4101,7 +4109,7 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
         instance->motion.event_override=instance->motion_output_valid[index]?instance->motion_output_events[index]:0;
         hb_motion_output(instance,&instance->motion_local,pending[index]);instance->motion.event_override=0;
     }
-    return hb_motion_local_drain(instance,output,lengths,capacity);
+    int emitted=hb_motion_local_drain(instance,output,lengths,capacity);hb_gesture_finish_use(instance);return emitted;
 }
 static void hb_restore_state(Inst *instance,const char *state);
 static int enum_index(const char *value,const char *const *options,int count,int fallback){
@@ -4292,9 +4300,16 @@ hb_next_touch_clear_expired(instance);
 int next_lane=hb_mo_slot_key(key,"motion_gesture_");if(next_lane<0)next_lane=hb_mo_slot_key(key,"motion_hold_");
 unsigned next_before=instance->motion.held|instance->motion.gesture_down;
 if(hb_mo_set(&instance->motion,key,parameter)){
-    if(next_lane>=0&&((instance->motion.lanes[next_lane].operation>=HB_MO_HARMONY&&instance->motion.lanes[next_lane].operation<=HB_MO_ENCLOSE_BA)||instance->motion.lanes[next_lane].operation>=HB_MO_SECONDARY_II)&&instance->motion.lanes[next_lane].auto_off==1&&
+    if(next_lane>=0&&instance->motion.gesture_mode[next_lane]!=3&&((instance->motion.lanes[next_lane].operation>=HB_MO_HARMONY&&instance->motion.lanes[next_lane].operation<=HB_MO_ENCLOSE_BA)||instance->motion.lanes[next_lane].operation>=HB_MO_SECONDARY_II)&&instance->motion.lanes[next_lane].auto_off==1&&
        !(next_before&(1u<<next_lane))&&((instance->motion.held|instance->motion.gesture_down|hb_mo_pending_lanes(&instance->motion))&(1u<<next_lane)))hb_next_touch_arm(instance,next_lane);
-    instance->next_touch_mask&=instance->motion.held|instance->motion.gesture_down|instance->motion.gesture_latched|hb_mo_pending_lanes(&instance->motion);
+    if(next_lane>=0&&instance->motion.gesture_mode[next_lane]==3&&(instance->motion.gesture_down&(1u<<next_lane)))instance->next_touch_mask&=~(1u<<next_lane);
+    if(next_lane>=0&&instance->motion.gesture_mode[next_lane]==3&&!(instance->motion.gesture_down&(1u<<next_lane))&&
+       ((instance->motion.gesture_once|hb_mo_pending_lanes(&instance->motion))&(1u<<next_lane))&&
+       !(instance->motion.gesture_persistent&(1u<<next_lane))&&
+       (instance->motion.lanes[next_lane].auto_off==1||instance->motion.lanes[next_lane].operation==HB_MO_HARMONY||
+        (instance->motion.lanes[next_lane].operation>=HB_MO_REPEAT&&instance->motion.lanes[next_lane].operation<=HB_MO_SPEED))&&
+       !(instance->next_touch_mask&(1u<<next_lane)))hb_next_touch_arm(instance,next_lane);
+    instance->next_touch_mask&=(instance->motion.held|instance->motion.gesture_down|instance->motion.gesture_latched|hb_mo_pending_lanes(&instance->motion))&~instance->motion.gesture_persistent;
     if(!strncmp(key,"motion_",7)&&strncmp(key,"motion_gesture_",15)&&strncmp(key,"motion_hold_",12)&&
        strcmp(key,"motion_host")&&strcmp(key,"motion_release"))hb_motion_publish_settings(instance);
     hb_mo_repeat_cancel(&instance->motion_local,&instance->motion,0);
@@ -5178,7 +5193,7 @@ if(!strcmp(key,"follow_touch_labels")){
         int lane=slot==9?6:instance->touch_lanes[slot];const hb_motion_lane *operation=&instance->motion.lanes[lane-1];
         const char *label=MO_OPERATIONS[operation->operation];
         if(operation->operation==HB_MO_HARMONY)label=operation->amount>=50?
-            (operation->auto_off==1?"Next Once":"Next Latch"):(operation->auto_off==1?"Current Once":"Current Latch");
+            "Next Harmony":"Current Harmony";
         if(used<0||used>=length)return -1;
         used+=snprintf(buffer+used,(size_t)(length-used),"%s%d:%s",slot?"|":"",lane,label);
     }
