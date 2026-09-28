@@ -54,4 +54,33 @@ static void mapped_chromatic_inputs(void){
     unsigned expected=(1u<<mod12(root))|(1u<<mod12(root+3))|(1u<<mod12(root+6));assert(key->semantic_mask==expected);
     API.destroy_instance(instance);
 }
-int main(void){approach_families();same_root_and_preview();mapped_chromatic_inputs();puts("approach chords: role-based families, same-root diatonic distinction, top note, recorded aliases, preview and ownership pass");return 0;}
+static void below_operation_chords(void){
+    static const int thirds[]={0,4,4,3,3,3},fifths[]={0,7,7,6,7,6};
+    for(int family=1;family<6;family++)for(int trigger=0;trigger<5;trigger++)for(int top=0;top<2;top++){
+        Inst *instance=fixture();instance->travel_map=7;instance->player.config.mode=1;
+        instance->player.config.chromatic_quality=family;instance->player.config.inversion=top?8:0;
+        API.set_param(instance,"motion_lane","16");API.set_param(instance,"motion_operation","Chrom Below");
+        API.set_param(instance,"motion_enabled","Off");
+        if(trigger==0)API.set_param(instance,"motion_gesture_16","Touch");
+        else if(trigger==1){API.set_param(instance,"motion_gesture_16","Touch");API.set_param(instance,"motion_gesture_16","Up,50");}
+        else if(trigger==2){instance->movy_playback=1;instance->recorded_action_valid[65]=1;instance->recorded_actions[65][HB_MOTION_LANES]=1;}
+        else if(trigger==3){instance->motion.lanes[15].enabled=1;instance->motion.lanes[15].amount=1;}
+        else API.set_param(instance,"mod_chrom_below","On");
+        midi(instance,1,65);advance(instance,0,64);
+        unsigned actual=0;int highest=-1,lowest=128;
+        for(int event=0;event<render_count;event++)if((rendered[event][1]&0xf0)==0x90&&rendered[event][3]){
+            int pitch=rendered[event][2];actual|=1u<<mod12(pitch);if(pitch>highest)highest=pitch;if(pitch<lowest)lowest=pitch;
+        }
+        unsigned expected=(1u<<4)|(1u<<mod12(4+thirds[family]))|(1u<<mod12(4+fifths[family]));
+        assert(actual==expected);assert(top?highest==64:lowest==64);
+        midi(instance,0,65);advance(instance,0,64);assert(!instance->player.sounding_count);
+        if(trigger==0)API.set_param(instance,"motion_gesture_16","Up,500");
+        if(trigger==3)instance->motion.lanes[15].enabled=0;
+        if(trigger==4)API.set_param(instance,"mod_chrom_below","Off");
+        instance->movy_playback=0;render_count=0;midi(instance,1,65);advance(instance,0,64);
+        actual=0;for(int event=0;event<render_count;event++)if((rendered[event][1]&0xf0)==0x90&&rendered[event][3])actual|=1u<<mod12(rendered[event][2]);
+        assert(actual==((1u<<5)|(1u<<9)|1u));
+        midi(instance,0,65);advance(instance,0,64);API.destroy_instance(instance);
+    }
+}
+int main(void){approach_families();same_root_and_preview();mapped_chromatic_inputs();below_operation_chords();puts("approach chords: role-based families, same-root diatonic distinction, top note, recorded aliases, preview and ownership pass");return 0;}

@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.190"
+#define HB_VERSION "0.2.191"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2409,6 +2409,15 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         ((instance->movy_pad_shift[source_note]&&source_note+instance->movy_pad_shift[source_note]>=0&&
           source_note+instance->movy_pad_shift[source_note]<128)||
          (hb_chromatic_travel(instance)&&hb_chromatic_approach_target(instance,source_note,harmony)>=0));
+    int source_modifier=hb_mo_source_modifier(&instance->motion);
+    int operation_below=source_modifier<0||hb_mo_held_modifier(&instance->motion)<0;
+    for(int lane=0;lane<HB_MOTION_LANES&&config.mode!=0&&!operation_below;lane++){
+        hb_motion_lane settings=hb_mo_settings(&instance->motion,lane);double value=0;
+        if(settings.operation==HB_MO_BELOW&&hb_mo_value_at(&instance->motion,lane,
+            hb_motion_position(instance),hb_motion_condition_position(),source_note,&value)&&value>0)
+            operation_below=1;
+    }
+    operation_below=operation_below&&config.mode!=0;
     int top_note=config.inversion==8&&config.mode!=0;
     int melody=source_note+g_bus.global_transpose;
     if(top_note&&instance->role==1){
@@ -2421,16 +2430,17 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         hb_approach_effective(instance->approach_control,instance->approach_pad_armed)==HB_APPROACH_CHROM_BELOW;
     if(chromatic_below){
         config.mode=1;
-        config.quality=9;
+        config.quality=hb_cp_chromatic_quality(config.chromatic_quality);
         modified_note=source_note>0?source_note-1:0;
         if(instance->approach_pad_armed==HB_APPROACH_CHROM_BELOW)
             instance->approach_pad_armed=HB_APPROACH_OFF;
     }
-    if(pad_approach){
+    int approach_chord=pad_approach||chromatic_below||operation_below;
+    if(approach_chord){
         /* Pad function survives pitch-class overlap with the scale. Build its
            selected chromatic family on the actual approach root, not the alias
            identity or the target pad's root. The mapper already did Follow Play. */
-        modified_note=hb_map_follower_note_now(instance,source_note)-g_bus.global_transpose;
+        modified_note=instance->role==1?hb_map_follower_note_now(instance,source_note)-g_bus.global_transpose:source_note;
         if(chromatic_below)modified_note--;
         while(modified_note<0)modified_note+=12;while(modified_note>127)modified_note-=12;
         config.mode=1;
@@ -2465,14 +2475,13 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         while(pitches[0]<0)for(int voice=0;voice<voice_count;voice++)pitches[voice]+=12;
         while(pitches[voice_count-1]>127)for(int voice=0;voice<voice_count;voice++)pitches[voice]-=12;
     }
-    if(instance->role==1&&config.mode!=0&&harmony.valid&&!pad_approach){
+    if(instance->role==1&&config.mode!=0&&harmony.valid&&!approach_chord){
         unsigned collection=0;
         for(int voice=0;voice<voice_count;voice++)collection|=1u<<mod12(pitches[voice]);
         for(int voice=0;voice<voice_count;voice++)pitches[voice]=hb_play_note(instance,pitches[voice],harmony,collection);
         hb_cp_sort(pitches,voice_count);
     }
     /* Bind pending approaches to source voices, not generated arp/strum onsets. */
-    int source_modifier=hb_mo_source_modifier(&instance->motion);
     if(source_modifier)for(int voice=0;voice<voice_count;voice++)
         pitches[voice]=hb_apply_approach(instance,pitches[voice],source_modifier<0?HB_APPROACH_CHROM_BELOW:HB_APPROACH_SCALE_ABOVE);
     if(top_note&&voice_count){
@@ -2495,7 +2504,7 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         hb_cp_key *key=&player->keys[index];
         if(key->used&&key->source==source_note&&key->channel==channel){
             key->root_pc=config.mode==0?mod12(pitches[0]):(config.mode==2?harmony.root_pc:mod12(modified_note+g_bus.global_transpose));
-            key->onset_config=pad_approach?requested_config:config;
+            key->onset_config=approach_chord?requested_config:config;
             key->semantic_mask=semantic_mask;
             if(scale_mode&&g_bus.global_transpose){
                 key->semantic_mask=0;

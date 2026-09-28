@@ -1,3 +1,5 @@
+> 0.2.191: Chromatic Below operations and the below step of enclosures also select the chromatic chord family at onset.
+
 > 0.2.190: Chromatic approach pads generate the selected chromatic chord family on their rendered root, even when that root is diatonic. Fresh instances default to Dim / Dim7; saved settings remain intact.
 
 > 0.2.189: Inversion → Top Note anchors a generated chord to the rendered played melody, keeping Chord Mode and spacing independent without another knob.

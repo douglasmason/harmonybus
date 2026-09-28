@@ -529,7 +529,8 @@ static void chord_qualities(void){
     API.set_param(instance,"approach_chrom_next","1");
     assert(instance->approach_pad_armed==HB_APPROACH_CHROM_BELOW);
     midi(instance,1,62);assert(advance(instance,0,64)==4);
-    const int below_dim7[]={61,64,67,70};
+    /* Relative Chord travel renders input D as E; its approach is Eb. */
+    const int below_dim7[]={63,66,69,72};
     expect_notes((int[]){output[0][1],output[1][1],output[2][1],output[3][1]},below_dim7,4);
     assert(instance->approach_pad_armed==HB_APPROACH_OFF);
     midi(instance,0,62);assert(advance(instance,0,64)==4);
