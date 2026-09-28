@@ -1,3 +1,5 @@
+> 0.2.199: Mixed cadence panels, conductor/follower chord defaults, visible track overrides, strict/automatic local gap scales and recorded harmonic intent. See [operations](docs/operations.md).
+
 > **0.2.198 / Movy hbclean.106:** Complete Secondary II–VII controls; Parent Scale, Simple Chord, and Simple Scale policies on II/III/IV/VI/VII; separate Chrom Above connector and Tritone V. Parent Scale II follows the actual next scale degree. Older recorded approaches retain their original behavior.
 
 > 0.2.197 / Movy hbclean.105: Pitch Play and Pitch Cadences have dedicated named controls; Ops 1–8 and 9–16 are fixed to the sixteen Step Seq slots. Added three-press ii–V–target cadences, Chrom Above (tritone-sub dominant in chord mode), and Tritone II. Install both modules for named-control recording.

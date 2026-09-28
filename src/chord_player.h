@@ -12,6 +12,7 @@ typedef struct {
 } hb_cp_config;
 typedef struct {
     int used, held, source, channel, velocity, count, fresh, root_pc, recordable;
+    int intent_kind,intent_target,intent_minor;unsigned intent_scale,gap_mask;
     unsigned sequence, harmony_mask, harmony_sequence, semantic_mask;
     hb_cp_config onset_config;
     int harmony_root, playback_origin, range;

@@ -376,3 +376,51 @@ Chrom Above uses Chromatic Keys chord quality (including diminished) at the semi
 II-V-Target also offers the scale policy on its knob; the policy applies to its ii stage, while V retains its dominant behavior and the target stage retains its original identity. Fixed Step Seq 1–16 mapping is unchanged. Named controls retain their existing identities; the four new controls append independent lanes.
 
 Recording format ra3 carries the extra named lanes, extended operation ids and scale policy. Both the prior 17-word and 34-word formats remain readable; old Chrom Above recordings keep their tritone-dominant sound, and old II recordings keep their fixed-whole-step root behavior.
+
+
+## Mixed cadences and role defaults (0.2.199)
+
+Mixed Cadences 1 and 2 provide fourteen fixed named operations, separate from
+Step Seq 1–16. Tap to arm; each new source-note/chord gesture advances one step.
+A chord's generated voices and arpeggio notes do not advance the sequence.
+Normal finishes at the target. Chord Change repeats until that condition ends it.
+The Cadence Step control shows what remains. Knob turns select the existing
+Parent Scale / Simple Chord / Simple Scale construction policy.
+
+Presets: bVI–bVII–I; bVI–V–I; bIII–IV–I; vi–V–I; iii–vi–ii–V–I; IV–iv–I;
+ii half-diminished–V–i; I–VI7–ii–V–I; V/V–V–I; ii/V–V/V–V–I;
+V/ii–ii–V–I; V/vi–vi–ii–V–I; vii diminished/V–V–I; III7–VI7–II7–V7–I.
+Each step resolves relative to the played destination. Nested dominants keep their
+intermediate destination. Explicit borrowed steps use the parallel minor family.
+
+Conductor Chord Defaults and Follower Chord Defaults edit shared recipes for the
+respective role. Existing Chords controls edit that track: changing a value creates
+an override, and selecting Role Default clears it. Setting Sources lists local
+exceptions. Chord Settings Sources includes Reset Track Overrides and Clear on
+Harmony Change. Auto Chord activation, arp, latch and routing remain per track.
+Changing role switches inherited defaults; explicit track overrides remain.
+Old presets retain their saved chord settings as overrides; fresh Movy sets inherit.
+
+Conductor Scale Defaults and Follower Scale Defaults choose Parent, Strict Local,
+or Auto Local, with Track Scales providing optional overrides. Parent is the
+unchanged default. Strict Local uses a chord-root recipe; major offers Ionian or
+Lydian, minor Dorian or Aeolian, and half-diminished Locrian or Locrian #2.
+Explicit chord tones survive collection selection. The stable input keyboard and
+harmonic parent used for secondary degree counting remain separate.
+
+Auto Local first honors explicit operation destinations. Parent-based Auto Chord
+construction also supplies a recorded scale clue, used only when compatible with
+the actual chord. Otherwise the learned loop supplies conservative ii–V,
+V–I, leading-chord and confirmed backdoor clues. Immediate examines the next
+harmony; Full Loop also checks neighboring resolution/context and loop wrap.
+Conflicting interpretations of repeated chords fall back to the local recipe.
+This is a small rule set, not a general tonal-analysis engine; unfamiliar or
+not-yet-learned progressions use the local fallback. Analysis lookahead never
+changes playback timing. Resolved Scale reports the contextual destination or fallback.
+
+Recordings store cadence steps and conductor construction provenance (mode,
+quality, form, parent reference and gap policy). They preserve relative operation
+intent while chord voicings remain editable. Older recordings migrate without
+acquiring new cadence semantics. Current and lookahead pad previews run private
+note-renderer copies and use each generated gesture's gap collection; previews do
+not consume a cadence step.

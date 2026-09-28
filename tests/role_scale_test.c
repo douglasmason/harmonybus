@@ -1,0 +1,48 @@
+#define HB_PARALLEL_FIXTURE
+#include "parallel_harmony_test.c"
+#undef main
+static void inheritance(void){
+    Inst *first=fixture(),*second=API.create_instance("",0);API.set_param(second,"role","Follower");
+    API.set_param(first,"follower_default_chord_form","Ninth");
+    char value[256];API.get_param(second,"chord_form",value,sizeof(value));assert(!strcmp(value,"Ninth"));
+    API.set_param(second,"chord_form","Seventh");API.set_param(first,"follower_default_chord_form","Triad");
+    API.get_param(second,"chord_form",value,sizeof(value));assert(!strcmp(value,"Seventh"));
+    API.get_param(first,"chord_form",value,sizeof(value));assert(!strcmp(value,"Triad"));
+    API.get_param(second,"chord_scope",value,sizeof(value));assert(strstr(value,"Form"));
+    API.set_param(second,"chord_form","Role Default");API.get_param(second,"chord_form",value,sizeof(value));assert(!strcmp(value,"Triad"));
+    API.set_param(first,"conductor_default_chord_form","Eleventh");API.set_param(second,"role","Conductor");
+    API.get_param(second,"chord_form",value,sizeof(value));assert(!strcmp(value,"Eleventh"));
+    API.set_param(second,"chord_inversion","First");API.set_param(second,"gap_scale","Strict Local");
+    char saved[16384];API.get_param(second,"state",saved,sizeof(saved));
+    API.destroy_instance(first);API.destroy_instance(second);second=API.create_instance("",0);API.set_param(second,"state",saved);
+    API.get_param(second,"chord_form",value,sizeof(value));assert(!strcmp(value,"Eleventh"));
+    API.get_param(second,"chord_inversion",value,sizeof(value));assert(!strcmp(value,"First"));
+    API.get_param(second,"gap_scale",value,sizeof(value));assert(!strcmp(value,"Strict Local"));
+    API.set_param(second,"chord_reset_overrides","Reset");API.get_param(second,"gap_scale",value,sizeof(value));assert(!strcmp(value,"Parent"));
+    API.destroy_instance(second);
+}
+static void collections(void){
+    Inst *instance=fixture();instance->content_map=1;
+    API.set_param(instance,"gap_scale","Strict Local");
+    for(int root=0;root<12;root++){
+        hb_harmony_t harmony=extended(root,0);
+        assert(hb_follower_scale_target(instance,harmony).pitch_mask==hb_explicit_scale_mask(root,3));
+    }
+    hb_harmony_t dminor=extended(2,0),gdom=extended(7,2),cmajor=extended(0,1);
+    g_bus.next_model_locked=1;g_bus.next_model_count=3;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=dminor};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=4,.harmony=gdom};
+    g_bus.next_model[2]=(hb_loop_harmony_event_t){.phase=8,.harmony=cmajor};
+    API.set_param(instance,"gap_scale","Auto Local");API.set_param(instance,"track_dominant_scale","Harmonic Minor");
+    assert(hb_follower_scale_target(instance,dminor).pitch_mask==hb_explicit_scale_mask(0,1));
+    /* A dominant override colors gaps while explicit G9's A remains present. */
+    unsigned gaps=hb_follower_scale_target(instance,gdom).pitch_mask;
+    assert((gaps&hb_harmony_chord_mask(gdom))==hb_harmony_chord_mask(gdom));
+    hb_harmony_t ddom=extended(2,2);ddom.intent_kind=2;ddom.intent_target=7;ddom.intent_minor=0;
+    assert(hb_context_destination(instance,ddom,&(int){0})==7);
+    API.set_param(instance,"gap_scale","Strict Local");API.set_param(instance,"local_minor","Aeolian");
+    assert(hb_follower_scale_target(instance,dminor).pitch_mask==hb_explicit_scale_mask(2,2));
+    assert(hb_follower_input_scale(instance,0)==hb_explicit_scale_mask(0,1));
+    API.destroy_instance(instance);
+}
+int main(void){inheritance();collections();puts("role defaults, visible overrides, migration, local parallel scales and contextual ii-V selection pass");return 0;}

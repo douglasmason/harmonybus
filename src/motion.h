@@ -3,7 +3,7 @@
 /* Sixteen shared lane assignments with per-instance voice ownership. Pure evaluation uses transport position, never a
    mutable random stream, so local and MIDI-render routes make identical choices. */
 #define HB_MOTION_USER_LANES 16
-#define HB_MOTION_LANES 37
+#define HB_MOTION_LANES 51
 #define HB_MOTION_GESTURES (HB_MOTION_LANES+2)
 #define HB_MOTION_OWNERS 512
 #define HB_MOTION_QUEUE 2048
@@ -11,7 +11,9 @@
 enum { HB_MO_OFF, HB_MO_VELOCITY, HB_MO_PAN, HB_MO_OCTAVE, HB_MO_ROTATE,
        HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY, HB_MO_BELOW, HB_MO_ABOVE,
        HB_MO_ENCLOSE_AB, HB_MO_ENCLOSE_BA, HB_MO_REPEAT, HB_MO_REVERSE,
-       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO, HB_MO_CHORD_FORM, HB_MO_AUTO_CHORD_REPEAT, HB_MO_SECONDARY_II, HB_MO_SECONDARY_V, HB_MO_SECONDARY_VI, HB_MO_BACKDOOR_II, HB_MO_BACKDOOR_V, HB_MO_CHROM_ABOVE, HB_MO_TRITONE_II, HB_MO_CADENCE_II_V, HB_MO_CADENCE_BACKDOOR, HB_MO_CADENCE_TRITONE, HB_MO_TRITONE_V, HB_MO_SECONDARY_III, HB_MO_SECONDARY_IV, HB_MO_SECONDARY_VII };
+       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO, HB_MO_CHORD_FORM, HB_MO_AUTO_CHORD_REPEAT, HB_MO_SECONDARY_II, HB_MO_SECONDARY_V, HB_MO_SECONDARY_VI, HB_MO_BACKDOOR_II, HB_MO_BACKDOOR_V, HB_MO_CHROM_ABOVE, HB_MO_TRITONE_II, HB_MO_CADENCE_II_V, HB_MO_CADENCE_BACKDOOR, HB_MO_CADENCE_TRITONE, HB_MO_TRITONE_V, HB_MO_SECONDARY_III, HB_MO_SECONDARY_IV, HB_MO_SECONDARY_VII, HB_MO_MIXED_FIRST, HB_MO_MIXED_LAST=HB_MO_MIXED_FIRST+13 };
+#include "cadences.h"
+static int hb_mo_mixed(int operation){return operation>=HB_MO_MIXED_FIRST&&operation<=HB_MO_MIXED_LAST;}
 typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through,touch_mode,auto_off; } hb_motion_lane;
 typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned long long held;
     unsigned revision[HB_MOTION_LANES]; unsigned long long render_flags;
@@ -24,7 +26,7 @@ typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host
     unsigned long long gesture_persistent,gesture_once,gesture_once_used,gesture_was_persistent,gesture_double,gesture_suppressed;
     int gesture_last_lane,gesture_last_valid,gesture_last_off;double gesture_last_up;
     unsigned gesture_serial[HB_MOTION_GESTURES]; int gesture_operation[HB_MOTION_GESTURES],gesture_mode[HB_MOTION_GESTURES],gesture_threshold[HB_MOTION_GESTURES];
-    unsigned tap_mask,tap_serial[13]; int tap_owner[13],tap_policy[13],enclosure_auto_off; int tap_first,tap_started,enclosure_step;
+    unsigned tap_mask,tap_serial[13]; int tap_owner[13],tap_policy[13],enclosure_auto_off; int tap_first,tap_started,enclosure_step,cadence_program;
 } hb_motion_config;
 typedef struct { int used,channel,source,pitch,sounding; double off_beat; unsigned long long serial; double repeat_off; int generated,lane,manual; unsigned revision,held_serial; } hb_motion_owner;
 typedef struct {
@@ -60,7 +62,7 @@ static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*con
         HB_MO_ENCLOSE_AB,HB_MO_ENCLOSE_BA,HB_MO_CHORD_FORM,HB_MO_AUTO_CHORD_REPEAT,HB_MO_HARMONY,HB_MO_TRITONE_V,HB_MO_SECONDARY_III,HB_MO_SECONDARY_IV,HB_MO_SECONDARY_VII};
     for(int index=HB_MOTION_USER_LANES;index<HB_MOTION_LANES;index++)config->lanes[index].enabled=0;
     for(int index=HB_MOTION_USER_LANES;index<HB_MOTION_LANES;index++){
-        config->lanes[index].operation=operations[index-HB_MOTION_USER_LANES];config->lanes[index].amount=1;
+        config->lanes[index].operation=index<37?operations[index-HB_MOTION_USER_LANES]:HB_MO_MIXED_FIRST+index-37;config->lanes[index].amount=1;
     }
     config->lanes[30].amount=3; /* temporary seventh chord */
     config->lanes[32].amount=100;config->lanes[32].auto_off=1;
@@ -77,7 +79,7 @@ static unsigned long long hb_mo_recorded_word(const hb_motion_config *config,int
 /* Bit 51 extends the historical five-bit operation id without moving fields. */
 static int hb_mo_word_operation(unsigned long long word){return (int)(((word>>32)&31)|((word>>46)&32));}
 static unsigned long long hb_mo_operation_word(int operation){return ((unsigned long long)(operation&31)<<32)|((unsigned long long)(operation&32)<<46);}
-static int hb_mo_has_scale_mode(int operation){return operation==HB_MO_SECONDARY_II||operation==HB_MO_SECONDARY_III||operation==HB_MO_SECONDARY_IV||operation==HB_MO_SECONDARY_VI||operation==HB_MO_SECONDARY_VII||operation==HB_MO_CADENCE_II_V;}
+static int hb_mo_has_scale_mode(int operation){return hb_mo_mixed(operation)||operation==HB_MO_SECONDARY_II||operation==HB_MO_SECONDARY_III||operation==HB_MO_SECONDARY_IV||operation==HB_MO_SECONDARY_VI||operation==HB_MO_SECONDARY_VII||operation==HB_MO_CADENCE_II_V;}
 static int hb_mo_role(int operation){return operation==HB_MO_SECONDARY_II?1:operation==HB_MO_SECONDARY_V?2:operation==HB_MO_SECONDARY_VI?4:operation==HB_MO_BACKDOOR_II?5:operation==HB_MO_BACKDOOR_V?6:operation==HB_MO_TRITONE_II?7:operation==HB_MO_SECONDARY_III?8:operation==HB_MO_SECONDARY_IV?9:operation==HB_MO_SECONDARY_VII?10:0;}
 static hb_motion_lane hb_mo_settings(const hb_motion_config *config,int index){
     hb_motion_lane lane=config->lanes[index];
@@ -91,6 +93,7 @@ static hb_motion_lane hb_mo_settings(const hb_motion_config *config,int index){
 }
 /* Single-control sequences share the same source-gesture state machine. */
 static unsigned hb_mo_enclosure_mask(int operation){
+    if(hb_mo_mixed(operation))return 1u<<(13+operation-HB_MO_MIXED_FIRST);
     return operation==HB_MO_ENCLOSE_AB||operation==HB_MO_ENCLOSE_BA?3:
         operation==HB_MO_CADENCE_II_V?12:operation==HB_MO_CADENCE_BACKDOOR?96:
         operation==HB_MO_CADENCE_TRITONE?768:0;
@@ -136,6 +139,15 @@ static void hb_mo_tap_rebuild(hb_motion_config *config){
 }
 static void hb_mo_arm_sequence(hb_motion_config *config,int operation,int lane,int policy){
     unsigned mask=hb_mo_enclosure_mask(operation);
+    if(hb_mo_mixed(operation)){
+        for(int owner=0;owner<HB_MOTION_LANES;owner++)if(owner!=lane&&!(config->gesture_down&(1ULL<<owner))&&hb_mo_enclosure_mask(config->lanes[owner].operation)){
+            config->gesture_persistent&=~(1ULL<<owner);config->gesture_latched&=~(1ULL<<owner);config->held&=~(1ULL<<owner);
+        }
+        config->tap_mask=mask;config->cadence_program=operation-HB_MO_MIXED_FIRST;
+        config->enclosure=14;config->enclosure_step=0;config->tap_started=0;
+        config->enclosure_lane=lane;config->enclosure_auto_off=policy;
+        config->input_valid=0;config->enclosure_revision++;return;
+    }
     config->tap_mask=mask;
     /* Above/Below reverses only for the explicitly reversed enclosure. */
     unsigned first=operation==HB_MO_ENCLOSE_AB?2:operation==HB_MO_ENCLOSE_BA?1:
@@ -149,6 +161,7 @@ static void hb_mo_arm_sequence(hb_motion_config *config,int operation,int lane,i
     hb_mo_tap_rebuild(config);config->enclosure_lane=lane;config->enclosure_auto_off=policy;
 }
 static void hb_mo_tap_toggle_at(hb_motion_config *config,unsigned bit,unsigned serial){
+    if(config->enclosure==14){config->enclosure=0;config->tap_mask=0;}
     /* One upper approach (Above/II) and one lower/dominant approach
        (Below/V). Replacing either side preserves the other side's trigger. */
     unsigned same_side=bit>=512?bit:bit==16?16:(bit==2||bit==4||bit==32||bit==256)?294:201;
@@ -339,7 +352,9 @@ static int hb_mo_chord_approach_done(const hb_motion_config *config){
 #define HB_MO_CONNECTOR_ABOVE (1ULL<<10)
 #define HB_MO_LEGACY_II (1ULL<<11)
 #define HB_MO_SIMPLE_SCALE (1ULL<<12)
-#define HB_MO_SOURCE_MASK 8063ULL
+#define HB_MO_CADENCE_MASK (127ULL<<13)
+#define HB_MO_INTENT_MASK (((1ULL<<23)-1)<<20)
+#define HB_MO_SOURCE_MASK (8063ULL|HB_MO_CADENCE_MASK|HB_MO_INTENT_MASK)
 static unsigned long long hb_mo_role_word(int role){return ((unsigned long long)(role&7)<<4)|((unsigned long long)(role&8)<<5);}
 static unsigned long long hb_mo_source_flags(hb_motion_config *config,unsigned trigger){
     int lane=-1;unsigned newest=0;
@@ -350,6 +365,11 @@ static unsigned long long hb_mo_source_flags(hb_motion_config *config,unsigned t
     }
     if(lane<0&&trigger){int owner=config->tap_owner[hb_mo_tap_index(trigger)];lane=owner?owner-1:config->enclosure_lane;}
     return (trigger==128?HB_MO_CONNECTOR_ABOVE:0)|(((trigger==4||trigger==16||trigger==1024||trigger==2048||trigger==4096)&&lane>=0&&hb_mo_has_scale_mode(config->lanes[lane].operation)&&config->lanes[lane].amount>=2)?(HB_MO_SIMPLE|(config->lanes[lane].amount==3?HB_MO_SIMPLE_SCALE:0)):0);
+}
+static const hb_cadence_step *hb_mo_current_cadence(hb_motion_config *config){
+    if(hb_mo_held_trigger(config))return 0;
+    const unsigned long long *events=config->event_override?config->event_override:config->events;
+    return hb_cadence_decode((unsigned)((events[HB_MOTION_LANES]>>13)&127));
 }
 static int hb_mo_source_secondary(const hb_motion_config *config){
     const unsigned long long *events=config->event_override?config->event_override:config->events;
@@ -367,10 +387,12 @@ static int hb_mo_source_modifier(const hb_motion_config *config){
 static const unsigned HB_MO_SEQUENCE_FIRST[]={0,2,1,2,1,4,8,4,8,4,1,2,8};
 static const unsigned HB_MO_SEQUENCE_SECOND[]={0,1,2,0,0,8,4,0,0,1,4,8,2};
 static int hb_mo_sequence_count(const hb_motion_config *config){
+    if(config->enclosure==14)return HB_CADENCES[config->cadence_program].length;
     if(config->enclosure!=13)return HB_MO_SEQUENCE_SECOND[hb_mo_clamp(config->enclosure,0,12)]?2:config->enclosure?1:0;
     int count=0;for(int slot=0;slot<13;slot++)if(config->tap_mask&(1u<<slot))count++;return count;
 }
 static unsigned hb_mo_sequence_trigger(const hb_motion_config *config,int step){
+    if(config->enclosure==14)return 0;
     if(config->enclosure!=13){int kind=hb_mo_clamp(config->enclosure,0,12);return step==0?HB_MO_SEQUENCE_FIRST[kind]:step==1?HB_MO_SEQUENCE_SECOND[kind]:0;}
     unsigned remaining=config->tap_mask;
     for(int index=0;index<=step;index++){
@@ -382,6 +404,13 @@ static unsigned hb_mo_sequence_trigger(const hb_motion_config *config,int step){
     return 0;
 }
 static const char *hb_mo_pending_status(const hb_motion_config *config){
+    if(config->enclosure==14){
+        static char ordered[128];int used=0;
+        const hb_cadence_program *program=&HB_CADENCES[config->cadence_program];
+        for(int step=config->enclosure_step;step<program->length&&used<(int)sizeof(ordered);step++)
+            used+=snprintf(ordered+used,sizeof(ordered)-(size_t)used,"%s%s",step==config->enclosure_step?"":" > ",program->steps[step].label);
+        return ordered;
+    }
     static const char *start[]={"Off","Above > Below > Target","Below > Above > Target","Armed Above","Armed Below",
         "II > V > Target","V > II > Target","Armed II","Armed V","II > Below > Target","Below > II > Target","Above > V > Target","V > Above > Target"};
     if(config->enclosure==13){
@@ -425,7 +454,17 @@ static void hb_mo_input(hb_motion_config *config,int pitch,double beat,double gr
     int held=hb_mo_held_modifier(config)||hb_mo_held_secondary(config); /* mark touches used before buffering */
     if(chord){
         int modifier=0,secondary=0;unsigned long long flags=0;
-        if(!held&&config->enclosure){
+        if(!held&&config->enclosure==14){
+            const hb_cadence_program *program=&HB_CADENCES[config->cadence_program];
+            int step=config->enclosure_step++,lane=config->enclosure_lane;
+            flags=(unsigned long long)(config->cadence_program*HB_CADENCE_STEPS+step+1)<<13;
+            if(lane>=0&&config->lanes[lane].amount>=2)flags|=HB_MO_SIMPLE|(config->lanes[lane].amount==3?HB_MO_SIMPLE_SCALE:0);
+            config->tap_started=1;
+            if(config->enclosure_step>=program->length){
+                if(config->enclosure_auto_off){config->enclosure_step=0;config->tap_started=0;}
+                else config->enclosure=0;
+            }
+        }else if(!held&&config->enclosure){
             int step=config->enclosure_step++;
             int count=hb_mo_sequence_count(config);
             unsigned trigger=hb_mo_sequence_trigger(config,step);

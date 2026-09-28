@@ -34,10 +34,13 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.198'
+          assert module['version']=='0.2.199'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
+          canonical={item['key']:item for item in module['capabilities']['chain_params']}
+          for level in levels.values():
+              level['params']=[{**item,**canonical[item['key']]} if 'key' in item else item for item in level['params']]
           buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
           assert buffer['options']==[f'{ms} ms' for ms in [0,25,*range(50,1001,50)]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars','4 Bars']
           assert buffer['default']=='1/16'
@@ -67,8 +70,8 @@ jobs:
                   assert any(parameter.get('key')==key for parameter in levels[page]['params'])
           chord_mode=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='chord_mode')
           assert chord_mode['default']=='Off'
-          dominant=next(parameter for parameter in levels['follower_root']['params'] if parameter.get('key')=='dominant_scale')
-          assert dominant['options']==['Off','Harmonic Minor','Melodic Minor','Altered V'] and dominant['default']=='Off'
+          dominant=next(parameter for parameter in levels['follower_root']['params'] if parameter.get('key')=='track_dominant_scale')
+          assert dominant['options']==['Off','Harmonic Minor','Melodic Minor','Altered V','Role Default'] and dominant['default']=='Off'
           assert levels['follower_touch']['knobs']==[f'motion_control_{i}' for i in range(1,9)]
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
@@ -77,7 +80,7 @@ jobs:
               'content_map','travel_map','split_map','retrigger_held',
               'chromatic_map','motion_control_33'
           ]
-          assert [item['level'] for item in levels['root']['params'] if 'level' in item][-1]=='follower_play_tools'
+          assert [item['level'] for item in levels['root']['params'] if 'level' in item][-1]=='mixed_cadences_2'
           assert levels['next_harm']['name']=='Next Harm'
           assert levels['next_harm']['knobs']==[
               'next_lookahead','next_anti_buffer_ms','boundary_buffer_ms','next_model',
@@ -151,6 +154,11 @@ jobs:
           clang -std=c11 -O2 tests/follower_timing_test.c -o /tmp/follower_timing_test
           /tmp/follower_timing_test
 
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/mixed_cadence_test.c src/harmony_core.c -lm -o /tmp/mixed_cadence_test
+          /tmp/mixed_cadence_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/role_scale_test.c src/harmony_core.c -lm -o /tmp/role_scale_test
+          /tmp/role_scale_test
+
       - name: Verify loop learning with four conductor callbacks
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/loop_learning_test.c src/harmony_core.c -lm -o /tmp/loop_learning_test
@@ -209,7 +217,7 @@ jobs:
           /tmp/double_tap_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_editor_test.c src/harmony_core.c -lm -o /tmp/motion_editor_test
           /tmp/motion_editor_test > /tmp/motion_editor.jsonl
-          python3 -c 'import json; snapshots=[json.loads(line) for line in open("/tmp/motion_editor.jsonl")]; assert len(snapshots)==35; assert all(isinstance(s["params"],list) for s in snapshots)'
+          python3 -c 'import json; snapshots=[json.loads(line) for line in open("/tmp/motion_editor.jsonl")]; assert len(snapshots)==49; assert all(isinstance(s["params"],list) for s in snapshots)'
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/next_touch_test.c src/harmony_core.c -lm -o /tmp/next_touch_test
           /tmp/next_touch_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/operation_recording_test.c src/harmony_core.c -lm -o /tmp/operation_recording_test
@@ -301,12 +309,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Complete secondary II-VII operations with parent-scale, simple-chord and simple-scale policies. Separate Chrom Above connector harmony from Tritone V. Add a Secondary panel and preserve old recorded approach behavior and fixed step slots."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Mixed cadences, separate conductor/follower chord defaults with visible track overrides, strict/automatic local gap scales, recorded construction intent and shared pad previews. Preserve old presets and recorded operations."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Complete secondary II-VII operations with parent-scale, simple-chord and simple-scale policies. Separate Chrom Above connector harmony from Tritone V. Add a Secondary panel and preserve old recorded approach behavior and fixed step slots." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Mixed cadences, separate conductor/follower chord defaults with visible track overrides, strict/automatic local gap scales, recorded construction intent and shared pad previews. Preserve old presets and recorded operations." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

@@ -2,7 +2,7 @@
 #define HB_MOTION_PARAMS_H
 #include "motion_metadata.h"
 /* The selected lane is an editor cursor. Holds are runtime-only, never state. */
-static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Chrom Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Chrom Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone V","Secondary III","Secondary IV","Secondary VII"};
+static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Chrom Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Chrom Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone V","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I"};
 static const char *MO_SCALE_MODES[]={"Parent Scale","Simple Chord","Simple Scale"};
 static const char *MO_PATTERNS[]={"Constant","Alternate","Rise","Fall","Triangle","Backbeat","Random"};
 static const char *MO_GRIDS[]={"1/64","1/32","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};
@@ -21,7 +21,7 @@ static const char *MO_RANDOM[]={"Repeat","Evolve"};
 typedef struct { const char *key; size_t offset; int low,high; const char *const *options; } hb_motion_parameter;
 #define MO_FIELD(name,low,high,options) {"motion_" #name,__builtin_offsetof(hb_motion_lane,name),low,high,options}
 static const hb_motion_parameter MO_PARAMETERS[]={
-    MO_FIELD(operation,0,34,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
+    MO_FIELD(operation,0,48,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
     MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM)
@@ -34,8 +34,8 @@ static int hb_mo_slot_key(const char *key,const char *prefix){
     return end!=key+size&&!*end&&slot>=1&&slot<=HB_MOTION_LANES?(int)slot-1:-1;
 }
 static int hb_mo_edit_label(const hb_motion_config *config,int lane,char *buffer,int length){
-    const char *group=lane<16?"Step Seq":lane<30?"Pitch Play":lane<32?"Chord Play":lane==32?"Harmony Play":"Pitch Play";
-    int number=lane<16?lane+1:lane<30?lane-15:lane<32?lane-29:lane==32?1:lane-18;
+    const char *group=lane<16?"Step Seq":lane<30?"Pitch Play":lane<32?"Chord Play":lane==32?"Harmony Play":lane<37?"Pitch Play":"Cadence Play";
+    int number=lane<16?lane+1:lane<30?lane-15:lane<32?lane-29:lane==32?1:lane<37?lane-18:lane-36;
     const char *name=lane==32?"Next Harmony":MO_OPERATIONS[config->lanes[lane].operation];
     return snprintf(buffer,(size_t)length,"%s %d: %s",group,number,name);
 }
@@ -163,11 +163,12 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     return 0;
 }
 static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int length){
+    if(!strcmp(key,"cadence_status"))return snprintf(buffer,(size_t)length,"%s",hb_mo_pending_status(config));
     if(!strcmp(key,"motion_lights")||!strcmp(key,"motion_named_lights")){
         int first=!strcmp(key,"motion_named_lights")?16:0,count=first?HB_MOTION_LANES-16:16;
         unsigned long long active=hb_mo_pending_lanes(config)|config->held|config->gesture_down|config->gesture_latched;
         for(int lane=0;lane<HB_MOTION_LANES;lane++)if(hb_mo_lane_active(config,lane))active|=1ULL<<lane;
-        int used=snprintf(buffer,(size_t)length,"%u,%u,%u",(unsigned)((active>>first)&((1ULL<<count)-1)),(unsigned)((config->gesture_persistent>>first)&((1ULL<<count)-1)),(unsigned)((config->gesture_down>>first)&((1ULL<<count)-1)));
+        int used=snprintf(buffer,(size_t)length,"%llu,%llu,%llu",((active>>first)&((1ULL<<count)-1)),((config->gesture_persistent>>first)&((1ULL<<count)-1)),((config->gesture_down>>first)&((1ULL<<count)-1)));
         for(int lane=first;lane<first+count&&used<length;lane++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",config->lanes[lane].operation);
         return used;
     }
@@ -180,7 +181,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
-        for(int operation=0;operation<=HB_MO_SECONDARY_VII;operation++){
+        for(int operation=0;operation<=HB_MO_MIXED_LAST;operation++){
             if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&!config->host_capabilities&&operation!=selected)continue;
             if(used<0||used>=length)return -1;
             used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",count++?",":"",MO_OPERATIONS[operation]);

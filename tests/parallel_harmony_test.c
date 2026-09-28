@@ -92,6 +92,7 @@ static void run(const char *name,const int roots[4],const int qualities[4],int t
     }
     API.destroy_instance(i);
 }
+#ifndef HB_PARALLEL_FIXTURE
 int main(void){
     const int tonal_roots[]={2,7,0,9},tonal_qualities[]={0,2,1,0};
     const int parallel_roots[]={0,1,4,3},minor[]={0,0,0,0},major[]={1,1,1,1};
@@ -100,3 +101,5 @@ int main(void){
     run("Parallel major 9",parallel_roots,major,0);
     puts("PASS: chord preservation, changing collections, learned loop, early rendering, pad scale, five travels and approach pads");
 }
+
+#endif

@@ -26,6 +26,7 @@ static hb_tick_t hb_timeline_rendering(const Inst *instance){
     int globals[]={hb_shared_follower_scale(),hb_shared_dominant_scale(),hb_shared_borrowed_scale(),
         hb_global_root_policy(),hb_global_explicit_root(),g_bus.global_input_root};
     for(unsigned index=0;index<sizeof(globals)/sizeof(globals[0]);index++)hash=hb_clip_hash(hash,(unsigned)globals[index]);
+    for(int field=0;field<HB_POLICY_FIELDS;field++)hash=hb_clip_hash(hash,(unsigned)hb_policy_value((Inst*)instance,field));
     const unsigned char *bytes=(const unsigned char *)&instance->player.config;
     for(unsigned index=0;index<sizeof(instance->player.config);index++)hash=hb_clip_hash(hash,bytes[index]);
     for(int index=0;index<HB_MOTION_LANES;index++)hash=hb_clip_hash(hash,instance->motion.revision[index]);

@@ -269,7 +269,9 @@ uint16_t hb_harmony_chord_mask(hb_harmony_t harmony) {
     return absolute;
 }
 hb_harmony_t hb_transpose_harmony(hb_harmony_t harmony,int semitones) {
+    if(harmony.intent_kind)harmony.intent_target=((harmony.intent_target+semitones)%12+12)%12;
     if(!harmony.valid||semitones==0)return harmony;harmony.root_pc=mod12(harmony.root_pc+semitones);harmony.bass_pc=mod12(harmony.bass_pc+semitones);
+    uint16_t intent=0;for(int pitch=0;pitch<12;pitch++)if(harmony.intent_scale&BIT(pitch))intent|=BIT(mod12(pitch+semitones));harmony.intent_scale=intent;
     uint16_t mask=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(harmony.pitch_mask&BIT(pitch_class))mask|=BIT(mod12(pitch_class+semitones));harmony.pitch_mask=mask;
     int template_index=harmony.chord_index&~HB_HARMONY_EXPLICIT_TONES;
     if(template_index>=0&&template_index<template_count){snprintf(harmony.name,sizeof(harmony.name),"%s%s%s",hb_pc_name(harmony.root_pc),templates[template_index].suffix,(harmony.chord_index&HB_HARMONY_EXPLICIT_TONES)?"+":"");

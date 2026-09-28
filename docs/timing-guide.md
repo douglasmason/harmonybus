@@ -575,17 +575,17 @@ The production-mapper regression compares three learned four-chord loops, with i
 
 The parallel loops contain more than seven distinct chord-tone pitch classes across the loop, so neither fits one seven-note parent scale. Tests verify learned extensions, one-beat-early rendering before and after its boundary, loop wrap, five travel modes, stable input coordinates, effective/scale pad membership, full-next pad membership across the chord boundary, and the Approach layout's semitone-below relationship. These are automated native-code checks, not a listening test or a Move hardware test. Extended chords are supplied through root establishment followed by color refinement; the test does not establish automatic root recognition for every ambiguous live voicing.
 
-## Limits of automatic chord scales
+## Parent scale accommodation and local policies (0.2.199)
 
-Accommodating a chord is different from selecting an independent mode for that chord. HarmonyBus currently retains the parent collection where possible. It does not promise Dorian for every minor-11 chord or Lydian for every major-9 chord in a parallel progression.
+Accommodating a chord is different from selecting an independent mode for that chord. The default Parent policy retains the parent collection where possible. Strict Local instead uses each chord's local recipe; Auto Local adds explicit operation intent and conservative learned-loop context. Local minor recipes offer Dorian or Aeolian; local major recipes offer Ionian or Lydian. These policies have separate conductor/follower defaults and optional track overrides.
 
 For example, with C Major as the input reference and Minimal borrowing, Cm11 yields C D E♭ F G A B♭. C♯m11 yields C C♯ E♭ E F F♯ A♭ B: all six chord tones are present, but the result has eight pitch classes. The spellings here identify pitch classes; they are not a theoretical spelling of a C♯ chord scale. This is chord accommodation, not a fresh Dorian scale rooted on C♯.
 
-For predictable chord-tone playing, use Chord content. Scale content provides the current parent-based accommodation. Independent per-chord mode selection would need an additional output-scale policy, separate from the input keyboard scale; it is not implemented by these tests. The learned loop and full lookahead can carry changing chord content without requiring a common parent scale. Approach pads still resolve one semitone below the lower pad's output under whichever harmony is rendering.
+For predictable chord-tone playing, use Chord content. Scale content provides the current parent-based accommodation. The new Gap Scale policy selects local collections independently of the input keyboard scale. Role Scale tests verify local parallel collections, defaults and overrides. See [operations](operations.md) for precedence, recorded intent, mixed cadences and controls. The learned loop and full lookahead can carry changing chord content without requiring a common parent scale. Approach pads still resolve one semitone below the lower pad's output under whichever harmony is rendering.
 
 ## Verification and pending integration
 
-The latest implemented layout and color behavior is described in Approach layout and linked input controls, together with the preceding timing, operation and pad-color sections. The parallel-harmony regression adds coverage and documents limits without changing musical mapping behavior or release defaults.
+The latest implemented layout and color behavior is described in Approach layout and linked input controls, together with the preceding timing, operation and pad-color sections. The original parallel-harmony regression remains the Parent baseline. The role-scale and mixed-cadence regressions cover the new opt-in policies; Parent remains the release default.
 
 Synchronizing Movy's four banks with the four native Move track colors remains pending. Movy's existing color table is not yet a live mirror of the native tracks. Saved-set colors and native LED highlights must be distinguished before claiming synchronization. Automated touch-release and transition checks also do not substitute for measuring those behaviors on the physical Move.
 
