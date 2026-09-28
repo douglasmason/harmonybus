@@ -58,6 +58,31 @@ static void hb_cp_sort(int *notes,int count){
         notes[slot]=pitch;
     }
 }
+/* Top Note fixes the melody register. Repack selected pitch classes below it,
+   retaining an outside melody note without substituting it for a chord tone.
+   At the MIDI floor omit unavailable lower voices instead of moving melody. */
+static int hb_cp_top_note(int *notes,int count,int top,int root,int fifth,int voicing){
+    if(!count)return 0;
+    top=hb_cp_clamp(top,0,127);
+    unsigned selected=0;
+    for(int index=0;index<count;index++)selected|=1u<<hb_cp_mod(notes[index]);
+    int kept=0;
+    for(int distance=11;distance>0;distance--){
+        int note=top-distance,pitch=hb_cp_mod(note);
+        if(!(selected&(1u<<pitch)))continue;
+        notes[kept++]=note;
+    }
+    for(int index=0;index<kept;index++){
+        int pitch=hb_cp_mod(notes[index]);
+        if((voicing==1&&(pitch==root||pitch==fifth))||
+           (voicing==2&&!(index%2)))notes[index]-=12;
+    }
+    int available=0;
+    for(int index=0;index<kept;index++)if(notes[index]>=0)notes[available++]=notes[index];
+    notes[available++]=top;
+    hb_cp_sort(notes,available);
+    return available;
+}
 /* Inversion: Auto, Root, First through Sixth. Auto is From Key for
    Conductor Chord and root position for Scale Root. Preserve the chosen bass
    through spread voicings. Shift the WHOLE voicing at MIDI range edges. */
@@ -148,7 +173,7 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
             *semantic|=(1u<<root)|(1u<<tones[2])|(1u<<tones[4]);
     }
     int inversion=0;
-    if(config.inversion>0){
+    if(config.inversion>0&&config.inversion!=8){
         inversion=(config.inversion-1)%count;
         if(config.mode==1){
             bass=input;
@@ -178,6 +203,7 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
         if(index>0&&config.voicing==1&&pitch!=root&&pitch!=fifth)output[index]+=12;
         if(index>0&&config.voicing==2&&(index%2))output[index]+=12;
     }
+    if(config.inversion==8)return hb_cp_top_note(output,count,input,root,fifth,config.voicing);
     hb_cp_sort(output,count);
     while(output[0]<0)for(int index=0;index<count;index++)output[index]+=12;
     while(output[count-1]>127)for(int index=0;index<count;index++)output[index]-=12;

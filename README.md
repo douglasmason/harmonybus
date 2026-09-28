@@ -1,3 +1,5 @@
+> 0.2.189: Inversion → Top Note anchors a generated chord to the rendered played melody, keeping Chord Mode and spacing independent without another knob.
+
 > 0.2.188: Bulk operation-editor snapshots remove repeated synchronous page reads in Movy hbclean.96, preserving old-lane pending edits and coherent dependent menus.
 
 > 0.2.187: Auto Chord Repeat operation temporarily enables repeated chord playback using existing panel settings; tap latches, hold is momentary. Turning it off restores the saved mode. Tonal/parallel-harmony tests and guide updates are included.

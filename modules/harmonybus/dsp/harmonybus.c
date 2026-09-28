@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.188"
+#define HB_VERSION "0.2.189"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2402,6 +2402,13 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
     }
     hb_cp_config config=onset?*onset:hb_chord_config_at(instance,source_note,hb_motion_position(instance),hb_motion_condition_position());
     if(instance->role==0&&config.mode==2&&!harmony.valid)config.mode=1;
+    int top_note=config.inversion==8&&config.mode!=0;
+    int melody=source_note+g_bus.global_transpose;
+    if(top_note&&instance->role==1){
+        melody=hb_map_follower_note_now(instance,source_note);
+        int approach=hb_approach_effective(instance->approach_control,instance->approach_pad_armed);
+        if(approach!=HB_APPROACH_OFF)melody=hb_apply_approach(instance,melody,approach);
+    }
     int modified_note=source_note;
     int chromatic_below=instance->role==1&&config.mode!=0&&
         hb_approach_effective(instance->approach_control,instance->approach_pad_armed)==HB_APPROACH_CHROM_BELOW;
@@ -2420,7 +2427,9 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
     }
     int pitches[HB_CP_VOICES];
     unsigned semantic_mask=0;
-    int voice_count=hb_cp_voice_semantic(config,modified_note+(scale_mode?0:g_bus.global_transpose),
+    hb_cp_config voice_config=config;
+    if(top_note)voice_config.inversion=0;
+    int voice_count=hb_cp_voice_semantic(voice_config,modified_note+(scale_mode?0:g_bus.global_transpose),
         harmony.root_pc,harmony.valid?hb_harmony_chord_mask(harmony):0,
         (instance->role==0||harmony.valid)?scale:0,pitches,&semantic_mask);
     if(instance->role==1&&config.mode==0){
@@ -2449,6 +2458,21 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
     int source_modifier=hb_mo_source_modifier(&instance->motion);
     if(source_modifier)for(int voice=0;voice<voice_count;voice++)
         pitches[voice]=hb_apply_approach(instance,pitches[voice],source_modifier<0?HB_APPROACH_CHROM_BELOW:HB_APPROACH_SCALE_ABOVE);
+    if(top_note&&voice_count){
+        if(source_modifier)melody=hb_apply_approach(instance,melody,
+            source_modifier<0?HB_APPROACH_CHROM_BELOW:HB_APPROACH_SCALE_ABOVE);
+        while(melody<0)melody+=12;while(melody>127)melody-=12;
+        int root=config.mode==2?harmony.root_pc:mod12(modified_note+g_bus.global_transpose);
+        unsigned collection=0;
+        for(int voice=0;voice<voice_count;voice++)collection|=1u<<mod12(pitches[voice]);
+        int fifth=mod12(root+7);
+        if(!(collection&(1u<<fifth))){
+            if(collection&(1u<<mod12(root+6)))fifth=mod12(root+6);
+            else if(collection&(1u<<mod12(root+8)))fifth=mod12(root+8);
+        }
+        voice_count=hb_cp_top_note(pitches,voice_count,melody,root,fifth,config.voicing);
+        instance->approach_pad_armed=HB_APPROACH_OFF;
+    }
     hb_cp_on(player,source_note,channel,velocity,pitches,voice_count);
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
@@ -4057,7 +4081,7 @@ static int hb_context_to_legacy_stability(int context){
 static const char *BORROWED_SCALE_OPTS[]={"Minimal","Aeolian","Dorian","Mixolydian b6"};
 static const char *DOMINANT_SCALE_OPTS[]={"Off","Harmonic Minor","Melodic Minor","Altered V"};
 static const char *CP_CHORD_MODE[]={"Off","Scale Degree","Conductor Chord"};
-static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth"};
+static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth","Top Note"};
 static const char *CP_CHORD_VOICING[]={"Close","Root + Fifth Low","Alternate Up","Shell"};
 static const char *CP_ARP_PHASE[]={"Free","Auto","1st Note Free"};
 static const char *CP_CHORD_QUALITY[]={"Auto","Major","Minor","Dim","Aug","Maj7","Dom7","Min7","Half Dim7","Dim7"};
@@ -4235,7 +4259,7 @@ if(!strcmp(key,"chord_form")){
     return;
 }
 if(!strcmp(key,"chord_inversion")){
-    int selected=enum_index(parameter,CP_CHORD_INVERSION,8,instance->player.config.inversion);
+    int selected=enum_index(parameter,CP_CHORD_INVERSION,9,instance->player.config.inversion);
     instance->player.config.inversion=selected; /* Applied at the next source onset. */
     return;
 }
@@ -4683,7 +4707,7 @@ static void hb_restore_state(Inst *instance,const char *state){
         hb_cp_config parsed_config;hb_cp_defaults(&parsed_config);
         int parsed_count=sscanf(suffix,";cp1,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",&parsed_config.mode,&parsed_config.size,&parsed_config.inversion,&parsed_config.voicing,&parsed_config.playback,&parsed_config.latch,&parsed_config.order,&parsed_config.rate,&parsed_config.gate,&parsed_config.spread);
         if(parsed_count==10&&parsed_config.mode>=0&&parsed_config.mode<3&&parsed_config.size>=0&&parsed_config.size<HB_CP_FORMS&&
-           parsed_config.inversion>=0&&parsed_config.inversion<8&&parsed_config.voicing>=0&&parsed_config.voicing<4&&
+           parsed_config.inversion>=0&&parsed_config.inversion<9&&parsed_config.voicing>=0&&parsed_config.voicing<4&&
            parsed_config.playback>=0&&parsed_config.playback<3&&parsed_config.latch>=0&&parsed_config.latch<6&&
            parsed_config.order>=0&&parsed_config.order<6&&parsed_config.rate>=0&&parsed_config.rate<18&&
            parsed_config.gate>=0&&parsed_config.gate<4&&parsed_config.spread>=-9&&parsed_config.spread<=1000)config=parsed_config;
@@ -4836,7 +4860,7 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
                                   unsigned long long *output_low,unsigned long long *output_high){
     preview->render_harmony=harmony;preview->render_harmony_active=1;
     unsigned rendered_mask=0;
-    hb_cp_config config=instance->player.config;
+    hb_cp_config config=hb_cp_effective_config(&instance->player);
     memset(&preview->player,0,sizeof(preview->player));preview->player.config=config;
     preview->approach_pad_armed=instance->approach_pad_armed;
     preview->motion=instance->motion;preview->motion.event_override=0;preview->next_touch_mask=instance->next_touch_mask;hb_next_touch_clear_expired(preview);
