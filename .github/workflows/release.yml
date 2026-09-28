@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.189'
+          assert module['version']=='0.2.190'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -216,6 +216,8 @@ jobs:
           /tmp/chord_forms_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/top_note_test.c src/harmony_core.c -lm -o /tmp/top_note_test
           /tmp/top_note_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_chord_test.c src/harmony_core.c -lm -o /tmp/approach_chord_test
+          /tmp/approach_chord_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/arp_edit_test.c src/harmony_core.c -lm -o /tmp/arp_edit_test
           /tmp/arp_edit_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_player_test.c src/harmony_core.c -lm -o /tmp/chord_player_ubsan

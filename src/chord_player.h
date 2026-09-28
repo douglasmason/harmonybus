@@ -86,6 +86,10 @@ static int hb_cp_top_note(int *notes,int count,int top,int root,int fifth,int vo
 /* Inversion: Auto, Root, First through Sixth. Auto is From Key for
    Conductor Chord and root position for Scale Root. Preserve the chosen bass
    through spread voicings. Shift the WHOLE voicing at MIDI range edges. */
+static int hb_cp_chromatic_quality(int selection){
+    static const int qualities[]={0,5,6,9,7,8};
+    return qualities[hb_cp_clamp(selection,0,5)];
+}
 static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned chord,
                        unsigned scale,int *output,unsigned *semantic){
     if(semantic)*semantic=0;
@@ -120,8 +124,7 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
     if(config.mode==1||config.quality){
         int quality=config.quality;
         if(config.mode==1&&!quality&&!(scale&(1u<<hb_cp_mod(input)))){
-            static const int chromatic_qualities[]={0,5,6,9,7,8};
-            quality=chromatic_qualities[config.chromatic_quality];
+            quality=hb_cp_chromatic_quality(config.chromatic_quality);
         }
         if(quality){
             static const int third[]={0,4,3,3,4,4,4,3,3,3};

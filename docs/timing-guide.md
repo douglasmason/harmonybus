@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.189 / Movy 0.34.1-hbclean.98.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. Before and Late provide shifted harmony boundaries for harmonic capture. Immediate and After select harmony from the actual chord timeline and disable harmonic precapture, so the selected elapsed-time threshold is not brought forward by the buffer. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.190 / Movy 0.34.1-hbclean.99.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. Before and Late provide shifted harmony boundaries for harmonic capture. Immediate and After select harmony from the actual chord timeline and disable harmonic precapture, so the selected elapsed-time threshold is not brought forward by the buffer. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -204,7 +204,7 @@ With Movy hbclean.31, recording stores the emitted conductor chord voices and th
 | Control | Behavior |
 | --- | --- |
 | Quality | Auto, Major, Minor, Dim, Aug, Maj7, Dom7, Min7, Half Dim7 or Dim7. Overrides apply in both chord modes; Form still chooses the included degrees. |
-| Chromatic Quality | In Scale Degree mode, out-of-scale keys use Scale, Major / Maj7, Major / Dom7 or Dim / Dim7. An explicit Quality overrides this choice. |
+| Chromatic Quality | Scale, Major / Maj7, Major / Dom7, Dim / Dim7, Minor / Min7 or Dim / Min7b5. Fresh instances default to Dim / Dim7. Ordinary out-of-scale keys defer to explicit Chord Quality; pads acting as chromatic approaches always use this family, even on diatonic roots. |
 | Chromatic Below (Foll Mod) | The regular modifier also applies to follower chord gestures: lower the input by one semitone and use diminished quality. The next unmodified gesture returns to normal. |
 
 The experimental UI Test page is no longer exposed. Existing Foll Mod controls remain available. A broader momentary knob-touch interface has not been added in this release.
@@ -578,3 +578,11 @@ Automated tests exercise emitted repeat notes, momentary release, tap latching, 
 HarmonyBus 0.2.188 with Movy hbclean.96 updates the Operations settings editor using one native snapshot per lane, operation or condition-selector turn. The snapshot contains the selected lane's values and its dependent menu definitions. Movy rebuilds the visible controls from that snapshot and its cached layout, avoiding repeated synchronous page and module reads during a turn.
 
 Pending parameter edits are committed to the old lane before the lane cursor changes. The new lane's values, condition ranges, operation-specific amount controls and menu highlight then update together. Normal parameter turns continue through the existing cached editor. Older HarmonyBus versions retain the earlier read-based fallback. This change targets settings-panel responsiveness; it does not change tap/hold thresholds, operation activation semantics or musical timing.
+
+## Chromatic approach pads and generated chord quality
+
+A pad acting as a chromatic approach uses the **Chromatic Keys** family even when its rendered root belongs to the scale. This includes ordinary chromatic travel pads, Approach-layout/piano aliases and recorded approach identities. The generated chord is rooted on the actual rendered approach note; pitch-class membership does not erase the approach role. The chromatic family overrides the regular Chord Quality for this gesture, including when Conductor Chord is selected. Form still selects triad, seventh or extensions; Inversion and Voicing still distribute the voices. Top Note keeps that rendered approach note on top.
+
+For example, in C major with None travel, the approach pad below F renders E. With Chromatic Keys = Dim / Dim7 and Seventh form it generates E–G–B♭–D♭. The ordinary E scale-degree pad generates E–G–B–D. Both use E as root and retain independent note ownership. Choosing Chromatic Keys = Scale explicitly requests scale-derived quality instead.
+
+New instances and fresh Movy sets default Chromatic Keys to **Dim / Dim7**. Existing saved selections are preserved, including legacy Scale defaults. On an existing set, choose Dim / Dim7 on the Chords panel if that is the desired family. Pad previews use the same role-aware chord generator as playback.

@@ -1257,7 +1257,11 @@ static void pad_render_mapping(void){
             for(int event=0;event<render_count;event++)if((rendered[event][1]&0xf0)==0x90&&rendered[event][3])actual|=1u<<mod12(rendered[event][2]);
             assert(actual);
             unsigned chord_mask=(1u<<7)|(1u<<11)|(1u<<2);
-            unsigned representative=mode==1?(1u<<pitch_class):mode==2?(1u<<7):actual;
+            unsigned representative=actual;
+            if(mode)for(int owner=0;owner<HB_CP_KEYS;owner++){
+                hb_cp_key *key=&instance->player.keys[owner];
+                if(key->used&&key->source==60+pitch_class){representative=1u<<key->root_pc;break;}
+            }
             assert(!!(current&(1u<<pitch_class))==!(representative&~chord_mask));
             midi(instance,0,60+pitch_class);advance(instance,1,64);
         }
