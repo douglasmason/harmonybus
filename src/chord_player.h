@@ -113,6 +113,16 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
     if(degree<7){static const int major[7]={0,2,4,5,7,9,11};for(int index=1;index<7;index++)tones[index]=hb_cp_mod(root+major[index]);}
     unsigned relative_scale=0;for(int interval=0;interval<12;interval++)if(scale&(1u<<hb_cp_mod(root+interval)))relative_scale|=1u<<interval;
     if(relative_scale==0x55Bu){static const int altered[7]={0,1,4,6,6,8,10};for(int index=0;index<7;index++)tones[index]=hb_cp_mod(root+altered[index]);}
+    /* Six-note symmetric collections have harmonic roles, not seven ordinal
+       degrees. Whole tone supplies #5/b7; augmented supplies #5/M7 where
+       present. On its other three roots there is no seventh: omit that voice. */
+    int symmetric_no_seventh=0;
+    if(relative_scale==0x555u||relative_scale==0x999u||relative_scale==0x333u){
+        tones[2]=hb_cp_mod(root+4);tones[4]=hb_cp_mod(root+8);
+        if(relative_scale&(1u<<11))tones[6]=hb_cp_mod(root+11);
+        else if(relative_scale&(1u<<10))tones[6]=hb_cp_mod(root+10);
+        else {tones[6]=root;symmetric_no_seventh=1;}
+    }
     int recognized_seventh=config.mode==2&&
         ((chord&(1u<<hb_cp_mod(root+9)))||(chord&(1u<<hb_cp_mod(root+10)))||
          (chord&(1u<<hb_cp_mod(root+11))));
@@ -139,9 +149,9 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
             }else quality=hb_cp_chromatic_quality(config.chromatic_quality);
         }
         if(quality){
-            static const int third[]={0,4,3,3,4,4,4,3,3,3};
-            static const int fifth[]={0,7,7,6,8,7,7,7,6,6};
-            static const int seventh[]={0,11,10,9,10,11,10,10,10,9};
+            static const int third[]={0,4,3,3,4,4,4,3,3,3,3,4,4};
+            static const int fifth[]={0,7,7,6,8,7,7,7,6,6,7,8,6};
+            static const int seventh[]={0,11,10,9,10,11,10,10,10,9,11,11,10};
             tones[2]=hb_cp_mod(root+third[quality]);
             tones[4]=hb_cp_mod(root+fifth[quality]);
             tones[6]=hb_cp_mod(root+seventh[quality]);
@@ -176,6 +186,7 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
             form=recognized_seventh?3:2;
         }
         int role=forms[form][index];if(role<0)break;
+        if(role==6&&symmetric_no_seventh&&config.mode==1&&!config.quality)continue;
         int pitch=tones[role];
         if(!(selected&(1u<<pitch))){ordered[count++]=pitch;selected|=1u<<pitch;}
     }

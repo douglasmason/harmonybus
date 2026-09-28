@@ -33,7 +33,24 @@ static const chord_template_t templates[] = {
     {"13",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(9)|BIT(10),6,0},
     {"6/9",BIT(0)|BIT(2)|BIT(4)|BIT(7)|BIT(9),5,0},
     {"min6/9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(9),5,0},
-    {"min(b6,9)",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(8),5,0}
+    {"min(b6,9)",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(8),5,0},
+    /* Extended/altered families require exact evidence during free inference. */
+    {"7#5",BIT(0)|BIT(4)|BIT(8)|BIT(10),4,2},
+    {"maj7#5",BIT(0)|BIT(4)|BIT(8)|BIT(11),4,2},
+    {"9#5",BIT(0)|BIT(2)|BIT(4)|BIT(8)|BIT(10),5,2},
+    {"maj9#5",BIT(0)|BIT(2)|BIT(4)|BIT(8)|BIT(11),5,2},
+    {"7b5",BIT(0)|BIT(4)|BIT(6)|BIT(10),4,2},
+    {"9b5",BIT(0)|BIT(2)|BIT(4)|BIT(6)|BIT(10),5,2},
+    {"minMaj9",BIT(0)|BIT(2)|BIT(3)|BIT(7)|BIT(11),5,2},
+    {"7sus4",BIT(0)|BIT(5)|BIT(7)|BIT(10),4,2},
+    {"9sus4",BIT(0)|BIT(2)|BIT(5)|BIT(7)|BIT(10),5,2},
+    {"7sus2",BIT(0)|BIT(2)|BIT(7)|BIT(10),4,2},
+    {"maj7b5",BIT(0)|BIT(4)|BIT(6)|BIT(11),4,2},
+    {"min9b5",BIT(0)|BIT(2)|BIT(3)|BIT(6)|BIT(10),5,2},
+    {"7b9",BIT(0)|BIT(1)|BIT(4)|BIT(7)|BIT(10),5,2},
+    {"7#9",BIT(0)|BIT(3)|BIT(4)|BIT(7)|BIT(10),5,2},
+    {"7#5b9",BIT(0)|BIT(1)|BIT(4)|BIT(8)|BIT(10),5,2},
+    {"7#5#9",BIT(0)|BIT(3)|BIT(4)|BIT(8)|BIT(10),5,2}
 };
 static const int template_count=(int)(sizeof(templates)/sizeof(templates[0]));
 static uint16_t rotate_to_root(uint16_t mask,int root) {
@@ -102,7 +119,7 @@ hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
                 if(!templates[index].infer_enabled)continue;
                 /* min6 is useful only as a complete voicing. As a partial-template
                    hypothesis it is too ambiguous with ordinary seventh shells. */
-                if(index==8)continue;
+                if(index==8||templates[index].infer_enabled==2)continue;
                 uint16_t mask=templates[index].mask;
                 int matched=popcount12(relative&mask),missing=popcount12(mask&~relative),extras=popcount12(relative&~mask);
                 int score=matched*16-missing*12-extras*22;

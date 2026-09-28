@@ -2,7 +2,7 @@
 
 ## Which time determines the rendered note?
 
-**HarmonyBus 0.2.195 / Movy 0.34.1-hbclean.103.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. Before and Late provide shifted harmony boundaries for harmonic capture. Immediate and After select harmony from the actual chord timeline and disable harmonic precapture, so the selected elapsed-time threshold is not brought forward by the buffer. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
+**HarmonyBus 0.2.196 / Movy 0.34.1-hbclean.104.** Playback time, harmony knowledge and harmony-selection time are separate. A deterministic conductor clip locks after its first complete traversal; the wrap-boundary chord is processed before that traversal is promoted. A learned clip keeps its next-harmony knowledge when Lookahead is Off, so Full Lookahead pads, Next Harmony, transition diagnostics and explicit Next harmony operations still work. Off only prevents the learned harmony from being applied early to normal note rendering. Before and Late provide shifted harmony boundaries for harmonic capture. Immediate and After select harmony from the actual chord timeline and disable harmonic precapture, so the selected elapsed-time threshold is not brought forward by the buffer. Explicit Quant Grid can still delay playback. During learning, choose a release time and map using the effective harmony at release. The diagrams below use Anti Buffer = 0 ms, 120 BPM and 4/4; the separate anti-buffer section describes the new default 25 ms guard. Times are musical targets, subject to sequencer and audio callback resolution.
 
 ![Conductor harmony, effective harmony, capture window and follower release on a shared time axis](timing/overview.svg)
 
@@ -220,6 +220,34 @@ Position shows the current position within the combined conductor cycle, in bars
 Follower Content choices now omit the “In” prefix. Saved indices and older text values remain compatible.
 
 Closest Split with **135 / 2467** keeps degree 7 in the 2467 group. Previously, Chord content over a triad could leave that group empty and fall back to all chord tones, sending B to C over C major. Explicit 135 / 2467 and 1357 / 246 groups now remain intact: Content narrows the group when possible; otherwise the full group is available. Other split modes retain their existing behavior.
+
+
+## Backdoor operations and chromatic destinations
+
+Backdoor II and Backdoor V are choices in the existing Operation selector. Assign them to any free lanes (6–12 start Off). The factory 13–16 assignments and Follow Touch knob bindings stay unchanged. They use the same tap/hold/double-tap gestures and activation lights as other approaches. Touch order selects sequence order; the upper slot accepts Scale Above, Secondary II or Backdoor II, while the lower slot accepts Chrom Below, Secondary V or Backdoor V. Secondary VI can precede either pair.
+
+| Operation | Note with Auto Chord off | Chord with Auto Chord on |
+|---|---|---|
+| Backdoor II | Perfect fourth above the resolved target | Minor triad/seventh (iv relative to the target) |
+| Backdoor V | Whole step below the resolved target | Dominant triad/seventh (bVII relative to the target) |
+
+Chord Form chooses triad, seventh, ninth, etc.; these operations never turn Auto Chord on. Backdoor II/V use the parallel borrowed family for extensions (Aeolian under Minimal; otherwise the selected Borrowed Scale). Backdoor V can apply Dominant Scale relative to its functional destination, bIII of the main target.
+
+The order is **pad/travel target → relative operation → chord voicing**. A chromatic approach pad is a usable destination in its own right. In C major with None travel and Chromatic On, the Eb pad approaches E. Arm Secondary II then Secondary V and play that Eb pad repeatedly: Fm7 → Bb7 → Ebdim7 with Seventh form and the default chromatic quality. Then play the regular E pad to resolve. The Eb arrival retains the chromatic pad's configured quality; it does not silently become Ebmaj7. With Auto Chord off the same inputs produce F → Bb → Eb, then E.
+
+An in-scale destination retains the effective parent collection. Out-of-scale bIII/bVI/bVII destinations use the selected parallel borrowed family; Minimal uses Aeolian to establish that missing destination. Other out-of-scale roots use a local major destination as the fallback. This is destination context, separate from the quality played on the chromatic landing. Existing tap-order sequences remain sequences; pressing Chrom Below alongside a secondary operation does not create an arbitrary nested operation tree.
+
+**Dominant Scale colors the output collection.** It leaves the input scale and actual chord-defining tones intact. Harmonic Minor and Melodic Minor refer to the destination tonic; Altered V uses the melodic-minor collection a semitone above the dominant root. Leading-tone chords retain the existing harmonic-minor interpretation of Altered V. This also applies to generated secondary dominants and leading-tone chords: G7 keeps G–B–D–F while a Ninth form can use Ab under Harmonic Minor/Altered V. It does not globally switch the destination chord to minor.
+
+## Chord-family coverage and symmetric scales
+
+The classifier now has exact-evidence names for 7#5, maj7#5, 9#5, maj9#5, 7b5, 9b5, minMaj9, 7sus4, 9sus4, 7sus2, maj7b5, min9b5, 7b9, 7#9, 7#5b9 and 7#5#9. Their masks, display names and Auto voicings preserve those tones. These new families require the full pitch-class evidence during free recognition; an incomplete third/seventh shell continues to imply the ordinary fifth. Root-established recognition handles inversions, but pitch-set ambiguity still exists: a symmetric or enharmonically identical set cannot uniquely identify its intended root without context.
+
+MinMaj7, AugMaj7 and Dom7b5 are additional Quality choices in the existing Chords panel. Auto remains scale-derived. Aug retains its earlier meaning (augmented triad, flat seventh when Seventh form is requested); AugMaj7 explicitly selects the major seventh.
+
+Whole Tone (0,2,4,6,8,10) and Augmented (0,3,4,7,8,11) are explicit Follower Scale choices and synchronize with Movy's keyboard selector. Existing scale IDs are preserved. Infer retains its existing seven-note candidate families rather than guessing a symmetric parent from ambiguous partial evidence.
+
+Whole Tone builds augmented triads and augmented dominant sevenths. Augmented builds augmented triads; where a major seventh is present, Seventh form adds it. On the other three roots that six-note collection contains neither a minor nor a major seventh, so Auto omits the unavailable seventh instead of inventing an out-of-scale tone. A forced Quality can supply one deliberately. C melodic minor's third degree produces Eb–G–B or Eb–G–B–D (Ebaug / Ebmaj7#5).
 
 ## Chromatic travel and Follow Touch
 

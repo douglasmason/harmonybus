@@ -1,8 +1,36 @@
-# Operation lanes (HarmonyBus 0.2.195 / Movy hbclean.103)
+# Operation lanes (HarmonyBus 0.2.196 / Movy hbclean.104)
 
 Each HarmonyBus instance has sixteen independent slots. The Operation,
 Timing / Trigger, and Conditions panels share one lane selector. Duplicate operations compose
 in lane order. Existing assignments in slots 1–4 are retained. Lane 5 selects Next Harmony; unassigned slots 6–12 start Off. Slots 13–16 default to the four approaches below. These defaults are inactive until pressed. The sixteen-slot performance row requires hbclean.47 or newer; the Conditions editor uses hbclean.50 or newer.
+
+
+## Backdoor operations and chromatic destinations
+
+Backdoor II and Backdoor V are choices in the existing Operation selector. Assign them to any free lanes (6–12 start Off). The factory 13–16 assignments and Follow Touch knob bindings stay unchanged. They use the same tap/hold/double-tap gestures and activation lights as other approaches. Touch order selects sequence order; the upper slot accepts Scale Above, Secondary II or Backdoor II, while the lower slot accepts Chrom Below, Secondary V or Backdoor V. Secondary VI can precede either pair.
+
+| Operation | Note with Auto Chord off | Chord with Auto Chord on |
+|---|---|---|
+| Backdoor II | Perfect fourth above the resolved target | Minor triad/seventh (iv relative to the target) |
+| Backdoor V | Whole step below the resolved target | Dominant triad/seventh (bVII relative to the target) |
+
+Chord Form chooses triad, seventh, ninth, etc.; these operations never turn Auto Chord on. Backdoor II/V use the parallel borrowed family for extensions (Aeolian under Minimal; otherwise the selected Borrowed Scale). Backdoor V can apply Dominant Scale relative to its functional destination, bIII of the main target.
+
+The order is **pad/travel target → relative operation → chord voicing**. A chromatic approach pad is a usable destination in its own right. In C major with None travel and Chromatic On, the Eb pad approaches E. Arm Secondary II then Secondary V and play that Eb pad repeatedly: Fm7 → Bb7 → Ebdim7 with Seventh form and the default chromatic quality. Then play the regular E pad to resolve. The Eb arrival retains the chromatic pad's configured quality; it does not silently become Ebmaj7. With Auto Chord off the same inputs produce F → Bb → Eb, then E.
+
+An in-scale destination retains the effective parent collection. Out-of-scale bIII/bVI/bVII destinations use the selected parallel borrowed family; Minimal uses Aeolian to establish that missing destination. Other out-of-scale roots use a local major destination as the fallback. This is destination context, separate from the quality played on the chromatic landing. Existing tap-order sequences remain sequences; pressing Chrom Below alongside a secondary operation does not create an arbitrary nested operation tree.
+
+**Dominant Scale colors the output collection.** It leaves the input scale and actual chord-defining tones intact. Harmonic Minor and Melodic Minor refer to the destination tonic; Altered V uses the melodic-minor collection a semitone above the dominant root. Leading-tone chords retain the existing harmonic-minor interpretation of Altered V. This also applies to generated secondary dominants and leading-tone chords: G7 keeps G–B–D–F while a Ninth form can use Ab under Harmonic Minor/Altered V. It does not globally switch the destination chord to minor.
+
+## Chord-family coverage and symmetric scales
+
+The classifier now has exact-evidence names for 7#5, maj7#5, 9#5, maj9#5, 7b5, 9b5, minMaj9, 7sus4, 9sus4, 7sus2, maj7b5, min9b5, 7b9, 7#9, 7#5b9 and 7#5#9. Their masks, display names and Auto voicings preserve those tones. These new families require the full pitch-class evidence during free recognition; an incomplete third/seventh shell continues to imply the ordinary fifth. Root-established recognition handles inversions, but pitch-set ambiguity still exists: a symmetric or enharmonically identical set cannot uniquely identify its intended root without context.
+
+MinMaj7, AugMaj7 and Dom7b5 are additional Quality choices in the existing Chords panel. Auto remains scale-derived. Aug retains its earlier meaning (augmented triad, flat seventh when Seventh form is requested); AugMaj7 explicitly selects the major seventh.
+
+Whole Tone (0,2,4,6,8,10) and Augmented (0,3,4,7,8,11) are explicit Follower Scale choices and synchronize with Movy's keyboard selector. Existing scale IDs are preserved. Infer retains its existing seven-note candidate families rather than guessing a symmetric parent from ambiguous partial evidence.
+
+Whole Tone builds augmented triads and augmented dominant sevenths. Augmented builds augmented triads; where a major seventh is present, Seventh form adds it. On the other three roots that six-note collection contains neither a minor nor a major seventh, so Auto omits the unavailable seventh instead of inventing an out-of-scale tone. A forced Quality can supply one deliberately. C melodic minor's third degree produces Eb–G–B or Eb–G–B–D (Ebaug / Ebmaj7#5).
 
 ## Signal path and recording
 
@@ -30,7 +58,7 @@ bridge can consequently reflect that selected harmony.
 | 4 | Amount | Phase (grid steps) |
 | 5 | Offset (Echo: Decay %) | Probability (%) |
 | 6 | Auto On/Off | Group: Chord/Voice |
-| 7 | Selected slot summary | Random: Repeat/Evolve |
+| 7 | Touch Hold threshold (global) | Random: Repeat/Evolve |
 | 8 | Punch status (read-only) | Advance: Clock / Note / Chord |
 
 Knob touch does not activate these operations. Choose **Settings → Step Row →
@@ -41,11 +69,11 @@ in MIDI FX 1 on the active track even while editing its synth or another panel:
 
 | Step | Action | Gesture |
 |---|---|---|
-| 1–12 | Assigned operation (Off unless configured or restored) | Hold |
-| 13 | Secondary VI | Tap to arm; hold momentarily |
-| 14 | Next scale tone above target | Tap to arm; hold momentarily |
-| 15 | Secondary V | Tap to arm; hold momentarily |
-| 16 | Chromatic semitone below target | Tap to arm; hold momentarily |
+| 1–12 | Assigned operation (lane 5: Next Harmony; 6–12: Off) | Tap / hold / double-tap |
+| 13 | Secondary VI | Tap to arm; hold momentarily; double-tap persistently |
+| 14 | Next scale tone above target | Tap to arm; hold momentarily; double-tap persistently |
+| 15 | Secondary V | Tap to arm; hold momentarily; double-tap persistently |
+| 16 | Chromatic semitone below target | Tap to arm; hold momentarily; double-tap persistently |
 
 Every button maps directly to its numbered slot. All sixteen assignments can be
 changed, including the last four. Approaches/enclosures are ordinary operations
@@ -61,8 +89,7 @@ footer reads **STEPS / NO HB**. Switching the preference to STEPS clears holds
 and enclosures immediately; old physical releases are still consumed. Releases
 are captured by original track/lane and handled before modal dispatch; teardown
 also resets holds and armed enclosures. LEDs: green for note operations (live and HB-routed playback), royal blue for
-clip-only operations, unlit for Off. Idle assignments are dim; held, automatically
-active or armed operations use their brighter category color. Press feedback is immediate; engine-status updates are bounded to 10 Hz.
+clip-only operations, unlit for Off. Inactive lanes are unlit. Armed triggers and momentary holds are solid; persistent double-tap latches pulse smoothly. Press feedback is immediate; modern engine-status reads are cached for 50 ms.
 
 Enclosures advance on the next three note/chord onsets; they do not generate
 notes. Release of the trigger does not cancel the sequence. Retrigger starts

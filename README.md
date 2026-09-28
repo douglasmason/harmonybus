@@ -1,3 +1,5 @@
+> 0.2.196 / Movy hbclean.104: Backdoor II/V operations, relative cadences over chromatic approach pads, destination-relative dominant colors, Whole Tone/Augmented input scales, and expanded altered/extended chord recognition. Existing lane defaults are unchanged.
+
 > 0.2.195: Tap to arm, hold momentarily, double-tap for persistence on operation knobs and steps. Persistent activation pulses smoothly; armed/held lanes stay solid. One Next Harmony control replaces Next Once / Next Latch; lane 6 is available.
 
 > 0.2.190: Chromatic approach pads generate the selected chromatic chord family on their rendered root, even when that root is diatonic. Fresh instances default to Dim / Dim7; saved settings remain intact.

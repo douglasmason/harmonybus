@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.195"
+#define HB_VERSION "0.2.196"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -187,10 +187,10 @@ static void hb_store_scale_exceptions(int dominant,int borrowed){
 static int hb_shared_follower_scale(void){
     hb_global_open();
     int scale=g_global_shared?g_global_shared->follower_scale:g_scale_fallback;
-    return scale>=0&&scale<16?scale:0;
+    return scale>=0&&scale<18?scale:0;
 }
 static void hb_set_shared_follower_scale(int scale){
-    if(scale<0||scale>15)return;
+    if(scale<0||scale>17)return;
     g_scale_fallback=scale;
     hb_global_open();
     if(g_global_shared){
@@ -2340,14 +2340,41 @@ static unsigned hb_approach_scale(Inst *instance,hb_harmony_t harmony){
     int root=0;hb_resolve_follower_reference_root(instance,&root);
     return hb_transpose_mask(hb_follower_input_scale(instance,root),g_bus.global_transpose);
 }
+static int hb_relative_approach_offset(int role,int target,unsigned scale){
+    return role==1?2:role==2?-5:role==4?
+        hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),5)-12:
+        role==5?5:role==6?-2:0;
+}
+/* A chromatic pad is itself a destination. Borrow the scale of that local
+   destination for its relative cadence, without changing its landing quality.
+   In-scale destinations retain the complete effective parent collection. */
+static unsigned hb_relative_target_scale(Inst *instance,int target,unsigned parent){
+    if(parent&(1u<<mod12(target)))return parent;
+    int tonic=0;hb_resolve_follower_reference_root(instance,&tonic);tonic=mod12(tonic+g_bus.global_transpose);
+    int relative=mod12(target-tonic);
+    if((parent&(1u<<mod12(tonic+4)))&&(relative==3||relative==8||relative==10)){
+        /* Borrowed bIII/bVI/bVII destinations use the chosen parallel family.
+           Minimal uses Aeolian here to establish the missing destination. */
+        static const int borrowed[]={2,2,3,13};
+        return hb_explicit_scale_mask(tonic,borrowed[hb_shared_borrowed_scale()]);
+    }
+    /* No diatonic/borrowed interpretation: tonicize the explicit chromatic root. */
+    return hb_explicit_scale_mask(mod12(target),1);
+}
+static unsigned hb_relative_dominant_scale(Inst *instance,int root,int destination,int leading,unsigned parent){
+    hb_harmony_t functional={0};functional.valid=1;functional.root_pc=mod12(root);
+    functional.bass_pc=functional.root_pc;functional.chord_index=leading?5:10;
+    functional.pitch_mask=hb_harmony_chord_mask(functional);
+    unsigned selected=hb_dominant_scale_mask(instance,functional,mod12(destination));
+    return selected?selected:parent;
+}
 static int hb_map_follower_note_now(Inst *instance,int source_note){
     int rendered=hb_map_follower_note_unoperated(instance,source_note);
     if(!hb_cp_mode(&instance->player)){
         int secondary=hb_secondary_at(instance,source_note);
         hb_harmony_t harmony=hb_render_harmony(instance);
         unsigned parent=hb_approach_scale(instance,harmony);
-        rendered+=secondary==1?2:secondary==2?-5:secondary==4?
-            hb_nth_scale_interval_from_root((uint16_t)parent,mod12(rendered),5)-12:0;
+        rendered+=hb_relative_approach_offset(secondary,rendered,hb_relative_target_scale(instance,rendered,parent));
         while(rendered<0)rendered+=12;while(rendered>127)rendered-=12;
     }
     return rendered;
@@ -2409,9 +2436,9 @@ static int hb_secondary_at(Inst *instance,int source_note){
     if(selected)return selected;
     for(int lane=0;lane<HB_MOTION_LANES;lane++){
         hb_motion_lane settings=hb_mo_settings(&instance->motion,lane);double value=0;
-        if((settings.operation>=HB_MO_SECONDARY_II&&settings.operation<=HB_MO_SECONDARY_VI)&&
+        if((settings.operation>=HB_MO_SECONDARY_II&&settings.operation<=HB_MO_BACKDOOR_V)&&
            hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),source_note,&value)&&value>0)
-            selected=settings.operation==HB_MO_SECONDARY_II?1:settings.operation==HB_MO_SECONDARY_V?2:4;
+            selected=settings.operation==HB_MO_SECONDARY_II?1:settings.operation==HB_MO_SECONDARY_V?2:settings.operation==HB_MO_SECONDARY_VI?4:settings.operation==HB_MO_BACKDOOR_II?5:6;
     }
     return selected;
 }
@@ -2466,16 +2493,28 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         int root_note=target_note;
         config.mode=1;
         if(secondary){
-            root_note+=secondary==1?2:secondary==2?-5:secondary==4?
-                hb_nth_scale_interval_from_root((uint16_t)target_scale,mod12(target_note),5)-12:0;
+            target_scale=hb_relative_target_scale(instance,target_note,target_scale);
+            root_note+=hb_relative_approach_offset(secondary,target_note,target_scale);
+            if(secondary==5||secondary==6){
+                static const int borrowed[]={2,2,3,13};
+                target_scale=hb_explicit_scale_mask(mod12(target_note),borrowed[hb_shared_borrowed_scale()]);
+            }
+            if(secondary==2||secondary==6)target_scale=hb_relative_dominant_scale(instance,root_note,
+                target_note+(secondary==6?3:0),0,target_scale);
             /* II/VI/target stack the actual parent collection. V retains its
                dominant function while taking extensions from that collection. */
-            config.quality=secondary==2?6:0;
+            config.quality=secondary==2||secondary==6?6:secondary==5?7:0;
+            if(secondary==3&&pad_approach){
+                target_scale=hb_relative_dominant_scale(instance,target_note,target_note+1,1,hb_approach_scale(instance,harmony));
+                config.quality=config.chromatic_quality==6?hb_cp_auto_leading_quality(target_note+1,target_scale):
+                    hb_cp_chromatic_quality(config.chromatic_quality);
+            }
         }else if(chord_modifier>0){
             root_note=hb_apply_approach(instance,target_note,HB_APPROACH_SCALE_ABOVE);config.quality=0;
         }else{
             if(chord_modifier<0)root_note=root_note>0?root_note-1:0;
             int resolution=chord_modifier<0?target_note:root_note+1;
+            target_scale=hb_relative_dominant_scale(instance,root_note,resolution,1,target_scale);
             config.quality=config.chromatic_quality==6?hb_cp_auto_leading_quality(resolution,target_scale):
                 hb_cp_chromatic_quality(config.chromatic_quality);
         }
@@ -2484,8 +2523,8 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         while(modified_note<0)modified_note+=12;while(modified_note>127)modified_note-=12;
         instance->approach_pad_armed=HB_APPROACH_OFF;
     }else if(top_note&&direct_approach!=HB_APPROACH_OFF)melody=hb_apply_approach(instance,melody,direct_approach);
-    if(approach_chord&&harmony.valid){
-        unsigned parent=hb_follower_scale_target(instance,harmony).pitch_mask;scale=0;
+    if(approach_chord&&(harmony.valid||secondary)){
+        unsigned parent=target_scale;scale=0;
         for(int pitch=0;pitch<12;pitch++)if(parent&(1u<<pitch))scale|=1u<<mod12(pitch-g_bus.global_transpose);
     }
     /* A functional II can introduce a chromatic root (F# into E minor in
@@ -2590,8 +2629,7 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
     if(instance->role==0&&!hb_cp_mode(&instance->player)){
         int secondary=hb_secondary_at(instance,message[1]);
         unsigned parent=hb_approach_scale(instance,harmony);
-        *pitch+=secondary==1?2:secondary==2?-5:secondary==4?
-            hb_nth_scale_interval_from_root((uint16_t)parent,mod12(*pitch),5)-12:0;
+        *pitch+=hb_relative_approach_offset(secondary,*pitch,hb_relative_target_scale(instance,*pitch,parent));
         while(*pitch<0)*pitch+=12;while(*pitch>127)*pitch-=12;
     }
     for(int index=0;index<HB_MOTION_LANES;index++){
@@ -3074,6 +3112,8 @@ static uint16_t hb_explicit_scale_mask(int root_pc,int scale_index){
         {0,2,3,5,6,8,10},   /* Locrian #2 */
         {0,1,3,4,6,8,10}    /* Altered */
     };
+    if(scale_index==16)return hb_transpose_mask(0x555u,root_pc);
+    if(scale_index==17)return hb_transpose_mask(0x999u,root_pc); /* 0,3,4,7,8,11 */
     if(scale_index<1||scale_index>15)return 0;
     uint16_t mask=0;
     for(int i=0;i<7;i++)mask|=(uint16_t)(1u<<mod12(root_pc+intervals[scale_index-1][i]));
@@ -3144,7 +3184,7 @@ static const char *hb_pc_display(int pc,hb_harmony_t context){
     return (mask&(1u<<pc))?sharp[pc]:flat[pc];
 }
 static const char *hb_quality_suffix(int chord_index){
-    static const char *suffix[]={"","m","5","s2","s4","dim","aug","6","m6","M7","7","m7","mM7","m7b5","dim7","a9","ma9","M9","9","m9","11","m11","13","6/9","m6/9","m(b6,9)"};
+    static const char *suffix[]={"","m","5","s2","s4","dim","aug","6","m6","M7","7","m7","mM7","m7b5","dim7","a9","ma9","M9","9","m9","11","m11","13","6/9","m6/9","m(b6,9)","7#5","M7#5","9#5","M9#5","7b5","9b5","mMaj9","7sus4","9sus4","7sus2","M7b5","m9b5","7b9","7#9","7#5b9","7#5#9"};
     chord_index&=~HB_HARMONY_EXPLICIT_TONES;
     return (chord_index>=0&&chord_index<(int)(sizeof(suffix)/sizeof(suffix[0])))?suffix[chord_index]:"";
 }
@@ -4142,7 +4182,7 @@ static const char *hb_next_lookahead_label(int index){
     for(int option=0;option<HB_LOOKAHEAD_COUNT;option++)if(NEXT_LOOKAHEAD_IDS[option]==index)return NEXT_LOOKAHEAD_OPTS[option];
     return "Off";
 }
-static const char *ROLE_OPTS[]={"Conductor","Follower","Off","Receiver"};static const char *RETRIGGER_OPTS[]={"Off","On"};static const char *APPROACH_OPTS[]={"Chrom Below","Off","Scale Above"};static const char *APPROACH_MODE_OPTS[]={"Next","Held","Off"};static const char *QUANT_GRID_OPTS[]={"Off","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SOURCE_POLICY_OPTS[]={"Infer Input","Infer Notes","Explicit"};static const char *CLIP_SLOT_OPTS[]={"Auto","1","2","3","4","5","6","7","8"};static const char *SENSOR_SOURCE_OPTS[]={"Realtime","Realtime + Clip","Clip"};static const char *CLIP_CONTEXT_OPTS[]={"Clip + Realtime","Realtime Only"};static const char *SOURCE_CH_OPTS[]={"Auto","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *RENDER_CH_OPTS[]={"Off","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *MODE_OPTS[]={"Relative","Smooth","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *MAP_TARGET_OPTS[]={"Chord","Scale"};static const char *TIMING_OPTS[]={"Observed","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SCALE_OPTS[]={"Infer","Major","Natural Minor","Dorian","Phrygian","Lydian","Mixolydian","Locrian","Harmonic Minor","Melodic Minor","Dorian b2","Lydian Augmented","Lydian Dominant","Mixolydian b6","Locrian #2","Altered"};static const char *ANTICIPATION_OPTS[]={"On Grid","1/64 Early","1/32 Early","1/16 Early","1/8 Early","1/4 Early"};static const char *CONTEXT_OPTS[]={"Live","1/32","1/16","1/8","1/4","1/2","1 Bar"};static const char *TIMESCALE_OPTS[]={"Free","1/16","1/8","1/4","1/2","1 Bar"};static const char *STABILITY_OPTS[]={"Responsive","Balanced","Stable"};static const char *ACCIDENTAL_OPTS[]={"Auto","Sharps","C#D#F#G#Bb","C#EbF#G#Bb","C#EbF#AbBb","DbEbF#AbBb","Flats"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
+static const char *ROLE_OPTS[]={"Conductor","Follower","Off","Receiver"};static const char *RETRIGGER_OPTS[]={"Off","On"};static const char *APPROACH_OPTS[]={"Chrom Below","Off","Scale Above"};static const char *APPROACH_MODE_OPTS[]={"Next","Held","Off"};static const char *QUANT_GRID_OPTS[]={"Off","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SOURCE_POLICY_OPTS[]={"Infer Input","Infer Notes","Explicit"};static const char *CLIP_SLOT_OPTS[]={"Auto","1","2","3","4","5","6","7","8"};static const char *SENSOR_SOURCE_OPTS[]={"Realtime","Realtime + Clip","Clip"};static const char *CLIP_CONTEXT_OPTS[]={"Clip + Realtime","Realtime Only"};static const char *SOURCE_CH_OPTS[]={"Auto","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *RENDER_CH_OPTS[]={"Off","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *MODE_OPTS[]={"Relative","Smooth","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *MAP_TARGET_OPTS[]={"Chord","Scale"};static const char *TIMING_OPTS[]={"Observed","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SCALE_OPTS[]={"Infer","Major","Natural Minor","Dorian","Phrygian","Lydian","Mixolydian","Locrian","Harmonic Minor","Melodic Minor","Dorian b2","Lydian Augmented","Lydian Dominant","Mixolydian b6","Locrian #2","Altered","Whole Tone","Augmented"};static const char *ANTICIPATION_OPTS[]={"On Grid","1/64 Early","1/32 Early","1/16 Early","1/8 Early","1/4 Early"};static const char *CONTEXT_OPTS[]={"Live","1/32","1/16","1/8","1/4","1/2","1 Bar"};static const char *TIMESCALE_OPTS[]={"Free","1/16","1/8","1/4","1/2","1 Bar"};static const char *STABILITY_OPTS[]={"Responsive","Balanced","Stable"};static const char *ACCIDENTAL_OPTS[]={"Auto","Sharps","C#D#F#G#Bb","C#EbF#G#Bb","C#EbF#AbBb","DbEbF#AbBb","Flats"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
 static const char *MASTER_ROOT_OPTS[]={"As Played","C","C# / Db","D","D# / Eb","E","F","F# / Gb","G","G# / Ab","A","A# / Bb","B"};
 static int hb_timing_to_legacy_timescale(int timing){
     /* Chord Grid is a musical-boundary hint, not a mandatory dwell time. */
@@ -4192,7 +4232,7 @@ static const char *CP_CHORD_MODE[]={"Off","Scale Degree","Conductor Chord"};
 static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth","Top Note"};
 static const char *CP_CHORD_VOICING[]={"Close","Root + Fifth Low","Alternate Up","Shell"};
 static const char *CP_ARP_PHASE[]={"Free","Auto","1st Note Free"};
-static const char *CP_CHORD_QUALITY[]={"Auto","Major","Minor","Dim","Aug","Maj7","Dom7","Min7","Half Dim7","Dim7"};
+static const char *CP_CHORD_QUALITY[]={"Auto","Major","Minor","Dim","Aug","Maj7","Dom7","Min7","Half Dim7","Dim7","MinMaj7","AugMaj7","Dom7b5"};
 static const char *CP_CHROMATIC_QUALITY[]={"Scale","Major / Maj7","Major / Dom7","Dim / Dim7","Minor / Min7","Dim / Min7b5","Auto Dim7 / Min7b5"};
 static const char *CP_ARP_PLAYBACK[]={"Together","Repeat Arp","Once"};
 static const char *CP_ARP_HOLD[]={"Momentary","Latch - Overlap","Latch with Off - Overlap","Latch Acc. with Off","Latch - Single","Latch with Off - Single"};
@@ -4359,7 +4399,7 @@ if(!strcmp(key,"chord_mode")){
     return;
 }
 if(!strcmp(key,"chord_quality")){
-    int selected=enum_index(parameter,CP_CHORD_QUALITY,10,instance->player.config.quality);
+    int selected=enum_index(parameter,CP_CHORD_QUALITY,13,instance->player.config.quality);
     instance->player.config.quality=selected; /* Applied at the next source onset. */
     return;
 }
@@ -4473,9 +4513,9 @@ if(!strcmp(key,"hb_movy_actions")){
     for(int lane=0;lane<=HB_MOTION_LANES;lane++){
         const char *start=end+1;words[lane]=strtoull(start,&end,10);
         if(end==start||(lane<HB_MOTION_LANES?*end!=',':*end!=0))return;
-        if(lane==HB_MOTION_LANES&&(words[lane]>74||(words[lane]&3)>2||((words[lane]>>2)&3)>2))return;
+        if(lane==HB_MOTION_LANES&&(words[lane]>106||(words[lane]&3)>2||((words[lane]>>2)&3)>2))return;
         if(lane<HB_MOTION_LANES&&!(words[lane]&HB_MO_RECORDED)&&words[lane]>0xffffffffULL)return;
-        if(lane<HB_MOTION_LANES&&(words[lane]&HB_MO_RECORDED)&&((((words[lane]>>32)&31)>HB_MO_SECONDARY_VI||((words[lane]>>32)&31)==HB_MO_AUTO_CHORD_REPEAT)||((words[lane]>>37)&15)>8))return;
+        if(lane<HB_MOTION_LANES&&(words[lane]&HB_MO_RECORDED)&&((((words[lane]>>32)&31)>HB_MO_BACKDOOR_V||((words[lane]>>32)&31)==HB_MO_AUTO_CHORD_REPEAT)||((words[lane]>>37)&15)>8))return;
     }
     memcpy(instance->recorded_actions[note],words,sizeof(words));instance->recorded_action_valid[note]=1;return;
 }
@@ -4541,7 +4581,7 @@ if(!strcmp(key,"track_role")||!strcmp(key,"role")){
     else if(!strcmp(parameter,"Non-Avoid"))value=7;
     else if(!strcmp(parameter,"123567"))value=8;
     instance->content_map=value;
-}else if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward","Direct","Closest Split Chromatic","None"};if(instance->travel_map==6)instance->chromatic_map=1;instance->travel_map=!strcmp(parameter,"Closest Split 2")?6:enum_index(parameter,opts,8,instance->travel_map);}else if(!strcmp(key,"chromatic_map")){instance->chromatic_map=enum_index(parameter,MO_SWITCH,2,hb_chromatic_travel(instance));if(instance->travel_map==6)instance->travel_map=3;}else if(!strcmp(key,"split_map")){static const char *opts[]={"Harm. / Out","135 / 2467","1357 / 246","Act. / Out"};instance->follower_split_map=enum_index(parameter,opts,4,instance->follower_split_map);}else if(!strcmp(key,"approach")){instance->approach_control=enum_index(parameter,APPROACH_OPTS,3,HB_APPROACH_OFF);instance->approach_pad_armed=HB_APPROACH_OFF;}else if(!strcmp(key,"approach_mode")){instance->approach_mode=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);hb_receiver_remove_source(instance);int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"quant_timing")){/* follower-render timing only */g_bus.quant_timing=enum_index(parameter,QUANT_GRID_OPTS,8,g_bus.quant_timing);g_quant_restored=1;}else if(!strcmp(key,"chord_timing")){/* follower-render timing only */g_bus.chord_timing=!strcmp(parameter,"Free")?0:enum_index(parameter,TIMING_OPTS,8,g_bus.chord_timing);g_bus.chord_timescale=0;for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used){int limit=hb_arp_phase_limit(g_pool[index].player.config.rate);g_pool[index].player.config.note_phase=hb_cp_clamp(g_pool[index].player.config.note_phase,-limit,limit);}}else if(!strcmp(key,"anticipation")){/* follower-render timing only */g_bus.anticipation=enum_index(parameter,ANTICIPATION_OPTS,6,g_bus.anticipation);}else if(!strcmp(key,"boundary_buffer_ms")){/* follower-render capture window only */int parsed=parse_i(parameter,instance->boundary_buffer_ms);for(int division=0;division<9;division++)if(!strcmp(parameter,BUFFER_DIVISIONS[division]))parsed=-division-1;if(parsed< -9)parsed=0;if(parsed>1000)parsed=1000;instance->boundary_buffer_ms=parsed;g_buffer_restored=1;}else if(!strcmp(key,"analysis_release_ms")){int parsed=parse_i(parameter,g_bus.analysis_release_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.analysis_release_ms=parsed;}else if(!strcmp(key,"follower_scale")){hb_set_shared_follower_scale(enum_index(parameter,FOLLOWER_SCALE_OPTS,16,hb_shared_follower_scale()));}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;hb_set_master_transpose(parsed);}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,g_bus.inference_window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.inference_window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
+}else if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward","Direct","Closest Split Chromatic","None"};if(instance->travel_map==6)instance->chromatic_map=1;instance->travel_map=!strcmp(parameter,"Closest Split 2")?6:enum_index(parameter,opts,8,instance->travel_map);}else if(!strcmp(key,"chromatic_map")){instance->chromatic_map=enum_index(parameter,MO_SWITCH,2,hb_chromatic_travel(instance));if(instance->travel_map==6)instance->travel_map=3;}else if(!strcmp(key,"split_map")){static const char *opts[]={"Harm. / Out","135 / 2467","1357 / 246","Act. / Out"};instance->follower_split_map=enum_index(parameter,opts,4,instance->follower_split_map);}else if(!strcmp(key,"approach")){instance->approach_control=enum_index(parameter,APPROACH_OPTS,3,HB_APPROACH_OFF);instance->approach_pad_armed=HB_APPROACH_OFF;}else if(!strcmp(key,"approach_mode")){instance->approach_mode=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);hb_receiver_remove_source(instance);int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"quant_timing")){/* follower-render timing only */g_bus.quant_timing=enum_index(parameter,QUANT_GRID_OPTS,8,g_bus.quant_timing);g_quant_restored=1;}else if(!strcmp(key,"chord_timing")){/* follower-render timing only */g_bus.chord_timing=!strcmp(parameter,"Free")?0:enum_index(parameter,TIMING_OPTS,8,g_bus.chord_timing);g_bus.chord_timescale=0;for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used){int limit=hb_arp_phase_limit(g_pool[index].player.config.rate);g_pool[index].player.config.note_phase=hb_cp_clamp(g_pool[index].player.config.note_phase,-limit,limit);}}else if(!strcmp(key,"anticipation")){/* follower-render timing only */g_bus.anticipation=enum_index(parameter,ANTICIPATION_OPTS,6,g_bus.anticipation);}else if(!strcmp(key,"boundary_buffer_ms")){/* follower-render capture window only */int parsed=parse_i(parameter,instance->boundary_buffer_ms);for(int division=0;division<9;division++)if(!strcmp(parameter,BUFFER_DIVISIONS[division]))parsed=-division-1;if(parsed< -9)parsed=0;if(parsed>1000)parsed=1000;instance->boundary_buffer_ms=parsed;g_buffer_restored=1;}else if(!strcmp(key,"analysis_release_ms")){int parsed=parse_i(parameter,g_bus.analysis_release_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.analysis_release_ms=parsed;}else if(!strcmp(key,"follower_scale")){hb_set_shared_follower_scale(enum_index(parameter,FOLLOWER_SCALE_OPTS,18,hb_shared_follower_scale()));}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;hb_set_master_transpose(parsed);}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,g_bus.inference_window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.inference_window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
 static void hb_restore_state(Inst *instance,const char *state){
     if(!instance||!state)return;
     int values[25];for(int i=0;i<25;i++)values[i]=-999;
@@ -4709,7 +4749,7 @@ static void hb_restore_state(Inst *instance,const char *state){
         if(values[22]>=0&&values[22]<8)instance->travel_map=values[22];
         /* Old conductor defaults must not win over the first saved follower.
            Once restored/edited, stale track copies cannot change the input key. */
-        if(!g_scale_restored&&values[23]>=0&&values[23]<16&&(values[0]==1||values[23]>0))
+        if(!g_scale_restored&&values[23]>=0&&values[23]<18&&(values[0]==1||values[23]>0))
             hb_set_shared_follower_scale(values[23]);
         if(!g_quant_restored&&values[24]>=0&&values[24]<8){g_bus.quant_timing=values[24];g_quant_restored=1;}
     }
@@ -4852,7 +4892,7 @@ static void hb_restore_state(Inst *instance,const char *state){
     const char *quality_suffix=strstr(state,";cq1,");
     int quality=0,chromatic=0;
     if(quality_suffix&&sscanf(quality_suffix,";cq1,%d,%d",&quality,&chromatic)==2&&
-       quality>=0&&quality<10&&chromatic>=0&&chromatic<7){
+       quality>=0&&quality<13&&chromatic>=0&&chromatic<7){
         config.quality=quality;config.chromatic_quality=chromatic;
     }
     if(config.note_phase!=instance->player.config.note_phase||config.phase!=instance->player.config.phase||config.mode!=instance->player.config.mode||config.size!=instance->player.config.size||config.inversion!=instance->player.config.inversion||config.voicing!=instance->player.config.voicing||config.playback!=instance->player.config.playback||config.latch!=instance->player.config.latch||config.order!=instance->player.config.order||config.rate!=instance->player.config.rate||config.gate!=instance->player.config.gate||config.spread!=instance->player.config.spread||config.quality!=instance->player.config.quality||config.chromatic_quality!=instance->player.config.chromatic_quality){
