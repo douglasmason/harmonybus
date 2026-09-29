@@ -84,6 +84,12 @@ static int hb_mo_word_operation(unsigned long long word){return (int)(((word>>32
 static unsigned long long hb_mo_operation_word(int operation){return ((unsigned long long)(operation&31)<<32)|((unsigned long long)(operation&32)<<46);}
 static int hb_mo_has_scale_mode(int operation){return hb_mo_mixed(operation)||operation==HB_MO_SECONDARY_II||operation==HB_MO_SECONDARY_III||operation==HB_MO_SECONDARY_IV||operation==HB_MO_SECONDARY_VI||operation==HB_MO_SECONDARY_VII||operation==HB_MO_CADENCE_II_V;}
 static int hb_mo_role(int operation){return operation==HB_MO_SECONDARY_II?1:operation==HB_MO_SECONDARY_V?2:operation==HB_MO_SECONDARY_VI?4:operation==HB_MO_BACKDOOR_II?5:operation==HB_MO_BACKDOOR_V?6:operation==HB_MO_TRITONE_II?7:operation==HB_MO_SECONDARY_III?8:operation==HB_MO_SECONDARY_IV?9:operation==HB_MO_SECONDARY_VII?10:0;}
+/* Most render probes only need the operation tag. Avoid copying the full
+   lane (including chord-state settings) for every inactive operation scan. */
+static int hb_mo_operation(const hb_motion_config *config,int index){
+    unsigned long long word=hb_mo_recorded_word(config,index);
+    return word?hb_mo_word_operation(word):config->lanes[index].operation;
+}
 static hb_motion_lane hb_mo_settings(const hb_motion_config *config,int index){
     hb_motion_lane lane=config->lanes[index];
     unsigned long long word=hb_mo_recorded_word(config,index);
@@ -514,9 +520,11 @@ static int hb_mo_value_at(const hb_motion_config *config,int index,double beat,d
     unsigned long long word=hb_mo_recorded_word(config,index);
     if(word){*value=(double)(int32_t)(uint32_t)word/1000.0;return hb_mo_word_operation(word)!=0;}
 
-    hb_motion_lane resolved=hb_mo_settings(config,index);const hb_motion_lane *lane=&resolved;
+    if(!hb_mo_lane_active(config,index))return 0;
+    /* Recorded overrides returned above; the live lane can be read directly. */
+    const hb_motion_lane *lane=&config->lanes[index];
     int held=(config->held&(1ULL<<index))!=0;
-    if(!hb_mo_lane_active(config,index)||!hb_mo_condition(config,index,condition_beat)||(!held&&!lane->probability))return 0;
+    if(!hb_mo_condition(config,index,condition_beat)||(!held&&!lane->probability))return 0;
     double grid=hb_mo_grid(lane->grid),cycle=hb_mo_cycle(lane->cycle);
     if(lane->advance){const unsigned long long *events=config->event_override?config->event_override:config->events;
         beat=(double)(events[index]?events[index]-1:0)*grid;}

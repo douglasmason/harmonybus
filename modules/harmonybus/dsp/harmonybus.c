@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.208"
+#define HB_VERSION "0.2.209"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1562,7 +1562,7 @@ static hb_harmony_t hb_render_harmony(Inst *instance){
         if(event>=0)harmony=g_bus.next_model[event].harmony;
     }
     for(int lane=0;lane<HB_MOTION_LANES;lane++){
-        if(hb_mo_settings(&instance->motion,lane).operation!=HB_MO_HARMONY)continue;
+        if(hb_mo_operation(&instance->motion,lane)!=HB_MO_HARMONY)continue;
         if((instance->next_touch_mask&(1ULL<<lane))&&!(instance->motion.gesture_persistent&(1ULL<<lane))&&hb_next_touch_expired(instance))continue;
         double choice;
         if(!hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&choice))continue;
@@ -2487,8 +2487,8 @@ static hb_cp_config hb_chord_config_at(Inst *instance,int source,double beat,dou
     hb_role_sync(instance);
     hb_cp_config config=hb_cp_effective_config(&instance->player);
     for(int index=0;index<HB_MOTION_LANES;index++){
-        hb_motion_lane lane=hb_mo_settings(&instance->motion,index);double value;
-        if(lane.operation==HB_MO_CHORD_FORM&&hb_mo_value_at(&instance->motion,index,beat,condition,source,&value))
+        int operation=hb_mo_operation(&instance->motion,index);double value;
+        if(operation==HB_MO_CHORD_FORM&&hb_mo_value_at(&instance->motion,index,beat,condition,source,&value))
             config.size=hb_mo_clamp(hb_mo_round(value),0,HB_CP_FORMS-1);
     }
     return config;
@@ -2503,11 +2503,11 @@ static int hb_secondary_at(Inst *instance,int source_note){
     int selected=hb_mo_held_secondary(motion);
     if(!selected)selected=hb_mo_source_secondary(motion);
     if(!selected)for(int lane=0;lane<HB_MOTION_LANES;lane++){
-        hb_motion_lane settings=hb_mo_settings(motion,lane);double value=0;
-        int role=hb_mo_role(settings.operation);
+        int operation=hb_mo_operation(motion,lane);double value=0;
+        int role=hb_mo_role(operation);
         if(role&&hb_mo_value_at(motion,lane,hb_motion_position(instance),hb_motion_condition_position(),source_note,&value)&&value>0){
             selected=role;
-            motion->render_flags=(motion->render_flags&~(HB_MO_SIMPLE|HB_MO_SIMPLE_SCALE))|((hb_mo_has_scale_mode(settings.operation)&&hb_mo_round(value)>=2)?(HB_MO_SIMPLE|(hb_mo_round(value)==3?HB_MO_SIMPLE_SCALE:0)):0);
+            motion->render_flags=(motion->render_flags&~(HB_MO_SIMPLE|HB_MO_SIMPLE_SCALE))|((hb_mo_has_scale_mode(operation)&&hb_mo_round(value)>=2)?(HB_MO_SIMPLE|(hb_mo_round(value)==3?HB_MO_SIMPLE_SCALE:0)):0);
         }
     }
     return selected==1&&(motion->render_flags&HB_MO_LEGACY_II)?11:selected;
@@ -2519,11 +2519,11 @@ static int hb_operation_modifier(Inst *instance,int source_note){
     int modifier=hb_mo_held_modifier(&instance->motion);
     if(!modifier)modifier=hb_mo_source_modifier(&instance->motion);
     for(int lane=0;lane<HB_MOTION_LANES&&!modifier;lane++){
-        hb_motion_lane settings=hb_mo_settings(&instance->motion,lane);double value=0;
-        if((settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE||settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V)&&
+        int operation=hb_mo_operation(&instance->motion,lane);double value=0;
+        if((operation==HB_MO_BELOW||operation==HB_MO_ABOVE||operation==HB_MO_CHROM_ABOVE||operation==HB_MO_TRITONE_V)&&
             hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),source_note,&value)&&value>0)
-            {modifier=settings.operation==HB_MO_BELOW?-1:(settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V)?2:1;
-            if(settings.operation==HB_MO_CHROM_ABOVE)instance->motion.render_flags|=HB_MO_CONNECTOR_ABOVE;
+            {modifier=operation==HB_MO_BELOW?-1:(operation==HB_MO_CHROM_ABOVE||operation==HB_MO_TRITONE_V)?2:1;
+            if(operation==HB_MO_CHROM_ABOVE)instance->motion.render_flags|=HB_MO_CONNECTOR_ABOVE;
             else instance->motion.render_flags&=~HB_MO_CONNECTOR_ABOVE;}
     }
     return modifier;
@@ -2798,8 +2798,9 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
         while(*pitch<0)*pitch+=12;while(*pitch>127)*pitch-=12;
     }
     for(int index=0;index<HB_MOTION_LANES;index++){
-        hb_motion_lane resolved=hb_mo_settings(&instance->motion,index);hb_motion_lane *lane=&resolved;double value;
+        double value;
         if(!hb_mo_value_at(&instance->motion,index,beat,hb_motion_condition_position(),message[1],&value))continue;
+        hb_motion_lane resolved=hb_mo_settings(&instance->motion,index);const hb_motion_lane *lane=&resolved;
         if(lane->operation==HB_MO_VELOCITY)*velocity=hb_mo_clamp(hb_mo_round(*velocity*(1.0+value/100.0)),1,127);
         else if(lane->operation==HB_MO_PAN)*pan=hb_mo_clamp(hb_mo_round(64.0+value*0.63),0,127);
         else if(lane->operation==HB_MO_OCTAVE){
@@ -5739,7 +5740,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
     }
     for(int lane=0;lane<HB_MOTION_LANES;lane++){
         double choice;
-        if(hb_mo_settings(&instance->motion,lane).operation==HB_MO_HARMONY&&
+        if(hb_mo_operation(&instance->motion,lane)==HB_MO_HARMONY&&
            hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&choice)){
             effective=hb_render_harmony(instance);break;
         }

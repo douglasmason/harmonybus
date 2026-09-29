@@ -1,3 +1,5 @@
+> **0.2.209:** Reduce synchronous pad-preview and note-render work by reading operation tags without repeatedly copying full motion settings. Keep recorded overrides and active motion behavior intact. Pair with Movy hbclean.119 or newer for the separate pad LED delivery fix.
+
 > **0.2.208:** Inversion now calls Top Note **Played Top Note**, clarifying that the played melody anchors the top of the generated voicing. Includes the follower pad-color fix and Shuffle / Shuffle Cycle Pin choices.
 
 > **0.2.207:** Arp Order offers Shuffle (honor Arp Start on launch) and Shuffle Cycle Pin (also pin every cycle). Both follow Arp Start and visit each available note once per cycle.
