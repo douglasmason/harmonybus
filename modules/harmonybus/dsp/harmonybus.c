@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.205"
+#define HB_VERSION "0.2.206"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -5308,11 +5308,17 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
     preview->render_harmony=harmony;preview->render_harmony_active=1;
     unsigned rendered_mask=0;preview->preview_gap_mask=0;
     hb_cp_config config=hb_cp_effective_config(&instance->player);
+    /* Follower colors describe the single note before Auto Chord expansion.
+       Render that note through the ordinary mapper, including approaches and
+       Follow Play, instead of substituting the generated chord's root. */
+    int follower_single=root_only&&instance->role==1;
+    if(follower_single)config.mode=0;
     memset(&preview->player,0,sizeof(preview->player));preview->player.config=config;
     preview->approach_pad_armed=instance->approach_pad_armed;
     preview->motion=instance->motion;preview->motion.event_override=0;preview->next_touch_mask=instance->next_touch_mask;hb_next_touch_clear_expired(preview);
     hb_mo_input(&preview->motion,source_note,hb_motion_position(preview),hb_ms_to_beats(25));
-    hb_player_note_on(preview,source_note,0,100);
+    if(follower_single)hb_player_note_on_config(preview,source_note,0,100,&config);
+    else hb_player_note_on(preview,source_note,0,100);
     for(int owner=0;owner<HB_CP_KEYS;owner++)if(preview->player.keys[owner].used){
         hb_cp_key *voice=&preview->player.keys[owner];
         preview->preview_gap_mask|=voice->gap_mask|voice->semantic_mask;
@@ -5320,7 +5326,7 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
         /* A chord gesture is represented by its generated root,
            independent of inversion, extensions and voice count. */
         int single=root_only&&config.mode;
-        int include_outputs=output_low&&output_high;
+        int include_outputs=output_low&&output_high&&!follower_single;
         int count=single?(include_outputs?voice->count+1:1):voice->count;
         for(int index=0;index<count;index++){
             int color_sample=!single||index==0;
@@ -5339,6 +5345,10 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
             }
         }
     }
+    /* Output grouping still compares the actual expanded voicing. Reset and
+       render it separately on the same private preview; no live state changes. */
+    if(follower_single&&output_low&&output_high)
+        hb_pad_render_mask(preview,instance,harmony,source_note,0,output_low,output_high);
     return rendered_mask;
 }
 

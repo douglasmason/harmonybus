@@ -43,7 +43,34 @@ static void visible_output_groups(void){
     assert(instance->player.keys[0].used==0);
     API.destroy_instance(instance);
 }
+static void auto_chord_colors_single_follower_note(void){
+    Inst *instance=fixture();
+    hb_set_shared_follower_scale(1);
+    /* C major: D stays a scale tone even when Conductor Chord generates
+       C-E-G from it; E represents the third, rather than becoming the root. */
+    for(int harmony_index=0;harmony_index<3;harmony_index++){
+        hb_harmony_t harmony=chord(harmony_index==1?5:0,harmony_index==2,0);
+        hb_commit_observed_harmony(harmony);
+        for(int travel=0;travel<8;travel++)for(int source=60;source<72;source++){
+            instance->travel_map=travel;
+            instance->player.config.mode=0;
+            Inst preview=*instance;
+            unsigned expected=hb_pad_render_mask(&preview,instance,harmony,source,0,0,0);
+            for(int mode=1;mode<=2;mode++)for(int inversion=0;inversion<=8;inversion++){
+                instance->player.config.mode=mode;
+                instance->player.config.inversion=inversion;
+                unsigned long long low=0,high=0,full_low=0,full_high=0;
+                assert(hb_pad_render_mask(&preview,instance,harmony,source,1,0,0)==expected);
+                assert(hb_pad_render_mask(&preview,instance,harmony,source,1,&low,&high)==expected);
+                hb_pad_render_mask(&preview,instance,harmony,source,0,&full_low,&full_high);
+                assert(low==full_low&&high==full_high);
+            }
+        }
+    }
+    API.destroy_instance(instance);
+}
 int main(void){
+    auto_chord_colors_single_follower_note();
     visible_output_groups();
     replay_roles_do_not_recolor_live_pads();
     Inst *instance=fixture();
@@ -141,7 +168,7 @@ int main(void){
         assert(sscanf(metadata,"|input1,%d,%d,%d,%u,%u",&root,&selected,&resolved,&mask,&roles)==5);
         assert(roles==hb_harmony_chord_mask(g_bus.observed_harmony));
     }
-    /* Auto Chord classifies the generated root, never every extension. */
+    /* Auto Chord classifies the single follower note, never every extension. */
     g_bus.observed_harmony=chord(0,0,0);hb_effective_write(g_bus.observed_harmony);
     instance->player.config.mode=1;
     for(int form=0;form<12;form++)for(int inversion=0;inversion<7;inversion++){

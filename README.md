@@ -1,3 +1,5 @@
+> **0.2.206:** Follower Auto Chord pad colors reflect the single note rendered with Auto Chord off, including conductor-harmony mode and Top Note. Expanded voicings still determine equivalent-output groups.
+
 > **0.2.205 / Movy hbclean.116:** Stopped startup harmony preview, coherent pad updates and protected Perform lights. Four defaults panels become one Role Defaults editor; Track Scales gains Local Palette and Foll Map gains Current / Next Harmony Target. See [panel controls](docs/panel-controls.md).
 
 > **0.2.204 / Movy hbclean.115:** Shared Track / Lane Edit Target on Chords and Arp / Strum, temporary Chord/Arp State operations, burst presets and explicit Root/Bass + Top input. Start Note defaults to Played / Pad; Start Timing defaults to First Note Free. See [state editing](docs/chord-states.md).
