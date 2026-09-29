@@ -94,7 +94,8 @@ static int hb_cs_metadata(Inst *instance,char *buffer,int length){
         }
         if(used>=length)return -1;used+=snprintf(buffer+used,(size_t)(length-used),"]}");
     }
-    if(used>=length)return -1;used+=snprintf(buffer+used,(size_t)(length-used),"]");return used>=length?-1:used;
+    used=hb_defaults_metadata(instance,buffer,length,used);
+    if(used<0||used>=length)return -1;used+=snprintf(buffer+used,(size_t)(length-used),"]");return used>=length?-1:used;
 }
 static int hb_cs_get(Inst *instance,const char *key,char *buffer,int length){
     hb_motion_lane *lane=hb_cs_edit_lane(instance);

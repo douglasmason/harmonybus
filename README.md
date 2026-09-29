@@ -1,3 +1,5 @@
+> **0.2.205 / Movy hbclean.116:** Stopped startup harmony preview, coherent pad updates and protected Perform lights. Four defaults panels become one Role Defaults editor; Track Scales gains Local Palette and Foll Map gains Current / Next Harmony Target. See [panel controls](docs/panel-controls.md).
+
 > **0.2.204 / Movy hbclean.115:** Shared Track / Lane Edit Target on Chords and Arp / Strum, temporary Chord/Arp State operations, burst presets and explicit Root/Bass + Top input. Start Note defaults to Played / Pad; Start Timing defaults to First Note Free. See [state editing](docs/chord-states.md).
 
 > **0.2.203:** Adds complete-page live snapshots for Next Harm, Chord Timing and Follower Root so Movy can refresh position and harmony fields together. Includes the three context scopes introduced in 0.2.201. Pair with Movy hbclean.113 for the display refresh fix.

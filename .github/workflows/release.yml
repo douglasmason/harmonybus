@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.204'
+          assert module['version']=='0.2.205'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -161,6 +161,10 @@ jobs:
           /tmp/mixed_cadence_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/role_scale_test.c src/harmony_core.c -lm -o /tmp/role_scale_test
           /tmp/role_scale_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/opening_preview_test.c src/harmony_core.c -lm -o /tmp/opening_preview_test
+          /tmp/opening_preview_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/settings_editor_test.c src/harmony_core.c -lm -o /tmp/settings_editor_test
+          /tmp/settings_editor_test
 
       - name: Verify loop learning with four conductor callbacks
         run: |
