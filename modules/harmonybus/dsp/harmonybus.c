@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.213"
+#define HB_VERSION "0.2.214"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -5666,7 +5666,7 @@ if(!strcmp(key,"follow_touch_labels")){
     int used=0;
     for(int slot=0;slot<10;slot++){
         int lane=slot==9?6:instance->touch_lanes[slot];const hb_motion_lane *operation=&instance->motion.lanes[lane-1];
-        const char *label=MO_OPERATIONS[operation->operation];
+        const char *label=hb_mo_operation_name(operation->operation);
         if(operation->operation==HB_MO_HARMONY)label=operation->amount>=50?
             "Next Harmony":"Current Harmony";
         if(used<0||used>=length)return -1;

@@ -3,7 +3,9 @@
 /* Slots reference the existing motif library/presets; no phrase copy is saved. */
 #define HB_AR_SHIFT 43
 #define HB_AR_MASK (2047ULL<<HB_AR_SHIFT)
-static const char *HB_AR_NAMES[]={"Chromatic Below","Chromatic Above","Scale Above","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Tritone II","Tritone V","Secondary III","Secondary IV","Secondary VII","Motif 1","Motif 2","Motif 3","Motif 4","Motif 5","Motif 6","Motif 7","Motif 8","Motif 9","Motif 10","Motif 11","Motif 12","Motif 13","Motif 14","Motif 15","Motif 16"};
+static const char *HB_AR_NAMES[]={"Secondary LT","Chromatic Above","Scale Above","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Tritone II","Tritone V","Secondary III","Secondary IV","Secondary VII","Motif 1","Motif 2","Motif 3","Motif 4","Motif 5","Motif 6","Motif 7","Motif 8","Motif 9","Motif 10","Motif 11","Motif 12","Motif 13","Motif 14","Motif 15","Motif 16"};
+/* Index 2 remains a legacy Scale Above assignment; new choices use Secondary II. */
+static const char *hb_ar_name(int choice){return HB_AR_NAMES[choice==2?3:choice];}
 typedef struct {
     int enabled,knobs[8],bank[16],order[8],order_slot[8],count,cursor,event,bank_armed;
     unsigned down,selected;unsigned long long saved_word;int restore_word;unsigned short tokens[128];unsigned char swallow[16][128];

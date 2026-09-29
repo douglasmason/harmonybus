@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.213'
+          assert module['version']=='0.2.214'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -336,12 +336,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Approach mode pairs ordered knob transformations with the existing motif renderer. Includes per-track knob assignments and a separate 16-slot motif reference bank, input-intent recording, current/Next Harmony mapping and pad previews. Pair with Movy hbclean.122."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Consolidate Scale Above as Secondary II and Chromatic Below as Secondary LT. Keep scale-dependent Secondary VII distinct. Preserve saved operation IDs, recorded intent and Chromatic Chord settings. Pair with Movy hbclean.123."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Approach mode pairs ordered knob transformations with the existing motif renderer. Includes per-track knob assignments and a separate 16-slot motif reference bank, input-intent recording, current/Next Harmony mapping and pad previews. Pair with Movy hbclean.122." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Consolidate Scale Above as Secondary II and Chromatic Below as Secondary LT. Keep scale-dependent Secondary VII distinct. Preserve saved operation IDs, recorded intent and Chromatic Chord settings. Pair with Movy hbclean.123." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

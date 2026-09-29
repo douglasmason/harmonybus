@@ -6,7 +6,7 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
     hb_ar_state *state=&instance->approach_rows;
     if(!strcmp(key,"approach_mode_active")){state->enabled=parse_i(value,0)!=0;state->down=0;state->bank_armed=-1;return 1;}
     int slot=hb_ar_slot(key,"approach_knob_",8);
-    if(slot>=0){state->knobs[slot]=enum_index(value,HB_AR_NAMES,29,state->knobs[slot]);
+    if(slot>=0){state->knobs[slot]=enum_index(!strcmp(value,"Chromatic Below")||!strcmp(value,"Chrom Below")?"Secondary LT":value,HB_AR_NAMES,29,state->knobs[slot]);
         for(int index=0;index<state->count;index++)if(state->order_slot[index]==slot){state->order[index]=hb_ar_code(state,slot);state->event=0;}
         return 1;}
     slot=hb_ar_slot(key,"approach_bank_",16);
@@ -28,7 +28,7 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
 }
 static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
     hb_ar_state *state=&instance->approach_rows;int slot=hb_ar_slot(key,"approach_knob_",8);
-    if(slot>=0)return snprintf(buffer,(size_t)length,"%s",HB_AR_NAMES[state->knobs[slot]]);
+    if(slot>=0)return snprintf(buffer,(size_t)length,"%s",hb_ar_name(state->knobs[slot]));
     slot=hb_ar_slot(key,"approach_bank_",16);
     if(slot>=0)return snprintf(buffer,(size_t)length,"%s",MO_MOTIFS[state->bank[slot]]);
     if(!strcmp(key,"approach_row_status"))return snprintf(buffer,(size_t)length,"%d,%d,%d,%u,%d,%u",state->enabled,state->cursor,state->count,state->down,state->bank_armed,state->selected);

@@ -7,6 +7,29 @@ static void upper(Inst *instance){API.set_param(instance,"hb_movy_input_approach
 int main(void){
     Inst *instance=fixture();instance->travel_map=0;instance->content_map=1;instance->chromatic_map=1;instance->boundary_buffer_ms=0;instance->next_anti_buffer_ms=0;
     hb_set_shared_follower_scale(1);g_bus.observed_harmony=chord(0,0,0);hb_effective_write(g_bus.observed_harmony);
+    char label[64];
+    API.set_param(instance,"approach_knob_8","Chromatic Below");
+    API.get_param(instance,"approach_knob_8",label,sizeof(label));assert(!strcmp(label,"Secondary LT"));
+    assert(instance->approach_rows.knobs[7]==0);
+    API.set_param(instance,"approach_knob_8","Scale Above");
+    API.get_param(instance,"approach_knob_8",label,sizeof(label));assert(!strcmp(label,"Secondary II"));
+    assert(instance->approach_rows.knobs[7]==2); /* Legacy input keeps its serialized identity. */
+    API.set_param(instance,"approach_knob_8","Secondary II");assert(instance->approach_rows.knobs[7]==3);
+    API.set_param(instance,"motion_operation","Chrom Below");
+    API.get_param(instance,"motion_operation",label,sizeof(label));assert(!strcmp(label,"Secondary LT"));
+    API.set_param(instance,"motion_operation","Scale Above");
+    API.get_param(instance,"motion_operation",label,sizeof(label));assert(!strcmp(label,"Secondary II"));
+    assert(instance->motion.lanes[0].operation==HB_MO_ABOVE);
+    API.set_param(instance,"motion_operation","Secondary II");assert(instance->motion.lanes[0].operation==HB_MO_SECONDARY_II);
+    API.set_param(instance,"motion_operation","Off");
+    unsigned minor=hb_explicit_scale_mask(0,2);
+    hb_cp_config config=instance->player.config;config.chromatic_quality=1;
+    hb_approach_result lt=hb_resolve_chord_approach(instance,60,minor,config,chord(0,1,0),0,0,-1,0);
+    hb_approach_result seventh=hb_resolve_chord_approach(instance,60,minor,config,chord(0,1,0),10,0,0,0);
+    assert(lt.root==59&&lt.config.quality==5);assert(seventh.root==58);
+    config.chromatic_quality=3;
+    lt=hb_resolve_chord_approach(instance,60,minor,config,chord(0,1,0),0,0,-1,0);
+    assert(lt.root==59&&lt.config.quality==9);
     API.set_param(instance,"approach_mode_active","1");
     API.set_param(instance,"approach_knob_1","Secondary V");API.set_param(instance,"approach_knob_2","Chromatic Above");
     API.set_param(instance,"approach_touch_1","Down");API.set_param(instance,"approach_touch_2","Down");

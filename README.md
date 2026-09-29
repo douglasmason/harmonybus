@@ -1,3 +1,5 @@
+> **0.2.214 / Movy hbclean.123:** Secondary II consolidates Scale Above. Secondary LT consolidates Chromatic Below and remains a semitone below the target; Auto Chord uses the Chromatic Chord setting. Secondary VII follows the effective scale’s seventh degree and can differ from LT. Legacy saved assignments and recorded note intent remain compatible. Pitch Play and Secondary panels now access the same Secondary II lane.
+
 > **0.2.213 / Movy hbclean.122:** Copy cycles Steps → Perform → Approach. Approach has a separate motif bank on steps 1–16 and ordered transformation/motif selection on knobs 1–8. Turn knobs to assign, overlap touches to sequence, then play approach pads to advance.
 
 > **0.2.212 / Movy hbclean.121:** Fixed operation knobs: clockwise latches on, counterclockwise off, tap arms one use, hold is momentary. Rendered-only notes blend a faint play color into the pad background; matching source and output use the solid play color.
