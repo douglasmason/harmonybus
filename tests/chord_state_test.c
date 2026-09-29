@@ -44,6 +44,14 @@ int main(void){
     expect_value(instance,"arp_rate","1/8");
     char metadata[65536];assert(API.get_param(instance,"chain_params",metadata,sizeof(metadata))>0);
     assert(strstr(metadata,"Lane 1")&&strstr(metadata,"Lane 2"));
+    API.set_param(instance,"chord_edit_target","Lane 2");API.set_param(instance,"chord_input","Root/Bass + Top");
+    API.set_param(instance,"motion_hold_2","On");instance->retrigger_held=1;
+    midi(instance,1,49);midi(instance,1,79);
+    uint8_t changed_notes[3]={62,65,69};hb_commit_observed_harmony(hb_infer_harmony(changed_notes,3));
+    hb_reharmonize_held_chords(instance);
+    pair=NULL;for(int index=0;index<HB_CP_KEYS;index++)if(instance->player.keys[index].used)pair=&instance->player.keys[index];
+    assert(pair&&pair->notes[0]==49&&pair->notes[pair->count-1]==79&&pair->root_pc==2);
+    midi(instance,0,49);midi(instance,0,79);API.set_param(instance,"motion_hold_2","Off");
     char state[131072];API.get_param(instance,"state",state,sizeof(state));
     Inst *copy=API.create_instance("",NULL);API.set_param(copy,"state",state);
     assert(copy->motion.lanes[0].chord_state_valid);

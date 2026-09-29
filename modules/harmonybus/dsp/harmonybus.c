@@ -1157,7 +1157,7 @@ static hb_clip_cache_key_t hb_clip_cache_current_key(void){
             if(instance->motion.lanes[operation].operation==HB_MO_CHORD_FORM&&hb_mo_lane_active(&instance->motion,operation))
                 key.rendering=hb_clip_hash(key.rendering,clip->origin%lane->period);
         for(int field=0;field<HB_POLICY_FIELDS;field++)key.rendering=hb_clip_hash(key.rendering,(unsigned)hb_policy_value(instance,field));
-        const unsigned char *config=(const unsigned char *)&instance->player.config;
+        const unsigned char *config=(const unsigned char *)hb_cp_settings(&instance->player);
         for(unsigned byte=0;byte<sizeof(instance->player.config);byte++)
             key.rendering=hb_clip_hash(key.rendering,config[byte]);
         config=(const unsigned char *)&instance->play;
@@ -1309,7 +1309,7 @@ static void hb_commit_observed_harmony(hb_harmony_t harmony){
        (g_bus.observed_harmony.root_pc!=harmony.root_pc||hb_harmony_chord_mask(g_bus.observed_harmony)!=hb_harmony_chord_mask(harmony))){
         for(int owner=0;owner<HB_MAX_INSTANCES;owner++)if(g_pool[owner].used){
             hb_chord_player *player=&g_pool[owner].player;
-            if(!player->config.clear_harmony||!player->config.latch)continue;
+            if(!hb_cp_settings(player)->clear_harmony||!hb_cp_settings(player)->latch)continue;
             for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&!player->keys[key].held)
                 memset(&player->keys[key],0,sizeof(player->keys[key]));
         }
@@ -2592,6 +2592,12 @@ static hb_approach_result hb_resolve_chord_approach(Inst *instance,int target_no
 }
 static void hb_player_note_on_config(Inst *instance,int source_note,int channel,int velocity,const hb_cp_config *onset){
     hb_chord_player *player=&instance->player;
+    int pair_input=instance->chord_pair_render,pair_top=instance->chord_pair_top;
+    if(instance->chord_pair_input&&instance->chord_pair_owner[channel]==source_note+1){
+        for(int pitch=source_note+1;pitch<128;pitch++)if(instance->chord_pair_held[channel][pitch]){
+            pair_input=1;pair_top=pitch;
+        }
+    }
     if(hb_cp_toggle_off(player,source_note,channel))return;
     hb_harmony_t harmony=hb_render_harmony(instance);
     instance->follower_path_harmony[source_note]=harmony;
@@ -2622,8 +2628,8 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
     int target_note=instance->role==1?hb_map_follower_note_unoperated(instance,source_note):source_note+g_bus.global_transpose;
     unsigned target_scale=harmony.valid?hb_follower_scale_target(instance,harmony).pitch_mask:
         hb_transpose_mask((uint16_t)scale,g_bus.global_transpose);
-    int top_note=(config.inversion==8||instance->chord_pair_render)&&chord_active;
-    int melody=instance->chord_pair_render?instance->chord_pair_top+g_bus.global_transpose:target_note,modified_note=source_note;
+    int top_note=(config.inversion==8||pair_input)&&chord_active;
+    int melody=pair_input?pair_top+g_bus.global_transpose:target_note,modified_note=source_note;
     int chord_modifier=chord_active?(operation_modifier?operation_modifier:
         direct_approach==HB_APPROACH_CHROM_BELOW?-1:direct_approach==HB_APPROACH_SCALE_ABOVE?1:0):0;
     const hb_cadence_step *cadence=hb_mo_current_cadence(&instance->motion);
@@ -2711,10 +2717,10 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         voice_count=hb_cp_top_note(pitches,voice_count,melody,root,fifth,config.voicing);
         instance->approach_pad_armed=HB_APPROACH_OFF;
     }
-    if(instance->chord_pair_render&&voice_count){
+    if(pair_input&&voice_count){
         /* Explicit bass and top bound the generated inner voices. */
         int bass=hb_cp_clamp(source_note+g_bus.global_transpose,0,127);
-        int top=hb_cp_clamp(instance->chord_pair_top+g_bus.global_transpose,0,127),count=0;
+        int top=hb_cp_clamp(pair_top+g_bus.global_transpose,0,127),count=0;
         int bounded[HB_CP_VOICES];bounded[count++]=bass;
         for(int voice=0;voice<voice_count&&count<HB_CP_VOICES-1;voice++)
             if(pitches[voice]>bass&&pitches[voice]<top)bounded[count++]=pitches[voice];
@@ -3023,10 +3029,11 @@ static void hb_reharmonize_held_chords(Inst *instance){
     hb_harmony_t harmony=hb_render_harmony(instance);if(!harmony.valid)return;
     hb_chord_player *player=&instance->player;
     unsigned mask=hb_harmony_chord_mask(harmony);
-    int changed=0,latch=player->config.latch,armed=instance->approach_pad_armed;
+    hb_cp_config *runtime_config=player->state_override?&player->state_config:&player->config;
+    int changed=0,latch=runtime_config->latch,armed=instance->approach_pad_armed;
     /* A harmony update is not a fresh physical press: it must neither replace
        the latched gesture nor consume a next-note modifier. */
-    player->config.latch=0;instance->approach_pad_armed=HB_APPROACH_OFF;
+    runtime_config->latch=0;instance->approach_pad_armed=HB_APPROACH_OFF;
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
         if(!key->used)continue;
@@ -3037,16 +3044,16 @@ static void hb_reharmonize_held_chords(Inst *instance){
         instance->motion.event_override=instance->motion_player_events[index];
         int saved_origin=instance->movy_playback;
         instance->movy_playback=key->playback_origin;
-        hb_cp_config current_config=player->config;
-        player->config=key->onset_config;player->config.latch=0;
+        hb_cp_config current_config=*runtime_config;
+        *runtime_config=key->onset_config;runtime_config->latch=0;
         hb_cp_config onset_config=key->onset_config;
         hb_player_note_on_config(instance,key->source,key->channel,key->velocity,&onset_config);
-        player->config=current_config;
+        *runtime_config=current_config;
         instance->movy_playback=saved_origin;
         instance->motion.event_override=0;
         key->held=held;key->sequence=order;changed=1;
     }
-    player->config.latch=latch;instance->approach_pad_armed=armed;
+    runtime_config->latch=latch;instance->approach_pad_armed=armed;
     /* Revoicing is not a new gesture. In particular, resetting Auto at a
        due division would arm the following division and drop this hit. */
     if(changed&&hb_cp_playback(player)!=1){player->running=0;player->step=0;}
@@ -3760,6 +3767,8 @@ if(status==0xB0&&length>=3&&(input[1]==120||input[1]==123)){
 if(status==0xA0&&length>=3&&instance->role<2&&hb_cp_playback(&instance->player)==1&&
    hb_source_channel_matches(instance,input[0]&15)){
     int source=input[1]&127,channel=input[0]&15,velocity=input[2]&127;
+    if(instance->chord_pair_input&&instance->chord_pair_held[channel][source]&&instance->chord_pair_owner[channel])
+        source=instance->chord_pair_owner[channel]-1;
     if(instance->pressure_full_velocity)velocity=127;
     else if(velocity==0)velocity=1; /* Never turn a generated note-on into note-off. */
     int pending=-1;
@@ -4157,7 +4166,7 @@ static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int m
     hb_harmony_t anchor_harmony=hb_render_harmony(instance);
     unsigned anchor_mask=hb_harmony_chord_mask(anchor_harmony);
     if(anchor_harmony.valid){
-        if((player->config.start==3||player->config.start==4||player->config.start==6)&&player->anchor_harmony_valid&&
+        if((hb_cp_settings(player)->start==3||hb_cp_settings(player)->start==4||hb_cp_settings(player)->start==6)&&player->anchor_harmony_valid&&
            (anchor_mask!=player->anchor_harmony_mask||anchor_harmony.root_pc!=player->anchor_harmony_root))player->anchor_pending=1;
         player->anchor_harmony_valid=1;player->anchor_harmony_mask=anchor_mask;player->anchor_harmony_root=anchor_harmony.root_pc;
     }
@@ -5214,7 +5223,7 @@ static int hb_follower_path(Inst *instance,const char *key,char *buffer,int leng
     }
     if(!count&&owner->mapped[raw]>=0)pitches[count++]=owner->mapped[raw];
     if(!count)return snprintf(buffer,(size_t)length,"--"); /* queued, not rendered */
-    int rendered_approach=approach&&count==1&&owner->player.config.mode==0;
+    int rendered_approach=approach&&count==1&&hb_cp_mode(&owner->player)==0;
     /* Operation owners retain the actual emitted pitch; do not reevaluate a
        random/probabilistic lane while drawing a diagnostic. */
     for(int note=0;note<count;note++)for(int index=HB_MOTION_OWNERS-1;index>=0;index--){
