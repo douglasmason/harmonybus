@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.209'
+          assert module['version']=='0.2.210'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -190,6 +190,8 @@ jobs:
           /tmp/follower_reference_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/input_pad_test.c src/harmony_core.c -lm -o /tmp/input_pad_test
           /tmp/input_pad_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_playback_test.c src/harmony_core.c -lm -o /tmp/pad_playback_test
+          /tmp/pad_playback_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/pad_refresh_bench.c src/harmony_core.c -lm -o /tmp/pad_refresh_bench
           /tmp/pad_refresh_bench
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_arrival_test.c src/harmony_core.c -lm -o /tmp/pad_arrival_test
@@ -330,12 +332,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Reduce synchronous pad-preview and note-render work by avoiding repeated full motion-settings copies. Desktop full-pad benchmarks improve roughly 3-5x; device timing still needs confirmation. Preserve recorded overrides and active motion behavior. Pair with Movy hbclean.119 or newer for the separate LED delivery fix."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Expose actual emitted notes as rendered pad playback, separately from source inputs and retained arp pools. Live and recorded Auto Chord, arp gates, motifs and motion echoes follow final note on/off events and exact rendered pitch/octave. Includes the pad-preview performance fix. Pair with Movy hbclean.120 or newer."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Reduce synchronous pad-preview and note-render work by avoiding repeated full motion-settings copies. Desktop full-pad benchmarks improve roughly 3-5x; device timing still needs confirmation. Preserve recorded overrides and active motion behavior. Pair with Movy hbclean.119 or newer for the separate LED delivery fix." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Expose actual emitted notes as rendered pad playback, separately from source inputs and retained arp pools. Live and recorded Auto Chord, arp gates, motifs and motion echoes follow final note on/off events and exact rendered pitch/octave. Includes the pad-preview performance fix. Pair with Movy hbclean.120 or newer." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

@@ -1,3 +1,5 @@
+> **0.2.210:** Track source input and sounding output separately. Pad playback now follows final emitted notes from live/recorded Auto Chord, arps, motifs and motion echoes, mapped back through each pad’s single-note rendering. Requires Movy hbclean.120 for output highlights; held pads retain immediate feedback. Includes the 0.2.209 processing optimization.
+
 > **0.2.209:** Reduce synchronous pad-preview and note-render work by reading operation tags without repeatedly copying full motion settings. Keep recorded overrides and active motion behavior intact. Pair with Movy hbclean.119 or newer for the separate pad LED delivery fix.
 
 > **0.2.208:** Inversion now calls Top Note **Played Top Note**, clarifying that the played melody anchors the top of the generated voicing. Includes the follower pad-color fix and Shuffle / Shuffle Cycle Pin choices.

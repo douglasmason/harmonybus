@@ -1,4 +1,4 @@
-# Panel controls in 0.2.209
+# Panel controls in 0.2.210
 
 Chords and Arp / Strum remain near the start. Foll Notes and Pads Global are last in Movy because they are diagnostics and infrequent setup controls.
 
