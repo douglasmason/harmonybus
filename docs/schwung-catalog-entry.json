@@ -1,0 +1,12 @@
+{
+  "id": "harmonybus",
+  "name": "Harmony Bus",
+  "description": "Conductor/follower harmony mapping, auto chords, arpeggiation and intent-based motifs",
+  "author": "Douglas Mason",
+  "component_type": "midi_fx",
+  "subcategory": "chord-harmony",
+  "github_repo": "douglasmason/harmonybus",
+  "default_branch": "main",
+  "asset_name": "harmonybus-v0.2.205-module.tar.gz",
+  "min_host_version": "1.2.0"
+}
