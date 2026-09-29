@@ -17,7 +17,7 @@ static void rhythm_ownership(void){
     assert(!hb_rr_pop(&r,.424,out));assert(hb_rr_pop(&r,.425,out)&&out[0]==0x80);
     assert(!hb_rr_active(&r));
     hb_rr_push(&r,on,1,0);hb_rr_push(&r,on,1.01,0);hb_rr_push(&r,off,1.02,0);hb_rr_push(&r,off,1.03,0);
-    assert(hb_rr_pop(&r,2,out)&&out[0]==0x90);assert(hb_rr_pop(&r,2,out)&&out[0]==0x90);
+    assert(hb_rr_pop(&r,2,out)&&out[0]==0x90);assert(hb_rr_pop(&r,2,out)&&out[0]==0x80);assert(hb_rr_pop(&r,2,out)&&out[0]==0x90);
     assert(hb_rr_pop(&r,2,out)&&out[0]==0x80);assert(!hb_rr_pop(&r,2,out));assert(!hb_rr_active(&r));
     hb_rr_push(&r,on,3,0);assert(hb_rr_pop(&r,3,out));hb_rr_push(&r,on,3,1);hb_rr_panic(&r);
     assert(hb_rr_pop(&r,3,out)&&out[0]==0x80);assert(!hb_rr_pop(&r,4,out));
@@ -29,7 +29,7 @@ static void motion_rhythm_overlap(void){
     uint8_t on[]={0x90,60,100},off[]={0x80,60,0},out[3];
     assert(hb_mo_event(&r,on,60,100,-1,-1,0));assert(hb_mo_event(&r,on,60,100,-1,-1,0));
     assert(hb_mo_event(&r,off,60,0,-1,-1,0));assert(hb_mo_event(&r,off,60,0,-1,-1,0));
-    r.rhythm_now=.375;assert(hb_mo_pop(&r,out)&&out[0]==0x90);assert(hb_mo_pop(&r,out)&&out[0]==0x90);assert(hb_mo_pop(&r,out)&&out[0]==0x80);
+    r.rhythm_now=.375;assert(hb_mo_pop(&r,out)&&out[0]==0x90);assert(hb_mo_pop(&r,out)&&out[0]==0x80);assert(hb_mo_pop(&r,out)&&out[0]==0x90);assert(hb_mo_pop(&r,out)&&out[0]==0x80);
     assert(!hb_mo_pop(&r,out));assert(!hb_rr_active(&r.rhythm));assert(!r.owned);
 }
 static void live_and_state(void){

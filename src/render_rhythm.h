@@ -17,7 +17,7 @@ static double hb_rr_time(double beat,int pattern,double span){
 }
 #define HB_RR_VOICES 256
 #define HB_RR_EVENTS 512
-typedef struct {int used,closed,channel,pitch;unsigned serial;double delay;} hb_rr_voice;
+typedef struct {int used,closed,channel,pitch,sounding;unsigned serial;double delay;} hb_rr_voice;
 typedef struct {int used,owner;unsigned serial;double due;uint8_t midi[3];} hb_rr_event;
 typedef struct {
     hb_rr_voice voices[HB_RR_VOICES];hb_rr_event events[HB_RR_EVENTS];
@@ -39,7 +39,7 @@ static void hb_rr_push(hb_rr_route *r,const uint8_t midi[3],double now,double de
     if(on){
         for(int i=0;i<HB_RR_VOICES;i++)if(!r->voices[i].used){owner=i;break;}
         if(owner<0){hb_rr_panic(r);return;}
-        r->owned++;r->voices[owner]=(hb_rr_voice){1,0,ch,pitch,++r->serial,delay>0?delay:0};
+        r->owned++;r->voices[owner]=(hb_rr_voice){.used=1,.channel=ch,.pitch=pitch,.serial=++r->serial,.delay=delay>0?delay:0};
     }else if(off||status==0xa0){
         for(int i=0;i<HB_RR_VOICES;i++){
             hb_rr_voice *v=&r->voices[i];
@@ -64,12 +64,24 @@ static int hb_rr_pop(hb_rr_route *r,double now,uint8_t midi[3]){
         int best=-1;
         for(int i=0;i<HB_RR_EVENTS;i++)if(r->events[i].used&&r->events[i].due<=now+1e-9&&(best<0||r->events[i].due<r->events[best].due||(r->events[i].due==r->events[best].due&&r->events[i].serial<r->events[best].serial)))best=i;
         if(best<0)return 0;
-        hb_rr_event e=r->events[best];r->events[best].used=0;r->count--;
+        hb_rr_event e=r->events[best];
         int status=e.midi[0]&240,ch=e.midi[0]&15,pitch=e.midi[1]&127;
-        if(status==0x90&&e.midi[2])r->refs[ch][pitch]++;
+        if(status==0x90&&e.midi[2]&&r->refs[ch][pitch]){
+            /* MIDI has no voice IDs: close the previous attack before a
+               retrigger, and swallow that old owner's later release. This
+               keeps downstream receiver gates balanced as well. */
+            r->refs[ch][pitch]=0;
+            for(int i=0;i<HB_RR_VOICES;i++)if(r->voices[i].used&&r->voices[i].channel==ch&&r->voices[i].pitch==pitch)r->voices[i].sounding=0;
+            midi[0]=0x80|ch;midi[1]=pitch;midi[2]=0;return 1;
+        }
+        r->events[best].used=0;r->count--;
+        if(status==0x90&&e.midi[2]){r->refs[ch][pitch]=1;if(e.owner>=0)r->voices[e.owner].sounding=1;}
         else if(status==0x80||(status==0x90&&!e.midi[2])){
-            if(e.owner>=0&&r->voices[e.owner].used){r->voices[e.owner].used=0;r->owned--;}
-            if(r->refs[ch][pitch]){r->refs[ch][pitch]--;if(r->refs[ch][pitch])continue;}
+            if(e.owner>=0&&r->voices[e.owner].used){
+                int sounding=r->voices[e.owner].sounding;r->voices[e.owner].used=0;r->owned--;
+                if(!sounding)continue;
+            }else if(r->refs[ch][pitch])continue;
+            r->refs[ch][pitch]=0;
         }
         memcpy(midi,e.midi,3);return 1;
     }return 0;
