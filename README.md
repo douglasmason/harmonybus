@@ -1,3 +1,5 @@
+> **0.2.202:** Adds complete-page live snapshots for Next Harm, Chord Timing and Follower Root so Movy can refresh position and harmony fields together. Includes the three context scopes introduced in 0.2.201. Pair with Movy hbclean.113 for the display refresh fix.
+
 > **0.2.201:** Context Scope now offers Current Harm, Current + Next, and Full Loop on Track Scales and both role-default scale panels. Current Harm uses chord-local recipes without progression inference; Current + Next recognizes adjacent-pair resolutions; Full Loop additionally uses preceding/following chords. Explicit recorded intent remains authoritative at every scope. Full Loop remains the factory default.
 
 > 0.2.199: Mixed cadence panels, conductor/follower chord defaults, visible track overrides, strict/automatic local gap scales and recorded harmonic intent. See [operations](docs/operations.md).

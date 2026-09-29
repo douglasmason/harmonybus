@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.201"
+#define HB_VERSION "0.2.202"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -5279,7 +5279,9 @@ static unsigned hb_pad_target_inputs(Inst *preview,const Inst *instance,hb_harmo
 
 #include "../../../src/render_rhythm_params.h"
 #include "../../../src/motif_params.h"
+#include "../../../src/display_snapshot.h"
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+int display_result=hb_display_snapshot(instance,key,buffer,length);if(display_result>=0)return display_result;
 int rhythm_result=hb_rr_get(instance,key,buffer,length);if(rhythm_result>=0)return rhythm_result;
 int motif_result=hb_mt_get(instance,key,buffer,length);if(motif_result>=0)return motif_result;
 hb_role_sync(instance);int policy_result=hb_policy_get(instance,key,buffer,length);if(policy_result>=0)return policy_result;
