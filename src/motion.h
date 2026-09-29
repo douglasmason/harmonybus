@@ -1,5 +1,6 @@
 #ifndef HB_MOTION_H
 #define HB_MOTION_H
+#include "render_rhythm.h"
 /* Sixteen shared lane assignments with per-instance voice ownership. Pure evaluation uses transport position, never a
    mutable random stream, so local and MIDI-render routes make identical choices. */
 #define HB_MOTION_USER_LANES 16
@@ -35,6 +36,7 @@ typedef struct {
     double next,spacing,gate;
 } hb_motion_burst;
 typedef struct {
+    hb_rr_route rhythm; double rhythm_now,rhythm_delay; int rhythm_enabled;
     hb_motion_owner owners[HB_MOTION_OWNERS];
     hb_motion_burst bursts[HB_MOTION_BURSTS];
     unsigned short refs[16][128];
@@ -555,19 +557,24 @@ static int hb_mo_value(const hb_motion_config *config,int index,double beat,int 
     return hb_mo_value_at(config,index,beat,beat,voice,value);
 }
 static int hb_mo_push(hb_motion_route *route,int status,int pitch,int velocity){
+    if(route->rhythm_enabled||hb_rr_active(&route->rhythm)){
+        uint8_t message[3]={(uint8_t)status,(uint8_t)pitch,(uint8_t)velocity};
+        hb_rr_push(&route->rhythm,message,route->rhythm_now,route->rhythm_delay);return 1;
+    }
     if(route->count>=HB_MOTION_QUEUE)return 0;
     int index=(route->head+route->count)%HB_MOTION_QUEUE;
     route->queue[index][0]=(uint8_t)status;route->queue[index][1]=(uint8_t)pitch;route->queue[index][2]=(uint8_t)velocity;route->count++;return 1;
 }
-static int hb_mo_pop(hb_motion_route *route,uint8_t message[3]){if(!route->count)return 0;memcpy(message,route->queue[route->head],3);route->head=(route->head+1)%HB_MOTION_QUEUE;route->count--;return 1;}
+static int hb_mo_pop(hb_motion_route *route,uint8_t message[3]){if(!route->count)return hb_rr_pop(&route->rhythm,route->rhythm_now,message);memcpy(message,route->queue[route->head],3);route->head=(route->head+1)%HB_MOTION_QUEUE;route->count--;return 1;}
 /* Releasing one source must not silence a different source mapped to that pitch. */
 static int hb_mo_release(hb_motion_route *route,hb_motion_owner *owner){
     if(!owner->sounding)return 1;
     unsigned short *refs=&route->refs[owner->channel][owner->pitch];
-    if(*refs==1&&!hb_mo_push(route,0x80|owner->channel,owner->pitch,0))return 0;
+    if((*refs==1||route->rhythm_enabled||hb_rr_active(&route->rhythm))&&!hb_mo_push(route,0x80|owner->channel,owner->pitch,0))return 0;
     if(*refs)(*refs)--;owner->sounding=0;return 1;
 }
 static void hb_mo_due(hb_motion_route *route,double beat){
+    route->rhythm_now=beat;
     if(!route->owned)return;
     for(int index=0;index<HB_MOTION_OWNERS;index++){
         hb_motion_owner *owner=&route->owners[index];
@@ -580,6 +587,7 @@ static void hb_mo_panic(hb_motion_route *route){
         hb_motion_owner *owner=&route->owners[index];
         if(owner->used&&hb_mo_release(route,owner)){owner->used=0;route->owned--;}
     }
+    if(hb_rr_active(&route->rhythm))hb_rr_panic(&route->rhythm);
 }
 /* The adapter supplies the finished output pitch/velocity, optional pan, and
    gate deadline. Skipped notes still get an owner to swallow their matching OFF. */

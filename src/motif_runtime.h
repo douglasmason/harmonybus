@@ -50,7 +50,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
     double now=hb_motion_position(instance);
     if(arrival<0)arrival=hb_mt_arrival(instance,now);
     if(arrival<0){editor->error=5;return 0;}
-    int rhythm=use_tap_context?runtime->tap_rhythm:g_motif_rhythm;
+    int rhythm=use_tap_context?runtime->tap_rhythm:hb_rr_pattern(instance);
     int span=use_tap_context?runtime->tap_span:g_motif_span;
     double before=0;
     for(int step=0;step<phrase->anchor;step++)before+=hb_mt_duration(phrase,step,rhythm,span);
@@ -139,7 +139,7 @@ static int hb_mt_launch(Inst *instance,int input,int velocity,int channel){
         if(arrival<0){editor->error=5;return 0;}
         hb_harmony_t harmony=hb_mt_harmony_at(instance,arrival,now);
         int target=hb_mt_target_pitch(instance,input,harmony);if(target<0){editor->error=7;return 0;}
-        runtime->tap_phrase=*phrase;runtime->tap_rhythm=g_motif_rhythm;runtime->tap_span=g_motif_span;runtime->tap_step=0;runtime->tap_active=1;
+        runtime->tap_phrase=*phrase;runtime->tap_rhythm=hb_rr_pattern(instance);runtime->tap_span=g_motif_span;runtime->tap_step=0;runtime->tap_active=1;
         runtime->tap_input=input;runtime->tap_channel=channel;runtime->tap_arrival=arrival;
         runtime->tap_target=target;runtime->tap_harmony=harmony;runtime->tap_last_due=-1;
         runtime->was_running=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;runtime->last_beat=now;runtime->have_beat=1;

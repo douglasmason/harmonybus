@@ -66,3 +66,41 @@ Rhythm choices are As Entered, Even, Long-Short, Short-Long, Accelerate and Dece
 Automatic playback schedules the transformed rhythm. Guided tapping uses it for expected spacing and Auto Finish; Free and Grid taps retain the player's/requested-grid attack times, while using transformed note lengths. A tap phrase snapshots the global controls at its first tap; later knob changes apply to the next phrase. The first valid restored snapshot initializes these globals; loading stale settings from another track cannot undo a live global edit. Older per-track Span snapshots migrate using that first valid snapshot.
 
 Custom rhythm capture / Tap Rhythm is not part of this version.
+
+## Shared Render Rhythm
+
+The former Motif Rhythm Global page is now **Render Rhythm**, reachable from
+Global, Motifs, and the root menu. Global Rhythm supplies the default for all
+HB conductor/follower render paths and Movy clip playback. Track Rhythm selects
+Inherit, Off, or Override; Override uses Track Pattern and Track Window. Global
+Window and Track Window are Beat or Bar (four beats). Motif Span remains specific
+to motif playback; motifs retain their own phrase spans and fixed anchors.
+
+For ordinary tracks, the pattern continuously warps four equal subdivisions of
+the selected window. Long-Short uses 3:1:3:1 weights; Short-Long uses 1:3:1:3;
+Accelerate uses 4:3:2:1; Decelerate uses 1:2:3:4. As Entered and Even leave an
+ordinary track's existing timing unchanged. Even still equalizes motif steps.
+Window endpoints stay fixed. Notes at the same source time share an onset.
+These controls do not rewrite notes, rests, ties, intent, or recorded pressure.
+
+Live output cannot anticipate an unknown input: negative timing offsets clamp
+to zero. Positive offsets enter a bounded output queue. Each note release and
+poly-pressure event follows its attack's captured delay, including after a
+setting change. Conductor sensing remains immediate. Stop, rewind and overflow
+cancel pending attacks and release sounding output. Receiver tracks consume the
+already retimed source output without applying rhythm a second time.
+
+The accompanying Movy integration applies the full earlier/later transform to
+known clip onsets after quantize/swing and before playback performance windows.
+Gates and pressure offsets retain their lengths, and transformed same-pitch
+retriggers close the previous gate before opening a new one. Effective rhythm
+settings are cached on edits/loads and take effect at the next clip cycle (or
+clip launch), so changing a knob does not move an unfired note behind the
+playhead mid-cycle. Active recording bypasses clip rhythm. The host handshake
+marks clip-origin attacks as already retimed; they do not receive the live delay
+again. Generated motion repeats still follow their own runtime schedule.
+
+This version exposes Beat and Bar windows. Learned, variable-length chord-span
+windows need a versioned timeline bridge and are not exposed yet. Motif arrival
+at a known next chord and motif anchors continue to work. Custom rhythm capture
+and physical-device latency/LED validation remain outstanding.

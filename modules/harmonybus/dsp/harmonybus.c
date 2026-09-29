@@ -47,6 +47,7 @@ extern int close(int);
 #include "../../../src/movy_loop.h"
 #include "../../../src/chord_player.h"
 #include "../../../src/role_policy.h"
+#include "../../../src/render_rhythm.h"
 #include "../../../src/motion.h"
 #include "../../../src/follower_play.h"
 #include "../../../src/motif.h"
@@ -231,7 +232,8 @@ typedef struct {
 typedef struct { volatile unsigned seq; hb_harmony_t harmony; int global_transpose; int global_root_policy; int global_explicit_root; int global_input_root; int sensor_sources; int chord_timescale; int stability; int chord_timing; int quant_timing; int anticipation; int boundary_buffer_ms; int analysis_release_ms; int follower_content_map; int follower_travel_map; int follower_scale; int follower_split_map; int approach_control; int approach_mode; int inference_window_ms; int context; int accidentals; int auto_spell_sharps; int auto_spell_locked; int clip_track; int clip_slot; int clip_valid; int clip_note_count; int clip_stage; int clip_context; int last_clock_status; double clip_loop_start; double clip_loop_end; unsigned long clip_clock_ticks; unsigned clip_refresh_counter; double last_clip_playhead; int have_last_clip_playhead; int next_predict; int next_lookahead; int next_anti_buffer_ms; int next_model_locked; int next_shift_active; int next_learning_count; int next_model_count; double next_last_playhead; int next_have_playhead; int next_learning_started; double next_learning_progress_beats; hb_harmony_t observed_harmony; hb_loop_harmony_event_t next_learning[HB_MAX_LOOP_HARMONIES]; hb_loop_harmony_event_t next_model[HB_MAX_LOOP_HARMONIES]; unsigned cache_rev; unsigned sense_rev; int last_sense_count; uint8_t last_sense_notes[64]; unsigned global_process_count; unsigned global_note_event_count; unsigned global_accepted_note_count; unsigned global_tick_count; int global_last_status; int global_last_note; int global_last_channel; int global_last_instance; int follower_root_policy; int follower_explicit_root; hb_clip_note_t clip_notes[HB_MAX_CLIP_NOTES]; } SharedBus;
 static SharedBus g_bus={.approach_control=HB_APPROACH_OFF,.approach_mode=0}; static int g_init=0;
 typedef struct { uint8_t source,pitch,velocity,on; } hb_rx_event;
-typedef struct { hb_mt_runtime motif; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
+static int g_render_window=0,g_render_restored=0;
+typedef struct { int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 unsigned long long motion_follower_events[64][HB_MOTION_LANES+1],motion_output_events[128][HB_MOTION_LANES+1];
 unsigned long long motion_player_events[HB_CP_KEYS][HB_MOTION_LANES+1],motion_held_events[128][HB_MOTION_LANES+1];
 uint8_t motion_output_valid[128]; uint8_t (*motion_output_base)[3];
@@ -257,6 +259,16 @@ static void hb_motion_copy_settings(hb_motion_config *target,const hb_motion_con
 }
 
 static int hb_secondary_at(Inst *instance,int source_note);
+static double hb_motion_position(Inst *instance);
+static int hb_rr_pattern(const Inst *instance){return instance->rhythm_mode==1?0:instance->rhythm_mode==2?instance->rhythm_pattern:g_motif_rhythm;}
+static void hb_rr_prepare(Inst *instance,hb_motion_route *route){
+    int pattern=hb_rr_pattern(instance);double now=hb_motion_position(instance);
+    double span=(instance->rhythm_mode==2?instance->rhythm_window:g_render_window)?4:1;
+    if(now+1e-6<route->rhythm_now&&hb_rr_active(&route->rhythm))hb_rr_panic(&route->rhythm);
+    route->rhythm_now=now;route->rhythm_enabled=pattern>=2;
+    double target=hb_rr_time(now,pattern,span);
+    route->rhythm_delay=(instance->rhythm_host&&instance->movy_playback)||target<now?0:target-now;
+}
 static void hb_motion_output(Inst *instance,hb_motion_route *route,const uint8_t message[3]);
 static void hb_motion_flush_render(Inst *instance);
 static double hb_motion_position(Inst *instance);
@@ -1623,7 +1635,7 @@ static void hb_motion_flush_render(Inst *instance){
     }
 }
 static int hb_send_render(Inst *source,const uint8_t packet[4],int suppress_external){
-    if(!hb_mo_enabled(&source->motion)&&!source->motion_render.owned&&!source->motion_render.count)
+    if(hb_rr_pattern(source)<2&&!hb_rr_active(&source->motion_render.rhythm)&&!hb_mo_enabled(&source->motion)&&!source->motion_render.owned&&!source->motion_render.count)
         return hb_send_render_raw(source,packet,suppress_external);
     source->motion_render_suppress[packet[1]&15]=suppress_external;
     hb_motion_output(source,&source->motion_render,packet+1);
@@ -2792,6 +2804,7 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
     }
 }
 static void hb_motion_output(Inst *instance,hb_motion_route *route,const uint8_t message[3]){
+    hb_rr_prepare(instance,route);
     int pitch=message[1],velocity=message[2],pan=-1,skip=0;double off_beat=-1;
     if((message[0]&0xf0)==0x90&&message[2])hb_motion_values(instance,message,&pitch,&velocity,&pan,&off_beat,&skip);
     if((message[0]&0xf0)==0x90&&message[2]){
@@ -2947,7 +2960,7 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
             int offset=(int)(output+emitted-instance->motion_output_base);
             if(offset>=0&&offset<128){
                 memcpy(instance->motion_output_events[offset],instance->motion_follower_events[index],sizeof(instance->motion.events));
-                instance->motion_output_valid[offset]=1;
+                instance->motion_output_valid[offset]=1;instance->rhythm_output_prewarped[offset]=instance->movy_playback;
             }
         }
         output[emitted][0]=(uint8_t)((is_on?0x90:0x80)|instance->follower_queue_channel[index]);
@@ -3094,7 +3107,7 @@ static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int l
             int offset=(int)(output+emitted-instance->motion_output_base);
             if(offset>=0&&offset<128){
                 memcpy(instance->motion_output_events[offset],instance->motion_held_events[source_note],sizeof(instance->motion.events));
-                instance->motion_output_valid[offset]=1;
+                instance->motion_output_valid[offset]=1;instance->rhythm_output_prewarped[offset]=instance->movy_playback;
             }
         }
         output[emitted][0]=0x90;
@@ -3449,7 +3462,7 @@ if(instance){
     hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);
     hb_receiver_remove_source(instance);
     instance->used=0;
-}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(0);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
+}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(0);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
     if(instance->source_channel>=0)return midi_channel==instance->source_channel;
@@ -4102,6 +4115,7 @@ static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int m
     int emitted=hb_cp_tick(player,output,lengths,max_output);
     for(int index=0;index<emitted;index++){
         int on=(output[index][0]&0xF0)==0x90;
+        int rhythm_origin=instance->movy_playback;
         const unsigned long long *saved_events=instance->motion.event_override;
         if(on)for(int owner=0;owner<HB_CP_KEYS;owner++){
             hb_cp_key *key=&player->keys[owner];if(!key->used||key->channel!=(output[index][0]&15))continue;
@@ -4111,12 +4125,12 @@ static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int m
                 if(offset>=0&&offset%12==0&&offset<12*(hb_cp_playback(player)==1?key->range:1))matches=1;
             }
             if(!matches)continue;
-            instance->motion.event_override=instance->motion_player_events[owner];
+            instance->motion.event_override=instance->motion_player_events[owner];instance->movy_playback=key->playback_origin;
             if(instance->motion_output_base){
                 long offset=output[index]-instance->motion_output_base[0];offset/=3;
                 if(offset>=0&&offset<128){
                     memcpy(instance->motion_output_events[offset],instance->motion_player_events[owner],sizeof(instance->motion.events));
-                    instance->motion_output_valid[offset]=1;
+                    instance->motion_output_valid[offset]=1;instance->rhythm_output_prewarped[offset]=key->playback_origin;
                 }
             }
             break;
@@ -4149,11 +4163,11 @@ static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int m
                     instance->recorded_sounding[channel][pitch]=(uint8_t)on;
             }
         }
-        if(player->render_channel<0){instance->motion.event_override=saved_events;continue;}
+        if(player->render_channel<0){instance->motion.event_override=saved_events;instance->movy_playback=rhythm_origin;continue;}
         uint8_t packet[4]={(uint8_t)(on?0x29:0x28),(uint8_t)((on?0x90:0x80)|player->render_channel),output[index][1],output[index][2]};
         if(hb_send_render(instance,packet,player->render_channel==(output[index][0]&15))==4){instance->render_count++;instance->render_last_note=output[index][1];}
         else instance->render_fail_count++;
-        instance->motion.event_override=saved_events;
+        instance->motion.event_override=saved_events;instance->movy_playback=rhythm_origin;
     }
     return emitted;
 }
@@ -4227,6 +4241,7 @@ static int tick_core(void *value,int frames,int sample_rate,uint8_t output[][3],
 }
 
 static void hb_motion_tick_routes(Inst *instance){
+    hb_rr_prepare(instance,&instance->motion_local);hb_rr_prepare(instance,&instance->motion_render);
     if(instance->last_transport_playing&&hb_clock_status()!=MOVE_CLOCK_STATUS_RUNNING){
         hb_stop_instance_note_state(instance);instance->last_transport_playing=0;
     }
@@ -4259,15 +4274,16 @@ static int hb_motion_local_drain(Inst *instance,uint8_t output[][3],int lengths[
 }
 static int process_with_actions(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int capacity){
     Inst *instance=(Inst*)value;if(!instance)return 0;
-    if(length!=3||instance->role>=2||(!hb_mo_enabled(&instance->motion)&&!instance->motion_local.owned&&!instance->motion_local.count))return process_core(value,input,length,output,lengths,capacity);
+    if(length!=3||instance->role>=2||(hb_rr_pattern(instance)<2&&!hb_rr_active(&instance->motion_local.rhythm)&&!hb_mo_enabled(&instance->motion)&&!instance->motion_local.owned&&!instance->motion_local.count))return process_core(value,input,length,output,lengths,capacity);
     uint8_t pending[128][3];int sizes[128];
-    instance->motion_output_base=pending;memset(instance->motion_output_valid,0,sizeof(instance->motion_output_valid));
+    instance->motion_output_base=pending;memset(instance->motion_output_valid,0,sizeof(instance->motion_output_valid));memset(instance->rhythm_output_prewarped,instance->movy_playback!=0,sizeof(instance->rhythm_output_prewarped));
     int count=process_core(value,input,length,pending,sizes,128);
     instance->motion_output_base=0;
     for(int index=0;index<count;index++){
         if(sizes[index]==3){
             instance->motion.event_override=instance->motion_output_valid[index]?instance->motion_output_events[index]:0;
-            hb_motion_output(instance,&instance->motion_local,pending[index]);instance->motion.event_override=0;
+            int origin=instance->movy_playback;instance->movy_playback=instance->rhythm_output_prewarped[index];
+            hb_motion_output(instance,&instance->motion_local,pending[index]);instance->movy_playback=origin;instance->motion.event_override=0;
         }
         else if(capacity>0){memcpy(output[0],pending[index],(size_t)sizes[index]);lengths[0]=sizes[index];return 1;}
     }
@@ -4309,7 +4325,7 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
     hb_gesture_finish_use(instance);
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
     if(frames>0&&sample_rate>0){double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120.0;if(bpm<=0)bpm=120.0;instance->motion_beat+=(double)frames*bpm/(60.0*sample_rate);}
-    if(instance->role>=2||(!hb_mo_enabled(&instance->motion)&&!instance->motion_local.owned&&!instance->motion_local.count&&!instance->motion_render.owned&&!hb_motion_pending_trigger(instance))){
+    if(instance->role>=2||(hb_rr_pattern(instance)<2&&!hb_rr_active(&instance->motion_local.rhythm)&&!hb_mo_enabled(&instance->motion)&&!instance->motion_local.owned&&!instance->motion_local.count&&!instance->motion_render.owned&&!hb_motion_pending_trigger(instance))){
         hb_motion_tick_routes(instance);
         int drained=hb_motion_local_drain(instance,output,lengths,capacity);
         return drained?drained:tick_core(value,frames,sample_rate,output,lengths,capacity);
@@ -4317,11 +4333,12 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
     hb_motion_tick_routes(instance);
     uint8_t pending[128][3];int sizes[128];
     int room=(HB_MOTION_QUEUE-instance->motion_local.count)/2;if(room>128)room=128;
-    instance->motion_output_base=pending;memset(instance->motion_output_valid,0,sizeof(instance->motion_output_valid));
+    instance->motion_output_base=pending;memset(instance->motion_output_valid,0,sizeof(instance->motion_output_valid));memset(instance->rhythm_output_prewarped,instance->movy_playback!=0,sizeof(instance->rhythm_output_prewarped));
     int count=tick_core(value,frames,sample_rate,pending,sizes,room);instance->motion_output_base=0;
     for(int index=0;index<count;index++)if(sizes[index]==3){
         instance->motion.event_override=instance->motion_output_valid[index]?instance->motion_output_events[index]:0;
-        hb_motion_output(instance,&instance->motion_local,pending[index]);instance->motion.event_override=0;
+        int origin=instance->movy_playback;instance->movy_playback=instance->rhythm_output_prewarped[index];
+            hb_motion_output(instance,&instance->motion_local,pending[index]);instance->movy_playback=origin;instance->motion.event_override=0;
     }
     int emitted=hb_motion_local_drain(instance,output,lengths,capacity);hb_gesture_finish_use(instance);return emitted;
 }
@@ -5260,8 +5277,10 @@ static unsigned hb_pad_target_inputs(Inst *preview,const Inst *instance,hb_harmo
     return inputs;
 }
 
+#include "../../../src/render_rhythm_params.h"
 #include "../../../src/motif_params.h"
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+int rhythm_result=hb_rr_get(instance,key,buffer,length);if(rhythm_result>=0)return rhythm_result;
 int motif_result=hb_mt_get(instance,key,buffer,length);if(motif_result>=0)return motif_result;
 hb_role_sync(instance);int policy_result=hb_policy_get(instance,key,buffer,length);if(policy_result>=0)return policy_result;
 if(!strcmp(key,"scale_status")){
@@ -5827,8 +5846,8 @@ static void set_param(void *value,const char *key,const char *parameter){
     Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
     if(!strcmp(key,"hb_pressure_full_velocity")){instance->pressure_full_velocity=parse_i(parameter,0)!=0;return;}
     hb_role_sync(instance);
-    if(!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
-    if(!strcmp(key,"state")){hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);}
+    if(!hb_rr_set(instance,key,parameter)&&!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
+    if(!strcmp(key,"state")){hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);hb_rr_restore(instance,parameter);}
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_role_sync(&g_pool[index]);
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
 }
