@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.212'
+          assert module['version']=='0.2.213'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -228,6 +228,8 @@ jobs:
           /tmp/double_tap_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/knob_latch_test.c src/harmony_core.c -lm -o /tmp/knob_latch_test
           /tmp/knob_latch_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_rows_test.c src/harmony_core.c -lm -o /tmp/approach_rows_test
+          /tmp/approach_rows_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_editor_test.c src/harmony_core.c -lm -o /tmp/motion_editor_test
           /tmp/motion_editor_test > /tmp/motion_editor.jsonl
           python3 -c 'import json; snapshots=[json.loads(line) for line in open("/tmp/motion_editor.jsonl")]; assert len(snapshots)==49; assert all(isinstance(s["params"],list) for s in snapshots)'
@@ -334,12 +336,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Fixed operation knobs use clockwise latch on, counterclockwise latch off, one-shot taps and momentary holds. Knob taps no longer promote to permanent latches. Includes rendered-output tracking and processing fixes. Pair with Movy hbclean.121 for dim blended output highlights and solid matching input highlights."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Approach mode pairs ordered knob transformations with the existing motif renderer. Includes per-track knob assignments and a separate 16-slot motif reference bank, input-intent recording, current/Next Harmony mapping and pad previews. Pair with Movy hbclean.122."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Fixed operation knobs use clockwise latch on, counterclockwise latch off, one-shot taps and momentary holds. Knob taps no longer promote to permanent latches. Includes rendered-output tracking and processing fixes. Pair with Movy hbclean.121 for dim blended output highlights and solid matching input highlights." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Approach mode pairs ordered knob transformations with the existing motif renderer. Includes per-track knob assignments and a separate 16-slot motif reference bank, input-intent recording, current/Next Harmony mapping and pad previews. Pair with Movy hbclean.122." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

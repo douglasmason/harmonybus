@@ -1,4 +1,32 @@
-# Panel controls in 0.2.212
+# Panel controls in 0.2.213
+
+## Approach mode (Movy hbclean.122)
+
+Copy tap cycles Steps, Perform, Approach. Approach Rows presents eight knobs:
+turn to assign a pitch/harmony transformation or Motif 1–16; touch to select.
+Overlapping touches append in touch-down order. Releasing the knobs retains
+that selection; a new touch with no other knob held replaces it. Successive
+approach-pad presses advance through the selected transformations and motif
+steps, wrapping after the sequence. Ties extend the preceding motif event;
+rests occupy a silent press. Each press targets its paired scale pad under
+the currently selected rendering harmony, including Next Harmony.
+
+Step buttons 1–16 arm a motif from the separate per-track bank. The next
+scale/input pad supplies its target and launches the complete motif, using
+the existing motif event durations and chord rendering. Motif Bank 1–8 and
+9–16 pages assign existing stock or User motifs; they do not copy a second
+library or replace Perform's operation lanes. Knobs initially reference
+bank slots 1–8. Before the first selection, approach pads retain Chromatic
+Below. Use the Approach keyboard layout for two complete approach rows;
+the existing Piano gap pads work too when chromatic approach mapping is on.
+
+Single transformations retain normal note-off and arp handling. Motif choices
+use the motif renderer's durations. Recorded inputs retain the selected
+transformation or motif reference/step so later knob choices do not replace
+the recorded intent. User-motif references continue to use that shared motif.
+Assignments and selected sequences save per track; physical touch and held
+note state do not. Lookahead/pad-preview reads never advance the sequence.
+
 
 Operation knobs always control their assigned lane: clockwise sets the permanent latch, counterclockwise clears it, tap arms one use, and hold acts momentarily. Repeated knob taps do not promote to a permanent latch. A pre-existing permanent latch survives a tap or hold. Step-button double-tap behavior is unchanged.
 
