@@ -149,6 +149,13 @@ int main(void){
         API.get_param(instance,"pad_render",view,sizeof(view));
         unsigned current,effective;assert(sscanf(view,"%u,%u",&current,&effective)==2);
         assert(effective==((1u<<0)|(1u<<4)|(1u<<7)));
+        /* Physical-pad color requests also collect full output voices for
+           equivalent-output grouping. That must not broaden the color mask. */
+        Inst preview=*instance;unsigned long long low=0,high=0,full_low=0,full_high=0;
+        unsigned single=hb_pad_render_mask(&preview,instance,g_bus.observed_harmony,60,1,&low,&high);
+        assert(single==1u);
+        hb_pad_render_mask(&preview,instance,g_bus.observed_harmony,60,0,&full_low,&full_high);
+        assert(low==full_low&&high==full_high&&(low||high));
     }
     API.set_param(instance,"pad_effective_color","Purple");
     API.set_param(instance,"pad_current_color","Track");

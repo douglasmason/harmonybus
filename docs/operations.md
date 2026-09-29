@@ -1,4 +1,4 @@
-# Operation lanes (HarmonyBus 0.2.199 / Movy hbclean.107)
+# Operation lanes (HarmonyBus 0.2.200 / Movy hbclean.107)
 
 Each HarmonyBus instance has sixteen independent slots. The Operation,
 Timing / Trigger, and Conditions panels share one lane selector. Duplicate operations compose
@@ -378,7 +378,7 @@ II-V-Target also offers the scale policy on its knob; the policy applies to its 
 Recording format ra3 carries the extra named lanes, extended operation ids and scale policy. Both the prior 17-word and 34-word formats remain readable; old Chrom Above recordings keep their tritone-dominant sound, and old II recordings keep their fixed-whole-step root behavior.
 
 
-## Mixed cadences and role defaults (0.2.199)
+## Mixed cadences and role defaults (0.2.200)
 
 Mixed Cadences 1 and 2 provide fourteen fixed named operations, separate from
 Step Seq 1–16. Tap to arm; each new source-note/chord gesture advances one step.

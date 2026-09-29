@@ -984,27 +984,28 @@ static void raw_arp_relative_mapping(void){
     API.destroy_instance(instance);
 }
 static void arp_pressure(void){
-    for(int chord=0;chord<2;chord++)for(int queued=0;queued<2;queued++){
+    for(int chord=0;chord<2;chord++)for(int queued=0;queued<2;queued++)for(int full=0;full<2;full++){
         Inst *instance=fixture();
         API.set_param(instance,"arp_playback","Repeat Arp");
         API.set_param(instance,"retrigger_held","On");
         if(chord)API.set_param(instance,"chord_mode","Conductor Chord");
         midi(instance,1,60);
         if(!queued)assert(advance(instance,0,64)==1&&output[0][2]==100);
+        API.set_param(instance,"hb_pressure_full_velocity",full?"1":"0");
         uint8_t pressure[3]={0xA0,60,37};
         assert(API.process_midi(instance,pressure,3,output,lengths,64)==0);
         int count=advance(instance,0,64);
-        if(queued)assert(count==1&&output[0][2]==37);else assert(count==0);
+        if(queued)assert(count==1&&output[0][2]==(full?127:37));else assert(count==0);
         double next=instance->player.next_beat;
         position=next;count=advance(instance,0,64);
-        assert(count==2&&output[1][0]==0x90&&output[1][2]==37);
+        assert(count==2&&output[1][0]==0x90&&output[1][2]==(full?127:37));
         assert(instance->player.next_beat==next+0.25);
         uint8_t notes[3]={62,65,69};hb_commit_observed_harmony(hb_infer_harmony(notes,3));
         position=instance->player.next_beat;count=advance(instance,0,64);
-        assert(count==2&&output[1][0]==0x90&&output[1][2]==37);
+        assert(count==2&&output[1][0]==0x90&&output[1][2]==(full?127:37));
         pressure[2]=0;API.process_midi(instance,pressure,3,output,lengths,64);
         position=instance->player.next_beat;count=advance(instance,0,64);
-        assert(count==2&&output[1][0]==0x90&&output[1][2]==1);
+        assert(count==2&&output[1][0]==0x90&&output[1][2]==(full?127:1));
         midi(instance,0,60);advance(instance,0,64);
         pressure[2]=127;API.process_midi(instance,pressure,3,output,lengths,64);
         position+=0.25;assert(advance(instance,0,64)==0);

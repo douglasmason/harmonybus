@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.199'
+          assert module['version']=='0.2.200'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -80,7 +80,7 @@ jobs:
               'content_map','travel_map','split_map','retrigger_held',
               'chromatic_map','motion_control_33'
           ]
-          assert [item['level'] for item in levels['root']['params'] if 'level' in item][-1]=='mixed_cadences_2'
+          assert all(any(item.get('level')==name for item in levels['root']['params']) for name in ('mixed_cadences_2','motifs','motif_global'))
           assert levels['next_harm']['name']=='Next Harm'
           assert levels['next_harm']['knobs']==[
               'next_lookahead','next_anti_buffer_ms','boundary_buffer_ms','next_model',
@@ -250,6 +250,13 @@ jobs:
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_test.c src/harmony_core.c -lm -o /tmp/motion_test
           /tmp/motion_test
 
+      - name: Verify motifs, arp anchors and Render Rhythm
+        run: |
+          for suite in motif arp_start render_rhythm; do
+            clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/${suite}_test.c src/harmony_core.c -lm -o /tmp/${suite}-release-test
+            /tmp/${suite}-release-test
+          done
+
       - name: Build guide from canonical Markdown and SVG
         run: |
           python3 -m pip install -r scripts/docs-requirements.txt
@@ -309,12 +316,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Mixed cadences, separate conductor/follower chord defaults with visible track overrides, strict/automatic local gap scales, recorded construction intent and shared pad previews. Preserve old presets and recorded operations."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Anchored intent motifs with untimed recording and tap playback, shared Render Rhythm with track overrides, arp start anchors, pad-color and pressure fixes. Pair with HarmonyBus Movy hbclean.108 for motif editing and clip retiming. Existing presets remain compatible; variable chord-span rhythm windows are not included."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Mixed cadences, separate conductor/follower chord defaults with visible track overrides, strict/automatic local gap scales, recorded construction intent and shared pad previews. Preserve old presets and recorded operations." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Anchored intent motifs with untimed recording and tap playback, shared Render Rhythm with track overrides, arp start anchors, pad-color and pressure fixes. Pair with HarmonyBus Movy hbclean.108 for motif editing and clip retiming. Existing presets remain compatible; variable chord-span rhythm windows are not included." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
