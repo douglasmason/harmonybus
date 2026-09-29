@@ -35,3 +35,9 @@ Limits: 32 events and eight input notes per event; 128 events across the library
 Native motif tests with UndefinedBehaviorSanitizer cover untimed entry, rest/tie gestures, anchors, transposition, harmonic modifiers, Trim/Fit/Defer, stop/cancel, exact operation snapshot persistence, truncated state, and bank capacity. Existing chord, cadence, operation-recording, input-recording, role-scale and stop-release suites pass. Runtime metadata validation passes.
 
 Movy's integration applies to a clean pinned upstream checkout. TypeScript checks, browser and device-JavaScript builds, the original step-recorder suite, and motif edit-isolation/LED-budget checks pass. ARM DSP cross-compilation and physical-device verification remain pending. Candidate workflows build artifacts without publishing a release.
+
+## Arp Start and pressure follow-up
+
+Arp / Strum replaces Clear Arp with **Arp Start**: Order, Lowest / Pad, Highest / Pad, Lowest / Chord, Highest / Chord, Played / Pad, Played / Chord. Played selects the most recently played mapped pitch within the voiced pool (nearest voice if its pitch class is absent). Order preserves the previous behavior. Pad choices restart the pitch order on the next scheduled attack after an accepted input note; Chord choices restart it after the effective rendering harmony changes. Neither choice moves the running arp clock. Free and First Note Free retain their immediate opening attacks, while Auto retains its grid start. The selected extreme is drawn from the actual voiced/octave-expanded pool, and repeats at each order-cycle start. Shuffle visits every voice once, with the extreme first; Random excludes an immediate repeat of the forced opening note.
+
+Clear Arp remains in **Humanize / Tools**, allowing deliberate latch clearing without stopping transport. Full Velocity also governs HB's conversion of live/replayed poly pressure into arp attack velocity; other pressure destinations keep raw pressure.

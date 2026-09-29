@@ -2704,6 +2704,7 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         hb_cp_key *key=&player->keys[index];
         if(key->used&&key->source==source_note&&key->channel==channel){
             key->root_pc=config.mode==0?mod12(pitches[0]):(config.mode==2?harmony.root_pc:mod12(modified_note+g_bus.global_transpose));
+            key->played_pitch=config.mode?melody:pitches[0];
             key->intent_scale=0;
             if(!intent_kind&&instance->role==0&&config.mode==1&&config.quality==0){
                 const unsigned long long *events=instance->motion.event_override?instance->motion.event_override:instance->motion.events;
@@ -3718,6 +3719,7 @@ if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note
         instance->movy_pad_shift[note]=instance->movy_pad_pending_shift;
     instance->movy_pad_pending=0;
 }int input_channel=input[0]&0x0F;if(instance->role==2)return pass(input,length,output,lengths,max_output);if(!hb_source_channel_matches(instance,input_channel))return pass(input,length,output,lengths,max_output);if(is_on){
+    if(instance->player.config.start==1||instance->player.config.start==2||instance->player.config.start==5)instance->player.anchor_pending=1;
     if(instance->movy_playback&&instance->recorded_action_valid[note])instance->motion.event_override=instance->recorded_actions[note];
     else if(instance->motif.editor.recording<0)hb_mo_input(&instance->motion,note,instance->motion_beat,hb_ms_to_beats(25));
     instance->motion.gesture_once_used|=instance->motion.gesture_once&~instance->next_touch_mask;
@@ -4084,6 +4086,13 @@ static void hb_prepare_conductors(int frames,int sample_rate){
 
 static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int max_output){
     hb_chord_player *player=&instance->player;
+    hb_harmony_t anchor_harmony=hb_render_harmony(instance);
+    unsigned anchor_mask=hb_harmony_chord_mask(anchor_harmony);
+    if(anchor_harmony.valid){
+        if((player->config.start==3||player->config.start==4||player->config.start==6)&&player->anchor_harmony_valid&&
+           (anchor_mask!=player->anchor_harmony_mask||anchor_harmony.root_pc!=player->anchor_harmony_root))player->anchor_pending=1;
+        player->anchor_harmony_valid=1;player->anchor_harmony_mask=anchor_mask;player->anchor_harmony_root=anchor_harmony.root_pc;
+    }
     for(int owner=0;owner<HB_CP_KEYS;owner++){
         hb_cp_key *key=&player->keys[owner];
         int applies=!instance->play.bypass&&(instance->play.scope==0||
@@ -4406,6 +4415,7 @@ static const char *CP_CHORD_QUALITY[]={"Auto","Major","Minor","Dim","Aug","Maj7"
 static const char *CP_CHROMATIC_QUALITY[]={"Scale","Major / Maj7","Major / Dom7","Dim / Dim7","Minor / Min7","Dim / Min7b5","Auto Dim7 / Min7b5"};
 static const char *CP_ARP_PLAYBACK[]={"Together","Repeat Arp","Once"};
 static const char *CP_ARP_HOLD[]={"Momentary","Latch - Overlap","Latch with Off - Overlap","Latch Acc. with Off","Latch - Single","Latch with Off - Single"};
+static const char *CP_ARP_START[]={"Order","Lowest / Pad","Highest / Pad","Lowest / Chord","Highest / Chord","Played / Pad","Played / Chord"};
 static const char *CP_ARP_ORDER[]={"Up","Down","Up-Down","Played","Random","Shuffle"};
 static const char *CP_ARP_RATE[]={"1/64","1/32","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars","Cycle 1/64","Cycle 1/32","Cycle 1/16","Cycle 1/8","Cycle 1/4","Cycle 1/2","Cycle 1 Bar","Cycle 2 Bars","Cycle 4 Bars"};
 static const char *CP_ARP_GATE[]={"25%","50%","75%","90%"};
@@ -4611,6 +4621,7 @@ if(!strcmp(key,"arp_hold")){
     if(selected!=instance->player.config.latch){instance->player.config.latch=selected;}
     return;
 }
+if(!strcmp(key,"arp_start")){instance->player.config.start=enum_index(parameter,CP_ARP_START,7,instance->player.config.start);instance->player.anchor_pending=1;instance->player.shuffle_count=0;return;}
 if(!strcmp(key,"arp_order")){
     int selected=enum_index(parameter,CP_ARP_ORDER,6,instance->player.config.order);
     if(selected!=instance->player.config.order){instance->player.config.order=selected;instance->player.shuffle_count=instance->player.shuffle_position=0;}
@@ -5064,6 +5075,10 @@ static void hb_restore_state(Inst *instance,const char *state){
         instance->next_lookahead=lookahead;instance->next_anti_buffer_ms=anti_buffer;instance->lookahead_restored=1;
         hb_next_apply_effective(hb_clip_playhead());
     }
+    const char *start_suffix=strstr(state,";as1,");
+    int arp_start=0;
+    if(start_suffix)sscanf(start_suffix,";as1,%d",&arp_start);
+    config.start=hb_cp_clamp(arp_start,0,6);instance->player.config.start=config.start;
     const char *clear_suffix=strstr(state,";ac1,");
     config.clear_harmony=clear_suffix&&clear_suffix[5]=='1';
     instance->player.config.clear_harmony=config.clear_harmony;
@@ -5461,6 +5476,8 @@ if(!strcmp(key,"state")){
     if(used<0||used>=length)return used;
     if(instance->render_velocity_gain!=10000)used+=snprintf(buffer+used,(size_t)(length-used),";rv1,%d",instance->render_velocity_gain);
     if(used<0||used>=length)return used;
+    if(instance->player.config.start)used+=snprintf(buffer+used,(size_t)(length-used),";as1,%d",instance->player.config.start);
+    if(used<0||used>=length)return used;
     if(instance->player.config.clear_harmony)used+=snprintf(buffer+used,(size_t)(length-used),";ac1,1");
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";ct1,%d;ft1,%d,%d,%d,%d,%d,%d,%d,%d",hb_chromatic_travel(instance),instance->touch_lanes[0],instance->touch_lanes[1],instance->touch_lanes[2],instance->touch_lanes[3],instance->touch_lanes[4],instance->touch_lanes[5],instance->touch_lanes[6],instance->touch_lanes[7]);
@@ -5686,6 +5703,7 @@ if(!strcmp(key,"chord_voicing"))return snprintf(buffer,(size_t)length,"%s",CP_CH
 if(!strcmp(key,"arp_playback"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_PLAYBACK[instance->player.config.playback]);
 if(!strcmp(key,"arp_clear_harmony"))return snprintf(buffer,(size_t)length,"%s",instance->player.config.clear_harmony?"On":"Off");
 if(!strcmp(key,"arp_hold"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_HOLD[instance->player.config.latch]);
+if(!strcmp(key,"arp_start"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_START[instance->player.config.start]);
 if(!strcmp(key,"arp_order"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_ORDER[instance->player.config.order]);
 if(!strcmp(key,"arp_phase_range")){int limit=hb_arp_phase_limit(instance->player.config.rate);return snprintf(buffer,(size_t)length,"-%d to +%d",limit,limit);}
 if(!strcmp(key,"arp_note_phase"))return snprintf(buffer,(size_t)length,"%d",instance->player.config.note_phase);
