@@ -123,10 +123,49 @@ static void hb_mt_restore(Inst *instance,const char *state){
     }
     free(snapshots);free(bank);
 }
+static int hb_mt_free_slot(void){
+    for(int slot=0;slot<HB_MT_SLOTS;slot++){
+        if(g_motifs[slot].count)continue;
+        int busy=0;
+        for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_pool[index].motif.editor.recording==slot)busy=1;
+        if(!busy)return slot;
+    }return -1;
+}
+static void hb_mt_lane_begin(Inst *instance,int duplicate){
+    hb_mt_recorder *editor=&instance->motif.editor;
+    if(editor->lane<0){hb_mt_begin(editor,editor->selected);return;}
+    hb_motion_lane *lane=&instance->motion.lanes[editor->lane];
+    if(lane->operation!=HB_MO_MOTIF){editor->error=11;return;}
+    int reference=lane->amount,slot=reference>=20&&reference<36&&!duplicate?reference-20:hb_mt_free_slot();
+    if(slot<0){editor->error=9;return;}
+    for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&&g_pool[index]!=instance&&g_pool[index].motif.editor.recording==slot){editor->error=11;return;}
+    hb_mt_begin(editor,slot);
+    if(reference>0&&reference<20){hb_mt_preset(reference,&editor->draft);editor->changed=1;}
+    else if(duplicate&&reference>=20&&reference<36){editor->draft=g_motifs[reference-20];editor->changed=1;}
+}
 static int hb_mt_set(Inst *instance,const char *key,const char *value){
     if(strncmp(key,"motif_",6))return 0;
     hb_mt_recorder *editor=&instance->motif.editor;
     if(!strcmp(value,"Off"))return 1;
+    if(!strcmp(key,"motif_edit")){
+        if(editor->recording>=0)return 1;
+        int lane=instance->motion.selected;
+        if(lane<0||lane>=16||instance->motion.lanes[lane].operation!=HB_MO_MOTIF){editor->error=11;return 1;}
+        editor->lane=lane;hb_mt_lane_load(editor,&instance->motion.lanes[lane]);editor->error=0;return 1;
+    }
+    if(!strcmp(key,"motif_close")){if(editor->recording<0)editor->lane=-1;return 1;}
+    if(editor->lane>=0){
+        hb_motion_lane *lane=&instance->motion.lanes[editor->lane];int changed=1;
+        if(!strcmp(key,"motif_playback"))lane->motif_playback=enum_index(value,HB_MT_PLAYBACK,4,lane->motif_playback);
+        else if(!strcmp(key,"motif_arrival"))lane->motif_arrival=enum_index(value,HB_MT_ARRIVALS,6,lane->motif_arrival);
+        else if(!strcmp(key,"motif_target"))lane->motif_target=enum_index(value,HB_MT_TARGETS,7,lane->motif_target);
+        else if(!strcmp(key,"motif_late"))lane->motif_late=enum_index(value,HB_MT_LATE,3,lane->motif_late);
+        else if(!strcmp(key,"motif_grid"))lane->motif_grid=enum_index(value,HB_MT_GRIDS,4,lane->motif_grid);
+        else if(!strcmp(key,"motif_completion"))lane->motif_completion=enum_index(value,HB_MT_COMPLETION,2,lane->motif_completion);
+        else changed=0;
+        if(changed){hb_motion_publish_settings(instance);hb_mt_lane_load(editor,lane);return 1;}
+    }
+    if(!strcmp(key,"motif_duplicate")){if(editor->recording<0)hb_mt_lane_begin(instance,1);return 1;}
     if(!strcmp(key,"motif_playback")){editor->playback=enum_index(value,HB_MT_PLAYBACK,4,editor->playback);instance->motif.tap_active=0;return 1;}
     if(!strcmp(key,"motif_preset")){editor->preset=enum_index(value,HB_MT_PRESETS,HB_MT_PRESET_COUNT,editor->preset);instance->motif.tap_active=0;editor->armed=-1;return 1;}
     if(!strcmp(key,"motif_grid")){editor->tap_grid=enum_index(value,HB_MT_GRIDS,4,editor->tap_grid);return 1;}
@@ -139,17 +178,19 @@ static int hb_mt_set(Inst *instance,const char *key,const char *value){
     }
     if(!strcmp(key,"motif_slot")){editor->selected=hb_cp_clamp(parse_i(value,editor->selected+1)-1,0,15);editor->preset=0;instance->motif.tap_active=0;return 1;}
     if(!strcmp(key,"motif_trigger")){int note=parse_i(value,60);if(note>=0&&note<=127)hb_mt_launch(instance,note,100,instance->source_channel>=0?instance->source_channel:0);return 1;}
-    if(!strcmp(key,"motif_arm")){int slot=parse_i(value,editor->selected+1)-1;if(slot>=0&&slot<16&&editor->recording<0){editor->selected=slot;instance->motif.tap_active=0;editor->armed=(editor->preset||g_motifs[slot].count)?slot:-1;editor->error=(editor->preset||g_motifs[slot].count)?0:10;}return 1;}
+    if(!strcmp(key,"motif_arm")){instance->motif.playback_lane=-1;int slot=parse_i(value,editor->selected+1)-1;if(slot>=0&&slot<16&&editor->recording<0){editor->selected=slot;instance->motif.tap_active=0;editor->armed=(editor->preset||g_motifs[slot].count)?slot:-1;editor->error=(editor->preset||g_motifs[slot].count)?0:10;}return 1;}
     if(!strcmp(key,"motif_record")){
         instance->motif.tap_active=0;
         if(!strcmp(value,"Cancel")){hb_mt_finish(editor,0);return 1;}
         if(editor->recording>=0){
             int slot=editor->recording;hb_mt_phrase previous=g_motifs[slot];
+            if(editor->lane>=0&&instance->motion.lanes[editor->lane].operation!=HB_MO_MOTIF){editor->error=11;return 1;}
             if(hb_mt_finish(editor,1)){
                 char encoded[4096];
                 if(hb_mt_save(instance,encoded,sizeof(encoded),0)<0){g_motifs[slot]=previous;editor->recording=slot;editor->error=9;}
+                else if(editor->lane>=0){instance->motion.lanes[editor->lane].amount=20+slot;editor->preset=0;hb_motion_publish_settings(instance);}
             }
-        }else hb_mt_begin(editor,editor->selected);return 1;
+        }else hb_mt_lane_begin(instance,0);return 1;
     }
     if(!strcmp(key,"motif_cancel")){instance->motif.cancel=1;instance->motif.tap_active=0;editor->armed=-1;hb_mt_finish(editor,0);return 1;}
     if(!strcmp(key,"motif_cursor")){
@@ -195,6 +236,8 @@ static int hb_mt_set(Inst *instance,const char *key,const char *value){
 }
 static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
     hb_mt_recorder *editor=&instance->motif.editor;
+    if(!strcmp(key,"motif_lane"))return snprintf(buffer,(size_t)length,"%d",editor->lane+1);
+    if(!strcmp(key,"motif_edit"))return snprintf(buffer,(size_t)length,"%s",instance->motion.lanes[instance->motion.selected].operation==HB_MO_MOTIF?"Edit Motif":"Play Motif only");
     if(!strcmp(key,"motif_playback"))return snprintf(buffer,(size_t)length,"%s",HB_MT_PLAYBACK[editor->playback]);
     if(!strcmp(key,"motif_preset"))return snprintf(buffer,(size_t)length,"%s",HB_MT_PRESETS[editor->preset]);
     if(!strcmp(key,"motif_grid"))return snprintf(buffer,(size_t)length,"%s",HB_MT_GRIDS[editor->tap_grid]);
@@ -209,8 +252,8 @@ static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"motif_span"))return snprintf(buffer,(size_t)length,"%s",HB_MT_SPANS[g_motif_span]);
     if(!strcmp(key,"motif_record"))return snprintf(buffer,(size_t)length,"%s",editor->recording>=0?"Done":"Edit");
     if(!strcmp(key,"motif_status")){
-        static const char *errors[]={"","32 step limit","8 note limit","Tie needs a note","Duration limit","No future harmony","Choose bar for defer","Target unavailable","Phrase queue full","Motif bank full","Empty: Edit motif"};
-        if(editor->error)return snprintf(buffer,(size_t)length,"%s",errors[hb_cp_clamp(editor->error,0,10)]);
+        static const char *errors[]={"","32 step limit","8 note limit","Tie needs a note","Duration limit","No future harmony","Choose bar for defer","Target unavailable","Phrase queue full","Motif bank full","Empty: Edit motif","Lane changed or busy"};
+        if(editor->error)return snprintf(buffer,(size_t)length,"%s",errors[hb_cp_clamp(editor->error,0,11)]);
         if(instance->motif.tap_active){
             hb_mt_runtime *runtime=&instance->motif;
             if(editor->playback==1)return snprintf(buffer,(size_t)length,"Tap %d/%d Anchor %d",runtime->tap_step+1,runtime->tap_phrase.count,runtime->tap_phrase.anchor+1);
@@ -223,7 +266,14 @@ static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"motif_row")){
         unsigned occupied=0;for(int slot=0;slot<16;slot++)if(g_motifs[slot].count)occupied|=1u<<slot;
         int tapping=instance->motif.tap_active;
+        hb_mt_phrase builtin;
         const hb_mt_phrase *display=tapping?&instance->motif.tap_phrase:&editor->draft;
+        if(!tapping&&editor->lane>=0&&editor->recording<0){
+            int reference=instance->motion.lanes[editor->lane].amount;
+            if(reference>0&&reference<20){hb_mt_preset(reference,&builtin);display=&builtin;}
+            else if(reference>=20&&reference<36)display=&g_motifs[reference-20];
+            else {memset(&builtin,0,sizeof(builtin));builtin.anchor=-1;display=&builtin;}
+        }
         int used=snprintf(buffer,(size_t)length,"%d,%d,%d,%d,%u,%d",tapping?-2:editor->recording,editor->selected,tapping?instance->motif.tap_step:editor->cursor,editor->armed,occupied,display->anchor);
         for(int step=0;step<HB_MT_STEPS&&used<length;step++){
             const hb_mt_event *event=&display->events[step];int kind=step>=display->count?0:event->kind==1?3:event->kind==2?4:(event->modifier||event->secondary||event->cadence)?2:1;

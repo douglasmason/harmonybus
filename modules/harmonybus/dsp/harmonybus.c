@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.202"
+#define HB_VERSION "0.2.203"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4539,6 +4539,7 @@ hb_next_touch_clear_expired(instance);
 int next_lane=hb_mo_slot_key(key,"motion_gesture_");if(next_lane<0)next_lane=hb_mo_slot_key(key,"motion_hold_");
 unsigned long long next_before=instance->motion.held|instance->motion.gesture_down;
 if(hb_mo_set(&instance->motion,key,parameter)){
+    if(!strcmp(key,"performance_reset")){instance->motif.cancel=1;instance->motif.tap_active=0;instance->motif.editor.armed=-1;}
     if(next_lane>=0&&instance->motion.gesture_mode[next_lane]!=3&&((instance->motion.lanes[next_lane].operation>=HB_MO_HARMONY&&instance->motion.lanes[next_lane].operation<=HB_MO_ENCLOSE_BA)||instance->motion.lanes[next_lane].operation>=HB_MO_SECONDARY_II)&&instance->motion.lanes[next_lane].auto_off==1&&
        !(next_before&(1ULL<<next_lane))&&((instance->motion.held|instance->motion.gesture_down|hb_mo_pending_lanes(&instance->motion))&(1ULL<<next_lane)))hb_next_touch_arm(instance,next_lane);
     if(next_lane>=0&&instance->motion.gesture_mode[next_lane]==3&&(instance->motion.gesture_down&(1ULL<<next_lane)))instance->next_touch_mask&=~(1ULL<<next_lane);

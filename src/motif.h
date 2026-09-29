@@ -19,7 +19,7 @@ typedef struct {
 } hb_mt_event;
 typedef struct { int count,anchor;hb_mt_event events[HB_MT_STEPS]; } hb_mt_phrase;
 typedef struct {
-    int selected,armed,recording,duration,relation,chord_entry,anchor_next,open;
+    int lane,selected,armed,recording,duration,relation,chord_entry,anchor_next,open;
     int arrival,late,span,target,error,cursor,open_step,changed,undo_valid;
     int playback,preset,tap_grid,completion;
     unsigned char held[16][128],swallow[16][128];
@@ -28,6 +28,7 @@ typedef struct {
 typedef struct {double on,off;int pitch,velocity,channel,render,started,used;} hb_mt_scheduled;
 typedef struct {
     hb_mt_recorder editor;
+    int playback_lane;
     hb_mt_scheduled events[HB_MT_SCHEDULE];
     hb_mt_phrase tap_phrase;
     int tap_active,tap_step,tap_input,tap_channel,tap_velocity,tap_target,tap_rhythm,tap_span;
@@ -91,12 +92,19 @@ static double hb_mt_duration(const hb_mt_phrase *phrase,int step,int rhythm,int 
 }
 static void hb_mt_init(hb_mt_runtime *runtime){
     memset(runtime,0,sizeof(*runtime));runtime->editor.recording=-1;
-    runtime->editor.armed=-1;runtime->editor.duration=2;runtime->editor.arrival=2;
+    runtime->playback_lane=-1;runtime->editor.lane=-1;runtime->editor.armed=-1;runtime->editor.duration=2;runtime->editor.arrival=2;
     runtime->editor.draft.anchor=-1;runtime->editor.tap_grid=1;
 }
 static int hb_mt_held(const hb_mt_recorder *editor){
     for(int channel=0;channel<16;channel++)for(int pitch=0;pitch<128;pitch++)if(editor->held[channel][pitch])return 1;
     return 0;
+}
+static void hb_mt_lane_load(hb_mt_recorder *editor,const hb_motion_lane *lane){
+    editor->preset=lane->amount>0&&lane->amount<20?lane->amount:0;
+    editor->selected=lane->amount>=20&&lane->amount<36?lane->amount-20:0;
+    editor->playback=lane->motif_playback;editor->arrival=lane->motif_arrival;
+    editor->target=lane->motif_target;editor->late=lane->motif_late;
+    editor->tap_grid=lane->motif_grid;editor->completion=lane->motif_completion;
 }
 static void hb_mt_begin(hb_mt_recorder *editor,int slot){
     if(slot<0||slot>=HB_MT_SLOTS||editor->recording>=0)return;

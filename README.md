@@ -1,4 +1,4 @@
-> **0.2.202:** Adds complete-page live snapshots for Next Harm, Chord Timing and Follower Root so Movy can refresh position and harmony fields together. Includes the three context scopes introduced in 0.2.201. Pair with Movy hbclean.113 for the display refresh fix.
+> **0.2.203:** Adds complete-page live snapshots for Next Harm, Chord Timing and Follower Root so Movy can refresh position and harmony fields together. Includes the three context scopes introduced in 0.2.201. Pair with Movy hbclean.113 for the display refresh fix.
 
 > **0.2.201:** Context Scope now offers Current Harm, Current + Next, and Full Loop on Track Scales and both role-default scale panels. Current Harm uses chord-local recipes without progression inference; Current + Next recognizes adjacent-pair resolutions; Full Loop additionally uses preceding/following chords. Explicit recorded intent remains authoritative at every scope. Full Loop remains the factory default.
 
@@ -189,3 +189,5 @@ The existing Foll Root panel's final slot is now Used Scale. A `?` marks equally
 ### Parallel-harmony regression coverage
 
 `tests/parallel_harmony_test.c` compares Dm11–G9–Cmaj9–Am11 with parallel minor-11 and major-9 loops. It checks chord preservation, changing output collections, learned-loop lookahead, pad membership and chromatic approach mapping through the production mapper. The [timing guide](docs/timing-guide.md) explains the results and the distinction between parent-scale accommodation and independent per-chord modes. These tests do not add automatic per-chord mode selection.
+
+0.2.203: Play Motif uses the existing performance lanes; user library edits are shared, stock edits create copies, and the lane editor allocates recordings automatically. Fixes the guide version gate for the pending display snapshot release.

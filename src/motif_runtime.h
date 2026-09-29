@@ -190,6 +190,26 @@ static int hb_mt_input(Inst *instance,const uint8_t *input,int length){
         if(off)hb_mt_release(editor,channel,pitch);
         return 0; /* Normal HB path auditions the entry; Movy suppresses clip writes. */
     }
+    if(instance->motif.playback_lane>=0&&instance->motif.tap_active&&!hb_mo_lane_active(&instance->motion,instance->motif.playback_lane))instance->motif.tap_active=0;
+    if(on&&editor->lane<0){
+        int selected=-1;unsigned serial=0;
+        for(int lane=0;lane<HB_MOTION_USER_LANES;lane++){
+            if(instance->motion.lanes[lane].operation!=HB_MO_MOTIF||!hb_mo_lane_active(&instance->motion,lane))continue;
+            if(selected<0||instance->motion.held_serial[lane]>=serial){selected=lane;serial=instance->motion.held_serial[lane];}
+        }
+        if(selected>=0){
+            hb_motion_lane *lane=&instance->motion.lanes[selected];
+            if(lane->amount<1||lane->amount>=36){editor->error=10;return 0;}
+            hb_mt_lane_load(editor,lane);
+            if(instance->motif.playback_lane!=selected){instance->motif.tap_active=0;instance->motif.playback_lane=selected;}
+            if(hb_mt_launch(instance,pitch,input[2],channel)){
+                unsigned long long bit=1ULL<<selected;
+                instance->motion.gesture_used|=instance->motion.gesture_down&bit;
+                if(!instance->motif.tap_active&&(instance->motion.gesture_once&bit)&&!(instance->motion.gesture_persistent&bit))hb_mo_end_lanes(&instance->motion,bit);
+                editor->swallow[channel][pitch]=1;return 1;
+            }return 0;
+        }
+    }
     if(on&&(editor->armed>=0||instance->motif.tap_active)){
         if(editor->armed>=0){editor->selected=editor->armed;editor->armed=-1;instance->motif.tap_active=0;}
         hb_mt_launch(instance,pitch,input[2],channel);editor->swallow[channel][pitch]=1;return 1;

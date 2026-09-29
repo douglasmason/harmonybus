@@ -193,4 +193,45 @@ static void global_rhythm_and_span(void){
     API.destroy_instance(first);
 }
 
-int main(void){global_rhythm_and_span();tap_chord_identity();tap_presets_and_clock();preset_copy_and_state();fit_defer_and_cancel();bank_capacity_and_snapshots();recording();explicit_intent();anchor_and_late();puts("motifs: untimed entry, cadence presets, tap/free/grid/guided, auto finish, chord intent, anchors, late policies, stop and state pass");}
+
+static void lane_library_ownership(void){
+    Inst *first=fixture();
+    API.set_param(first,"motion_operation","Play Motif");
+    assert(first->motion.lanes[0].operation==HB_MO_MOTIF);
+    API.set_param(first,"motif_edit","Open");
+    assert(first->motif.editor.lane==0&&first->motif.editor.recording==-1);
+    API.set_param(first,"motif_record","Edit");record_note(first,60);
+    API.set_param(first,"motif_record","Done");
+    assert(first->motion.lanes[0].amount==20&&g_motifs[0].count==1);
+    API.set_param(first,"motif_close","Close");
+    API.set_param(first,"motion_lane","2");API.set_param(first,"motion_operation","Play Motif");
+    API.set_param(first,"motion_amount","User 1");
+    API.set_param(first,"motif_edit","Open");API.set_param(first,"motif_record","Edit");
+    record_note(first,67);API.set_param(first,"motif_record","Done");
+    assert(g_motifs[0].events[0].notes[0].pitch==67);
+    assert(first->motion.lanes[0].amount==20&&first->motion.lanes[1].amount==20);
+    API.set_param(first,"motif_duplicate","Duplicate");
+    assert(first->motif.editor.recording==1);
+    API.set_param(first,"motif_cancel","Cancel");
+    assert(!g_motifs[1].count&&first->motion.lanes[1].amount==20);
+    API.set_param(first,"motif_duplicate","Duplicate");API.set_param(first,"motif_record","Done");
+    assert(first->motion.lanes[0].amount==20&&first->motion.lanes[1].amount==21);
+    API.set_param(first,"motif_arrival","Now");API.set_param(first,"motif_playback","Tap Free");
+    char saved[16384];assert(API.get_param(first,"state",saved,sizeof(saved))>0);
+    API.set_param(first,"motif_close","Close");
+    API.set_param(first,"motion_lane","3");API.set_param(first,"motion_operation","Play Motif");
+    API.set_param(first,"motion_amount","Stock: V-Target");
+    API.set_param(first,"motif_edit","Open");API.set_param(first,"motif_record","Edit");
+    assert(first->motif.editor.recording==2&&first->motif.editor.draft.count==2);
+    API.set_param(first,"motif_record","Done");assert(first->motion.lanes[2].amount==22);
+    API.set_param(first,"motif_close","Close");
+    API.set_param(first,"motion_hold_1","On");
+    record_note(first,72);assert(first->motif.pending>0);API.set_param(first,"motion_hold_1","Off");
+    API.destroy_instance(first);
+    first=API.create_instance("",NULL);API.set_param(first,"state",saved);
+    assert(first->motion.lanes[0].operation==HB_MO_MOTIF&&first->motion.lanes[0].amount==20);
+    assert(first->motion.lanes[1].amount==21&&g_motifs[0].events[0].notes[0].pitch==67);
+    API.destroy_instance(first);
+}
+
+int main(void){lane_library_ownership();global_rhythm_and_span();tap_chord_identity();tap_presets_and_clock();preset_copy_and_state();fit_defer_and_cancel();bank_capacity_and_snapshots();recording();explicit_intent();anchor_and_late();puts("motifs: untimed entry, cadence presets, tap/free/grid/guided, auto finish, chord intent, anchors, late policies, stop and state pass");}
