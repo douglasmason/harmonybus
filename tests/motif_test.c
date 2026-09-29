@@ -155,4 +155,42 @@ static void tap_chord_identity(void){
     API.destroy_instance(instance);
 }
 
-int main(void){tap_chord_identity();tap_presets_and_clock();preset_copy_and_state();fit_defer_and_cancel();bank_capacity_and_snapshots();recording();explicit_intent();anchor_and_late();puts("motifs: untimed entry, cadence presets, tap/free/grid/guided, auto finish, chord intent, anchors, late policies, stop and state pass");}
+
+static void global_rhythm_and_span(void){
+    Inst *first=fixture();Inst *second=API.create_instance("",NULL);char value[40];
+    hb_mt_phrase phrase={0};phrase.count=5;
+    for(int step=0;step<5;step++){phrase.events[step].duration=(step+1)*6;phrase.events[step].count=1;phrase.events[step].notes[0]=(hb_mt_note){60,100};}
+    hb_mt_phrase original=phrase;
+    for(int anchor=0;anchor<5;anchor++)for(int rhythm=0;rhythm<6;rhythm++)for(int span=0;span<3;span++){
+        phrase.anchor=anchor;double before=0,after=0,stored_before=0,stored_after=0;
+        for(int step=0;step<5;step++){
+            double duration=hb_mt_duration(&phrase,step,rhythm,span);assert(duration>0);
+            if(step<anchor){before+=duration;stored_before+=phrase.events[step].duration/24.0;}
+            else{after+=duration;stored_after+=phrase.events[step].duration/24.0;}
+        }
+        double factor=span==1?.5:span==2?2:1;
+        assert(fabs(before-stored_before*factor)<1e-6&&fabs(after-stored_after*factor)<1e-6);
+        assert(!memcmp(phrase.events,original.events,sizeof(phrase.events)));
+    }
+    phrase.anchor=4;
+    assert(hb_mt_duration(&phrase,0,2,0)==3*hb_mt_duration(&phrase,1,2,0));
+    assert(hb_mt_duration(&phrase,0,4,0)>hb_mt_duration(&phrase,1,4,0));
+    assert(hb_mt_duration(&phrase,0,5,0)<hb_mt_duration(&phrase,1,5,0));
+    API.set_param(first,"motif_rhythm","Long-Short");API.set_param(first,"motif_span","Double");
+    API.get_param(second,"motif_rhythm",value,sizeof(value));assert(!strcmp(value,"Long-Short"));
+    API.get_param(second,"motif_span",value,sizeof(value));assert(!strcmp(value,"Double"));
+    API.set_param(first,"motif_preset","ii-V-Target");API.set_param(first,"motif_playback","Tap Guided");position=.1;
+    assert(hb_mt_launch(first,60,100,0));double frozen=hb_mt_step_offset(first,&first->motif.tap_phrase,0);
+    char state[8192];API.get_param(first,"state",state,sizeof(state));
+    API.set_param(second,"motif_rhythm","Even");API.set_param(second,"motif_span","Half");
+    assert(hb_mt_step_offset(first,&first->motif.tap_phrase,0)==frozen);
+    API.set_param(first,"state",state); /* A stale track snapshot cannot undo a live global edit. */
+    API.get_param(first,"motif_span",value,sizeof(value));assert(!strcmp(value,"Half"));
+    API.destroy_instance(first);API.destroy_instance(second);
+    first=API.create_instance("",NULL);API.set_param(first,"state",state);
+    API.get_param(first,"motif_rhythm",value,sizeof(value));assert(!strcmp(value,"Long-Short"));
+    API.get_param(first,"motif_span",value,sizeof(value));assert(!strcmp(value,"Double"));
+    API.destroy_instance(first);
+}
+
+int main(void){global_rhythm_and_span();tap_chord_identity();tap_presets_and_clock();preset_copy_and_state();fit_defer_and_cancel();bank_capacity_and_snapshots();recording();explicit_intent();anchor_and_late();puts("motifs: untimed entry, cadence presets, tap/free/grid/guided, auto finish, chord intent, anchors, late policies, stop and state pass");}

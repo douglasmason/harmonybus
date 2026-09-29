@@ -50,8 +50,10 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
     double now=hb_motion_position(instance);
     if(arrival<0)arrival=hb_mt_arrival(instance,now);
     if(arrival<0){editor->error=5;return 0;}
-    double nominal=editor->span==1?0.5:editor->span==2?2.0:1.0,before=0;
-    for(int step=0;step<phrase->anchor;step++)before+=phrase->events[step].duration/24.0*nominal;
+    int rhythm=use_tap_context?runtime->tap_rhythm:g_motif_rhythm;
+    int span=use_tap_context?runtime->tap_span:g_motif_span;
+    double before=0;
+    for(int step=0;step<phrase->anchor;step++)before+=hb_mt_duration(phrase,step,rhythm,span);
     if(onset_override<0&&editor->late==2&&arrival-now<before){
         if(editor->arrival==3){editor->error=6;return 0;}
         double grid=editor->arrival==1?1:editor->arrival==4?8:editor->arrival==5?16:4;
@@ -68,10 +70,10 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
     hb_mt_scheduled staged[HB_MT_SCHEDULE];int count=0;
     double offset=-before;
     for(int step=0;step<phrase->count;step++){
-        const hb_mt_event *event=&phrase->events[step];double duration=event->duration/24.0*nominal;
+        const hb_mt_event *event=&phrase->events[step];double duration=hb_mt_duration(phrase,step,rhythm,span);
         double onset=onset_override>=0?onset_override:arrival+(step<phrase->anchor?offset*fit:offset);
         double sustained=duration;
-        for(int next=step+1;next<phrase->count&&phrase->events[next].kind==2;next++)sustained+=phrase->events[next].duration/24.0*nominal;
+        for(int next=step+1;next<phrase->count&&phrase->events[next].kind==2;next++)sustained+=hb_mt_duration(phrase,next,rhythm,span);
         double end=onset+sustained*(step<phrase->anchor?fit:1);
         offset+=duration;
         if(step<first||step>=last)continue;
@@ -120,10 +122,10 @@ static const hb_mt_phrase *hb_mt_selected(Inst *instance,hb_mt_phrase *builtin){
     return &g_motifs[instance->motif.editor.selected];
 }
 static double hb_mt_step_offset(Inst *instance,const hb_mt_phrase *phrase,int step){
-    double scale=instance->motif.editor.span==1?.5:instance->motif.editor.span==2?2:1,offset=0;
-    for(int index=0;index<step;index++)offset+=phrase->events[index].duration/24.0;
-    for(int index=0;index<phrase->anchor;index++)offset-=phrase->events[index].duration/24.0;
-    return offset*scale;
+    double offset=0;int rhythm=instance->motif.tap_rhythm,span=instance->motif.tap_span;
+    for(int index=0;index<step;index++)offset+=hb_mt_duration(phrase,index,rhythm,span);
+    for(int index=0;index<phrase->anchor;index++)offset-=hb_mt_duration(phrase,index,rhythm,span);
+    return offset;
 }
 static int hb_mt_launch(Inst *instance,int input,int velocity,int channel){
     hb_mt_runtime *runtime=&instance->motif;hb_mt_recorder *editor=&runtime->editor;
@@ -137,7 +139,7 @@ static int hb_mt_launch(Inst *instance,int input,int velocity,int channel){
         if(arrival<0){editor->error=5;return 0;}
         hb_harmony_t harmony=hb_mt_harmony_at(instance,arrival,now);
         int target=hb_mt_target_pitch(instance,input,harmony);if(target<0){editor->error=7;return 0;}
-        runtime->tap_phrase=*phrase;runtime->tap_step=0;runtime->tap_active=1;
+        runtime->tap_phrase=*phrase;runtime->tap_rhythm=g_motif_rhythm;runtime->tap_span=g_motif_span;runtime->tap_step=0;runtime->tap_active=1;
         runtime->tap_input=input;runtime->tap_channel=channel;runtime->tap_arrival=arrival;
         runtime->tap_target=target;runtime->tap_harmony=harmony;runtime->tap_last_due=-1;
         runtime->was_running=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;runtime->last_beat=now;runtime->have_beat=1;

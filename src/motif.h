@@ -30,13 +30,14 @@ typedef struct {
     hb_mt_recorder editor;
     hb_mt_scheduled events[HB_MT_SCHEDULE];
     hb_mt_phrase tap_phrase;
-    int tap_active,tap_step,tap_input,tap_channel,tap_velocity,tap_target;
+    int tap_active,tap_step,tap_input,tap_channel,tap_velocity,tap_target,tap_rhythm,tap_span;
     double tap_arrival,tap_last_due;
     hb_harmony_t tap_harmony;
     double last_beat;int have_beat,was_running,pending,cancel,flash_serial,flash_pitch,flash_step;
 } hb_mt_runtime;
 static hb_mt_phrase g_motifs[HB_MT_SLOTS];
 static int g_motifs_restored;
+static int g_motif_rhythm,g_motif_span,g_motif_timing_restored;
 static const int HB_MT_DURATIONS[]={3,4,6,8,9,12,16,18,24,36,48,72,96};
 static const char *HB_MT_DURATION_NAMES[]={"1/32","1/16T","1/16","1/8T","1/16.","1/8","1/4T","1/8.","1/4","1/4.","1/2","1/2.","1 Bar"};
 static const char *HB_MT_ARRIVALS[]={"Now","Next Beat","Next Bar","Next Harmony","2 Bars","4 Bars"};
@@ -66,6 +67,28 @@ static void hb_mt_preset(int preset,hb_mt_phrase *phrase){
     }
 }
 static const char *HB_MT_SPANS[]={"As Entered","Half","Double"};
+static const char *HB_MT_RHYTHMS[]={"As Entered","Even","Long-Short","Short-Long","Accelerate","Decelerate"};
+/* Normalize each side of the anchor independently. Redistribute duration,
+   preserving both the anchor offset and the tail length before global span. */
+static double hb_mt_weight(int rhythm,int index,int count){
+    if(rhythm==2)return index%2?1:3;
+    if(rhythm==3)return index%2?3:1;
+    if(rhythm==4)return count-index;
+    if(rhythm==5)return index+1;
+    return 1;
+}
+static double hb_mt_duration(const hb_mt_phrase *phrase,int step,int rhythm,int span){
+    double scale=span==1?.5:span==2?2:1;
+    if(!rhythm)return phrase->events[step].duration/24.0*scale;
+    int begin=step<phrase->anchor?0:phrase->anchor;
+    int end=step<phrase->anchor?phrase->anchor:phrase->count;
+    double stored=0,weights=0;
+    for(int index=begin;index<end;index++){
+        stored+=phrase->events[index].duration/24.0;
+        weights+=hb_mt_weight(rhythm,index-begin,end-begin);
+    }
+    return weights>0?stored*hb_mt_weight(rhythm,step-begin,end-begin)/weights*scale:0;
+}
 static void hb_mt_init(hb_mt_runtime *runtime){
     memset(runtime,0,sizeof(*runtime));runtime->editor.recording=-1;
     runtime->editor.armed=-1;runtime->editor.duration=2;runtime->editor.arrival=2;

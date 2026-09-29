@@ -56,3 +56,13 @@ Arm once, then repeatedly play the same target pad. The target and harmonic cont
 **Motif Play** contains Preset, Copy to Slot, Tap Grid, Completion, Late, Span, Arm and Status. The default Completion is **Manual**: passing the intended anchor does not complete the phrase. **Auto Finish**, applicable to Guided/Grid, schedules the remainder when the next expected step becomes due, using the existing late-arrival policy. Free mode always remains manual. The step row shows the next step and cyan anchor during tap playback; the header shows timing guidance.
 
 Built-in presets include V–Target, ii–V–Target, backdoor iv–bVII–Target, tritone variants and all fourteen existing mixed cadence programs. These are end-anchored motif steps referencing the existing stable harmonic intent IDs. They render as melody or chords using the current chord mode. Existing cadence operation controls and recorded IDs remain compatible; new automatic/tap playback uses the same bounded motif renderer. **Copy to Slot** opens an editable draft in the selected library slot; Done commits it and Cancel retains the previous saved slot.
+
+## Global motif rhythm
+
+**Global → Motif Rhythm Global** (also reachable from Motifs) contains **Global Motif Rhythm** and **Global Motif Span**. Defaults are As Entered and As Entered (×1). Span offers Half and Double. The controls affect motifs across all HB tracks, including built-in cadence presets; ordinary clips and arps keep their own timing.
+
+Rhythm choices are As Entered, Even, Long-Short, Short-Long, Accelerate and Decelerate. Alternating patterns use 3:1 or 1:3 durations. Accelerate progressively shortens steps; Decelerate lengthens them. Each side of the anchor is normalized independently to its saved total duration, then Span scales it. The anchor therefore remains at the requested arrival, and its stored position within the phrase stays meaningful. Rests participate in the timing pattern; ties remain extensions of the preceding attack. Saved motif events are never rewritten by these controls.
+
+Automatic playback schedules the transformed rhythm. Guided tapping uses it for expected spacing and Auto Finish; Free and Grid taps retain the player's/requested-grid attack times, while using transformed note lengths. A tap phrase snapshots the global controls at its first tap; later knob changes apply to the next phrase. The first valid restored snapshot initializes these globals; loading stale settings from another track cannot undo a live global edit. Older per-track Span snapshots migrate using that first valid snapshot.
+
+Custom rhythm capture / Tap Rhythm is not part of this version.

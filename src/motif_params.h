@@ -18,7 +18,7 @@ static int hb_mt_read_hex(const char **cursor,unsigned *value,int digits){
 static int hb_mt_save(Inst *instance,char *buffer,int length,int used){
     if(used<0||used>=length)return used;
     hb_mt_recorder *editor=&instance->motif.editor;
-    used+=snprintf(buffer+used,(size_t)(length-used),";mf1,%d,%d,%d,%d,%d,%d,%d:",editor->selected,editor->duration,editor->relation,editor->arrival,editor->late,editor->span,editor->target);
+    used+=snprintf(buffer+used,(size_t)(length-used),";mf1,%d,%d,%d,%d,%d,%d,%d:",editor->selected,editor->duration,editor->relation,editor->arrival,editor->late,g_motif_span,editor->target);
     const unsigned long long *snapshots[128];int snapshot_count=0;
     for(int slot=0;slot<HB_MT_SLOTS;slot++)for(int step=0;step<g_motifs[slot].count;step++){
         const unsigned long long *actions=g_motifs[slot].events[step].actions;int found=0;
@@ -50,7 +50,7 @@ static int hb_mt_save(Inst *instance,char *buffer,int length,int used){
         }
     }
     if(used>=length)return -1;
-    used+=snprintf(buffer+used,(size_t)(length-used),";mp1,%d,%d,%d,%d",editor->playback,editor->preset,editor->tap_grid,editor->completion);
+    used+=snprintf(buffer+used,(size_t)(length-used),";mp1,%d,%d,%d,%d;mg1,%d,%d",editor->playback,editor->preset,editor->tap_grid,editor->completion,g_motif_rhythm,g_motif_span);
     return used>=length?-1:used;
 }
 static void hb_mt_restore(Inst *instance,const char *state){
@@ -103,6 +103,12 @@ static void hb_mt_restore(Inst *instance,const char *state){
     }
     if(valid&&(*cursor==';'||!*cursor)){
         hb_mt_recorder *editor=&instance->motif.editor;editor->selected=selected;editor->duration=duration;editor->relation=relation;editor->arrival=arrival;editor->late=late;editor->span=span;editor->target=target;
+        if(!g_motif_timing_restored){
+            int rhythm=0,global_span=span;const char *timing=strstr(state,";mg1,");
+            if(!timing||(sscanf(timing,";mg1,%d,%d",&rhythm,&global_span)==2&&rhythm>=0&&rhythm<6&&global_span>=0&&global_span<3)){
+                g_motif_rhythm=rhythm;g_motif_span=global_span;g_motif_timing_restored=1;
+            }
+        }
         if(!g_motifs_restored){memcpy(g_motifs,bank,sizeof(g_motifs));g_motifs_restored=1;}
     }
     if(valid){
@@ -182,7 +188,8 @@ static int hb_mt_set(Inst *instance,const char *key,const char *value){
     if(!strcmp(key,"motif_arrival")){editor->arrival=enum_index(value,HB_MT_ARRIVALS,6,editor->arrival);return 1;}
     if(!strcmp(key,"motif_target")){editor->target=enum_index(value,HB_MT_TARGETS,7,editor->target);return 1;}
     if(!strcmp(key,"motif_late")){editor->late=enum_index(value,HB_MT_LATE,3,editor->late);return 1;}
-    if(!strcmp(key,"motif_span")){editor->span=enum_index(value,HB_MT_SPANS,3,editor->span);return 1;}
+    if(!strcmp(key,"motif_rhythm")){g_motif_rhythm=enum_index(value,HB_MT_RHYTHMS,6,g_motif_rhythm);g_motif_timing_restored=1;return 1;}
+    if(!strcmp(key,"motif_span")){g_motif_span=enum_index(value,HB_MT_SPANS,3,g_motif_span);g_motif_timing_restored=1;return 1;}
     return 1;
 }
 static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
@@ -197,7 +204,8 @@ static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"motif_arrival"))return snprintf(buffer,(size_t)length,"%s",HB_MT_ARRIVALS[editor->arrival]);
     if(!strcmp(key,"motif_target"))return snprintf(buffer,(size_t)length,"%s",HB_MT_TARGETS[editor->target]);
     if(!strcmp(key,"motif_late"))return snprintf(buffer,(size_t)length,"%s",HB_MT_LATE[editor->late]);
-    if(!strcmp(key,"motif_span"))return snprintf(buffer,(size_t)length,"%s",HB_MT_SPANS[editor->span]);
+    if(!strcmp(key,"motif_rhythm"))return snprintf(buffer,(size_t)length,"%s",HB_MT_RHYTHMS[g_motif_rhythm]);
+    if(!strcmp(key,"motif_span"))return snprintf(buffer,(size_t)length,"%s",HB_MT_SPANS[g_motif_span]);
     if(!strcmp(key,"motif_record"))return snprintf(buffer,(size_t)length,"%s",editor->recording>=0?"Done":"Edit");
     if(!strcmp(key,"motif_status")){
         static const char *errors[]={"","32 step limit","8 note limit","Tie needs a note","Duration limit","No future harmony","Choose bar for defer","Target unavailable","Phrase queue full","Motif bank full","Empty: Edit motif"};
