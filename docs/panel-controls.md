@@ -1,4 +1,4 @@
-# Panel controls in 0.2.211
+# Panel controls in 0.2.212
 
 Operation knobs always control their assigned lane: clockwise sets the permanent latch, counterclockwise clears it, tap arms one use, and hold acts momentarily. Repeated knob taps do not promote to a permanent latch. A pre-existing permanent latch survives a tap or hold. Step-button double-tap behavior is unchanged.
 

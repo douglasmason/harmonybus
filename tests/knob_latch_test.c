@@ -17,6 +17,9 @@ int main(void){
     unsigned serial=i->motion.serial;
     API.set_param(i,"motion_gesture_1","LatchOn");assert(i->motion.serial==serial);
     API.set_param(i,"motion_gesture_1","Up,40,3040");assert(i->motion.gesture_persistent==1);
+    API.set_param(i,"motion_gesture_1","Knob,3500");
+    API.set_param(i,"motion_gesture_1","LatchOn");assert(!i->motion.gesture_down&&i->motion.gesture_persistent==1);
+    API.set_param(i,"motion_gesture_1","Up,500,4000");assert(i->motion.gesture_persistent==1);
     knob(i,1,40,4000);knob(i,1,500,5000);assert(i->motion.gesture_persistent==1&&i->motion.held==1);
     played(i,60);release(i,60);assert(i->motion.held==1);
     API.set_param(i,"motion_gesture_1","LatchOff");assert(!i->motion.held&&!i->motion.gesture_persistent);

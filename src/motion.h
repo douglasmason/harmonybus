@@ -348,7 +348,11 @@ static void hb_mo_knob_gesture(hb_motion_config *config,int id,int down,int elap
 }
 static void hb_mo_latch_set(hb_motion_config *config,int id,int on){
     unsigned long long bit=1ULL<<id;
-    if(on&&(config->gesture_persistent&bit))return;
+    if(on&&(config->gesture_persistent&bit)){
+        config->gesture_down&=~bit;
+        if(hb_mo_trigger_bit(config->lanes[id].operation))config->held&=~bit;
+        config->gesture_last_valid=0;return;
+    }
     hb_mo_end_lanes(config,bit);config->gesture_last_valid=0;
     int operation=config->lanes[id].operation;
     if(!on||!operation)return;
