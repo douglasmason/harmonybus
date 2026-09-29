@@ -1,3 +1,5 @@
+> **0.2.208:** Inversion now calls Top Note **Played Top Note**, clarifying that the played melody anchors the top of the generated voicing. Includes the follower pad-color fix and Shuffle / Shuffle Cycle Pin choices.
+
 > **0.2.207:** Arp Order offers Shuffle (honor Arp Start on launch) and Shuffle Cycle Pin (also pin every cycle). Both follow Arp Start and visit each available note once per cycle.
 
 > **0.2.206:** Follower Auto Chord pad colors reflect the single note rendered with Auto Chord off, including conductor-harmony mode and Top Note. Expanded voicings still determine equivalent-output groups.

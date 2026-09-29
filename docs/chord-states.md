@@ -4,7 +4,7 @@ Assign **Chord/Arp State** to one of the sixteen operation lanes. Assignment cop
 
 Use **Edit** on the Operations panel to open Chords for that lane, or choose **Edit Target → Lane N** on Chords or Arp / Strum. Both panels edit the same destination. Selecting an edit target never activates the operation. Choose **Track Settings** to edit normal playing again. **Copy Track** on Chord State replaces the selected lane snapshot with the selected track's settings.
 
-The amount control becomes **State Preset**: Custom, Scale Degree Burst or Current Harmony Burst. Both bursts enable Repeat Arp, Shuffle order, Root + Fifth Low voicing, Top Note inversion, 1/32 rate, Momentary hold, Played / Pad start and First Note Free timing. Changing an individual setting marks the preset Custom.
+The amount control becomes **State Preset**: Custom, Scale Degree Burst or Current Harmony Burst. Both bursts enable Repeat Arp, Shuffle order, Root + Fifth Low voicing, Played Top Note inversion, 1/32 rate, Momentary hold, Played / Pad start and First Note Free timing. Changing an individual setting marks the preset Custom.
 
 Hold a lane to use its state temporarily. The existing lane latch gestures also work. When several state lanes are held, the most recently activated wins; releasing it reveals the earlier one. Ending the last state restores normal track settings. State changes release owned generated voices, preventing orphan notes. Editing Track Settings during an active state changes what returns afterward.
 

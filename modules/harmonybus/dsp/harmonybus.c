@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.207"
+#define HB_VERSION "0.2.208"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4419,6 +4419,8 @@ static int enum_index(const char *value,const char *const *options,int count,int
        and misread them as enum indices 1 or 2. "Free" worked only because it
        is non-numeric. */
     if(value){
+        /* Accept the previous inversion label for existing callers. */
+        if(!strcmp(value,"Top Note"))value="Played Top Note";
         for(int index=0;index<count;index++)if(!strcmp(value,options[index]))return index;
         char *end=0;
         long parsed=strtol(value,&end,10);
@@ -4489,7 +4491,7 @@ static int hb_context_to_legacy_stability(int context){
 static const char *BORROWED_SCALE_OPTS[]={"Minimal","Aeolian","Dorian","Mixolydian b6"};
 static const char *DOMINANT_SCALE_OPTS[]={"Off","Harmonic Minor","Melodic Minor","Altered V"};
 static const char *CP_CHORD_MODE[]={"Off","Scale Degree","Conductor Chord"};
-static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth","Top Note"};
+static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth","Played Top Note"};
 static const char *CP_CHORD_VOICING[]={"Close","Root + Fifth Low","Alternate Up","Shell"};
 static const char *CP_ARP_PHASE[]={"Free","On Grid","First Note Free"};
 static const char *CP_CHORD_QUALITY[]={"Auto","Major","Minor","Dim","Aug","Maj7","Dom7","Min7","Half Dim7","Dim7","MinMaj7","AugMaj7","Dom7b5"};

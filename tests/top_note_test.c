@@ -74,7 +74,7 @@ static void persistence_and_repeat(void){
     assert(instance->player.config.inversion==8);
     char state[16384],label[64];API.get_param(instance,"state",state,sizeof(state));
     API.destroy_instance(instance);instance=API.create_instance("",0);API.set_param(instance,"state",state);
-    API.get_param(instance,"chord_inversion",label,sizeof(label));assert(!strcmp(label,"Top Note"));
+    API.get_param(instance,"chord_inversion",label,sizeof(label));assert(!strcmp(label,"Played Top Note"));
     instance->player.repeat_override=1;
     Inst *preview=malloc(sizeof(*preview));assert(preview);memcpy(preview,instance,sizeof(*preview));
     hb_pad_render_mask(preview,instance,bus_read(),64,0,0,0);

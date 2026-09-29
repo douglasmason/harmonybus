@@ -62,7 +62,7 @@ static void hb_cp_sort(int *notes,int count){
         notes[slot]=pitch;
     }
 }
-/* Top Note fixes the melody register. Repack selected pitch classes below it,
+/* Played Top Note fixes the melody register. Repack selected pitch classes below it,
    retaining an outside melody note without substituting it for a chord tone.
    At the MIDI floor omit unavailable lower voices instead of moving melody. */
 static int hb_cp_top_note(int *notes,int count,int top,int root,int fifth,int voicing){
