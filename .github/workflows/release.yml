@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.203'
+          assert module['version']=='0.2.204'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -232,6 +232,11 @@ jobs:
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/global_buffer_test.c src/harmony_core.c -lm -o /tmp/global_buffer_test
           /tmp/global_buffer_test
+
+      - name: Verify temporary chord state editing and pair input
+        run: |
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_state_test.c src/harmony_core.c -lm -o /tmp/chord_state_test
+          /tmp/chord_state_test
 
       - name: Verify chord player MIDI lifecycle and voicings
         run: |

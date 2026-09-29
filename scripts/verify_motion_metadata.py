@@ -21,7 +21,7 @@ def main() -> None:
         assert map_metadata['motion_lane']['options'][32] == 'Harmony Play 1: Next Harmony'
         assert set(map_metadata) == set(map_canonical)
         for key, parameter in map_canonical.items():
-            if not key.startswith('motion_control_') and key not in ('motion_lane','motion_auto_off','motion_touch_mode','motion_operation','motion_enabled','motion_offset','motion_from','motion_through'):
+            if not key.startswith('motion_control_') and key not in ('chord_edit_target','motion_lane','motion_auto_off','motion_touch_mode','motion_operation','motion_enabled','motion_offset','motion_from','motion_through'):
                 assert map_metadata[key] == parameter, key
     map_operation: dict = map_module['capabilities']['ui_hierarchy']['levels']['motion_operation']
     assert len(map_operation['params']) == len(map_operation['knobs']) == 8
@@ -39,7 +39,7 @@ def main() -> None:
     assert maps[0]['motion_offset'] == map_canonical['motion_offset']
     assert maps[3]['motion_offset']['name'] == 'Decay %' and maps[3]['motion_offset']['min'] == 0
     assert maps[3]['motion_advance']['options'] == ['Clock','Note','Chord']
-    assert maps[3]['motion_operation']['options'][-1] == 'Play Motif'
+    assert maps[3]['motion_operation']['options'][-1] == 'Chord/Arp State'
     assert 'II-V-Target' not in maps[3]['motion_operation']['options']
     assert not any(option.startswith('Clip ') for option in maps[0]['motion_operation']['options'])
     assert maps[1]['motion_operation']['options'] == map_canonical['motion_operation']['options']

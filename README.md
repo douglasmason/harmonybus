@@ -1,3 +1,5 @@
+> **0.2.204 / Movy hbclean.115:** Shared Track / Lane Edit Target on Chords and Arp / Strum, temporary Chord/Arp State operations, burst presets and explicit Root/Bass + Top input. Start Note defaults to Played / Pad; Start Timing defaults to First Note Free. See [state editing](docs/chord-states.md).
+
 > **0.2.203:** Adds complete-page live snapshots for Next Harm, Chord Timing and Follower Root so Movy can refresh position and harmony fields together. Includes the three context scopes introduced in 0.2.201. Pair with Movy hbclean.113 for the display refresh fix.
 
 > **0.2.201:** Context Scope now offers Current Harm, Current + Next, and Full Loop on Track Scales and both role-default scale panels. Current Harm uses chord-local recipes without progression inference; Current + Next recognizes adjacent-pair resolutions; Full Loop additionally uses preceding/following chords. Explicit recorded intent remains authoritative at every scope. Full Loop remains the factory default.

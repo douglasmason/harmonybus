@@ -37,7 +37,7 @@ static Inst *fixture(void){
     uint8_t chord[4]={60,64,67,71};hb_harmony_t harmony=hb_infer_harmony(chord,4);
     hb_commit_observed_harmony(harmony);
     instance->retrigger_held=0; /* Legacy fixtures explicitly retain Off. */
-    instance->player.config.phase=0; /* Legacy lifecycle fixtures request immediate start explicitly. */
+    instance->player.config.start=0;instance->player.config.phase=0; /* Legacy lifecycle fixtures request immediate start explicitly. */
     return instance;
 }
 static void midi(Inst *instance,int on,int note){uint8_t message[3]={(uint8_t)(on?0x90:0x80),(uint8_t)note,(uint8_t)(on?100:0)};API.process_midi(instance,message,3,output,lengths,64);}
@@ -359,7 +359,7 @@ static void arp_start_modes_and_offsets(void){
     const int notes[3]={60,64,67};
     for(int mode=0;mode<3;mode++)for(int offset=-1;offset<=1;offset++){
         hb_chord_player player={0};hb_cp_defaults(&player.config);
-        assert(player.config.phase==1);
+        assert(player.config.phase==2&&player.config.start==5);player.config.start=0;
         player.config.playback=1;player.config.phase=mode;player.config.note_phase=offset;
         player.beat=.10;hb_cp_on(&player,60,0,100,notes,3);
         int count=hb_cp_tick(&player,output,lengths,64);
@@ -384,11 +384,11 @@ static void arp_start_modes_and_offsets(void){
         hb_cp_tick(&player,output,lengths,64);assert(!player.sounding_count);
     }
     Inst *instance=fixture();char state[512],value[64];
-    Inst *fresh=API.create_instance("",NULL);assert(fresh->player.config.phase==1);API.destroy_instance(fresh);
-    API.set_param(instance,"arp_phase","1st Note Free");
+    Inst *fresh=API.create_instance("",NULL);assert(fresh->player.config.phase==2&&fresh->player.config.start==5);API.destroy_instance(fresh);
+    API.set_param(instance,"arp_phase","First Note Free");
     API.set_param(instance,"arp_note_phase","-16");
     API.get_param(instance,"state",state,sizeof(state));
-    assert(strstr(state,";ph1,2;np1,-16"));
+    assert(strstr(state,";np1,-16"));
     API.set_param(instance,"arp_phase","Free");API.set_param(instance,"arp_note_phase","0");
     API.set_param(instance,"state",state);
     assert(instance->player.config.phase==2&&instance->player.config.note_phase==-16);
@@ -406,7 +406,7 @@ static void arp_start_modes_and_offsets(void){
 }
 static void phase_grid(void){
     hb_chord_player player={0};hb_cp_defaults(&player.config);
-    player.config.playback=1;player.config.phase=1;
+    player.config.playback=1;player.config.phase=1;player.config.start=0;
     int notes[3]={64,67,72};
     player.beat=.10;hb_cp_on(&player,60,0,100,notes,3);
     assert(hb_cp_tick(&player,output,lengths,64)==0);
@@ -426,7 +426,7 @@ static void phase_grid(void){
     assert(hb_cp_tick(&player,output,lengths,64)==1&&output[0][1]==64);
     Inst *instance=fixture();char state[512],value[64];
     API.get_param(instance,"arp_phase",value,sizeof(value));assert(!strcmp(value,"Free"));
-    API.set_param(instance,"arp_phase","Auto");
+    API.set_param(instance,"arp_phase","On Grid");
     API.set_param(instance,"arp_playback","Repeat Arp");
     API.get_param(instance,"state",state,sizeof(state));assert(strstr(state,";ph1,1"));
     API.set_param(instance,"arp_phase","Free");API.set_param(instance,"state",state);
