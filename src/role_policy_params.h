@@ -1,5 +1,5 @@
 static const char *HB_GAP_OPTIONS[]={"Parent","Strict Local","Auto Local"};
-static const char *HB_CONTEXT_OPTIONS[]={"Immediate","Full Loop"};
+static const char *HB_CONTEXT_OPTIONS[]={"Current Harm","Current + Next","Full Loop"};
 static const char *HB_MAJOR_OPTIONS[]={"Ionian","Lydian"};
 static const char *HB_MINOR_OPTIONS[]={"Dorian","Aeolian"};
 static const char *HB_HALFDIM_OPTIONS[]={"Locrian","Locrian #2"};

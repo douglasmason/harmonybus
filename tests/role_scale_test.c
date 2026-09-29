@@ -45,4 +45,42 @@ static void collections(void){
     assert(hb_follower_input_scale(instance,0)==hb_explicit_scale_mask(0,1));
     API.destroy_instance(instance);
 }
-int main(void){inheritance();collections();puts("role defaults, visible overrides, migration, local parallel scales and contextual ii-V selection pass");return 0;}
+static void context_scopes(void){
+    Inst *instance=fixture();
+    hb_harmony_t dminor=extended(2,0),gdom=extended(7,2),cminor=extended(0,0);
+    g_bus.next_model_locked=1;g_bus.next_model_count=3;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=dminor};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=4,.harmony=gdom};
+    g_bus.next_model[2]=(hb_loop_harmony_event_t){.phase=8,.harmony=cminor};
+    API.set_param(instance,"gap_scale","Auto Local");
+    API.set_param(instance,"scale_context","Current Harm");
+    int minor=-1;char value[64],saved[16384];
+    assert(hb_context_destination(instance,dminor,&minor)==-1);
+    assert(hb_local_output_scale(instance,dminor)==hb_local_recipe(instance,dminor));
+    API.set_param(instance,"scale_context","Current + Next");
+    assert(hb_context_destination(instance,dminor,&minor)==0&&minor==0);
+    /* This mode cannot use the third chord to choose the minor destination. */
+    API.set_param(instance,"scale_context","Full Loop");
+    assert(hb_context_destination(instance,dminor,&minor)==0&&minor==1);
+    for(int scope=0;scope<3;scope++){
+        API.set_param(instance,"scale_context",HB_CONTEXT_OPTIONS[scope]);
+        API.get_param(instance,"state",saved,sizeof(saved));
+        API.set_param(instance,"scale_context",HB_CONTEXT_OPTIONS[(scope+1)%3]);
+        API.set_param(instance,"state",saved);
+        API.get_param(instance,"scale_context",value,sizeof(value));
+        assert(!strcmp(value,HB_CONTEXT_OPTIONS[scope]));
+    }
+    API.set_param(instance,"scale_context","Role Default");
+    API.set_param(instance,"follower_default_scale_context","Current Harm");
+    API.get_param(instance,"scale_context",value,sizeof(value));assert(!strcmp(value,"Current Harm"));
+    API.set_param(instance,"follower_default_scale_context","Current + Next");
+    API.get_param(instance,"scale_context",value,sizeof(value));assert(!strcmp(value,"Current + Next"));
+    API.set_param(instance,"follower_default_scale_context","Full Loop");
+    API.get_param(instance,"scale_context",value,sizeof(value));assert(!strcmp(value,"Full Loop"));
+    API.set_param(instance,"scale_context","Current Harm");
+    dminor.intent_kind=1;dminor.intent_target=9;dminor.intent_minor=1;
+    g_bus.next_model_locked=0;
+    assert(hb_context_destination(instance,dminor,&minor)==9&&minor==1);
+    API.destroy_instance(instance);
+}
+int main(void){inheritance();collections();context_scopes();puts("role defaults, visible overrides, migration, local parallel scales and contextual ii-V selection pass");return 0;}

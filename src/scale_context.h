@@ -23,6 +23,8 @@ static unsigned hb_local_recipe(Inst *instance,hb_harmony_t harmony){
    This is independent of the track's playback lookahead setting. */
 static int hb_context_destination(Inst *instance,hb_harmony_t harmony,int *minor_out){
     if(harmony.intent_kind&&harmony.intent_kind<6){*minor_out=harmony.intent_minor;return harmony.intent_target;}
+    int scope=hb_policy_value(instance,HB_P_CONTEXT);
+    if(scope==0)return -1; /* Current harmony only; explicit intent above still applies. */
     if(!g_bus.next_model_locked||g_bus.next_model_count<2)return -1;
     int destination=-1,minor=0,matched=0;
     for(int event=0;event<g_bus.next_model_count;event++){
@@ -32,9 +34,9 @@ static int hb_context_destination(Inst *instance,hb_harmony_t harmony,int *minor
         hb_harmony_t after=g_bus.next_model[(event+2)%g_bus.next_model_count].harmony;
         hb_harmony_t previous=g_bus.next_model[(event+g_bus.next_model_count-1)%g_bus.next_model_count].harmony;
         int found=-1,family=0;
-        if(hb_policy_value(instance,HB_P_CONTEXT)&&hb_chord_minor(harmony)&&hb_chord_dominant(next)&&mod12(next.root_pc-harmony.root_pc)==5&&mod12(after.root_pc-next.root_pc)==2){
+        if(scope==2&&hb_chord_minor(harmony)&&hb_chord_dominant(next)&&mod12(next.root_pc-harmony.root_pc)==5&&mod12(after.root_pc-next.root_pc)==2){
             found=after.root_pc;family=1;
-        }else if(hb_policy_value(instance,HB_P_CONTEXT)&&hb_chord_dominant(harmony)&&mod12(next.root_pc-harmony.root_pc)==2&&hb_chord_minor(previous)&&mod12(harmony.root_pc-previous.root_pc)==5){
+        }else if(scope==2&&hb_chord_dominant(harmony)&&mod12(next.root_pc-harmony.root_pc)==2&&hb_chord_minor(previous)&&mod12(harmony.root_pc-previous.root_pc)==5){
             found=next.root_pc;family=1;
         }else if(hb_chord_minor(harmony)&&(hb_harmony_chord_mask(harmony)&(1u<<mod12(harmony.root_pc+6)))&&mod12(next.root_pc-harmony.root_pc)==1){
             found=next.root_pc;family=hb_chord_minor(next);
@@ -42,8 +44,8 @@ static int hb_context_destination(Inst *instance,hb_harmony_t harmony,int *minor
         else if(hb_chord_minor(harmony)&&hb_chord_dominant(next)&&mod12(next.root_pc-harmony.root_pc)==5){
             found=mod12(next.root_pc+5);
             family=!!(hb_harmony_chord_mask(harmony)&(1u<<mod12(harmony.root_pc+6)));
-            if(hb_policy_value(instance,HB_P_CONTEXT)&&after.root_pc==found)family=hb_chord_minor(after);
-        }else if(hb_policy_value(instance,HB_P_CONTEXT)&&hb_chord_dominant(previous)&&mod12(harmony.root_pc-previous.root_pc)==5){
+            if(scope==2&&after.root_pc==found)family=hb_chord_minor(after);
+        }else if(scope==2&&hb_chord_dominant(previous)&&mod12(harmony.root_pc-previous.root_pc)==5){
             found=harmony.root_pc;family=hb_chord_minor(harmony);
         }
         if(found<0)return -1;

@@ -1,3 +1,5 @@
+> **0.2.201:** Context Scope now offers Current Harm, Current + Next, and Full Loop on Track Scales and both role-default scale panels. Current Harm uses chord-local recipes without progression inference; Current + Next recognizes adjacent-pair resolutions; Full Loop additionally uses preceding/following chords. Explicit recorded intent remains authoritative at every scope. Full Loop remains the factory default.
+
 > 0.2.199: Mixed cadence panels, conductor/follower chord defaults, visible track overrides, strict/automatic local gap scales and recorded harmonic intent. See [operations](docs/operations.md).
 
 > **0.2.198 / Movy hbclean.106:** Complete Secondary II–VII controls; Parent Scale, Simple Chord, and Simple Scale policies on II/III/IV/VI/VII; separate Chrom Above connector and Tritone V. Parent Scale II follows the actual next scale degree. Older recorded approaches retain their original behavior.
