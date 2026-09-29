@@ -82,7 +82,8 @@ jobs:
               'content_map','travel_map','split_map','retrigger_held',
               'chromatic_map','motion_control_33'
           ]
-          assert all(any(item.get('level')==name for item in levels['root']['params']) for name in ('mixed_cadences_2','motifs','motif_global'))
+          assert all(any(item.get('level')==name for item in levels['root']['params']) for name in ('motifs','motif_global'))
+          assert all(name not in levels for name in ('mixed_cadences_1','mixed_cadences_2','pitch_cadences'))
           assert levels['next_harm']['name']=='Next Harm'
           assert levels['next_harm']['knobs']==[
               'next_lookahead','next_anti_buffer_ms','boundary_buffer_ms','next_model',
