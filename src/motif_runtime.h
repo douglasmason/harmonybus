@@ -41,24 +41,26 @@ static int hb_mt_target_pitch(Inst *instance,int input,hb_harmony_t harmony){
     if(interval<0)return -1; /* Never silently relabel a missing chord member. */
     return hb_cp_nearest(pitch,1u<<mod12(harmony.root_pc+interval));
 }
-static int hb_mt_launch(Inst *instance,int input,int velocity,int channel){
+/* Both clock and tap playback use this single bounded event renderer. */
+static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,int velocity,int channel,
+    int first,int last,double arrival,double onset_override,int use_tap_context){
     hb_mt_runtime *runtime=&instance->motif;hb_mt_recorder *editor=&runtime->editor;
     if(runtime->cancel&&runtime->pending){editor->error=8;return 0;}
-    const hb_mt_phrase *phrase=&g_motifs[editor->selected];
     if(!phrase->count||phrase->anchor<0)return 0;
-    double now=hb_motion_position(instance),arrival=hb_mt_arrival(instance,now);
+    double now=hb_motion_position(instance);
+    if(arrival<0)arrival=hb_mt_arrival(instance,now);
     if(arrival<0){editor->error=5;return 0;}
     double nominal=editor->span==1?0.5:editor->span==2?2.0:1.0,before=0;
     for(int step=0;step<phrase->anchor;step++)before+=phrase->events[step].duration/24.0*nominal;
-    if(editor->late==2&&arrival-now<before){
+    if(onset_override<0&&editor->late==2&&arrival-now<before){
         if(editor->arrival==3){editor->error=6;return 0;}
         double grid=editor->arrival==1?1:editor->arrival==4?8:editor->arrival==5?16:4;
         while(arrival-now<before)arrival+=grid;
     }
     double fit=1;
-    if(editor->late==1&&before>0&&arrival-now<before)fit=(arrival-now)/before;
-    hb_harmony_t harmony=hb_mt_harmony_at(instance,arrival,now);
-    int target=hb_mt_target_pitch(instance,input,harmony);
+    if(onset_override<0&&editor->late==1&&before>0&&arrival-now<before)fit=(arrival-now)/before;
+    hb_harmony_t harmony=use_tap_context?runtime->tap_harmony:hb_mt_harmony_at(instance,arrival,now);
+    int target=use_tap_context?runtime->tap_target:hb_mt_target_pitch(instance,input,harmony);
     if(target<0){editor->error=7;return 0;}
     unsigned scale=harmony.valid?hb_follower_scale_target(instance,harmony).pitch_mask:hb_follower_input_scale(instance,reference_root(instance));
     if(!scale)scale=0xFFF;
@@ -67,11 +69,12 @@ static int hb_mt_launch(Inst *instance,int input,int velocity,int channel){
     double offset=-before;
     for(int step=0;step<phrase->count;step++){
         const hb_mt_event *event=&phrase->events[step];double duration=event->duration/24.0*nominal;
-        double onset=arrival+(step<phrase->anchor?offset*fit:offset);
+        double onset=onset_override>=0?onset_override:arrival+(step<phrase->anchor?offset*fit:offset);
         double sustained=duration;
         for(int next=step+1;next<phrase->count&&phrase->events[next].kind==2;next++)sustained+=phrase->events[next].duration/24.0*nominal;
         double end=onset+sustained*(step<phrase->anchor?fit:1);
         offset+=duration;
+        if(step<first||step>=last)continue;
         /* Retain the anchor and tail. Drop missed attacks, never bunch them up.
            Fit has a 1/64-note density floor even after very late triggers. */
         if(onset<now-1e-6||(step<phrase->anchor&&duration*fit<0.0625))continue;
@@ -82,7 +85,7 @@ static int hb_mt_launch(Inst *instance,int input,int velocity,int channel){
             hb_harmony_t old_harmony=instance->render_harmony;int old_active=instance->render_harmony_active;
             instance->motion.event_override=event->actions;instance->motion.render_flags=event->flags;
             instance->render_harmony=harmony;instance->render_harmony_active=1;
-            hb_cp_config config=hb_chord_config_at(instance,event->notes[voice].pitch,onset,onset);config.mode=event->chord_mode;
+            hb_cp_config config=hb_chord_config_at(instance,event->notes[voice].pitch,onset,onset);config.mode=event->chord_mode==3?hb_cp_mode(&instance->player):event->chord_mode;
             const hb_cadence_step *cadence=hb_cadence_decode(event->cadence);
             if(config.mode&&(event->secondary||cadence||event->modifier)){
                 hb_approach_result approach=hb_resolve_chord_approach(instance,pitch,collection,config,harmony,event->secondary,cadence,event->modifier,0);
@@ -111,6 +114,50 @@ static int hb_mt_launch(Inst *instance,int input,int velocity,int channel){
     for(int source=0,index=0;source<count&&index<HB_MT_SCHEDULE;index++)if(!runtime->events[index].used)runtime->events[index]=staged[source++];
     runtime->pending+=count;runtime->cancel=0;runtime->last_beat=now;runtime->have_beat=1;runtime->was_running=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;editor->error=0;runtime->flash_serial++;runtime->flash_pitch=input;runtime->flash_step=phrase->anchor;return 1;
 }
+
+static const hb_mt_phrase *hb_mt_selected(Inst *instance,hb_mt_phrase *builtin){
+    if(instance->motif.editor.preset){hb_mt_preset(instance->motif.editor.preset,builtin);return builtin;}
+    return &g_motifs[instance->motif.editor.selected];
+}
+static double hb_mt_step_offset(Inst *instance,const hb_mt_phrase *phrase,int step){
+    double scale=instance->motif.editor.span==1?.5:instance->motif.editor.span==2?2:1,offset=0;
+    for(int index=0;index<step;index++)offset+=phrase->events[index].duration/24.0;
+    for(int index=0;index<phrase->anchor;index++)offset-=phrase->events[index].duration/24.0;
+    return offset*scale;
+}
+static int hb_mt_launch(Inst *instance,int input,int velocity,int channel){
+    hb_mt_runtime *runtime=&instance->motif;hb_mt_recorder *editor=&runtime->editor;
+    hb_mt_phrase builtin;const hb_mt_phrase *phrase=hb_mt_selected(instance,&builtin);
+    if(!editor->playback){runtime->tap_active=0;return hb_mt_schedule(instance,phrase,input,velocity,channel,0,phrase->count,-1,-1,0);}
+    double now=hb_motion_position(instance);
+    if(runtime->cancel){if(runtime->pending){editor->error=8;return 0;}runtime->cancel=0;runtime->tap_active=0;}
+    if(!runtime->tap_active||runtime->tap_input!=input||runtime->tap_channel!=channel){
+        if(!phrase->count){editor->error=10;return 0;}
+        double arrival=editor->playback==1?now:hb_mt_arrival(instance,now);
+        if(arrival<0){editor->error=5;return 0;}
+        hb_harmony_t harmony=hb_mt_harmony_at(instance,arrival,now);
+        int target=hb_mt_target_pitch(instance,input,harmony);if(target<0){editor->error=7;return 0;}
+        runtime->tap_phrase=*phrase;runtime->tap_step=0;runtime->tap_active=1;
+        runtime->tap_input=input;runtime->tap_channel=channel;runtime->tap_arrival=arrival;
+        runtime->tap_target=target;runtime->tap_harmony=harmony;runtime->tap_last_due=-1;
+        runtime->was_running=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;runtime->last_beat=now;runtime->have_beat=1;
+    }
+    int step=runtime->tap_step;double due=now;
+    if(editor->playback==3){
+        double grid=.125*(1<<editor->tap_grid);
+        due=hb_cp_floor((now+grid-1e-7)/grid)*grid;
+        if(due<=runtime->tap_last_due+1e-7)due=runtime->tap_last_due+grid;
+    }
+    if(!hb_mt_schedule(instance,&runtime->tap_phrase,input,velocity,channel,step,step+1,runtime->tap_arrival,due,1))return 0;
+    runtime->tap_last_due=due;runtime->tap_velocity=velocity;
+    runtime->flash_step=step;
+    /* Ties lengthen their preceding note; rests remain deliberate tap steps. */
+    runtime->tap_step++;
+    while(runtime->tap_step<runtime->tap_phrase.count&&runtime->tap_phrase.events[runtime->tap_step].kind==2)runtime->tap_step++;
+    if(runtime->tap_step>=runtime->tap_phrase.count)runtime->tap_active=0;
+    return 1;
+}
+
 static int hb_mt_input(Inst *instance,const uint8_t *input,int length){
     if(length<3||instance->movy_playback||instance->role>=2)return 0;
     int kind=input[0]&0xf0,channel=input[0]&15,pitch=input[1]&127;
@@ -141,7 +188,10 @@ static int hb_mt_input(Inst *instance,const uint8_t *input,int length){
         if(off)hb_mt_release(editor,channel,pitch);
         return 0; /* Normal HB path auditions the entry; Movy suppresses clip writes. */
     }
-    if(on&&editor->armed>=0){editor->selected=editor->armed;editor->armed=-1;hb_mt_launch(instance,pitch,input[2],channel);editor->swallow[channel][pitch]=1;return 1;}
+    if(on&&(editor->armed>=0||instance->motif.tap_active)){
+        if(editor->armed>=0){editor->selected=editor->armed;editor->armed=-1;instance->motif.tap_active=0;}
+        hb_mt_launch(instance,pitch,input[2],channel);editor->swallow[channel][pitch]=1;return 1;
+    }
     return 0;
 }
 static int hb_mt_emit(Inst *instance,hb_mt_scheduled *event,int on,uint8_t output[][3],int lengths[],int capacity){
@@ -160,10 +210,19 @@ static int hb_mt_emit(Inst *instance,hb_mt_scheduled *event,int on,uint8_t outpu
     return local_shared?0:1;
 }
 static int hb_mt_tick(Inst *instance,uint8_t output[][3],int lengths[],int capacity){
-    hb_mt_runtime *runtime=&instance->motif;if(!runtime->pending){runtime->cancel=0;return 0;}double now=hb_motion_position(instance);int emitted=0;
+    hb_mt_runtime *runtime=&instance->motif;double now=hb_motion_position(instance);int emitted=0;
     int running=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;
     if((runtime->was_running&&!running)||(runtime->have_beat&&running&&now<runtime->last_beat-1e-6))runtime->cancel=1;
     runtime->was_running=running;runtime->last_beat=now;runtime->have_beat=1;
+    if(runtime->cancel)runtime->tap_active=0;
+    if(runtime->tap_active&&runtime->editor.playback>=2&&runtime->editor.completion){
+        double next=runtime->tap_arrival+hb_mt_step_offset(instance,&runtime->tap_phrase,runtime->tap_step);
+        if(now+1e-6>=next&&now>runtime->tap_last_due+1e-6){
+            if(hb_mt_schedule(instance,&runtime->tap_phrase,runtime->tap_input,runtime->tap_velocity,runtime->tap_channel,
+                runtime->tap_step,runtime->tap_phrase.count,runtime->tap_arrival,-1,1))runtime->tap_active=0;
+        }
+    }
+    if(!runtime->pending){runtime->cancel=0;return 0;}
     /* OFF precedes ON at a shared boundary. Full output buffers retain due
        events until a later tick; a missed complete event is omitted. */
     for(int index=0;index<HB_MT_SCHEDULE;index++){

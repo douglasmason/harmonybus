@@ -21,6 +21,7 @@ typedef struct { int count,anchor;hb_mt_event events[HB_MT_STEPS]; } hb_mt_phras
 typedef struct {
     int selected,armed,recording,duration,relation,chord_entry,anchor_next,open;
     int arrival,late,span,target,error,cursor,open_step,changed,undo_valid;
+    int playback,preset,tap_grid,completion;
     unsigned char held[16][128],swallow[16][128];
     hb_mt_phrase draft,undo;
 } hb_mt_recorder;
@@ -28,6 +29,10 @@ typedef struct {double on,off;int pitch,velocity,channel,render,started,used;} h
 typedef struct {
     hb_mt_recorder editor;
     hb_mt_scheduled events[HB_MT_SCHEDULE];
+    hb_mt_phrase tap_phrase;
+    int tap_active,tap_step,tap_input,tap_channel,tap_velocity,tap_target;
+    double tap_arrival,tap_last_due;
+    hb_harmony_t tap_harmony;
     double last_beat;int have_beat,was_running,pending,cancel,flash_serial,flash_pitch,flash_step;
 } hb_mt_runtime;
 static hb_mt_phrase g_motifs[HB_MT_SLOTS];
@@ -38,11 +43,33 @@ static const char *HB_MT_ARRIVALS[]={"Now","Next Beat","Next Bar","Next Harmony"
 static const char *HB_MT_TARGETS[]={"Played","Root","Third","Fifth","Seventh","Sus2","Sus4"};
 static const char *HB_MT_LATE[]={"Trim","Fit","Defer"};
 static const char *HB_MT_RELATIONS[]={"Auto","Chromatic","Scale"};
+static const char *HB_MT_PLAYBACK[]={"Automatic","Tap Free","Tap Guided","Tap Grid"};
+static const char *HB_MT_COMPLETION[]={"Manual","Auto Finish"};
+static const char *HB_MT_GRIDS[]={"1/32","1/16","1/8","1/4"};
+static const char *HB_MT_PRESETS[]={"Library","V-Target","ii-V-Target","iv-bVII-Target","bII7-Target","ii-bII7-Target",
+    "bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I"};
+#define HB_MT_PRESET_COUNT 20
+/* Legacy cadence IDs remain stable for existing clips; presets reference
+   those same semantic steps instead of storing rendered pitches. */
+static void hb_mt_preset(int preset,hb_mt_phrase *phrase){
+    memset(phrase,0,sizeof(*phrase));
+    if(preset<1||preset>=HB_MT_PRESET_COUNT)return;
+    static const int simple[][3]={{2,3,0},{1,2,3},{5,6,3},{-2,3,0},{1,-2,3}};
+    phrase->count=preset>=6?HB_CADENCES[preset-6].length:(preset==1||preset==4?2:3);
+    phrase->anchor=phrase->count-1;
+    for(int step=0;step<phrase->count;step++){
+        hb_mt_event *event=&phrase->events[step];event->duration=24;event->count=1;event->chord_mode=3;
+        event->notes[0]=(hb_mt_note){60,100};event->scale=0xAB5;
+        if(preset>=6){event->cadence=(preset-6)*HB_CADENCE_STEPS+step+1;event->actions[HB_MOTION_LANES]=(unsigned long long)event->cadence<<13;}
+        else {int role=simple[preset-1][step];if(role<0)event->modifier=2;else event->secondary=role;
+            event->actions[HB_MOTION_LANES]=role<0?3:hb_mo_role_word(role);}
+    }
+}
 static const char *HB_MT_SPANS[]={"As Entered","Half","Double"};
 static void hb_mt_init(hb_mt_runtime *runtime){
     memset(runtime,0,sizeof(*runtime));runtime->editor.recording=-1;
     runtime->editor.armed=-1;runtime->editor.duration=2;runtime->editor.arrival=2;
-    runtime->editor.draft.anchor=-1;
+    runtime->editor.draft.anchor=-1;runtime->editor.tap_grid=1;
 }
 static int hb_mt_held(const hb_mt_recorder *editor){
     for(int channel=0;channel<16;channel++)for(int pitch=0;pitch<128;pitch++)if(editor->held[channel][pitch])return 1;
