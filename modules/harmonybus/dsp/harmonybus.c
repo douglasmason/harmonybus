@@ -5212,16 +5212,20 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
         preview->motion.event_override=preview->motion_player_events[owner];
         /* A chord gesture is represented by its generated root,
            independent of inversion, extensions and voice count. */
-        for(int index=0;index<(root_only&&config.mode?1:voice->count);index++){
-            int representative=root_only&&config.mode?60+voice->root_pc:voice->notes[index];
+        int single=root_only&&config.mode;
+        int include_outputs=output_low&&output_high;
+        int count=single?(include_outputs?voice->count+1:1):voice->count;
+        for(int index=0;index<count;index++){
+            int color_sample=!single||index==0;
+            int representative=single?(index==0?60+voice->root_pc:voice->notes[index-1]):voice->notes[index];
             uint8_t message[3]={0x90,(uint8_t)representative,100};
             int pitch,velocity,pan,skip;double off;
             hb_motion_values(preview,message,&pitch,&velocity,&pan,&off,&skip);
             int modifier=hb_mo_held_modifier(&preview->motion);
             if(modifier&&!hb_mo_chord_approach_done(&preview->motion))pitch=hb_apply_approach(preview,pitch,modifier<0?HB_APPROACH_CHROM_BELOW:modifier==2?HB_APPROACH_CHROM_ABOVE:HB_APPROACH_SCALE_ABOVE);
             if(!skip){
-                rendered_mask|=1u<<mod12(pitch);
-                if(output_low&&output_high&&pitch>=0&&pitch<128){
+                if(color_sample)rendered_mask|=1u<<mod12(pitch);
+                if(include_outputs&&(!single||index>0)&&pitch>=0&&pitch<128){
                     if(pitch<64)*output_low|=1ULL<<pitch;
                     else *output_high|=1ULL<<(pitch-64);
                 }
@@ -5592,7 +5596,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             int pitch_class=mod12(source_note);
             unsigned rendered_mask=0;
             if(instance->role==0||instance->role==1){
-                rendered_mask=hb_pad_render_mask(&preview,instance,effective,source_note,sample<12,
+                rendered_mask=hb_pad_render_mask(&preview,instance,effective,source_note,1,
                     sample>=12?&output_low[sample-12]:0,sample>=12?&output_high[sample-12]:0);
             }
             if(sample>=12){
@@ -5605,11 +5609,11 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
                 if(gap){
                     unsigned effective_gap=preview.preview_gap_mask;
                     unsigned current_render=hb_harmony_equal_effective(current,effective)?rendered_mask:
-                        hb_pad_render_mask(&preview,instance,current,source_note,0,0,0);
+                        hb_pad_render_mask(&preview,instance,current,source_note,1,0,0);
                     unsigned look_render=hb_harmony_equal_effective(lookahead,effective)?rendered_mask:
-                        hb_pad_render_mask(&preview,instance,lookahead,source_note,0,0,0);
+                        hb_pad_render_mask(&preview,instance,lookahead,source_note,1,0,0);
                     unsigned full_render=hb_harmony_equal_effective(full_lookahead,effective)?rendered_mask:
-                        hb_pad_render_mask(&preview,instance,full_lookahead,source_note,0,0,0);
+                        hb_pad_render_mask(&preview,instance,full_lookahead,source_note,1,0,0);
                     gap_colors[slot]=(current_render&&current_mask&&!(current_render&~current_mask)?1:0)
                         |(rendered_mask&&effective_mask&&!(rendered_mask&~effective_mask)?2:0)
                         |(rendered_mask&&effective_gap&&!(rendered_mask&~effective_gap)?4:0)
