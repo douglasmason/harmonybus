@@ -25,7 +25,8 @@ int main(int argument_count, char **arguments) {
         void *instance = api->create_instance("", NULL);
         assert(instance);
         api->set_param(instance, "state", states[variant]);
-        char value[512];
+        /* Match Schwung MAX_FX_STATE_LEN: state now includes the motif bank. */
+        char value[8192];
         assert(api->get_param(instance, "next_lookahead", value, sizeof(value)) > 0);
         assert(strcmp(value, "Off") == 0);
         api->set_param(instance, "next_lookahead", "1/8");
