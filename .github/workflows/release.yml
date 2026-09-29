@@ -34,11 +34,13 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.200'
+          assert module['version']=='0.2.201'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
           canonical={item['key']:item for item in module['capabilities']['chain_params']}
+          for key in ('scale_context','conductor_default_scale_context','follower_default_scale_context'):
+              assert canonical[key]['options'][:3]==['Current Harm','Current + Next','Full Loop']
           for level in levels.values():
               level['params']=[{**item,**canonical[item['key']]} if 'key' in item else item for item in level['params']]
           buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
