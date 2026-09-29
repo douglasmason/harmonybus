@@ -1,4 +1,8 @@
-# Panel controls in 0.2.210
+# Panel controls in 0.2.211
+
+Operation knobs always control their assigned lane: clockwise sets the permanent latch, counterclockwise clears it, tap arms one use, and hold acts momentarily. Repeated knob taps do not promote to a permanent latch. A pre-existing permanent latch survives a tap or hold. Step-button double-tap behavior is unchanged.
+
+With Movy hbclean.121, sounding output alone uses a faint blend of Play Color and the normal pad color. A live or recorded input whose corresponding note is also sounding uses solid Play Color. Input alone preserves the background. Play Color Off disables both highlights.
 
 Chords and Arp / Strum remain near the start. Foll Notes and Pads Global are last in Movy because they are diagnostics and infrequent setup controls.
 

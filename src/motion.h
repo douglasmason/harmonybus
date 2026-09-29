@@ -328,6 +328,38 @@ static void hb_mo_modern_gesture(hb_motion_config *config,int id,int down,int el
     config->gesture_last_lane=id;config->gesture_last_up=stamp;
     config->gesture_last_valid=1;config->gesture_last_off=turned_off;
 }
+/* Knobs have explicit latch turns; taps never promote via double-tap. */
+static void hb_mo_knob_gesture(hb_motion_config *config,int id,int down,int elapsed,double stamp){
+    unsigned long long bit=1ULL<<id;
+    if(down){
+        if(config->gesture_down&bit)return;
+        if(!(config->gesture_persistent&bit))hb_mo_end_lanes(config,bit);
+        config->gesture_last_valid=0;
+        hb_mo_modern_gesture(config,id,1,0,stamp);config->gesture_mode[id]=4;return;
+    }
+    if(!(config->gesture_down&bit))return;
+    if(elapsed>=0&&(config->gesture_was_persistent&bit)){
+        config->gesture_down&=~bit;
+        if(hb_mo_trigger_bit(config->gesture_operation[id]))config->held&=~bit;
+        config->gesture_last_valid=0;return;
+    }
+    config->gesture_double&=~bit;
+    hb_mo_modern_gesture(config,id,0,elapsed,stamp);config->gesture_last_valid=0;
+}
+static void hb_mo_latch_set(hb_motion_config *config,int id,int on){
+    unsigned long long bit=1ULL<<id;
+    if(on&&(config->gesture_persistent&bit))return;
+    hb_mo_end_lanes(config,bit);config->gesture_last_valid=0;
+    int operation=config->lanes[id].operation;
+    if(!on||!operation)return;
+    unsigned trigger=hb_mo_trigger_bit(operation);
+    if(trigger){
+        hb_mo_tap_owned(config,trigger,++config->serial,id);
+        config->tap_policy[hb_mo_tap_index(trigger)]=2;
+    }else if(hb_mo_enclosure_mask(operation))hb_mo_arm_sequence(config,operation,id,2);
+    else {config->held|=bit;config->held_serial[id]=++config->serial;}
+    config->gesture_persistent|=bit;config->gesture_latched|=bit;
+}
 /* Live gates do not consume pending source gestures. */
 static unsigned hb_mo_held_trigger(hb_motion_config *config){
     unsigned newest=0,selected=0;

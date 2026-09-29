@@ -59,6 +59,15 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     if(!strcmp(key,"performance_gesture_above"))gesture=HB_MOTION_LANES;
     if(!strcmp(key,"performance_gesture_below"))gesture=HB_MOTION_LANES+1;
     if(gesture>=0){
+        if(!strcmp(value,"LatchOn")||!strcmp(value,"LatchOff")){
+            if(gesture<HB_MOTION_LANES)hb_mo_latch_set(config,gesture,!strcmp(value,"LatchOn"));return 1;
+        }
+        int knob_down=!strncmp(value,"Knob,",5);
+        if(knob_down||((!strncmp(value,"Up,",3)||!strcmp(value,"Cancel"))&&config->gesture_mode[gesture]==4)){
+            int duration=knob_down?0:!strcmp(value,"Cancel")?-1:parse_i(value+3,-1);
+            const char *comma=strchr(value,',');if(!knob_down&&comma)comma=strchr(comma+1,',');
+            hb_mo_knob_gesture(config,gesture,knob_down,duration,comma?strtod(comma+1,0):0);return 1;
+        }
         int elapsed=-1;if(!strncmp(value,"Up,",3))elapsed=parse_i(value+3,-1);
         int modern_down=!strncmp(value,"Touch,",6)||!strncmp(value,"Down,",5);
         if(modern_down||((!strncmp(value,"Up,",3)||!strcmp(value,"Cancel"))&&config->gesture_mode[gesture]==3)){
@@ -181,7 +190,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"motion_auto_off"))return snprintf(buffer,(size_t)length,"%s",MO_AUTO_OFF[config->lanes[config->selected].auto_off==1?1:0]);
     if(!strcmp(key,"motion_touch_mode"))return snprintf(buffer,(size_t)length,"%s",hb_mo_touch_options(config)[config->lanes[config->selected].touch_mode]);
     int gesture_slot=hb_mo_slot_key(key,"motion_gesture_binding_");
-    if(gesture_slot>=0){hb_motion_lane *lane=&config->lanes[gesture_slot];return snprintf(buffer,(size_t)length,"%d,%d,%d,%d,%d,%d,%d",lane->operation,lane->amount,lane->grid,lane->touch_mode,g_hb_hold_ms,(int)((config->gesture_latched>>gesture_slot)&1),(int)((config->gesture_persistent>>gesture_slot)&1));}
+    if(gesture_slot>=0){hb_motion_lane *lane=&config->lanes[gesture_slot];return snprintf(buffer,(size_t)length,"%d,%d,%d,%d,%d,%d,%d,1",lane->operation,lane->amount,lane->grid,lane->touch_mode,g_hb_hold_ms,(int)((config->gesture_latched>>gesture_slot)&1),(int)((config->gesture_persistent>>gesture_slot)&1));}
 
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
