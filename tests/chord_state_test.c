@@ -15,6 +15,8 @@ int main(void){
     expect_value(instance,"arp_phase","First Note Free");
     assert(!instance->player.state_override);
     API.set_param(instance,"arp_gate","Half");
+    API.set_param(instance,"arp_order","Shuffle Cycle Pin");
+    expect_value(instance,"arp_order","Shuffle Cycle Pin");
     assert(!memcmp(&baseline,&instance->player.config,sizeof(baseline)));
     API.set_param(instance,"motion_hold_1","On");
     assert(instance->player.state_override&&hb_cp_mode(&instance->player)==1&&hb_cp_playback(&instance->player)==1);
@@ -55,6 +57,7 @@ int main(void){
     char state[131072];API.get_param(instance,"state",state,sizeof(state));
     Inst *copy=API.create_instance("",NULL);API.set_param(copy,"state",state);
     assert(copy->motion.lanes[0].chord_state_valid);
+    assert(copy->motion.lanes[0].chord_state.order==6);
     assert(!memcmp(&copy->motion.lanes[0].chord_state,&instance->motion.lanes[0].chord_state,sizeof(baseline)));
     API.destroy_instance(copy);API.destroy_instance(instance);
     puts("Chord state isolation, activation, release and persistence passed");return 0;

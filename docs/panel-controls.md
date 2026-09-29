@@ -1,4 +1,4 @@
-# Panel controls in 0.2.206
+# Panel controls in 0.2.207
 
 Chords and Arp / Strum remain near the start. Foll Notes and Pads Global are last in Movy because they are diagnostics and infrequent setup controls.
 
@@ -31,3 +31,5 @@ With compatible Movy, a stopped session previews the first note group in each se
 In Steps mode, an empty playing clip uses the four groups of four step buttons as a beat indicator. A populated clip uses sequence steps and its playhead. Perform owns those buttons for operation activity; motif editing owns them for motif steps. The fast beat update respects both owners.
 
 Pad changes reserve the entire changed group within the existing MIDI budget, avoiding a partial chord-color update when the budget is exhausted. Beat updates also run on cached touch-display frames. Hardware still transmits LED messages sequentially; these changes reduce software staggering rather than claiming simultaneous physical updates.
+
+Arp Order offers **Shuffle** and **Shuffle Cycle Pin**. Both honor Arp Start when the arp starts or its selected pad/chord reanchor occurs. Shuffle lets later cycles begin randomly; Shuffle Cycle Pin starts every cycle at the selected anchor. Both visit each available note once per cycle. With Arp Start set to Order, neither pins a note.

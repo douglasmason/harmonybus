@@ -3,7 +3,7 @@
 #undef main
 static void opening_and_cycles(void){
     const int pitches[]={55,60,67};
-    for(int start=1;start<=6;start++)for(int phase=0;phase<3;phase++)for(int order=0;order<6;order++){
+    for(int start=1;start<=6;start++)for(int phase=0;phase<3;phase++)for(int order=0;order<7;order++){
         hb_chord_player player={0};hb_cp_defaults(&player.config);
         player.config.playback=1;player.config.start=start;player.config.phase=phase;player.config.order=order;
         player.beat=.13;assert(hb_cp_on(&player,60,0,100,pitches,3));
@@ -16,10 +16,41 @@ static void opening_and_cycles(void){
             player.beat=player.next_beat;hb_cp_tick(&player,output,lengths,64);
             int pitch=player.arp_note;
             if(step==1)assert(pitch!=(start>=5?60:(start==1||start==3)?55:67));
-            if(order==5&&step<cycle){unsigned bit=1u<<(pitch==55?0:pitch==60?1:2);assert(!(seen&bit));seen|=bit;}
-            if(step==cycle)assert(pitch==(start>=5?60:(start==1||start==3)?55:67));
+            if(order>=5&&step<cycle){unsigned bit=1u<<(pitch==55?0:pitch==60?1:2);assert(!(seen&bit));seen|=bit;}
+            if(step==cycle&&order!=5)assert(pitch==(start>=5?60:(start==1||start==3)?55:67));
         }
         assert(first==(phase==1?.25:.13));
+    }
+}
+static void shuffle_pin_scope(void){
+    const int pitches[]={55,60,67};
+    for(int order=5;order<=6;order++)for(int phase=0;phase<3;phase++){
+        hb_chord_player player={0};hb_cp_defaults(&player.config);
+        player.config.playback=1;player.config.start=5;player.config.phase=phase;player.config.order=order;
+        player.beat=.13;assert(hb_cp_on(&player,60,0,100,pitches,3));
+        unsigned starts=0;
+        for(int cycle=0;cycle<24;cycle++){
+            unsigned seen=0;
+            for(int step=0;step<3;step++){
+                if(cycle||step)player.beat=player.next_beat;
+                hb_cp_tick(&player,output,lengths,64);
+                if(player.running==2){player.beat=player.next_beat;hb_cp_tick(&player,output,lengths,64);}
+                unsigned bit=1u<<(player.arp_note==55?0:player.arp_note==60?1:2);
+                assert(!(seen&bit));seen|=bit;
+                if(!step){starts|=bit;if(!cycle||order==6)assert(player.arp_note==60);}
+            }
+            assert(seen==7);
+        }
+        assert(order==6?starts==2:(starts&(starts-1))!=0);
+        /* An explicit pad/chord reanchor still pins the next opening note. */
+        player.anchor_pending=1;player.beat=player.next_beat;
+        hb_cp_tick(&player,output,lengths,64);assert(player.arp_note==60);
+        Inst *instance=fixture();char state[16384],value[40];
+        API.set_param(instance,"arp_order",CP_ARP_ORDER[order]);
+        API.get_param(instance,"state",state,sizeof(state));
+        API.set_param(instance,"arp_order","Up");API.set_param(instance,"state",state);
+        API.get_param(instance,"arp_order",value,sizeof(value));assert(!strcmp(value,CP_ARP_ORDER[order]));
+        API.destroy_instance(instance);
     }
 }
 static void harmony_anchor_and_state(void){
@@ -45,4 +76,4 @@ static void harmony_anchor_and_state(void){
         API.destroy_instance(instance);
     }
 }
-int main(void){opening_and_cycles();harmony_anchor_and_state();puts("Arp Start: all orders, phases, cycle anchors, shuffle uniqueness, harmony reanchor, state and clear pass");}
+int main(void){opening_and_cycles();shuffle_pin_scope();harmony_anchor_and_state();puts("Arp Start: all orders, phases, first/cycle shuffle anchors, uniqueness, harmony reanchor, state and clear pass");}

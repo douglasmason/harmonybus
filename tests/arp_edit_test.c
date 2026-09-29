@@ -26,7 +26,7 @@ int main(void){
     assert_pool(instance);
     const char *names[]={"arp_rate","arp_gate","arp_order","arp_phase","arp_hold","arp_playback"};
     const char **options[]={CP_ARP_RATE,CP_ARP_GATE,CP_ARP_ORDER,CP_ARP_PHASE,CP_ARP_HOLD,CP_ARP_PLAYBACK};
-    const int counts[]={18,4,6,3,6,3};
+    const int counts[]={18,4,7,3,6,3};
     int balance[128]={0};
     for(int pitch=0;pitch<128;pitch++)balance[pitch]=instance->player.sounding[0][pitch]?1:0;
     for(int control=0;control<6;control++)for(int selected=0;selected<counts[control];selected++){

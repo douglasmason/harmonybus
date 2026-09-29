@@ -11,7 +11,7 @@ static const hb_cs_parameter HB_CS_PARAMETERS[]={
     CS_PARAM("chord_voicing",voicing,CP_CHORD_VOICING,4,0,3),
     CS_PARAM("arp_playback",playback,CP_ARP_PLAYBACK,3,0,2),
     CS_PARAM("arp_hold",latch,CP_ARP_HOLD,6,0,5),
-    CS_PARAM("arp_order",order,CP_ARP_ORDER,6,0,5),
+    CS_PARAM("arp_order",order,CP_ARP_ORDER,7,0,6),
     CS_PARAM("arp_rate",rate,CP_ARP_RATE,18,0,17),
     CS_PARAM("arp_gate",gate,CP_ARP_GATE,4,0,3),
     CS_PARAM("arp_start",start,CP_ARP_START,7,0,6),

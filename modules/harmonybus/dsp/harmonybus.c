@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.206"
+#define HB_VERSION "0.2.207"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4497,7 +4497,7 @@ static const char *CP_CHROMATIC_QUALITY[]={"Scale","Major / Maj7","Major / Dom7"
 static const char *CP_ARP_PLAYBACK[]={"Together","Repeat Arp","Once"};
 static const char *CP_ARP_HOLD[]={"Momentary","Latch - Overlap","Latch with Off - Overlap","Latch Acc. with Off","Latch - Single","Latch with Off - Single"};
 static const char *CP_ARP_START[]={"Order","Lowest / Pad","Highest / Pad","Lowest / Chord","Highest / Chord","Played / Pad","Played / Chord"};
-static const char *CP_ARP_ORDER[]={"Up","Down","Up-Down","Played","Random","Shuffle"};
+static const char *CP_ARP_ORDER[]={"Up","Down","Up-Down","Played","Random","Shuffle","Shuffle Cycle Pin"};
 static const char *CP_ARP_RATE[]={"1/64","1/32","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars","Cycle 1/64","Cycle 1/32","Cycle 1/16","Cycle 1/8","Cycle 1/4","Cycle 1/2","Cycle 1 Bar","Cycle 2 Bars","Cycle 4 Bars"};
 static const char *CP_ARP_GATE[]={"25%","50%","75%","90%"};
 #include "../../../src/role_policy_params.h"
@@ -4709,7 +4709,7 @@ if(!strcmp(key,"arp_hold")){
 }
 if(!strcmp(key,"arp_start")){instance->player.config.start=enum_index(parameter,CP_ARP_START,7,instance->player.config.start);instance->player.anchor_pending=1;instance->player.shuffle_count=0;return;}
 if(!strcmp(key,"arp_order")){
-    int selected=enum_index(parameter,CP_ARP_ORDER,6,instance->player.config.order);
+    int selected=enum_index(parameter,CP_ARP_ORDER,7,instance->player.config.order);
     if(selected!=instance->player.config.order){instance->player.config.order=selected;instance->player.shuffle_count=instance->player.shuffle_position=0;}
     return;
 }
@@ -5152,7 +5152,7 @@ static void hb_restore_state(Inst *instance,const char *state){
         if(parsed_count==10&&parsed_config.mode>=0&&parsed_config.mode<3&&parsed_config.size>=0&&parsed_config.size<HB_CP_FORMS&&
            parsed_config.inversion>=0&&parsed_config.inversion<9&&parsed_config.voicing>=0&&parsed_config.voicing<4&&
            parsed_config.playback>=0&&parsed_config.playback<3&&parsed_config.latch>=0&&parsed_config.latch<6&&
-           parsed_config.order>=0&&parsed_config.order<6&&parsed_config.rate>=0&&parsed_config.rate<18&&
+           parsed_config.order>=0&&parsed_config.order<7&&parsed_config.rate>=0&&parsed_config.rate<18&&
            parsed_config.gate>=0&&parsed_config.gate<4&&parsed_config.spread>=-9&&parsed_config.spread<=1000)config=parsed_config;
     }
     instance->render_velocity_gain=10000;

@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.206'
+          assert module['version']=='0.2.207'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -328,12 +328,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Anchored intent motifs with untimed recording and tap playback, shared Render Rhythm with track overrides, arp start anchors, pad-color and pressure fixes. Pair with HarmonyBus Movy hbclean.108 for motif editing and clip retiming. Existing presets remain compatible; variable chord-span rhythm windows are not included."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Follower Auto Chord pad colors now reflect the single note before chord expansion. Arp Order offers Shuffle and Shuffle Cycle Pin: ordinary Shuffle honors Arp Start on launch and explicit pad/chord reanchors, while Cycle Pin also anchors every cycle. Both visit every available note once per cycle. No additional panels or knobs."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Anchored intent motifs with untimed recording and tap playback, shared Render Rhythm with track overrides, arp start anchors, pad-color and pressure fixes. Pair with HarmonyBus Movy hbclean.108 for motif editing and clip retiming. Existing presets remain compatible; variable chord-span rhythm windows are not included." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Follower Auto Chord pad colors now reflect the single note before chord expansion. Arp Order offers Shuffle and Shuffle Cycle Pin: ordinary Shuffle honors Arp Start on launch and explicit pad/chord reanchors, while Cycle Pin also anchors every cycle. Both visit every available note once per cycle. No additional panels or knobs." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

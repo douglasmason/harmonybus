@@ -1,3 +1,5 @@
+> **0.2.207:** Arp Order offers Shuffle (honor Arp Start on launch) and Shuffle Cycle Pin (also pin every cycle). Both follow Arp Start and visit each available note once per cycle.
+
 > **0.2.206:** Follower Auto Chord pad colors reflect the single note rendered with Auto Chord off, including conductor-harmony mode and Top Note. Expanded voicings still determine equivalent-output groups.
 
 > **0.2.205 / Movy hbclean.116:** Stopped startup harmony preview, coherent pad updates and protected Perform lights. Four defaults panels become one Role Defaults editor; Track Scales gains Local Palette and Foll Map gains Current / Next Harmony Target. See [panel controls](docs/panel-controls.md).

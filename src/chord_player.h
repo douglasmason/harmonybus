@@ -419,6 +419,7 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
                 int missed=(int)hb_cp_floor((player->beat-onset+1e-9)/rate);
                 if(missed>0){onset+=missed*rate;player->step+=missed;}
             }
+            int start_anchor=first||player->running==2||player->anchor_pending;
             if(hb_cp_settings(player)->start&&player->anchor_pending){player->step=0;player->anchor_pending=0;player->shuffle_count=0;}
             int extreme=0;
             if(hb_cp_settings(player)->start){
@@ -444,7 +445,7 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
             int ordinal=(cycle_position+(hb_cp_settings(player)->start?extreme:0))%cycle;
             if(ordinal>=count)ordinal=cycle-ordinal;
             if(hb_cp_settings(player)->order==4&&player->running!=2){player->random=player->random*1664525u+1013904223u;ordinal=(int)(player->random%(unsigned)count);}
-            if(hb_cp_settings(player)->order==5){
+            if(hb_cp_settings(player)->order>=5){
                 unsigned signature=2166136261u;
                 for(int index=0;index<count;index++)signature=(signature^(unsigned)(entries[index].pitch+128*entries[index].channel))*16777619u;
                 if(player->shuffle_count!=count||player->shuffle_signature!=signature||(hb_cp_settings(player)->start?!cycle_position:player->shuffle_position>=count)){
@@ -462,9 +463,11 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
                 if(!cycle_position)ordinal=extreme;
                 else if(cycle_position==1&&count>1&&ordinal==extreme)ordinal=(ordinal+1)%count;
             }
-            if(hb_cp_settings(player)->start&&hb_cp_settings(player)->order==5){
-                /* Pin the extreme by swapping, so Shuffle still visits every
-                   voice once. Address by phase even after missed callbacks. */
+            if(hb_cp_settings(player)->start&&hb_cp_settings(player)->order>=5){
+                /* First-pinned Shuffle anchors only a new start/reanchor.
+                   Cycle-pinned Shuffle anchors every cycle. Swap rather than
+                   overwrite so each voice still occurs exactly once. */
+                if(start_anchor||hb_cp_settings(player)->order==6)
                 for(int index=0;index<count;index++)if(player->shuffle_order[index]==extreme){
                     int saved=player->shuffle_order[0];player->shuffle_order[0]=extreme;player->shuffle_order[index]=saved;break;
                 }

@@ -417,7 +417,7 @@ static void hb_mo_restore(hb_motion_config *config,const char *state){
         int lane,input,offset=0,fields[16],valid=1;
         if(sscanf(cursor,";cs1,%d,%d%n",&lane,&input,&offset)!=2||!offset||lane<0||lane>=16||input<0||input>1){cursor+=5;continue;}
         const char *word=cursor+offset;const int low[16]={0,0,0,0,0,0,0,0,0,-9,0,0,0,-256,0,0};
-        const int high[16]={2,16,8,3,2,5,5,17,3,1000,2,12,6,256,1,6};
+        const int high[16]={2,16,8,3,2,5,6,17,3,1000,2,12,6,256,1,6};
         for(int field=0;field<16;field++){
             if(*word++!=','){valid=0;break;}char *end=0;long value=strtol(word,&end,10);
             if(end==word||value<low[field]||value>high[field]){valid=0;break;}word=end;fields[field]=(int)value;
