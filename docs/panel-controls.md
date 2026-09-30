@@ -1,8 +1,10 @@
-> **0.2.214 / Movy hbclean.123:** Secondary II consolidates Scale Above. Secondary LT consolidates Chromatic Below and remains a semitone below the target; Auto Chord uses the Chromatic Chord setting. Secondary VII follows the effective scale’s seventh degree and can differ from LT. Legacy saved assignments and recorded note intent remain compatible. Pitch Play and Secondary panels now access the same Secondary II lane.
+**0.2.215 / Movy hbclean.124:** Copy cycles Steps, Perform 1 and Perform 2. Perform 2 knobs and step buttons share the same 16-slot bank. Knobs 1–8 select slots 1–8 and recall that motif for approach rows. Tap arms one sequence, hold is momentary, and Performance Latch repeats it. Overlapping touches order the performance sequence; the last knob touch independently selects the persistent row motif. Triple Approach maps motif steps 1, 2 and 3 onto three rows above one scale row. The single Approach layout advances the selected motif on successive approach presses. All other layouts can perform bank motifs on ordinary pads. Empty/missing motif steps are silent. Existing customized assignments remain; untouched old defaults migrate to the new eight triple motifs.
 
-# Panel controls in 0.2.214
+> **0.2.215 / Movy hbclean.124:** Secondary II consolidates Scale Above. Secondary LT consolidates Chromatic Below and remains a semitone below the target; Auto Chord uses the Chromatic Chord setting. Secondary VII follows the effective scale’s seventh degree and can differ from LT. Legacy saved assignments and recorded note intent remain compatible. Pitch Play and Secondary panels now access the same Secondary II lane.
 
-## Approach mode (Movy hbclean.123)
+# Panel controls in 0.2.215
+
+## Approach mode (Movy hbclean.124)
 
 Copy tap cycles Steps, Perform, Approach. Approach Rows presents eight knobs:
 turn to assign a pitch/harmony transformation or Motif 1–16; touch to select.

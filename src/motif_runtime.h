@@ -199,7 +199,7 @@ static int hb_mt_input(Inst *instance,const uint8_t *input,int length){
         }
         if(selected>=0){
             hb_motion_lane *lane=&instance->motion.lanes[selected];
-            if(lane->amount<1||lane->amount>=36){editor->error=10;return 0;}
+            if(lane->amount<1||lane->amount>=44){editor->error=10;return 0;}
             hb_mt_lane_load(editor,lane);
             if(instance->motif.playback_lane!=selected){instance->motif.tap_active=0;instance->motif.playback_lane=selected;}
             if(hb_mt_launch(instance,pitch,input[2],channel)){

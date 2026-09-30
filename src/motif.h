@@ -49,13 +49,19 @@ static const char *HB_MT_PLAYBACK[]={"Automatic","Tap Free","Tap Guided","Tap Gr
 static const char *HB_MT_COMPLETION[]={"Manual","Auto Finish"};
 static const char *HB_MT_GRIDS[]={"1/32","1/16","1/8","1/4"};
 static const char *HB_MT_PRESETS[]={"Library","V-Target","ii-V-Target","iv-bVII-Target","bII7-Target","ii-bII7-Target",
-    "bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I"};
-#define HB_MT_PRESET_COUNT 20
+    "bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","vi-ii-V","ii-V-LT","iv-bVII-LT","ii-bII7-LT","iii-vi-ii","IV-ii-V","vii-iii-vi","LT-ii-V"};
+#define HB_MT_PRESET_COUNT 28
+static int hb_mt_reference_preset(int reference){return reference>0&&reference<20?reference:reference>=36&&reference<44?reference-16:0;}
 /* Legacy cadence IDs remain stable for existing clips; presets reference
    those same semantic steps instead of storing rendered pitches. */
 static void hb_mt_preset(int preset,hb_mt_phrase *phrase){
     memset(phrase,0,sizeof(*phrase));
     if(preset<1||preset>=HB_MT_PRESET_COUNT)return;
+    if(preset>=20){
+        static const int roles[8][3]={{4,1,2},{1,2,-1},{5,6,-1},{1,-2,-1},{8,4,1},{9,1,2},{10,8,4},{-1,1,2}};
+        phrase->count=3;phrase->anchor=2;
+        for(int step=0;step<3;step++){hb_mt_event *event=&phrase->events[step];int role=roles[preset-20][step];event->duration=24;event->count=1;event->chord_mode=3;event->notes[0]=(hb_mt_note){60,100};event->scale=0xAB5;if(role<0)event->modifier=role==-1?-1:2;else event->secondary=role;event->actions[HB_MOTION_LANES]=role==-1?1:role==-2?3:hb_mo_role_word(role);}return;
+    }
     static const int simple[][3]={{2,3,0},{1,2,3},{5,6,3},{-2,3,0},{1,-2,3}};
     phrase->count=preset>=6?HB_CADENCES[preset-6].length:(preset==1||preset==4?2:3);
     phrase->anchor=phrase->count-1;
@@ -100,7 +106,7 @@ static int hb_mt_held(const hb_mt_recorder *editor){
     return 0;
 }
 static void hb_mt_lane_load(hb_mt_recorder *editor,const hb_motion_lane *lane){
-    editor->preset=lane->amount>0&&lane->amount<20?lane->amount:0;
+    editor->preset=hb_mt_reference_preset(lane->amount);
     editor->selected=lane->amount>=20&&lane->amount<36?lane->amount-20:0;
     editor->playback=lane->motif_playback;editor->arrival=lane->motif_arrival;
     editor->target=lane->motif_target;editor->late=lane->motif_late;

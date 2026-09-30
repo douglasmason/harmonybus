@@ -399,7 +399,7 @@ static int hb_mo_chord_approach_done(const hb_motion_config *config){
 #define HB_MO_SIMPLE_SCALE (1ULL<<12)
 #define HB_MO_CADENCE_MASK (127ULL<<13)
 #define HB_MO_INTENT_MASK (((1ULL<<23)-1)<<20)
-#define HB_MO_SOURCE_MASK (HB_MO_SOURCE_MASK_BASE|(4095ULL<<43))
+#define HB_MO_SOURCE_MASK (HB_MO_SOURCE_MASK_BASE|(4095ULL<<43)|(255ULL<<55))
 #define HB_MO_SOURCE_MASK_BASE (8063ULL|HB_MO_CADENCE_MASK|HB_MO_INTENT_MASK)
 static unsigned long long hb_mo_role_word(int role){return ((unsigned long long)(role&7)<<4)|((unsigned long long)(role&8)<<5);}
 static unsigned long long hb_mo_source_flags(hb_motion_config *config,unsigned trigger){

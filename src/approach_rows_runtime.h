@@ -29,14 +29,14 @@ static int hb_ar_input(Inst *instance,const uint8_t *input,int length){
     unsigned token=0;int shift=0,whole=0;
     if(instance->movy_playback&&instance->recorded_action_valid[source]){
         unsigned long long word=instance->recorded_actions[source][HB_MOTION_LANES];token=(word>>HB_AR_SHIFT)&2047;
-        int marker=(word>>2)&3;shift=marker==1?-36:marker==2?36:0;
+        shift=hb_ar_alias_shift(word);
         whole=!!(word&(1ULL<<54));
-    }else if(!instance->movy_playback&&state->enabled){
+    }else if(!instance->movy_playback&&(state->enabled||instance->movy_pad_pending==source+1)){
         if(instance->movy_pad_pending==source+1&&hb_chromatic_travel(instance)){
-            token=hb_ar_peek(state);shift=instance->movy_pad_pending_shift;
-        }else if(state->bank_armed>=0){token=15+state->bank[state->bank_armed];whole=1;}
+            token=hb_ar_live_peek(state,state->pending_row<0?3:state->pending_row);shift=instance->movy_pad_pending_shift;
+        }else if(state->bank_armed>=0){token=15+state->bank[state->bank_armed];whole=1;}else token=hb_ar_live_peek(state,-1);
     }
-    if((token&63)<16)return 0;
+    if((token&63)<16&&(token&63)!=15)return 0;
     hb_ar_schedule(instance,source,shift,token,input[2],channel,whole);
     if(state->swallow[channel][source]<255)state->swallow[channel][source]++;
     if(!instance->movy_playback){
@@ -47,9 +47,9 @@ static int hb_ar_input(Inst *instance,const uint8_t *input,int length){
             if(whole)instance->action_queue[slot][HB_MOTION_LANES]|=1ULL<<54;
             instance->action_pitch[slot]=source;instance->action_count++;
         }
-        if(whole)state->bank_armed=-1;else hb_ar_advance(state);
+        if(whole)state->bank_armed=-1;else hb_ar_live_advance(state,shift?(state->pending_row<0?3:state->pending_row):-1);
     }
-    instance->movy_pad_pending=0;return 1;
+    instance->movy_pad_pending=0;state->pending_row=-1;return 1;
 }
 static unsigned hb_ar_preview(Inst *preview,int source,unsigned token,int root_only,unsigned long long *low,unsigned long long *high){
     memset(preview->motif.events,0,sizeof(preview->motif.events));preview->motif.pending=0;preview->motif.cancel=0;

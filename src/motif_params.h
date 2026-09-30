@@ -140,7 +140,7 @@ static void hb_mt_lane_begin(Inst *instance,int duplicate){
     if(slot<0){editor->error=9;return;}
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&&g_pool[index]!=instance&&g_pool[index].motif.editor.recording==slot){editor->error=11;return;}
     hb_mt_begin(editor,slot);
-    if(reference>0&&reference<20){hb_mt_preset(reference,&editor->draft);editor->changed=1;}
+    if(hb_mt_reference_preset(reference)){hb_mt_preset(hb_mt_reference_preset(reference),&editor->draft);editor->changed=1;}
     else if(duplicate&&reference>=20&&reference<36){editor->draft=g_motifs[reference-20];editor->changed=1;}
 }
 static int hb_mt_set(Inst *instance,const char *key,const char *value){
@@ -270,7 +270,7 @@ static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
         const hb_mt_phrase *display=tapping?&instance->motif.tap_phrase:&editor->draft;
         if(!tapping&&editor->lane>=0&&editor->recording<0){
             int reference=instance->motion.lanes[editor->lane].amount;
-            if(reference>0&&reference<20){hb_mt_preset(reference,&builtin);display=&builtin;}
+            if(hb_mt_reference_preset(reference)){hb_mt_preset(hb_mt_reference_preset(reference),&builtin);display=&builtin;}
             else if(reference>=20&&reference<36)display=&g_motifs[reference-20];
             else {memset(&builtin,0,sizeof(builtin));builtin.anchor=-1;display=&builtin;}
         }

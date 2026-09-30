@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.214'
+          assert module['version']=='0.2.215'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -336,12 +336,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Consolidate Scale Above as Secondary II and Chromatic Below as Secondary LT. Keep scale-dependent Secondary VII distinct. Preserve saved operation IDs, recorded intent and Chromatic Chord settings. Pair with Movy hbclean.123."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Two performance banks and Triple Approach. Knobs 1–8 share motif-bank assignments 1–8; the last knob touch selects a persistent spatial three-step motif. Includes vi-ii-V and seven other defaults, independent note ownership, recorded row intent and ordinary-layout performance. Pair with Movy hbclean.124."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Consolidate Scale Above as Secondary II and Chromatic Below as Secondary LT. Keep scale-dependent Secondary VII distinct. Preserve saved operation IDs, recorded intent and Chromatic Chord settings. Pair with Movy hbclean.123." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Two performance banks and Triple Approach. Knobs 1–8 share motif-bank assignments 1–8; the last knob touch selects a persistent spatial three-step motif. Includes vi-ii-V and seven other defaults, independent note ownership, recorded row intent and ordinary-layout performance. Pair with Movy hbclean.124." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
