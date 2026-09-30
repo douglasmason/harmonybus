@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.218'
+          assert module['version']=='0.2.219'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -336,12 +336,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Scale Degree Auto Chord expands the travelled follower note. New defaults: Receive Off, Major input scale, Played Top Note for followers, Auto inversion for conductors, Shuffle arp order. Pair with Movy hbclean.129 for repeated render-channel defaults and track-color refresh."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Rename Scale Degree Auto Chord to Rendered Note Root. Saved settings and legacy command names remain compatible. Musical behavior is unchanged from 0.2.218; compatible with Movy hbclean.129." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Scale Degree Auto Chord expands the travelled follower note. New defaults: Receive Off, Major input scale, Played Top Note for followers, Auto inversion for conductors, Shuffle arp order. Pair with Movy hbclean.129 for repeated render-channel defaults and track-color refresh." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Rename Scale Degree Auto Chord to Rendered Note Root. Saved settings and legacy command names remain compatible. Musical behavior is unchanged from 0.2.218; compatible with Movy hbclean.129." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

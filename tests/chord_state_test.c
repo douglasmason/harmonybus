@@ -10,7 +10,7 @@ int main(void){
     API.set_param(instance,"motion_amount","Scale Degree Burst");
     hb_cp_config baseline=instance->player.config;
     API.set_param(instance,"chord_edit_target","Lane 1");
-    expect_value(instance,"chord_mode","Scale Degree");
+    expect_value(instance,"chord_mode","Rendered Note Root");
     expect_value(instance,"arp_start","Played / Pad");
     expect_value(instance,"arp_phase","First Note Free");
     assert(!instance->player.state_override);

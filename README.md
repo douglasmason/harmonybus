@@ -1,3 +1,5 @@
+**0.2.219:** Auto Chord “Scale Degree” is now named “Rendered Note Root.” This is a label change; saved settings and the old Scale Degree/Scale Root command names remain compatible.
+
 **New-track defaults:** Follower inversion is Played Top Note; conductor inversion is Auto. Arp order defaults to Shuffle. Saved overrides remain intact.
 
 **Scale Degree Auto Chord:** Followers expand the note after travel and Follow Play into a chord, with that rendered note as root. Source-note ownership remains unchanged for releases and recorded input.

@@ -567,7 +567,7 @@ static void generated_degree_progression(void){
     API.set_param(instance,"chord_mode","Off");
     API.set_param(instance,"chord_mode","Scale Root");
     char name[64];API.get_param(instance,"chord_mode",name,sizeof(name));
-    assert(!strcmp(name,"Scale Degree"));
+    assert(!strcmp(name,"Rendered Note Root"));
     API.destroy_instance(instance);
 }
 static void split2_and_master(void){

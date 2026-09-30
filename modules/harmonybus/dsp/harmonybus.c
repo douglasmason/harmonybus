@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.218"
+#define HB_VERSION "0.2.219"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4537,7 +4537,7 @@ static int hb_context_to_legacy_stability(int context){
 }
 static const char *BORROWED_SCALE_OPTS[]={"Minimal","Aeolian","Dorian","Mixolydian b6"};
 static const char *DOMINANT_SCALE_OPTS[]={"Off","Harmonic Minor","Melodic Minor","Altered V"};
-static const char *CP_CHORD_MODE[]={"Off","Scale Degree","Conductor Chord"};
+static const char *CP_CHORD_MODE[]={"Off","Rendered Note Root","Conductor Chord"};
 static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth","Played Top Note"};
 static const char *CP_CHORD_VOICING[]={"Close","Root + Fifth Low","Alternate Up","Shell"};
 static const char *CP_ARP_PHASE[]={"Free","On Grid","First Note Free"};
@@ -4712,7 +4712,7 @@ if(!strcmp(key,"dominant_scale")){
     return;
 }
 if(!strcmp(key,"chord_mode")){
-    if(!strcmp(parameter,"Scale Root"))parameter="Scale Degree"; /* Legacy presets/scripts. */
+    if(!strcmp(parameter,"Scale Root")||!strcmp(parameter,"Scale Degree"))parameter="Rendered Note Root"; /* Legacy presets/scripts. */
     int selected=enum_index(parameter,CP_CHORD_MODE,3,instance->player.config.mode);
     if(selected!=instance->player.config.mode){hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config.mode=selected;}
     return;
