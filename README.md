@@ -1,3 +1,7 @@
+**New-track defaults:** Follower inversion is Played Top Note; conductor inversion is Auto. Arp order defaults to Shuffle. Saved overrides remain intact.
+
+**Scale Degree Auto Chord:** Followers expand the note after travel and Follow Play into a chord, with that rendered note as root. Source-note ownership remains unchanged for releases and recorded input.
+
 **0.2.218:** Receive Channel adds Off and defaults to Off. Disabled receivers no longer fall back to channel 1. Turning reception off releases held receiver notes; saved explicit channels remain compatible. Ordinary local input continues to use automatic source matching. Follower/input scale defaults to explicit Major; Infer remains available and saved scale choices are preserved.
 
 **Approach routing fix (HB 0.2.217 / Movy hbclean.126):** Dedicated Approach and Triple Approach layouts enable follower approach pads independently of chromatic mapping and travel. Sound and play-color previews use the same eligibility rule. Operation knob LEDs own their indicators; generic parameter-value lights cannot overwrite them.

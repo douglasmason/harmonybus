@@ -4,6 +4,7 @@ static int g_role_ready=0,g_role_restored=0;
 static void hb_role_init(void){
     if(g_role_ready)return;
     for(int role=0;role<2;role++)memcpy(g_role_fallback[role],HB_POLICY_DEFAULTS,sizeof(HB_POLICY_DEFAULTS));
+    g_role_fallback[1][HB_P_INVERSION]=8;
     g_role_ready=1;
 }
 static int hb_role_default(int role,int field){

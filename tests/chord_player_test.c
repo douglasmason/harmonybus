@@ -27,6 +27,7 @@ static Inst *fixture(void){
     position=0;tempo=120;transport=2;render_count=recorded_count=0;
     move_midi_fx_init(&host);
     Inst *instance=API.create_instance("",NULL);
+    API.set_param(instance,"chord_inversion","Auto");API.set_param(instance,"arp_order","Up"); /* Legacy fixtures choose their voicing/order explicitly. */
     instance->content_map=0; /* Legacy tests explicitly exercise Chord content. */
     instance->next_anti_buffer_ms=0; /* Legacy timing fixture: no onset guard. */
     instance->chromatic_map=0; /* Existing suites exercise unmodified travel. */
@@ -535,8 +536,8 @@ static void chord_qualities(void){
     assert(instance->approach_pad_armed==HB_APPROACH_OFF);
     midi(instance,0,62);assert(advance(instance,0,64)==4);
     midi(instance,1,62);assert(advance(instance,0,64)==4);
-    const int regular_dmin7[]={62,65,69,72};
-    expect_notes((int[]){output[0][1],output[1][1],output[2][1],output[3][1]},regular_dmin7,4);
+    const int rendered_emin7[]={64,67,71,74}; // D travels to E before chord expansion.
+    expect_notes((int[]){output[0][1],output[1][1],output[2][1],output[3][1]},rendered_emin7,4);
     API.destroy_instance(instance);
 }
 static void generated_degree_progression(void){
@@ -1357,4 +1358,33 @@ static void input_latch_controls(void){
     assert(instance->player.config.latch==5&&instance->player.config.clear_harmony==1);
     API.destroy_instance(instance);
 }
-int main(void){chromatic_minor_families();input_latch_controls();shuffle_cycles();cycle_rate();latch_replacement_with_off();latch_acc_with_off();pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
+static void fresh_role_defaults(void){
+    Inst *legacy=fixture(),*fresh=API.create_instance("",NULL);char value[40];
+    API.set_param(fresh,"role","Follower");API.get_param(fresh,"chord_inversion",value,sizeof(value));assert(!strcmp(value,"Played Top Note"));
+    API.get_param(fresh,"arp_order",value,sizeof(value));assert(!strcmp(value,"Shuffle"));
+    API.set_param(fresh,"role","Conductor");API.get_param(fresh,"chord_inversion",value,sizeof(value));assert(!strcmp(value,"Auto"));
+    API.set_param(fresh,"chord_inversion","First");API.set_param(fresh,"role","Follower");
+    API.get_param(fresh,"chord_inversion",value,sizeof(value));assert(!strcmp(value,"First"));
+    API.destroy_instance(fresh);API.destroy_instance(legacy);
+}
+static void scale_chord_follows_travel(void){
+    static const char *travels[]={"Relative","Closest","Upward","Closest Split","Downward","Direct","Closest Split Chromatic","None"};
+    for(int travel=0;travel<8;travel++)for(int playback=0;playback<2;playback++)for(int rotated=0;rotated<2;rotated++){
+        Inst *instance=fixture();
+        const uint8_t harmony_notes[3]={65,69,72};
+        hb_commit_observed_harmony(hb_infer_harmony(harmony_notes,3));
+        API.set_param(instance,"travel_map",travels[travel]);
+        API.set_param(instance,"chord_inversion","Root");API.set_param(instance,"chord_form","Triad");
+        if(rotated)API.set_param(instance,"play_rotate","1");
+        instance->movy_playback=playback;
+        int expected=hb_map_follower_note_now(instance,60);
+        API.set_param(instance,"chord_mode","Scale Degree");
+        hb_player_note_on(instance,60,0,100);
+        hb_cp_key *key=NULL;for(int slot=0;slot<HB_CP_KEYS;slot++)if(instance->player.keys[slot].used)key=&instance->player.keys[slot];
+        assert(key&&key->source==60&&key->count==3);
+        assert(key->root_pc==mod12(expected)&&key->notes[0]==expected);
+        hb_cp_off(&instance->player,60,0);advance(instance,0,64);
+        API.destroy_instance(instance);
+    }
+}
+int main(void){fresh_role_defaults();scale_chord_follows_travel();chromatic_minor_families();input_latch_controls();shuffle_cycles();cycle_rate();latch_replacement_with_off();latch_acc_with_off();pad_global_settings();pad_render_mapping();pad_harmony_snapshot();rapid_latched_arp_api();rapid_latched_arp();conductor_arp_range_recording();follower_play_transform();follower_play_ownership();pressure_recording_and_replay();arp_pressure();retrigger_default();arp_start_modes_and_offsets();arp_buffer_bypass();raw_arp_relative_mapping();arp_harmony_boundary();held_conductor_chords();recorded_master_transpose();four_bar_timing();receiver_routing();split2_and_master();split_seventh();predicted_capture();generated_degree_progression();phase_grid();voicings();forms_and_shells();ownership();strum();arp_and_latch();dominant_shift();release_harmony_and_state();conductor_chords();chord_qualities();puts("chord player: follower and conductor voicings, quality, harmony, ownership, rendering, strum, arp/latch, state and panic pass");}
