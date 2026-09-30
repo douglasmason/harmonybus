@@ -10,8 +10,20 @@ static int hb_ar_slot(const char *key,const char *prefix,int count){
 }
 static int hb_ar_set(Inst *instance,const char *key,const char *value){
     hb_ar_state *state=&instance->approach_rows;
-    if(!strcmp(key,"approach_mode_active")){state->enabled=parse_i(value,0)!=0;state->down=state->knob_down=state->step_down=0;state->performance=0;state->latch=0;state->bank_armed=-1;return 1;}
-    if(!strcmp(key,"approach_latch")){state->latch=!strcmp(value,"On")||!strcmp(value,"1");if(state->latch){if(!state->selected){state->order[0]=hb_ar_code(state,state->row_preset);state->count=1;state->cursor=state->event=0;state->selected=1u<<state->row_preset;}state->performance=1;}else if(!state->down)state->performance=0;return 1;}
+    if(!strcmp(key,"approach_mode_active")){state->enabled=parse_i(value,0)!=0;state->down=state->knob_down=state->step_down=state->turned=0;state->performance=0;state->latch=0;state->bank_armed=-1;return 1;}
+    int control=hb_ar_slot(key,"approach_control_",16);
+    if(control>=0){
+        unsigned bit=1u<<control;int on=!strcmp(value,"LatchOn")||!strcmp(value,"On")||!strcmp(value,"1");
+        if(on)state->latch_slots|=bit;else state->latch_slots&=~bit;
+        state->turned|=bit;
+        /* A composed phrase owns its finite cursor, even if a member's saved
+           latch preference changes while the controls are still touched. */
+        if(state->count>1&&state->performance)return 1;
+        if(on||(state->selected&bit))state->latch=on;
+        if(on){state->order[0]=hb_ar_code(state,control);state->order_slot[0]=control;state->count=1;state->cursor=state->event=0;state->selected=bit;state->performance=1;}
+        else if(state->selected&bit)state->performance=0;
+        return 1;
+    }
     int slot=hb_ar_slot(key,"approach_knob_",8);
     if(slot>=0){state->knobs[slot]=enum_index(!strcmp(value,"Chromatic Below")||!strcmp(value,"Chrom Below")?"Secondary LT":value,HB_AR_NAMES,29,state->knobs[slot]);
         int choice=state->knobs[slot];state->bank[slot]=choice<13?-(choice+1):state->bank[choice-13];
@@ -23,18 +35,31 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
     slot=step_touch>=0?step_touch:hb_ar_slot(key,"approach_touch_",16);
     if(slot>=0){
         unsigned bit=1u<<slot;unsigned *physical=step_touch>=0?&state->step_down:&state->knob_down;
+        if(!strcmp(value,"Cancel")){
+            *physical&=~bit;state->down=state->knob_down|state->step_down;
+            if(state->count==1){if(!state->latch)state->performance=0;}
+            else {
+                for(int index=state->count-1;index>=0;index--)if(state->order_slot[index]==slot){
+                    for(int next=index+1;next<state->count;next++){state->order[next-1]=state->order[next];state->order_slot[next-1]=state->order_slot[next];}
+                    state->count--;if(index<state->cursor)state->cursor--;else if(index==state->cursor)state->event=0;
+                }
+                state->selected&=~bit;if(state->cursor>=state->count){state->cursor=0;state->performance=0;}
+            }
+            return 1;
+        }
         if(!strcmp(value,"Down")){
-            if(*physical&bit)return 1;*physical|=bit;hb_ar_row_touch(state,slot);
+            if(*physical&bit)return 1;*physical|=bit;state->turned&=~bit;hb_ar_row_touch(state,slot);
             /* Selecting a spatial row must not arm a transformation for the
                target pad. Non-approach layouts retain the performance bank. */
             if(hb_ar_spatial_layout(instance)){state->down=state->knob_down|state->step_down;if(!state->latch)state->performance=0;return 1;}
             if(state->down&bit)return 1;
-            if(!state->down){state->count=0;state->cursor=state->event=0;state->selected=0;state->used=0;}
+            if(!state->down){state->count=0;state->cursor=state->event=0;state->selected=0;state->used=0;state->latch=!!(state->latch_slots&bit);}
             state->performance=1;state->touched_at[slot]=hb_motion_position(instance);
             if(state->count<8){state->order_slot[state->count]=slot;state->order[state->count++]=hb_ar_code(state,slot);}
             state->selected|=bit;
+            if(state->count>1)state->latch=0;
             state->down|=bit;
-        }else{*physical&=~bit;state->down=state->knob_down|state->step_down;int elapsed=parse_i(strchr(value,',')?strchr(value,',')+1:"0",0);if(!state->down&&!state->latch&&(elapsed>=g_hb_hold_ms||state->used))state->performance=0;}
+        }else{*physical&=~bit;state->down=state->knob_down|state->step_down;int elapsed=parse_i(strchr(value,',')?strchr(value,',')+1:"0",0);if(!state->down&&!state->latch&&state->count==1&&!(state->turned&bit)&&(elapsed>=g_hb_hold_ms||state->used))state->performance=0;}
         return 1;
     }
     if(!strcmp(key,"approach_trigger")){state->bank_armed=hb_cp_clamp(parse_i(value,0),0,16)-1;return 1;}
@@ -42,7 +67,8 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
 }
 static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
     hb_ar_state *state=&instance->approach_rows;int slot=hb_ar_slot(key,"approach_knob_",8);
-    if(!strcmp(key,"approach_latch"))return snprintf(buffer,(size_t)length,"%s",state->latch?"On":"Off");
+    int control=hb_ar_slot(key,"approach_control_",16);
+    if(control>=0)return snprintf(buffer,(size_t)length,"%s",state->bank[control]<0?hb_ar_name(-state->bank[control]-1):MO_MOTIFS[state->bank[control]]);
     if(slot>=0)return snprintf(buffer,(size_t)length,"%s",hb_ar_name(state->knobs[slot]));
     slot=hb_ar_slot(key,"approach_bank_",16);
     if(slot>=0)return snprintf(buffer,(size_t)length,"%s",state->bank[slot]<0?hb_ar_name(-state->bank[slot]-1):MO_MOTIFS[state->bank[slot]]);
@@ -58,7 +84,7 @@ static int hb_ar_save(Inst *instance,char *buffer,int length,int used){
     for(int index=0;index<16&&used<length;index++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",state->bank[index]);
     if(used<length)used+=snprintf(buffer+used,(size_t)(length-used),",%d",state->count);
     for(int index=0;index<state->count&&used<length;index++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",state->order[index]);
-    if(used<length)used+=snprintf(buffer+used,(size_t)(length-used),";ar2,%d;ar3,%d,%d,%d",state->row_preset,state->row_slots[0],state->row_slots[1],state->row_slots[2]);
+    if(used<length)used+=snprintf(buffer+used,(size_t)(length-used),";ar2,%d;ar3,%d,%d,%d;ar4,%u",state->row_preset,state->row_slots[0],state->row_slots[1],state->row_slots[2],state->latch_slots);
     return used>=length?-1:used;
 }
 static void hb_ar_restore(Inst *instance,const char *source){
@@ -78,6 +104,8 @@ static void hb_ar_restore(Inst *instance,const char *source){
     const char *rows=strstr(source,";ar3,");
     if(rows){rows+=4;for(int row=0;row<3;row++){if(*rows++!=',')return;char *end;long slot=strtol(rows,&end,10);if(end==rows||slot<0||slot>=16)return;restored.row_slots[row]=(int)slot;rows=end;}if(*rows&&*rows!=';')return;}
     else for(int row=0;row<3;row++)restored.row_slots[row]=2-row;
+    const char *latches=strstr(source,";ar4,");restored.latch_slots=restored.turned=0;
+    if(latches){char *end;long mask=strtol(latches+5,&end,10);if(end==latches+5||(*end&&*end!=';')||mask<0||mask>65535)return;restored.latch_slots=(unsigned)mask;}
     memset(restored.row_steps,0,sizeof(restored.row_steps));
     restored.performance=restored.latch=restored.row_event=0;restored.pending_row=restored.preview_row=-1;
     instance->approach_rows=restored;
