@@ -336,12 +336,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Fix silent Approach and Triple Approach follower rows when chromatic mapping is off. Preserve bottom-up FIFO loading and top-down 3-2-1 playing. Pair with Movy hbclean.126 for routing and stable operation knob LEDs."
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Scale Degree Auto Chord expands the travelled follower note. New defaults: Receive Off, Major input scale, Played Top Note for followers, Auto inversion for conductors, Shuffle arp order. Pair with Movy hbclean.129 for repeated render-channel defaults and track-color refresh."
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Fix silent Approach and Triple Approach follower rows when chromatic mapping is off. Preserve bottom-up FIFO loading and top-down 3-2-1 playing. Pair with Movy hbclean.126 for routing and stable operation knob LEDs." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Scale Degree Auto Chord expands the travelled follower note. New defaults: Receive Off, Major input scale, Played Top Note for followers, Auto inversion for conductors, Shuffle arp order. Pair with Movy hbclean.129 for repeated render-channel defaults and track-color refresh." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
