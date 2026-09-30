@@ -7,12 +7,13 @@ static const char *HB_AR_NAMES[]={"Secondary LT","Chromatic Above","Scale Above"
 /* Index 2 remains a legacy Scale Above assignment; new choices use Secondary II. */
 static const char *hb_ar_name(int choice){return HB_AR_NAMES[choice==2?3:choice];}
 typedef struct {
+    int row_slots[3],row_steps[3];
     int row_preset,row_event,pending_row,preview_row,performance,latch,used;
     double touched_at[16];
     int enabled,knobs[8],bank[16],order[8],order_slot[8],count,cursor,event,bank_armed;
     unsigned down,knob_down,step_down,selected;unsigned long long saved_word;int restore_word;unsigned short tokens[128];unsigned char swallow[16][128];
 } hb_ar_state;
-static void hb_ar_init(hb_ar_state *state){memset(state,0,sizeof(*state));for(int index=0;index<8;index++)state->knobs[index]=13+index;for(int index=0;index<16;index++)state->bank[index]=index+1;state->order[0]=1;for(int index=0;index<8;index++)state->order_slot[index]=-1;state->count=1;state->bank_armed=-1;state->pending_row=state->preview_row=-1;for(int slot=0;slot<8;slot++)state->bank[slot]=36+slot;}
+static void hb_ar_init(hb_ar_state *state){memset(state,0,sizeof(*state));for(int index=0;index<8;index++)state->knobs[index]=13+index;for(int index=0;index<16;index++)state->bank[index]=index+1;state->order[0]=1;for(int index=0;index<8;index++)state->order_slot[index]=-1;state->count=1;state->bank_armed=-1;state->pending_row=state->preview_row=-1;for(int row=0;row<3;row++)state->row_slots[row]=2-row;}
 static int hb_ar_choice_code(const hb_ar_state *state,int choice){int reference=choice<13?-(choice+1):state->bank[choice-13];return reference<0?-reference:15+reference;}
 static int hb_ar_code(const hb_ar_state *state,int slot){int reference=state->bank[slot];return reference<0?-reference:15+reference;}
 static int hb_ar_alias_shift(unsigned long long word){int marker=(word>>2)&3;return marker==1?-36:marker==2?36:marker==3?(int)(signed char)(word>>55):0;}
@@ -28,9 +29,17 @@ static void hb_ar_advance(hb_ar_state *state){
     }
     state->event=0;state->cursor=(state->cursor+1)%state->count;if(!state->cursor&&!state->down&&!state->latch)state->performance=0;
 }
-/* Triple rows address fixed motif steps; a single approach row advances it. */
-static unsigned hb_ar_row_peek(const hb_ar_state *state,int row){unsigned code=hb_ar_code(state,state->row_preset);unsigned step=row==3?state->row_event:(unsigned)row;return code<16?(step?15:code):code|(step<<6);}
-static void hb_ar_row_advance(hb_ar_state *state,int row){if(row!=3)return;hb_mt_phrase builtin;const hb_mt_phrase *phrase=hb_ar_phrase(hb_ar_code(state,state->row_preset),&builtin);int step=state->row_event+1;while(phrase&&step<phrase->count&&phrase->events[step].kind==2)step++;state->row_event=phrase&&step<phrase->count?step:0;}
+/* Last three control touches form a persistent FIFO, independent of holds. */
+static void hb_ar_row_touch(hb_ar_state *state,int slot){
+    for(int row=2;row>0;row--){state->row_slots[row]=state->row_slots[row-1];state->row_steps[row]=state->row_steps[row-1];}
+    state->row_slots[0]=state->row_preset=slot;state->row_steps[0]=state->row_event=0;
+}
+static unsigned hb_ar_row_peek(const hb_ar_state *state,int row){unsigned code=hb_ar_code(state,row==3?state->row_preset:state->row_slots[row]);unsigned step=row==3?state->row_event:state->row_steps[row];return code<16?code:code|(step<<6);}
+static void hb_ar_row_advance(hb_ar_state *state,int row){
+    int *cursor=row==3?&state->row_event:&state->row_steps[row];hb_mt_phrase builtin;
+    const hb_mt_phrase *phrase=hb_ar_phrase(hb_ar_code(state,row==3?state->row_preset:state->row_slots[row]),&builtin);
+    int step=*cursor+1;while(phrase&&step<phrase->count&&phrase->events[step].kind==2)step++;*cursor=phrase&&step<phrase->count?step:0;
+}
 static unsigned hb_ar_live_peek(const hb_ar_state *state,int row){return row>=0?hb_ar_row_peek(state,row):state->performance?hb_ar_peek(state):0;}
 static void hb_ar_live_advance(hb_ar_state *state,int row){if(row>=0)hb_ar_row_advance(state,row);else{state->used=1;hb_ar_advance(state);}}
 static unsigned long long hb_ar_intent(unsigned token){
