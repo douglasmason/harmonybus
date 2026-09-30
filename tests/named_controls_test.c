@@ -3,7 +3,7 @@
 int main(void){
     Inst *instance=fixture();char buffer[65536],state[16384];
     for(int lane=0;lane<16;lane++)assert(instance->motion.lanes[lane].operation==HB_MO_OFF);
-    API.set_param(instance,"motion_lane","Pitch Play 3: Chrom Above");assert(instance->motion.selected==18);
+    API.set_param(instance,"motion_lane","Approach Harmony 3: Connector Above");assert(instance->motion.selected==18);
     API.set_param(instance,"motion_operation","Velocity");assert(instance->motion.lanes[18].operation==HB_MO_CHROM_ABOVE);
     API.set_param(instance,"motion_lane","Step Seq 1: Off");API.set_param(instance,"motion_operation","Velocity");
     API.set_param(instance,"motion_control_1","-20");assert(instance->motion.selected==0&&instance->motion.lanes[0].amount==-20);
