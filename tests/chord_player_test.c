@@ -703,8 +703,14 @@ static void predicted_capture(void){
     API.destroy_instance(instance);
 }
 static void receiver_routing(void){
+    char name_default[32];
     Inst *source=fixture(),*r=API.create_instance("",NULL),*other=API.create_instance("",NULL);
-    API.set_param(r,"role","Receiver");API.set_param(r,"receive_channel","4");
+    API.get_param(r,"receive_channel",name_default,sizeof(name_default));assert(!strcmp(name_default,"Off"));
+    API.set_param(r,"role","Receiver");
+    uint8_t default_packet[4]={0x29,0x90,60,100};hb_send_render(source,default_packet,0);
+    assert(advance(r,0,64)==0); // Off never aliases channel 1.
+    render_count=0;
+    API.set_param(r,"receive_channel","4");
     API.set_param(other,"role","Receiver");API.set_param(other,"receive_channel","3");
     assert(r->role==3&&r->source_channel==3);
     char state[8192],name[32];API.get_param(r,"state",state,sizeof(state));
@@ -746,6 +752,11 @@ static void receiver_routing(void){
     API.set_param(r,"receive_channel","2");char changed[8192];API.get_param(r,"state",changed,sizeof(changed));advance(r,0,64);
     API.set_param(r,"state",state);hb_send_render(source,packet,0);assert(advance(r,0,64)==1);
     API.set_param(r,"state",changed);assert(advance(r,0,64)==1&&output[0][0]==0x80);
+    API.set_param(r,"receive_channel","4");hb_send_render(source,packet,0);assert(advance(r,0,64)==1);
+    API.set_param(r,"receive_channel","Off");assert(advance(r,0,1)==1&&output[0][0]==0x80);
+    hb_send_render(source,packet,0);assert(advance(r,0,64)==0);
+    API.get_param(r,"state",changed,sizeof(changed));API.set_param(r,"receive_channel","4");API.set_param(r,"state",changed);
+    API.get_param(r,"receive_channel",name,sizeof(name));assert(!strcmp(name,"Off"));
     // A chord-playing source becoming a receiver must release its existing voices.
     API.destroy_instance(r);API.destroy_instance(source);source=fixture();
     API.set_param(source,"chord_mode","Scale Degree");API.set_param(source,"chord_form","Triad");midi(source,1,60);assert(advance(source,0,64)==3);

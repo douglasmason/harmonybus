@@ -23,5 +23,6 @@ int main(void){
     API.set_param(first,"follower_scale","Major");second=API.create_instance("",0);
     API.set_param(second,"state",stale);expect_scale(second,"Major");
     API.destroy_instance(first);API.destroy_instance(second);
+    first=API.create_instance("",0);expect_scale(first,"Major");API.destroy_instance(first);
     puts("global follower scale: cross-track edits, conductor keyboard metadata, Auto, migration and stale-restore protection pass");
 }

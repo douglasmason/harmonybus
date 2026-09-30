@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.217"
+#define HB_VERSION "0.2.218"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -120,7 +120,7 @@ static hb_global_shared_t *g_global_shared=0;
    sufficient because Schwung can recreate instances while navigating UI. */
 static int g_follower_globals_restored=0;
 static int g_scale_restored=0;
-static int g_scale_fallback=0;
+static int g_scale_fallback=1;
 static unsigned g_infer_revision=0,g_infer_cached_revision=0;
 static int g_infer_cached_root=-1,g_infer_cached_transpose=0,g_infer_cached_count=-1;
 static unsigned g_infer_cached_observed=0;
@@ -165,6 +165,7 @@ static void hb_global_open(void){
         /* Default to inferred Move input key, never an undefined policy. */
         shared->follower_root_policy=0;
         shared->follower_explicit_root=0;
+        shared->follower_scale=1;
     }
     g_global_shared=shared;
 }
@@ -191,7 +192,7 @@ static void hb_store_scale_exceptions(int dominant,int borrowed){
 static int hb_shared_follower_scale(void){
     hb_global_open();
     int scale=g_global_shared?g_global_shared->follower_scale:g_scale_fallback;
-    return scale>=0&&scale<18?scale:0;
+    return scale>=0&&scale<18?scale:1;
 }
 static void hb_set_shared_follower_scale(int scale){
     if(scale<0||scale>17)return;
@@ -456,7 +457,7 @@ static int hb_sync_conductor_from_monitor(Inst *instance){
     (void)generation;
     return changed;
 }
-static void ensure_init(void){if(g_init)return;hb_touch_defaults();g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=0;g_bus.follower_scale=0;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
+static void ensure_init(void){if(g_init)return;hb_touch_defaults();g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=0;g_bus.follower_scale=1;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
 
 static char *hb_read_text_file(const char *path,long *size_out){
     FILE *file=fopen(path,"rb");if(!file)return 0;
@@ -1620,7 +1621,7 @@ static int hb_send_render_raw(Inst *source,const uint8_t input_packet[4],int sup
     if(source->role!=3&&id>=0&&id<HB_MAX_INSTANCES){
         for(int i=0;i<HB_MAX_INSTANCES;i++){
             Inst *r=&g_pool[i];
-            if(!r->used||r->role!=3||(r->source_channel<0?0:r->source_channel)!=channel)continue;
+            if(!r->used||r->role!=3||r->source_channel!=channel)continue;
             if(r->receiver_count>=256){hb_receiver_reset(r);continue;} // fail closed, no hanging voices
             r->receiver_queue[r->receiver_count++]=(hb_rx_event){(uint8_t)id,packet[2],packet[3],(uint8_t)((packet[1]&0xf0)==0xb0?2:((packet[1]&0xf0)==0x90&&packet[3]>0))};
         }
@@ -3482,7 +3483,7 @@ if(instance){
     hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);
     hb_receiver_remove_source(instance);
     instance->used=0;
-}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(0);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
+}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(1);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
     if(instance->source_channel>=0)return midi_channel==instance->source_channel;
@@ -4678,7 +4679,7 @@ if(!strcmp(key,"play_range")){static const char *options[]={"1 Oct","2 Oct","3 O
 if(!strcmp(key,"play_scope")){static const char *options[]={"Both","Clip","Live"};int selected=enum_index(parameter,options,3,instance->play.scope);if(selected!=instance->play.scope){instance->play.scope=selected;instance->play_revision++;}return;}
 if(!strcmp(key,"play_bypass")){static const char *options[]={"Off","On"};int selected=enum_index(parameter,options,2,instance->play.bypass);if(selected!=instance->play.bypass){instance->play.bypass=selected;instance->play_revision++;}return;}
 if(!strcmp(key,"receive_channel")){
-    int channel=enum_index(parameter,SOURCE_CH_OPTS+1,16,instance->source_channel<0?0:instance->source_channel);
+    int channel=enum_index(parameter,RENDER_CH_OPTS,17,instance->source_channel+1)-1;
     if(channel!=instance->source_channel){hb_receiver_reset(instance);instance->source_channel=channel;}
     return;
 }
@@ -5917,7 +5918,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         effective.valid?(unsigned)hb_harmony_chord_mask(effective):0u,
         scale.valid?(unsigned)scale.pitch_mask:0u,ready);
 }
-if(!strcmp(key,"receive_channel"))return snprintf(buffer,(size_t)length,"%d",(instance->source_channel<0?0:instance->source_channel)+1);
+if(!strcmp(key,"receive_channel"))return snprintf(buffer,(size_t)length,"%s",RENDER_CH_OPTS[instance->source_channel+1]);
 
 if(!strcmp(key,"master_transpose")){
     int reference=0;

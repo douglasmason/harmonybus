@@ -55,7 +55,7 @@ jobs:
           assert 'receiver' not in levels
           assert levels['root']['knobs']==['version','track_role','render_channel','receive_channel','quant_timing','chord_timing','anticipation','boundary_buffer_ms']
           assert next(p for p in levels['root']['params'] if p.get('key')=='track_role')['options']==['Conductor','Follower','Receiver','Off']
-          assert next(p for p in levels['root']['params'] if p.get('key')=='receive_channel')['options']==[str(i) for i in range(1,17)]
+          assert next(p for p in levels['root']['params'] if p.get('key')=='receive_channel')['options']==['Off']+[str(i) for i in range(1,17)]
           assert levels['chord_player']['name']=='Chords'
           assert levels['pad_display']['name']=='Pads Global'
           assert len(levels['pad_display']['knobs'])==8
