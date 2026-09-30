@@ -5,6 +5,28 @@ static int input(Inst *i,int source,int on){uint8_t message[3]={(uint8_t)(on?0x9
 static Inst *setup(void){Inst *i=fixture();i->travel_map=0;i->content_map=1;i->chromatic_map=1;i->boundary_buffer_ms=0;i->next_anti_buffer_ms=0;hb_set_shared_follower_scale(1);g_bus.observed_harmony=chord(0,0,0);hb_effective_write(g_bus.observed_harmony);return i;}
 static void touch(Inst *i,const char *key){API.set_param(i,key,"Down");API.set_param(i,key,"Up,50");}
 int main(void){
+    /* Spatial motif rows follow physical gates, independently of target pads. */
+    {
+        Inst *pad=setup();pad->approach_layout=1;
+        API.set_param(pad,"approach_bank_1","Stock: vi-ii-V");touch(pad,"approach_touch_1");
+        API.set_param(pad,"hb_movy_input_approach","92,-32,0");input(pad,92,1);
+        int voices=0;for(int index=0;index<HB_MT_SCHEDULE;index++)if(pad->motif.events[index].used){assert(pad->motif.events[index].pad_owner==93);assert(pad->motif.events[index].off>1000);voices++;}
+        assert(voices>0);
+        input(pad,60,1);input(pad,60,0);
+        assert(pad->motif.pending==voices); /* target is a separate owner */
+        uint8_t release[3]={0x80,92,0},output[64][3];int lengths[64];
+        API.process_midi(pad,release,3,output,lengths,64);
+        int count=API.tick(pad,64,48000,output,lengths,64),offs=0;
+        for(int index=0;index<count;index++)if((output[index][0]&0xf0)==0x80)offs++;
+        assert(offs>0&&!pad->motif.pending);
+        /* Release before the first audio tick must not produce a late onset. */
+        API.set_param(pad,"hb_movy_input_approach","92,-32,0");
+        uint8_t press[3]={0x90,92,100};API.process_midi(pad,press,3,output,lengths,64);
+        release[0]=0x90;API.process_midi(pad,release,3,output,lengths,64);
+        count=API.tick(pad,64,48000,output,lengths,64);
+        for(int index=0;index<count;index++)assert((output[index][0]&0xf0)!=0x90||!output[index][2]);
+        assert(!pad->motif.pending);API.destroy_instance(pad);
+    }
     Inst *i=setup();char text[65536];
     API.get_param(i,"approach_bank_1",text,sizeof(text));assert(!strcmp(text,"Stock: V-Target"));
     API.set_param(i,"approach_bank_1","Secondary LT");API.set_param(i,"approach_bank_2","Secondary II");API.set_param(i,"approach_bank_3","Secondary V");
