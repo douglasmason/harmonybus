@@ -7,6 +7,17 @@ static void knob(Inst *i,int lane,int elapsed,int stamp){
 }
 int main(void){
     Inst *i=fixture();i->travel_map=7;
+    API.set_param(i,"motion_lane","7");
+    for(int slot=0;slot<16;slot++){
+        char key[40],value[80];snprintf(key,sizeof(key),"motion_operation_%d",slot+1);
+        int before[HB_MOTION_LANES];for(int lane=0;lane<HB_MOTION_LANES;lane++)before[lane]=i->motion.lanes[lane].operation;
+        API.set_param(i,key,"Velocity");API.get_param(i,key,value,sizeof(value));assert(!strcmp(value,"Velocity"));
+        assert(i->motion.selected==6&&i->motion.lanes[slot].operation==HB_MO_VELOCITY);
+        for(int lane=0;lane<HB_MOTION_LANES;lane++)if(lane!=slot)assert(i->motion.lanes[lane].operation==before[lane]);
+    }
+    int named=i->motion.lanes[32].operation;API.set_param(i,"motion_operation_33","Velocity");assert(i->motion.lanes[32].operation==named);
+    API.set_param(i,"motion_operation_16","Chord/Arp State");assert(i->motion.lanes[15].chord_state_valid&&i->motion.selected==6);
+    API.destroy_instance(i);i=fixture();i->travel_map=7;
     API.set_param(i,"motion_lane","1");API.set_param(i,"motion_operation","Velocity");API.set_param(i,"motion_amount","-50");API.set_param(i,"motion_enabled","Off");
     knob(i,1,40,1000);knob(i,1,40,1100);
     assert(i->motion.gesture_once==1&&!i->motion.gesture_persistent);
