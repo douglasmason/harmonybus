@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.220"
+#define HB_VERSION "0.2.221"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4654,8 +4654,9 @@ hb_next_touch_clear_expired(instance);
 int next_lane=hb_mo_slot_key(key,"motion_gesture_");if(next_lane<0)next_lane=hb_mo_slot_key(key,"motion_hold_");
 unsigned long long next_before=instance->motion.held|instance->motion.gesture_down;
 if(hb_mo_set(&instance->motion,key,parameter)){
-    if(!strcmp(key,"motion_operation")){
-        hb_motion_lane *lane=&instance->motion.lanes[instance->motion.selected];
+    int assigned_lane=hb_mo_slot_key(key,"motion_operation_");
+    if(!strcmp(key,"motion_operation")||(assigned_lane>=0&&assigned_lane<HB_MOTION_USER_LANES)){
+        hb_motion_lane *lane=&instance->motion.lanes[assigned_lane>=0?assigned_lane:instance->motion.selected];
         if(lane->operation==HB_MO_CHORD_STATE&&!lane->chord_state_valid){lane->chord_state=instance->player.config;lane->chord_state_valid=1;lane->amount=0;}
     }
     if(!strcmp(key,"performance_reset")){instance->motif.cancel=1;instance->motif.tap_active=0;instance->motif.editor.armed=-1;}

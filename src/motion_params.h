@@ -44,6 +44,12 @@ static int hb_mo_edit_label(const hb_motion_config *config,int lane,char *buffer
     return snprintf(buffer,(size_t)length,"%s %d: %s",group,number,name);
 }
 static int hb_mo_set(hb_motion_config *config,const char *key,const char *value){
+    int assignment=hb_mo_slot_key(key,"motion_operation_");
+    if(assignment>=0){
+        if(assignment>=HB_MOTION_USER_LANES)return 1;
+        int selected=config->selected;config->selected=assignment;
+        int result=hb_mo_set(config,"motion_operation",value);config->selected=selected;return result;
+    }
     int control=hb_mo_slot_key(key,"motion_control_");
     if(control>=0){
         int operation=config->lanes[control].operation;
@@ -179,6 +185,8 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     return 0;
 }
 static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int length){
+    int assignment=hb_mo_slot_key(key,"motion_operation_");
+    if(assignment>=0)return snprintf(buffer,(size_t)length,"%s",hb_mo_operation_name(config->lanes[assignment].operation));
     if(!strcmp(key,"cadence_status"))return snprintf(buffer,(size_t)length,"%s",hb_mo_pending_status(config));
     if(!strcmp(key,"motion_lights")||!strcmp(key,"motion_named_lights")){
         int first=!strcmp(key,"motion_named_lights")?16:0,count=first?HB_MOTION_LANES-16:16;
