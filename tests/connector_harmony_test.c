@@ -35,6 +35,16 @@ int main(void){
     API.set_param(instance,"approach_bank_1","Leading Tone");API.set_param(instance,"approach_bank_2","Upper Dim");
     assert(hb_ar_code(&instance->approach_rows,0)==14&&hb_ar_code(&instance->approach_rows,1)==60);
     assert(hb_ar_intent(14)==hb_mo_role_word(12)&&hb_ar_intent(60)==hb_mo_role_word(13));
+    for(int operation=HB_MO_LEADING_TONE;operation<=HB_MO_UPPER_DIM;operation++){
+        unsigned long long words[HB_MOTION_LANES+1]={0};
+        words[0]=HB_MO_RECORDED|hb_mo_operation_word(operation);
+        words[HB_MOTION_LANES]=hb_mo_role_word(operation==HB_MO_LEADING_TONE?12:13)|((unsigned long long)(operation==HB_MO_LEADING_TONE?14:60)<<HB_AR_SHIFT);
+        int used=snprintf(buffer,sizeof(buffer),"60");
+        for(int lane=0;lane<=HB_MOTION_LANES;lane++)used+=snprintf(buffer+used,sizeof(buffer)-used,",%llu",words[lane]);
+        instance->recorded_action_valid[60]=0;API.set_param(instance,"hb_movy_actions",buffer);
+        assert(instance->recorded_action_valid[60]);
+        assert(!memcmp(instance->recorded_actions[60],words,sizeof(words)));
+    }
     API.get_param(instance,"state",buffer,sizeof(buffer));Inst *restored=API.create_instance("",0);API.set_param(restored,"state",buffer);
     assert(restored->motion.lanes[0].operation==HB_MO_LEADING_TONE);
     assert(hb_ar_code(&restored->approach_rows,0)==14&&hb_ar_code(&restored->approach_rows,1)==60);

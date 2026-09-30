@@ -4847,8 +4847,8 @@ if(!strcmp(key,"hb_movy_actions")){
         if(end==start||(lane<source_lanes?*end!=',':*end!=0))return;
         if(lane==source_lanes&&((words[lane]&~HB_MO_SOURCE_MASK)||!hb_ar_alias_valid(words[lane])||(((words[lane]>>4)&7)|((words[lane]>>5)&8))>13))return;
         if(lane==source_lanes){unsigned token=(words[lane]>>43)&2047,code=token&63;
-            if(token&&(!code||code>58||code==14||(code<16&&(token>>6))))return;
-            if((words[lane]&(1ULL<<54))&&code<16)return;
+            if(token&&(!code||(code>58&&code!=60)||((code<16||code==60)&&(token>>6))))return;
+            if((words[lane]&(1ULL<<54))&&(code<16||code==60))return;
         }
         if(lane==source_lanes&&(words[lane]&HB_MO_INTENT_MASK)){
             unsigned long long intent=words[lane];
@@ -4856,7 +4856,7 @@ if(!strcmp(key,"hb_movy_actions")){
         }
         if(lane==source_lanes&&(words[lane]&HB_MO_CADENCE_MASK)&&!hb_cadence_decode((unsigned)((words[lane]&HB_MO_CADENCE_MASK)>>13)))return;
         if(lane<source_lanes&&!(words[lane]&HB_MO_RECORDED)&&words[lane]>0xffffffffULL)return;
-        if(lane<source_lanes&&(words[lane]&HB_MO_RECORDED)&&((hb_mo_word_operation(words[lane])>HB_MO_MIXED_LAST||(hb_mo_word_operation(words[lane])==HB_MO_AUTO_CHORD_REPEAT||hb_mo_word_operation(words[lane])==HB_MO_CHORD_STATE))||((words[lane]>>37)&15)>8))return;
+        if(lane<source_lanes&&(words[lane]&HB_MO_RECORDED)&&(((hb_mo_word_operation(words[lane])>HB_MO_MIXED_LAST&&hb_mo_word_operation(words[lane])!=HB_MO_LEADING_TONE&&hb_mo_word_operation(words[lane])!=HB_MO_UPPER_DIM)||(hb_mo_word_operation(words[lane])==HB_MO_AUTO_CHORD_REPEAT||hb_mo_word_operation(words[lane])==HB_MO_CHORD_STATE))||((words[lane]>>37)&15)>8))return;
     }
     if(source_lanes<HB_MOTION_LANES){
         unsigned long long marker=words[source_lanes]|(source_lanes<37?HB_MO_LEGACY_II:0);words[source_lanes]=0;
