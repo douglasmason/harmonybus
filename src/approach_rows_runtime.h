@@ -15,7 +15,15 @@ static int hb_ar_schedule(Inst *instance,int source,int shift,unsigned token,int
     runtime->tap_rhythm=hb_rr_pattern(instance);runtime->tap_span=g_motif_span;
     double now=hb_motion_position(instance),arrival=now;
     if(whole)for(int index=0;index<phrase->anchor;index++)arrival+=hb_mt_duration(phrase,index,runtime->tap_rhythm,runtime->tap_span);
+    /* A spatial row is an independently held note, not a timed motif launch.
+       Capture only the new voices so releasing it cannot cancel another pad. */
+    uint8_t occupied[HB_MT_SCHEDULE];
+    for(int index=0;index<HB_MT_SCHEDULE;index++)occupied[index]=runtime->events[index].used;
     int result=hb_mt_schedule(instance,phrase,source,velocity,channel,whole?0:step,whole?phrase->count:step+1,arrival,whole?-1:now,1);
+    if(result&&shift&&!whole)for(int index=0;index<HB_MT_SCHEDULE;index++){
+        hb_mt_scheduled *event=&runtime->events[index];
+        if(!occupied[index]&&event->used){event->pad_owner=source+1;event->pad_playback=instance->movy_playback;event->off=1e30;}
+    }
     runtime->tap_target=old_target;runtime->tap_rhythm=old_rhythm;runtime->tap_span=old_span;runtime->tap_harmony=old_harmony;
     return result;
 }
@@ -24,7 +32,14 @@ static int hb_ar_input(Inst *instance,const uint8_t *input,int length){
     int type=input[0]&0xf0,source=input[1]&127,channel=input[0]&15;
     int on=type==0x90&&input[2],off=type==0x80||(type==0x90&&!input[2]);
     hb_ar_state *state=&instance->approach_rows;
-    if(off&&state->swallow[channel][source]){state->swallow[channel][source]--;return 1;}
+    if(off&&state->swallow[channel][source]){
+        state->swallow[channel][source]--;
+        for(int index=0;index<HB_MT_SCHEDULE;index++){
+            hb_mt_scheduled *event=&instance->motif.events[index];
+            if(event->used&&event->pad_owner==source+1&&event->channel==channel&&event->pad_playback==instance->movy_playback)event->off=-1;
+        }
+        return 1;
+    }
     if(!on||!hb_source_channel_matches(instance,channel)||instance->motif.editor.recording>=0)return 0;
     unsigned token=0;int shift=0,whole=0;
     if(instance->movy_playback&&instance->recorded_action_valid[source]){
