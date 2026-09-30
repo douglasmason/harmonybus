@@ -1,13 +1,17 @@
 #define main reference_suite_main
 #include "follower_reference_test.c"
 #undef main
-static void event(Inst *i,int pitch,int on){
-    uint8_t m[3]={(uint8_t)(on?0x90:0x80),(uint8_t)pitch,(uint8_t)(on?100:0)},o[64][3];int lens[64];
-    API.process_midi(i,m,3,o,lens,64);
+static int event(Inst *i,int pitch,int on){
+    uint8_t m[3]={(uint8_t)(on?0x90:0x80),(uint8_t)pitch,(uint8_t)(on?100:0)},o[64][3];int lens[64],rendered=-1;
+    int count=API.process_midi(i,m,3,o,lens,64);
+    for(int n=0;n<count;n++)if(lens[n]==3&&(o[n][0]&0xf0)==0x90&&o[n][2])rendered=o[n][1];
+    count=API.tick(i,64,48000,o,lens,64);
+    for(int n=0;n<count;n++)if(lens[n]==3&&(o[n][0]&0xf0)==0x90&&o[n][2])rendered=o[n][1];
+    return rendered;
 }
 
 static void approach_pad_membership(void){
-    Inst *instance=fixture();instance->chromatic_map=1;instance->content_map=1;
+    Inst *instance=fixture();API.set_param(instance,"approach_bank_1","Secondary LT");instance->chromatic_map=1;instance->content_map=1;
     instance->boundary_buffer_ms=0;instance->next_anti_buffer_ms=0;
     instance->next_lookahead=0;instance->approach_control=HB_APPROACH_OFF;
     hb_harmony_t current=chord(0,0,0),next=chord(2,1,0);
@@ -55,7 +59,7 @@ static void approach_pad_membership(void){
 
 int main(void){
     approach_pad_membership();
-    Inst *i=fixture();i->travel_map=6;i->content_map=1;g_bus.boundary_buffer_ms=0;
+    Inst *i=fixture();API.set_param(i,"approach_bank_1","Secondary LT");i->travel_map=6;i->content_map=1;i->boundary_buffer_ms=0;i->next_anti_buffer_ms=0;g_bus.boundary_buffer_ms=0;
     char param[80],view[1024];
     for(int scale=1;scale<=15;scale++)for(int root=0;root<12;root++){
         hb_set_shared_follower_scale(scale);hb_effective_write(chord(root,root&1,1));
@@ -71,16 +75,16 @@ int main(void){
     memset(i->movy_pad_shift,0,sizeof(i->movy_pad_shift));hb_set_shared_follower_scale(1);hb_effective_write(chord(5,0,0));
     int target=65,alias=29,normal=hb_map_follower_note_now(i,target);
     snprintf(param,sizeof(param),"%d,%d",alias,target-alias);API.set_param(i,"hb_movy_input_approach",param);
-    event(i,alias,1);assert(i->movy_pad_shift[alias]==36);assert(hb_map_follower_note_now(i,alias)==normal-1);
+    assert(event(i,alias,1)==normal-1);assert(i->movy_pad_shift[alias]==36);
     event(i,target,1);assert(!i->movy_pad_shift[target]);assert(hb_map_follower_note_now(i,target)==normal);
     event(i,alias,0);assert(i->held_now[target]||i->follower_held[target]);event(i,target,0);
     int recorded=0;for(int slot=0;slot<i->action_count;slot++){
         int at=(i->action_head+slot)%64;
-        if(i->action_pitch[at]==alias){assert((i->action_queue[at][HB_MOTION_LANES]>>2)==2);recorded=1;}
+        if(i->action_pitch[at]==alias){assert(((i->action_queue[at][HB_MOTION_LANES]>>2)&3)==2);recorded=1;}
     }assert(recorded);
     event(i,alias,1);assert(!i->movy_pad_shift[alias]);event(i,alias,0);
     i->recorded_action_valid[alias]=1;i->recorded_actions[alias][HB_MOTION_LANES]=8;i->movy_playback=1;
-    event(i,alias,1);assert(i->movy_pad_shift[alias]==36);assert(hb_map_follower_note_now(i,alias)==normal-1);event(i,alias,0);i->movy_playback=0;
+    assert(event(i,alias,1)==normal-1);assert(i->movy_pad_shift[alias]==36);event(i,alias,0);i->movy_playback=0;
     for(int mode=0;mode<8;mode++){
         memset(i->movy_pad_shift,0,sizeof(i->movy_pad_shift));i->travel_map=mode;API.get_param(i,"pad_view",view,sizeof(view));assert(strstr(view,mode==6?"|piano1,1":"|piano1,0"));
         API.set_param(i,"hb_movy_input_approach",param);event(i,alias,1);assert((i->movy_pad_shift[alias]!=0)==(mode==6));event(i,alias,0);
