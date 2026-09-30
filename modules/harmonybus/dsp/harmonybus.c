@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.216"
+#define HB_VERSION "0.2.217"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -245,7 +245,7 @@ char follower_display[8][24]; int follower_display_valid;
 int follower_input_seen; /* Direct MIDI takes ownership from monitor fallback. */
 char harmony_display[4][48]; int harmony_display_valid;
 unsigned long long next_touch_mask; double next_touch_started,next_touch_until; hb_harmony_t next_touch_observed;
-int pressure_full_velocity;uint16_t pad_sounding[128];unsigned long long preview_single_low,preview_single_high;unsigned preview_gap_mask;int preview_count,preview_notes[32],preview_targets[32],preview_rows[32]; signed char movy_pad_shift[128]; int movy_pad_pending, movy_pad_pending_shift; uint8_t movy_input_degree[128],movy_input_target[128]; uint8_t follower_origin[128], follower_queue_origin[64]; int used,role,mode,content_map,travel_map,chromatic_map,touch_lanes[9],follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_quant_beat[64]; double follower_queue_harmony_beat[64]; hb_harmony_t render_harmony; int render_harmony_active; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],recorded_source_pitch[16][128],passthrough_held[128]; } Inst;
+int pressure_full_velocity;uint16_t pad_sounding[128];unsigned long long preview_single_low,preview_single_high;unsigned preview_gap_mask;int approach_layout;int preview_count,preview_notes[32],preview_targets[32],preview_rows[32]; signed char movy_pad_shift[128]; int movy_pad_pending, movy_pad_pending_shift; uint8_t movy_input_degree[128],movy_input_target[128]; uint8_t follower_origin[128], follower_queue_origin[64]; int used,role,mode,content_map,travel_map,chromatic_map,touch_lanes[9],follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_quant_beat[64]; double follower_queue_harmony_beat[64]; hb_harmony_t render_harmony; int render_harmony_active; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],recorded_source_pitch[16][128],passthrough_held[128]; } Inst;
 #include "../../../src/role_policy_runtime.h"
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
 /* Shared controls; voice ownership and recorded events remain local. */
@@ -2326,6 +2326,7 @@ static int hb_map_follower_note_split2(Inst *instance,int source_note,hb_harmony
     return hb_map_follower_base_note(instance,source_note,detected,content_target);
 }
 static int hb_chromatic_travel(const Inst *instance){return instance->chromatic_map||instance->travel_map==6;}
+static int hb_approach_pad_enabled(const Inst *instance){return instance->role==1&&(instance->approach_layout||hb_chromatic_travel(instance));}
 static int hb_map_follower_reference_note(Inst *instance,int source_note,hb_harmony_t detected,hb_harmony_t target){
     return hb_chromatic_travel(instance)?hb_map_follower_note_split2(instance,source_note,detected,target):hb_map_follower_base_note(instance,source_note,detected,target);
 }
@@ -3790,7 +3791,7 @@ if(status==0xA0&&length>=3&&instance->role<2&&hb_cp_playback(&instance->player)=
     }
     return 0;
 }
-if(is_on&&!instance->movy_playback&&instance->movy_pad_pending==(input[1]&127)+1&&(instance->role!=1||!hb_chromatic_travel(instance))){
+if(is_on&&!instance->movy_playback&&instance->movy_pad_pending==(input[1]&127)+1&&!hb_approach_pad_enabled(instance)){
     instance->movy_pad_pending=0;return 0;
 }
 if(instance->role==3)return (is_on||is_off)?0:pass(input,length,output,lengths,max_output);
@@ -3798,7 +3799,7 @@ if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note
     unsigned long long marker=instance->movy_playback&&instance->recorded_action_valid[note]?instance->recorded_actions[note][HB_MOTION_LANES]:0;
     instance->approach_rows.tokens[note]=instance->movy_playback&&instance->recorded_action_valid[note]?(instance->recorded_actions[note][HB_MOTION_LANES]>>HB_AR_SHIFT)&2047:0;
     instance->movy_pad_shift[note]=hb_ar_alias_shift(marker);
-    if(!instance->movy_playback&&instance->movy_pad_pending==note+1&&instance->role==1&&hb_chromatic_travel(instance))
+    if(!instance->movy_playback&&instance->movy_pad_pending==note+1&&hb_approach_pad_enabled(instance))
         instance->movy_pad_shift[note]=instance->movy_pad_pending_shift;
     if(!instance->movy_playback&&(instance->approach_rows.enabled||instance->movy_pad_shift[note])){
         int row=instance->movy_pad_shift[note]?(instance->approach_rows.pending_row<0?3:instance->approach_rows.pending_row):-1;
@@ -4601,7 +4602,8 @@ static void hb_set_scale_exceptions(int dominant,int borrowed){
 }
 static void set_param_base(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
 if(!strcmp(key,"pad_preview_inputs")){
-    size_t size=strlen(parameter);int notes[32],targets[32],rows[32];
+    size_t size=strlen(parameter);int notes[32],targets[32],rows[32],layout=0;
+    if(size>=2&&parameter[size-2]==';'&&(parameter[size-1]=='0'||parameter[size-1]=='1')){layout=parameter[size-1]-'0';size-=2;}
     if(size!=64&&size!=129&&size!=162)return;if(size>=129&&parameter[64]!=':')return;if(size==162&&parameter[129]!=':')return;
     for(int slot=0;slot<32;slot++){
         unsigned note=0,target=0;
@@ -4611,7 +4613,7 @@ if(!strcmp(key,"pad_preview_inputs")){
         notes[slot]=note==255?-1:(int)note;targets[slot]=target?(int)target-1:-1;
     }
     memcpy(instance->preview_notes,notes,sizeof(notes));memcpy(instance->preview_targets,targets,sizeof(targets));memcpy(instance->preview_rows,rows,sizeof(rows));
-    instance->preview_count=32;return;
+    instance->preview_count=32;instance->approach_layout=layout;return;
 }
 
 if(!strcmp(key,"hb_tempo")){
@@ -5741,7 +5743,7 @@ if(!strcmp(key,"pad_view")){
     hb_resolve_follower_reference_root(instance,&scale_root);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),"|key1,%d,%d|piano1,%d",
-        hb_shared_follower_scale(),hb_follower_input_scale_index(instance,scale_root),instance->role==1&&hb_chromatic_travel(instance));
+        hb_shared_follower_scale(),hb_follower_input_scale_index(instance,scale_root),hb_approach_pad_enabled(instance));
     return used;
 }
 if(!strcmp(key,"pad_render")&&instance->role!=1){
@@ -5844,7 +5846,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         for(int sample=0;sample<12+pad_count;sample++){
             int source_note=sample<12?60+sample:pad_notes[sample-12];
             int gap_target=sample>=12?pad_targets[sample-12]:-1;
-            int gap=gap_target>=0&&instance->role==1&&hb_chromatic_travel(instance);
+            int gap=gap_target>=0&&hb_approach_pad_enabled(instance);
             if(sample>=12)gap_colors[sample-12]=-1;
             if(gap){
                 int row=instance->preview_rows[sample-12];source_note=row?(gap_target+32*row)%128:gap_target<64?gap_target+36:gap_target-36;preview.approach_rows.preview_row=row?row-1:3;

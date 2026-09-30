@@ -38,5 +38,16 @@ int main(void){
         i->motion.lanes[0].operation=HB_MO_HARMONY;i->motion.lanes[0].amount=100;i->motion.lanes[0].enabled=0;API.set_param(i,"motion_gesture_1","LatchOn");
         API.set_param(i,"hb_movy_input_approach","92,-32,0");uint8_t message[3]={0x90,92,100},output[64][3];int lengths[64];API.process_midi(i,message,3,output,lengths,64);int found=0;for(int n=0;n<HB_MT_SCHEDULE;n++)if(i->motif.events[n].used&&i->motif.events[n].pitch==57)found=1;assert(found);input(i,92,0);API.destroy_instance(i);
     }
+    /* Dedicated layouts opt in independently of chromatic travel. */
+    for(int travel=0;travel<8;travel++)for(int triple=0;triple<2;triple++){
+        i=setup();i->chromatic_map=0;i->travel_map=travel;
+        for(int slot=1;slot<=3;slot++){char key[32];snprintf(key,sizeof(key),"approach_bank_%d",slot);API.set_param(i,key,"Secondary LT");}
+        char payload[180],view[4096];for(int n=0;n<32;n++)sprintf(payload+2*n,"ff");payload[64]=':';for(int n=0;n<32;n++)sprintf(payload+65+2*n,"%02x",n==8?61:0);
+        if(triple){payload[129]=':';for(int n=0;n<32;n++)payload[130+n]=n==8?'1':'0';strcpy(payload+162,";1");}else strcpy(payload+129,";1");
+        API.set_param(i,"pad_preview_inputs",payload);assert(hb_approach_pad_enabled(i));API.get_param(i,"pad_view",view,sizeof(view));assert(strstr(view,"|piano1,1"));
+        int expected=hb_map_follower_note_unoperated(i,60)-1,alias=triple?92:96;char param[40];snprintf(param,sizeof(param),"%d,%d,%d",alias,60-alias,triple?0:3);API.set_param(i,"hb_movy_input_approach",param);assert(input(i,alias,1)==expected);
+        API.get_param(i,"pad_view",view,sizeof(view));const char *lights=strstr(view,"|playpads1,");unsigned mask=0;assert(lights&&sscanf(lights,"|playpads1,%u",&mask)==1&&(mask&(1u<<8)));input(i,alias,0);
+        payload[strlen(payload)-1]='0';API.set_param(i,"pad_preview_inputs",payload);assert(hb_approach_pad_enabled(i)==(travel==6));API.destroy_instance(i);
+    }
     puts("Approach FIFO: released touches, knobs/steps, top-down 3-2-1 rendering, eviction, independent motif cursors, persistence, ownership and one-shot pass");
 }

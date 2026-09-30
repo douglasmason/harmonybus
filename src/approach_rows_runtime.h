@@ -32,7 +32,7 @@ static int hb_ar_input(Inst *instance,const uint8_t *input,int length){
         shift=hb_ar_alias_shift(word);
         whole=!!(word&(1ULL<<54));
     }else if(!instance->movy_playback&&(state->enabled||instance->movy_pad_pending==source+1)){
-        if(instance->movy_pad_pending==source+1&&hb_chromatic_travel(instance)){
+        if(instance->movy_pad_pending==source+1&&hb_approach_pad_enabled(instance)){
             token=hb_ar_live_peek(state,state->pending_row<0?3:state->pending_row);shift=instance->movy_pad_pending_shift;
         }else if(state->bank_armed>=0){token=15+state->bank[state->bank_armed];whole=1;}else token=hb_ar_live_peek(state,-1);
     }
