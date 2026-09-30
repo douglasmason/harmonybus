@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.222"
+#define HB_VERSION "0.2.223"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2366,7 +2366,7 @@ static unsigned hb_approach_scale(Inst *instance,hb_harmony_t harmony){
     return hb_transpose_mask(hb_follower_input_scale(instance,root),g_bus.global_transpose);
 }
 static int hb_relative_approach_offset(int role,int target,unsigned scale){
-    return role==11?2:role==1?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),1):role==8?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),2):role==9?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),3):role==10?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),6)-12:role==2?-5:role==4?
+    return role==12?-1:role==13?1:role==11?2:role==1?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),1):role==8?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),2):role==9?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),3):role==10?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),6)-12:role==2?-5:role==4?
         hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),5)-12:
         role==5?5:role==6?-2:role==7?-4:0;
 }
@@ -2543,6 +2543,9 @@ static hb_approach_result hb_resolve_chord_approach(Inst *instance,int target_no
             root_note=result.root;target_scale=result.scale;config.quality=result.quality;
             intent_target=mod12(result.destination);intent_kind=(cadence->kind==HB_CAD_DOMINANT||cadence->kind==HB_CAD_MINOR_DOMINANT)?2:cadence->kind==HB_CAD_LEADING?3:1;
             if(cadence->kind==HB_CAD_TARGET&&pad_approach)config.quality=config.chromatic_quality==6?hb_cp_auto_leading_quality(target_note+1,target_scale):hb_cp_chromatic_quality(config.chromatic_quality);
+        }else if(secondary==12||secondary==13){
+            root_note=target_note+(secondary==12?-1:1);config.quality=9;
+            intent_kind=secondary==12?3:5;
         }else if(secondary){
             unsigned parent_collection=target_scale;
             int parent_root=target_note+hb_relative_approach_offset(secondary,target_note,parent_collection);
@@ -4842,7 +4845,7 @@ if(!strcmp(key,"hb_movy_actions")){
     for(int lane=0;lane<=source_lanes;lane++){
         const char *start=end+1;words[lane]=strtoull(start,&end,10);
         if(end==start||(lane<source_lanes?*end!=',':*end!=0))return;
-        if(lane==source_lanes&&((words[lane]&~HB_MO_SOURCE_MASK)||!hb_ar_alias_valid(words[lane])||(((words[lane]>>4)&7)|((words[lane]>>5)&8))>10))return;
+        if(lane==source_lanes&&((words[lane]&~HB_MO_SOURCE_MASK)||!hb_ar_alias_valid(words[lane])||(((words[lane]>>4)&7)|((words[lane]>>5)&8))>13))return;
         if(lane==source_lanes){unsigned token=(words[lane]>>43)&2047,code=token&63;
             if(token&&(!code||code>58||code==14||(code<16&&(token>>6))))return;
             if((words[lane]&(1ULL<<54))&&code<16)return;
@@ -5375,7 +5378,7 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
     hb_mo_input(&preview->motion,source_note,hb_motion_position(preview),hb_ms_to_beats(25));
     if((preview->approach_rows.enabled||preview->movy_pad_shift[source_note])&&hb_ar_live_peek(&preview->approach_rows,preview->movy_pad_shift[source_note]?preview->approach_rows.preview_row:-1)){
         unsigned token=hb_ar_live_peek(&preview->approach_rows,preview->movy_pad_shift[source_note]?preview->approach_rows.preview_row:-1);preview->approach_rows.tokens[source_note]=token;
-        if((token&63)>=15)return hb_ar_preview(preview,source_note,token,root_only,output_low,output_high);
+        if((token&63)>=15&&(token&63)!=60)return hb_ar_preview(preview,source_note,token,root_only,output_low,output_high);
         preview->motion.events[HB_MOTION_LANES]=(preview->motion.events[HB_MOTION_LANES]&~0x573ULL)|hb_ar_intent(token);
     }else preview->approach_rows.tokens[source_note]=0;
     if(follower_single)hb_player_note_on_config(preview,source_note,0,100,&config);

@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.222'
+          assert module['version']=='0.2.223'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -230,6 +230,8 @@ jobs:
           /tmp/knob_latch_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_rows_test.c src/harmony_core.c -lm -o /tmp/approach_rows_test
           /tmp/approach_rows_test
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/connector_harmony_test.c src/harmony_core.c -lm -o /tmp/connector_harmony_test
+          /tmp/connector_harmony_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_stability_test.c src/harmony_core.c -lm -o /tmp/approach_stability_test
           /tmp/approach_stability_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_editor_test.c src/harmony_core.c -lm -o /tmp/motion_editor_test

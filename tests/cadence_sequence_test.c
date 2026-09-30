@@ -19,7 +19,7 @@ static void fixed_cadences(void){
 static void tritone_gestures(void){
     Inst *instance=setup();instance->player.config.mode=1;
     API.set_param(instance,"motion_lane","1");API.set_param(instance,"motion_operation","Tritone II");
-    API.set_param(instance,"motion_lane","2");API.set_param(instance,"motion_operation","Tritone V");
+    API.set_param(instance,"motion_lane","2");API.set_param(instance,"motion_operation","Tritone Sub");
     tap(instance,1);tap(instance,2);
     assert(played(instance,60)==tones(56,3,7,10));release(instance,60);
     assert(played(instance,60)==tones(61,4,7,10));release(instance,60);

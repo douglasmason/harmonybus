@@ -29,7 +29,7 @@ int main(void){
     }
     Inst *i=setup();char text[65536];
     API.get_param(i,"approach_bank_1",text,sizeof(text));assert(!strcmp(text,"Stock: V-Target"));
-    API.set_param(i,"approach_bank_1","Secondary LT");API.set_param(i,"approach_bank_2","Secondary II");API.set_param(i,"approach_bank_3","Secondary V");
+    API.set_param(i,"approach_bank_1","Connector Below");API.set_param(i,"approach_bank_2","Secondary II");API.set_param(i,"approach_bank_3","Secondary V");
     API.set_param(i,"approach_mode_active","1");
     /* Non-overlapping, nonadjacent controls all enter the same FIFO. */
     touch(i,"approach_touch_1");touch(i,"approach_step_touch_2");touch(i,"approach_touch_3");
@@ -52,7 +52,7 @@ int main(void){
     for(int target=0;target<128;target++)for(int row=0;row<3;row++){int identity=(target+32*(row+1))%128,shift=target-identity;unsigned long long word=hb_ar_alias_word(shift);assert(hb_ar_alias_valid(word)&&hb_ar_alias_shift(word)==shift);}
     API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_control_1","LatchOn");API.set_param(i,"approach_touch_1","Up,500");assert(i->approach_rows.performance);API.set_param(i,"approach_control_1","LatchOff");assert(!i->approach_rows.performance);
     /* Per-slot preferences survive composed phrases and save/load. */
-    API.set_param(i,"approach_bank_1","Secondary LT");API.set_param(i,"approach_bank_2","Secondary V");
+    API.set_param(i,"approach_bank_1","Connector Below");API.set_param(i,"approach_bank_2","Secondary V");
     API.set_param(i,"approach_control_1","LatchOn");API.set_param(i,"approach_control_2","LatchOn");
     assert(i->approach_rows.latch_slots==3);
     API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_touch_2","Down");
@@ -86,7 +86,7 @@ int main(void){
     /* Dedicated layouts opt in independently of chromatic travel. */
     for(int travel=0;travel<8;travel++)for(int triple=0;triple<2;triple++){
         i=setup();i->chromatic_map=0;i->travel_map=travel;
-        for(int slot=1;slot<=3;slot++){char key[32];snprintf(key,sizeof(key),"approach_bank_%d",slot);API.set_param(i,key,"Secondary LT");}
+        for(int slot=1;slot<=3;slot++){char key[32];snprintf(key,sizeof(key),"approach_bank_%d",slot);API.set_param(i,key,"Connector Below");}
         char payload[180],view[4096];for(int n=0;n<32;n++)sprintf(payload+2*n,"ff");payload[64]=':';for(int n=0;n<32;n++)sprintf(payload+65+2*n,"%02x",n==8?61:0);
         if(triple){payload[129]=':';for(int n=0;n<32;n++)payload[130+n]=n==8?'1':'0';strcpy(payload+162,";1");}else strcpy(payload+129,";1");
         API.set_param(i,"pad_preview_inputs",payload);assert(hb_approach_pad_enabled(i));API.get_param(i,"pad_view",view,sizeof(view));assert(strstr(view,"|piano1,1"));

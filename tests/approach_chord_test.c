@@ -8,7 +8,7 @@ static hb_cp_key *played_key(Inst *instance,int source){
 static void approach_families(void){
     static const int thirds[]={0,4,4,3,3,3},fifths[]={0,7,7,6,7,6},sevenths[]={0,11,10,9,10,10};
     for(int mode=1;mode<=2;mode++)for(int family=1;family<6;family++)for(int seventh=0;seventh<2;seventh++)for(int top=0;top<2;top++){
-        Inst *instance=fixture();API.set_param(instance,"approach_bank_1","Secondary LT");instance->chromatic_map=1;instance->travel_map=7;
+        Inst *instance=fixture();API.set_param(instance,"approach_bank_1","Connector Below");instance->chromatic_map=1;instance->travel_map=7;
         instance->player.config.mode=mode;instance->player.config.size=seventh?3:2;
         instance->player.config.chromatic_quality=family;instance->player.config.inversion=top?8:0;
         instance->player.config.quality=1; /* Approach family overrides regular quality. */
@@ -30,7 +30,7 @@ static void approach_families(void){
     }
 }
 static void same_root_and_preview(void){
-    Inst *instance=fixture();API.set_param(instance,"approach_bank_1","Secondary LT");instance->chromatic_map=1;instance->travel_map=7;
+    Inst *instance=fixture();API.set_param(instance,"approach_bank_1","Connector Below");instance->chromatic_map=1;instance->travel_map=7;
     instance->player.config.mode=1;instance->player.config.size=3;
     assert(instance->player.config.chromatic_quality==3);
     API.set_param(instance,"hb_movy_input_approach","29,36");midi(instance,1,29);midi(instance,1,64);advance(instance,0,64);
@@ -44,7 +44,7 @@ static void same_root_and_preview(void){
     API.destroy_instance(instance);
 }
 static void mapped_chromatic_inputs(void){
-    Inst *instance=fixture();API.set_param(instance,"approach_bank_1","Secondary LT");instance->chromatic_map=1;instance->player.config.mode=1;
+    Inst *instance=fixture();API.set_param(instance,"approach_bank_1","Connector Below");instance->chromatic_map=1;instance->player.config.mode=1;
     instance->content_map=0;instance->travel_map=0;
     /* Explicit recorded target remains chromatic even if raw/root is diatonic. */
     instance->movy_input_target[64]=66;instance->movy_input_degree[64]=3;
