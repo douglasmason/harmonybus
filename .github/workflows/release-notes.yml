@@ -1,0 +1,23 @@
+name: Refresh FIFO release notes
+on:
+  push:
+    branches: [release-notes-216]
+permissions:
+  contents: write
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for tested release and describe FIFO behavior
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: douglasmason/harmonybus
+        run: |
+          for attempt in $(seq 1 60); do
+            if gh release view v0.2.216 --json isDraft --jq .isDraft 2>/dev/null | grep -qx false; then
+              gh release edit v0.2.216 --notes "Two performance banks and Triple Approach. Knob and step-button touches fill a persistent FIFO without overlap: play row 3 (oldest), row 2, row 1 (newest), then the target. A fourth touch evicts the oldest. Each row advances its assigned motif independently. Movy shows the assignments in physical top-down order and highlights the newest. Existing bank assignments remain; triple motifs are optional. Pair with Movy hbclean.125."
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
