@@ -18,10 +18,10 @@ int main(void){
     /* A fourth touch evicts only the oldest, leaving chronological top-down order. */
     touch(i,"approach_step_touch_16");assert(i->approach_rows.row_slots[2]==1&&i->approach_rows.row_slots[1]==2&&i->approach_rows.row_slots[0]==15);
     API.get_param(i,"approach_rows_view",text,sizeof(text));assert(strstr(text,"3,Secondary V")&&strstr(text,"2,Secondary II"));
-    /* A motif on each row has its own cursor; singleton rows repeat the operation. */
+    /* Spatial rows repeat their assigned motif step without consuming a sequence. */
     API.set_param(i,"approach_bank_1","Stock: vi-ii-V");touch(i,"approach_touch_1");touch(i,"approach_touch_1");
-    unsigned first=hb_ar_row_peek(&i->approach_rows,0);assert(first==51);hb_ar_row_advance(&i->approach_rows,0);assert(hb_ar_row_peek(&i->approach_rows,0)==(51|(1<<6)));assert(hb_ar_row_peek(&i->approach_rows,1)==51);
-    hb_ar_row_advance(&i->approach_rows,3);assert(hb_ar_row_peek(&i->approach_rows,3)==(51|(1<<6)));
+    unsigned first=hb_ar_row_peek(&i->approach_rows,0);assert(first==51);hb_ar_live_advance(&i->approach_rows,0);assert(hb_ar_row_peek(&i->approach_rows,0)==51);assert(hb_ar_row_peek(&i->approach_rows,1)==51);
+    hb_ar_live_advance(&i->approach_rows,3);assert(hb_ar_row_peek(&i->approach_rows,3)==51);
     /* Save assignments, never physical holds or momentary/latch state. */
     API.get_param(i,"state",text,sizeof(text));assert(strstr(text,";ar3,0,0,15"));Inst *restored=API.create_instance("",0);API.set_param(restored,"state",text);assert(!memcmp(restored->approach_rows.row_slots,i->approach_rows.row_slots,sizeof(i->approach_rows.row_slots)));assert(!restored->approach_rows.performance&&!restored->approach_rows.down);API.destroy_instance(restored);
     API.set_param(i,"approach_mode_active","1");API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_step_touch_1","Down");API.set_param(i,"approach_touch_1","Up,500");assert(i->approach_rows.down==1);API.set_param(i,"approach_step_touch_1","Up,500");assert(!i->approach_rows.down&&!i->approach_rows.performance);
@@ -49,5 +49,5 @@ int main(void){
         API.get_param(i,"pad_view",view,sizeof(view));const char *lights=strstr(view,"|playpads1,");unsigned mask=0;assert(lights&&sscanf(lights,"|playpads1,%u",&mask)==1&&(mask&(1u<<8)));input(i,alias,0);
         payload[strlen(payload)-1]='0';API.set_param(i,"pad_preview_inputs",payload);assert(hb_approach_pad_enabled(i)==(travel==6));API.destroy_instance(i);
     }
-    puts("Approach FIFO: released touches, knobs/steps, top-down 3-2-1 rendering, eviction, independent motif cursors, persistence, ownership and one-shot pass");
+    puts("Approach FIFO: released touches, knobs/steps, top-down 3-2-1 rendering, eviction, stable spatial motif steps, persistence, ownership and one-shot pass");
 }

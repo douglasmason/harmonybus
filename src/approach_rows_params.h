@@ -1,3 +1,9 @@
+/* Dedicated rows and adaptive-piano gaps both select spatial assignments. */
+static int hb_ar_spatial_layout(const Inst *instance){
+    if(instance->approach_layout)return 1;
+    if(hb_approach_pad_enabled(instance))for(int pad=0;pad<instance->preview_count;pad++)if(instance->preview_targets[pad]>=0)return 1;
+    return 0;
+}
 static int hb_ar_slot(const char *key,const char *prefix,int count){
     size_t length=strlen(prefix);if(strncmp(key,prefix,length))return -1;
     char *end;long value=strtol(key+length,&end,10);return !*end&&value>=1&&value<=count?(int)value-1:-1;
@@ -19,6 +25,9 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
         unsigned bit=1u<<slot;unsigned *physical=step_touch>=0?&state->step_down:&state->knob_down;
         if(!strcmp(value,"Down")){
             if(*physical&bit)return 1;*physical|=bit;hb_ar_row_touch(state,slot);
+            /* Selecting a spatial row must not arm a transformation for the
+               target pad. Non-approach layouts retain the performance bank. */
+            if(hb_ar_spatial_layout(instance)){state->down=state->knob_down|state->step_down;if(!state->latch)state->performance=0;return 1;}
             if(state->down&bit)return 1;
             if(!state->down){state->count=0;state->cursor=state->event=0;state->selected=0;state->used=0;}
             state->performance=1;state->touched_at[slot]=hb_motion_position(instance);

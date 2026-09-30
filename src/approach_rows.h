@@ -35,13 +35,10 @@ static void hb_ar_row_touch(hb_ar_state *state,int slot){
     state->row_slots[0]=state->row_preset=slot;state->row_steps[0]=state->row_event=0;
 }
 static unsigned hb_ar_row_peek(const hb_ar_state *state,int row){unsigned code=hb_ar_code(state,row==3?state->row_preset:state->row_slots[row]);unsigned step=row==3?state->row_event:state->row_steps[row];return code<16?code:code|(step<<6);}
-static void hb_ar_row_advance(hb_ar_state *state,int row){
-    int *cursor=row==3?&state->row_event:&state->row_steps[row];hb_mt_phrase builtin;
-    const hb_mt_phrase *phrase=hb_ar_phrase(hb_ar_code(state,row==3?state->row_preset:state->row_slots[row]),&builtin);
-    int step=*cursor+1;while(phrase&&step<phrase->count&&phrase->events[step].kind==2)step++;*cursor=phrase&&step<phrase->count?step:0;
-}
 static unsigned hb_ar_live_peek(const hb_ar_state *state,int row){return row>=0?hb_ar_row_peek(state,row):state->performance?hb_ar_peek(state):0;}
-static void hb_ar_live_advance(hb_ar_state *state,int row){if(row>=0)hb_ar_row_advance(state,row);else{state->used=1;hb_ar_advance(state);}}
+/* Rows are spatial keys. Their next press repeats the assigned step; only
+   the separate performance bank consumes a sequence. */
+static void hb_ar_live_advance(hb_ar_state *state,int row){if(row<0){state->used=1;hb_ar_advance(state);}}
 static unsigned long long hb_ar_intent(unsigned token){
     int code=token&63;
     if(code==1)return 1;if(code==2)return 3|HB_MO_CONNECTOR_ABOVE;if(code==3)return 2;
