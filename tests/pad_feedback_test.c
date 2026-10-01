@@ -7,6 +7,51 @@ static unsigned section(const char *view,const char *key){
     const char *start=strstr(view,key);unsigned mask=0;assert(start);
     assert(sscanf(start+strlen(key),"%u",&mask)==1);return mask;
 }
+static void independent_pad_form(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"travel_map","None");
+    API.set_param(instance,"chord_mode","Scale Degree");
+    API.set_param(instance,"chord_form","Ninth");
+    API.set_param(instance,"pad_chord_form","Rootless 7");
+    static const int intervals[5][4]={{0,4,7,11},{0,4,7,10},{0,3,7,10},{0,3,6,10},{0,3,6,9}};
+    for(int quality=0;quality<5;quality++)for(int root=0;root<12;root++){
+        uint8_t notes[4];for(int index=0;index<4;index++)notes[index]=60+root+intervals[quality][index];
+        hb_harmony_t harmony=hb_infer_harmony(notes,4);
+        unsigned expected=(1u<<mod12(root+intervals[quality][1]))|(1u<<mod12(root+intervals[quality][3]));
+        /* Dim7 inversion is symmetric: test the intended root explicitly. */
+        harmony.root_pc=root;
+        assert(hb_pad_chord_mask(instance,harmony)==expected);
+        assert(instance->player.config.size==4);
+        for(int form=0;form<HB_CP_FORMS;form++){
+            API.set_param(instance,"pad_chord_form",CP_CHORD_FORM[form]);
+            if(!form)assert(hb_pad_chord_mask(instance,harmony)==hb_harmony_chord_mask(harmony));
+            else {
+                hb_cp_config config;hb_cp_defaults(&config);config.mode=2;config.size=form;config.inversion=1;
+                int rendered[12];unsigned mask=0;
+                int count=hb_cp_voice(config,60+root,root,hb_harmony_chord_mask(harmony),hb_follower_scale_target(instance,harmony).pitch_mask,rendered);
+                for(int index=0;index<count;index++)mask|=1u<<mod12(rendered[index]);
+                assert(hb_pad_chord_mask(instance,harmony)==mask);
+            }
+        }
+        API.set_param(instance,"pad_chord_form","Rootless 7");
+    }
+    hb_harmony_t harmony=chord(0,0,1);hb_effective_write(harmony);g_bus.observed_harmony=harmony;
+    Inst preview=*instance;
+    assert(hb_pad_target_inputs(&preview,instance,harmony)==((1u<<4)|(1u<<10)));
+    assert(instance->player.config.size==4);
+    char snapshot[4096];unsigned current=0,effective=0,scale=0;
+    API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
+    assert(sscanf(snapshot,"%u,%u,%u",&current,&effective,&scale)==3);
+    assert(current==((1u<<4)|(1u<<10))&&effective==current);
+    assert(instance->player.config.size==4);
+    char state[65536],value[64];API.get_param(instance,"state",state,sizeof(state));
+    assert(strstr(state,";pf1,15"));
+    API.destroy_instance(instance);instance=fixture();API.set_param(instance,"state",state);
+    API.get_param(instance,"pad_chord_form",value,sizeof(value));assert(!strcmp(value,"Rootless 7"));
+    /* A later track's saved defaults cannot overwrite the global choice. */
+    API.set_param(instance,"state","0");assert(g_pad_chord_form==15);
+    API.destroy_instance(instance);
+}
 static int routed_notes;
 static int route_probe(const uint8_t *packet,int length){if(length==4&&(packet[1]&0xf0)==0x90&&packet[3])routed_notes++;return length;}
 static void route_note(Inst *instance,int on){uint8_t message[3]={(uint8_t)(on?0x90:0x80),60,(uint8_t)(on?100:0)},output[64][3];int lengths[64];API.process_midi(instance,message,3,output,lengths,64);for(int block=0;block<100;block++){position+=.006;API.tick(instance,144,48000,output,lengths,64);}}
@@ -42,7 +87,7 @@ static void movy_input_and_spatial_sequence(void){
     API.set_param(instance,"approach_touch_2","Down");assert(state->sequence_count==1);API.set_param(instance,"approach_touch_2","Up,50");
     API.destroy_instance(instance);
 }
-int main(void){
+int main(void){independent_pad_form();
     movy_input_and_spatial_sequence();
     Inst *instance=fixture();instance->travel_map=0;instance->content_map=1;instance->chromatic_map=1;
     hb_set_shared_follower_scale(1);g_bus.observed_harmony=chord(0,0,0);hb_effective_write(g_bus.observed_harmony);
