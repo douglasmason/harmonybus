@@ -8,6 +8,7 @@ static const char *HB_AR_NAMES[]={"Connector Below","Connector Above","Scale Abo
 static const char *hb_ar_name(int choice){return HB_AR_NAMES[choice==2?3:choice];}
 typedef struct {
     int row_slots[3],row_steps[3];
+    int sequence_slots[8],sequence_count,sequence_cursor,sequence_event;
     int row_preset,row_event,pending_row,preview_row,performance,latch,used;
     double touched_at[16];
     int enabled,knobs[8],bank[16],order[8],order_slot[8],count,cursor,event,bank_armed;
@@ -38,11 +39,26 @@ static void hb_ar_row_touch(hb_ar_state *state,int slot){
     for(int row=2;row>0;row--){state->row_slots[row]=state->row_slots[row-1];state->row_steps[row]=state->row_steps[row-1];}
     state->row_slots[0]=state->row_preset=slot;state->row_steps[0]=state->row_event=0;
 }
-static unsigned hb_ar_row_peek(const hb_ar_state *state,int row){unsigned code=hb_ar_code(state,row==3?state->row_preset:state->row_slots[row]);unsigned step=row==3?state->row_event:state->row_steps[row];return code<16||code==60?code:code|(step<<6);}
+static unsigned hb_ar_sequence_peek(const hb_ar_state *state){return (unsigned)hb_ar_code(state,state->sequence_slots[state->sequence_cursor])|((unsigned)state->sequence_event<<6);}
+static void hb_ar_sequence_touch(hb_ar_state *state,int slot){
+    if(!state->knob_down)state->sequence_count=0;
+    if(state->sequence_count<8)state->sequence_slots[state->sequence_count++]=slot;
+    state->sequence_cursor=state->sequence_event=0;
+}
+static unsigned hb_ar_row_peek(const hb_ar_state *state,int row){if(row==3&&state->sequence_count)return hb_ar_sequence_peek(state);unsigned code=hb_ar_code(state,row==3?state->row_preset:state->row_slots[row]);unsigned step=row==3?state->row_event:state->row_steps[row];return code<16||code==60?code:code|(step<<6);}
 static unsigned hb_ar_live_peek(const hb_ar_state *state,int row){return row>=0?hb_ar_row_peek(state,row):state->performance?hb_ar_peek(state):0;}
 /* Rows are spatial keys. Their next press repeats the assigned step; only
    the separate performance bank consumes a sequence. */
-static void hb_ar_live_advance(hb_ar_state *state,int row){if(row<0){state->used=1;hb_ar_advance(state);}}
+static void hb_ar_live_advance(hb_ar_state *state,int row){
+    if(row<0){state->used=1;hb_ar_advance(state);return;}
+    if(row!=3||!state->sequence_count)return;
+    hb_mt_phrase builtin;const hb_mt_phrase *phrase=hb_ar_phrase(hb_ar_code(state,state->sequence_slots[state->sequence_cursor]),&builtin);
+    if(phrase){
+        do{state->sequence_event++;}while(state->sequence_event<phrase->count&&phrase->events[state->sequence_event].kind==2);
+        if(state->sequence_event<(phrase->anchor>0?phrase->anchor:phrase->count))return;
+    }
+    state->sequence_event=0;state->sequence_cursor=(state->sequence_cursor+1)%state->sequence_count;
+}
 static unsigned long long hb_ar_intent(unsigned token){
     int code=token&63;
     if(code==14)return hb_mo_role_word(12);if(code==60)return hb_mo_role_word(13);
