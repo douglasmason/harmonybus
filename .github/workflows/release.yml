@@ -38,7 +38,7 @@ jobs:
         run: |
           node --check modules/harmonybus/canvas.js
           node tests/pad_pulse_widget_test.mjs
-          for test in harmony_core input_pad knob_latch connector_harmony; do
+          for test in harmony_core input_pad knob_latch connector_harmony pad_feedback; do
             cc -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all "tests/${test}_test.c" src/harmony_core.c -lm -o "/tmp/${test}_test"
             "/tmp/${test}_test"
           done
@@ -47,6 +47,8 @@ jobs:
         if: steps.plan.outputs.mode == 'full'
         run: |
           VERSION=$(python3 -c 'import json; print(json.load(open("modules/harmonybus/module.json"))["version"])')
+          # Fail fast on a forgotten guide version before compiling the native suite.
+          grep -Fq "HarmonyBus $VERSION" docs/timing-guide.md
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "HB=dist/harmonybus-v${VERSION}-module.tar.gz" >> "$GITHUB_ENV"
           grep -q "#define HB_VERSION \"${VERSION}\"" modules/harmonybus/dsp/harmonybus.c
@@ -60,7 +62,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.223'
+          assert module['version']=='0.2.224'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -207,6 +209,12 @@ jobs:
           /tmp/stop_release_test
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/humanize_settings_test.c src/harmony_core.c -lm -o /tmp/humanize_settings_test
           /tmp/humanize_settings_test
+
+      - name: Verify short-note lights and chromatic approach previews
+        if: steps.plan.outputs.mode == 'full'
+        run: |
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_feedback_test.c src/harmony_core.c -lm -o /tmp/pad_feedback_test
+          /tmp/pad_feedback_test
 
       - name: Verify follower boundary mapping and conductor ordering
         if: steps.plan.outputs.mode == 'full'

@@ -14,7 +14,10 @@ typedef struct {
     unsigned latch_slots,turned;
     unsigned down,knob_down,step_down,selected;unsigned long long saved_word;int restore_word;unsigned short tokens[128];unsigned char swallow[16][128];
 } hb_ar_state;
-static void hb_ar_init(hb_ar_state *state){memset(state,0,sizeof(*state));for(int index=0;index<8;index++)state->knobs[index]=13+index;for(int index=0;index<16;index++)state->bank[index]=index+1;state->order[0]=1;for(int index=0;index<8;index++)state->order_slot[index]=-1;state->count=1;state->bank_armed=-1;state->pending_row=state->preview_row=-1;for(int row=0;row<3;row++)state->row_slots[row]=2-row;}
+/* Seven common operations, then seven familiar cadences; slots 8/16 remain
+   available to steps while knob 8 on each panel controls Chord + Arp. */
+static const int HB_AR_DEFAULT_BANK[16]={-5,-4,-1,-2,-30,-10,-8,-31,2,3,5,36,37,14,10,15};
+static void hb_ar_init(hb_ar_state *state){memset(state,0,sizeof(*state));for(int index=0;index<8;index++)state->knobs[index]=13+index;for(int index=0;index<16;index++)state->bank[index]=HB_AR_DEFAULT_BANK[index];state->order[0]=1;for(int index=0;index<8;index++)state->order_slot[index]=-1;state->count=1;state->bank_armed=-1;state->pending_row=state->preview_row=-1;for(int row=0;row<3;row++)state->row_slots[row]=2-row;}
 static int hb_ar_choice_code(const hb_ar_state *state,int choice){int reference=choice>=29?-(choice+1):choice<13?-(choice+1):state->bank[choice-13];return reference==-30?14:reference==-31?60:reference<0?-reference:15+reference;}
 static int hb_ar_code(const hb_ar_state *state,int slot){int reference=state->bank[slot];return reference==-30?14:reference==-31?60:reference<0?-reference:15+reference;}
 static int hb_ar_alias_shift(unsigned long long word){int marker=(word>>2)&3;return marker==1?-36:marker==2?36:marker==3?(int)(signed char)(word>>55):0;}
