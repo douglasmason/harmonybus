@@ -4457,8 +4457,10 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
 static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int capacity){
     Inst *instance=(Inst*)value;if(!instance)return 0;
     /* A bounded visual onset survives the 50 ms UI poll without extending MIDI gates. */
-    if(frames>0&&sample_rate>0)for(int pitch=0;pitch<128;pitch++)
-        instance->pad_flash_seconds[pitch]=fmax(0,instance->pad_flash_seconds[pitch]-(double)frames/sample_rate);
+    if(frames>0&&sample_rate>0)for(int pitch=0;pitch<128;pitch++){
+        double remaining=instance->pad_flash_seconds[pitch]-(double)frames/sample_rate;
+        instance->pad_flash_seconds[pitch]=remaining>0?remaining:0;
+    }
     int was_playing=instance->last_transport_playing;
     int emitted=hb_mt_tick(instance,output,lengths,capacity);
     emitted+=tick_base(value,frames,sample_rate,output+emitted,lengths+emitted,capacity-emitted);
