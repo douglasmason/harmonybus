@@ -3,7 +3,7 @@ _Static_assert(sizeof(hb_cp_config)==16*sizeof(int),"Chord state wire format req
 #define HB_MOTION_PARAMS_H
 #include "motion_metadata.h"
 /* The selected lane is an editor cursor. Holds are runtime-only, never state. */
-static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Secondary LT","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Chrom Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone V","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State"};
+static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim"};
 static const char *hb_mo_operation_name(int operation){return MO_OPERATIONS[operation==HB_MO_ABOVE?HB_MO_SECONDARY_II:operation];}
 static const char *MO_STATE_PRESETS[]={"Custom","Scale Degree Burst","Current Harmony Burst"};
 static const char *MO_MOTIFS[]={"New Motif", "Stock: V-Target", "Stock: ii-V-Target", "Stock: iv-bVII-Target", "Stock: bII7-Target", "Stock: ii-bII7-Target", "Stock: bVI-bVII-I", "Stock: bVI-V-I", "Stock: bIII-IV-I", "Stock: vi-V-I", "Stock: iii-vi-ii-V-I", "Stock: IV-iv-I", "Stock: ii halfdim-V-i", "Stock: I-VI7-ii-V-I", "Stock: V/V-V-I", "Stock: ii/V-V/V-V-I", "Stock: V/ii-ii-V-I", "Stock: V/vi-vi-ii-V-I", "Stock: vii dim/V-V-I", "Stock: III7-VI7-II7-V7-I", "User 1", "User 2", "User 3", "User 4", "User 5", "User 6", "User 7", "User 8", "User 9", "User 10", "User 11", "User 12", "User 13", "User 14", "User 15", "User 16","Stock: vi-ii-V","Stock: ii-V-LT","Stock: iv-bVII-LT","Stock: ii-bII7-LT","Stock: iii-vi-ii","Stock: IV-ii-V","Stock: vii-iii-vi","Stock: LT-ii-V"};
@@ -25,7 +25,7 @@ static const char *MO_RANDOM[]={"Repeat","Evolve"};
 typedef struct { const char *key; size_t offset; int low,high; const char *const *options; } hb_motion_parameter;
 #define MO_FIELD(name,low,high,options) {"motion_" #name,__builtin_offsetof(hb_motion_lane,name),low,high,options}
 static const hb_motion_parameter MO_PARAMETERS[]={
-    MO_FIELD(operation,0,50,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
+    MO_FIELD(operation,0,52,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
     MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM)
@@ -38,7 +38,7 @@ static int hb_mo_slot_key(const char *key,const char *prefix){
     return end!=key+size&&!*end&&slot>=1&&slot<=HB_MOTION_LANES?(int)slot-1:-1;
 }
 static int hb_mo_edit_label(const hb_motion_config *config,int lane,char *buffer,int length){
-    const char *group=lane<16?"Step Seq":lane<30?"Pitch Play":lane<32?"Chord Play":lane==32?"Harmony Play":lane<37?"Pitch Play":"Cadence Play";
+    const char *group=lane<16?"Step Seq":lane<30?"Approach Harmony":lane<32?"Chord Play":lane==32?"Harmony Play":lane<37?"Approach Harmony":"Cadence Play";
     int number=lane<16?lane+1:lane<30?lane-15:lane<32?lane-29:lane==32?1:lane<37?lane-18:lane-36;
     const char *name=lane==32?"Next Harmony":hb_mo_operation_name(config->lanes[lane].operation);
     return snprintf(buffer,(size_t)length,"%s %d: %s",group,number,name);
@@ -161,7 +161,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         const hb_motion_parameter *spec=&MO_PARAMETERS[index];
         if(strcmp(key,spec->key))continue;
         int *field=hb_mo_field(&config->lanes[config->selected],index);
-        if(index==0&&(!strcmp(value,"Chrom Below")||!strcmp(value,"Chromatic Below")))value="Secondary LT";
+        if(index==0){if(!strcmp(value,"Chrom Below")||!strcmp(value,"Chromatic Below")||!strcmp(value,"Secondary LT")||!strcmp(value,"CCB"))value="Connector Below";else if(!strcmp(value,"Chrom Above")||!strcmp(value,"Chromatic Above")||!strcmp(value,"CCA"))value="Connector Above";else if(!strcmp(value,"Tritone V")||!strcmp(value,"TTS"))value="Tritone Sub";else if(!strcmp(value,"LT"))value="Leading Tone";}
         int parsed;
         if(index==2&&config->lanes[config->selected].operation==HB_MO_HARMONY)parsed=!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,*field),0,100);
         else if(index==2&&config->lanes[config->selected].operation==HB_MO_MOTIF)parsed=enum_index(value,MO_MOTIFS,44,hb_mo_clamp(*field,0,43));
@@ -205,7 +205,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
-        for(int operation=0;operation<=HB_MO_CHORD_STATE;operation++){
+        for(int operation=0;operation<=HB_MO_UPPER_DIM;operation++){
             if(operation==HB_MO_ABOVE)continue; /* Legacy serialized ID, consolidated picker. */
             if(hb_mo_mixed(operation)||operation==HB_MO_CADENCE_II_V||operation==HB_MO_CADENCE_BACKDOOR||operation==HB_MO_CADENCE_TRITONE)continue;
             if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&!config->host_capabilities&&operation!=selected)continue;

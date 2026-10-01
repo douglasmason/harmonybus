@@ -11,7 +11,7 @@ static int event(Inst *i,int pitch,int on){
 }
 
 static void approach_pad_membership(void){
-    Inst *instance=fixture();API.set_param(instance,"approach_bank_1","Secondary LT");instance->chromatic_map=1;instance->content_map=1;
+    Inst *instance=fixture();API.set_param(instance,"approach_bank_1","Connector Below");instance->chromatic_map=1;instance->content_map=1;
     instance->boundary_buffer_ms=0;instance->next_anti_buffer_ms=0;
     instance->next_lookahead=0;instance->approach_control=HB_APPROACH_OFF;
     hb_harmony_t current=chord(0,0,0),next=chord(2,1,0);
@@ -59,7 +59,7 @@ static void approach_pad_membership(void){
 
 int main(void){
     approach_pad_membership();
-    Inst *i=fixture();API.set_param(i,"approach_bank_1","Secondary LT");i->travel_map=6;i->content_map=1;i->boundary_buffer_ms=0;i->next_anti_buffer_ms=0;g_bus.boundary_buffer_ms=0;
+    Inst *i=fixture();API.set_param(i,"approach_bank_1","Connector Below");i->travel_map=6;i->content_map=1;i->boundary_buffer_ms=0;i->next_anti_buffer_ms=0;g_bus.boundary_buffer_ms=0;
     char param[80],view[1024];
     for(int scale=1;scale<=15;scale++)for(int root=0;root<12;root++){
         hb_set_shared_follower_scale(scale);hb_effective_write(chord(root,root&1,1));

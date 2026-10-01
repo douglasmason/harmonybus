@@ -10,6 +10,10 @@ static int hb_ar_slot(const char *key,const char *prefix,int count){
 }
 static int hb_ar_set(Inst *instance,const char *key,const char *value){
     hb_ar_state *state=&instance->approach_rows;
+    if(!strcmp(value,"Secondary LT")||!strcmp(value,"Chromatic Below")||!strcmp(value,"Chrom Below")||!strcmp(value,"CCB"))value="Connector Below";
+    else if(!strcmp(value,"Chromatic Above")||!strcmp(value,"Chrom Above")||!strcmp(value,"CCA"))value="Connector Above";
+    else if(!strcmp(value,"Tritone V")||!strcmp(value,"TTS"))value="Tritone Sub";
+    else if(!strcmp(value,"LT"))value="Leading Tone";
     if(!strcmp(key,"approach_mode_active")){state->enabled=parse_i(value,0)!=0;state->down=state->knob_down=state->step_down=state->turned=0;state->performance=0;state->latch=0;state->bank_armed=-1;return 1;}
     int control=hb_ar_slot(key,"approach_control_",16);
     if(control>=0){
@@ -25,12 +29,12 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
         return 1;
     }
     int slot=hb_ar_slot(key,"approach_knob_",8);
-    if(slot>=0){state->knobs[slot]=enum_index(!strcmp(value,"Chromatic Below")||!strcmp(value,"Chrom Below")?"Secondary LT":value,HB_AR_NAMES,29,state->knobs[slot]);
-        int choice=state->knobs[slot];state->bank[slot]=choice<13?-(choice+1):state->bank[choice-13];
+    if(slot>=0){state->knobs[slot]=enum_index(!strcmp(value,"Chromatic Below")||!strcmp(value,"Chrom Below")?"Secondary LT":value,HB_AR_NAMES,31,state->knobs[slot]);
+        int choice=state->knobs[slot];state->bank[slot]=(choice<13||choice>=29)?-(choice+1):state->bank[choice-13];
         for(int index=0;index<state->count;index++)if(state->order_slot[index]==slot){state->order[index]=hb_ar_code(state,slot);state->event=0;}
         return 1;}
     slot=hb_ar_slot(key,"approach_bank_",16);
-    if(slot>=0){int parsed=enum_index(value,MO_MOTIFS+1,43,-1);if(parsed>=0)state->bank[slot]=parsed+1;else for(int choice=0;choice<13;choice++)if(choice!=2&&!strcmp(value,hb_ar_name(choice))){state->bank[slot]=-(choice+1);break;}state->row_event=0;for(int row=0;row<3;row++)if(state->row_slots[row]==slot)state->row_steps[row]=0;for(int index=0;index<state->count;index++)if(state->order_slot[index]==slot){state->order[index]=hb_ar_code(state,slot);state->event=0;}return 1;}
+    if(slot>=0){int parsed=enum_index(value,MO_MOTIFS+1,43,-1);if(parsed>=0)state->bank[slot]=parsed+1;else for(int choice=0;choice<31;choice++)if((choice<13||choice>=29)&&choice!=2&&!strcmp(value,hb_ar_name(choice))){state->bank[slot]=-(choice+1);break;}state->row_event=0;for(int row=0;row<3;row++)if(state->row_slots[row]==slot)state->row_steps[row]=0;for(int index=0;index<state->count;index++)if(state->order_slot[index]==slot){state->order[index]=hb_ar_code(state,slot);state->event=0;}return 1;}
     int step_touch=hb_ar_slot(key,"approach_step_touch_",16);
     slot=step_touch>=0?step_touch:hb_ar_slot(key,"approach_touch_",16);
     if(slot>=0){
@@ -92,15 +96,15 @@ static void hb_ar_restore(Inst *instance,const char *source){
     hb_ar_state restored=instance->approach_rows;int count=25;
     for(int index=0;index<count;index++){
         if(*cursor++!=',')return;char *end;long value=strtol(cursor,&end,10);if(end==cursor)return;cursor=end;
-        if(index<8){if(value<0||value>=29)return;restored.knobs[index]=(int)value;}
-        else if(index<24){if(value==0||value< -13||value>43)return;restored.bank[index-8]=(int)value;}
+        if(index<8){if(value<0||value>=31)return;restored.knobs[index]=(int)value;}
+        else if(index<24){if(value==0||(value< -13&&value!=-30&&value!=-31)||value>43)return;restored.bank[index-8]=(int)value;}
         else if(index==24){if(value<1||value>8)return;restored.count=(int)value;count+=value;}
-        else{if(value<1||value>58||value==14)return;restored.order[index-25]=(int)value;}
+        else{if(value<1||(value>58&&value!=60))return;restored.order[index-25]=(int)value;}
     }
     if(*cursor&&*cursor!=';')return;restored.down=restored.knob_down=restored.step_down=restored.selected=0;for(int index=0;index<8;index++)restored.order_slot[index]=-1;restored.cursor=restored.event=0;restored.bank_armed=-1;
     const char *extra=strstr(source,";ar2,");
     if(extra){char *end;long selected=strtol(extra+5,&end,10);if(end==extra+5||(*end&&*end!=';')||selected<0||selected>=16)return;restored.row_preset=(int)selected;}
-    else {int original[16];memcpy(original,restored.bank,sizeof(original));for(int slot=0;slot<8;slot++){int choice=restored.knobs[slot];restored.bank[slot]=choice<13?-(choice+1):original[choice-13];}}
+    else {int original[16];memcpy(original,restored.bank,sizeof(original));for(int slot=0;slot<8;slot++){int choice=restored.knobs[slot];restored.bank[slot]=(choice<13||choice>=29)?-(choice+1):original[choice-13];}}
     const char *rows=strstr(source,";ar3,");
     if(rows){rows+=4;for(int row=0;row<3;row++){if(*rows++!=',')return;char *end;long slot=strtol(rows,&end,10);if(end==rows||slot<0||slot>=16)return;restored.row_slots[row]=(int)slot;rows=end;}if(*rows&&*rows!=';')return;}
     else for(int row=0;row<3;row++)restored.row_slots[row]=2-row;

@@ -34,7 +34,7 @@ static void connector_and_substitute(void){
         unsigned masks[2];
         for(int substitute=0;substitute<2;substitute++){
             Inst *instance=setup();instance->player.config.mode=1;instance->player.config.chromatic_quality=quality;
-            choose(instance,substitute?"Tritone V":"Chrom Above",NULL);tap(instance,1);
+            choose(instance,substitute?"Tritone Sub":"Connector Above",NULL);tap(instance,1);
             masks[substitute]=played(instance,60);release(instance,60);API.destroy_instance(instance);
         }
         assert(masks[1]==tones(61,4,7,10));
