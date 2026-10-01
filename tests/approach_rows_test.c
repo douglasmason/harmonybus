@@ -27,7 +27,7 @@ int main(void){
         for(int index=0;index<count;index++)assert((output[index][0]&0xf0)!=0x90||!output[index][2]);
         assert(!pad->motif.pending);API.destroy_instance(pad);
     }
-    Inst *i=setup();char text[65536];
+    Inst *i=setup();i->approach_layout=1;char text[65536];
     API.get_param(i,"approach_bank_1",text,sizeof(text));assert(!strcmp(text,"Stock: V-Target"));
     API.set_param(i,"approach_bank_1","Connector Below");API.set_param(i,"approach_bank_2","Secondary II");API.set_param(i,"approach_bank_3","Secondary V");
     API.set_param(i,"approach_mode_active","1");
@@ -47,30 +47,34 @@ int main(void){
     /* Save assignments, never physical holds or momentary/latch state. */
     API.get_param(i,"state",text,sizeof(text));assert(strstr(text,";ar3,0,0,15"));Inst *restored=API.create_instance("",0);API.set_param(restored,"state",text);assert(!memcmp(restored->approach_rows.row_slots,i->approach_rows.row_slots,sizeof(i->approach_rows.row_slots)));assert(!restored->approach_rows.performance&&!restored->approach_rows.down);API.destroy_instance(restored);
     API.set_param(i,"approach_mode_active","1");API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_step_touch_1","Down");API.set_param(i,"approach_touch_1","Up,500");assert(i->approach_rows.down==1);API.set_param(i,"approach_step_touch_1","Up,500");assert(!i->approach_rows.down&&!i->approach_rows.performance);
-    /* Knobs never arm performance, including in non-spatial layouts. */
-    touch(i,"approach_touch_1");assert(!i->approach_rows.performance);
-    API.set_param(i,"approach_bank_1","Connector Below");API.set_param(i,"approach_bank_2","Secondary V");
-    for(int spatial=0;spatial<2;spatial++){
-        i->approach_layout=spatial;
-        int rows[3];memcpy(rows,i->approach_rows.row_slots,sizeof(rows));
-        touch(i,"approach_step_touch_1");assert(i->approach_rows.performance&&!i->approach_rows.latch);
-        assert(!memcmp(rows,i->approach_rows.row_slots,sizeof(rows)));
-        /* Selecting a row while a one-shot is armed does not replace it. */
-        touch(i,"approach_touch_2");assert(i->approach_rows.order[0]==1);
-        assert(input(i,60,1)==59);input(i,60,0);assert(!i->approach_rows.performance);
-        API.set_param(i,"approach_step_touch_1","Down");
-        assert(input(i,60,1)==59);input(i,60,0);assert(i->approach_rows.performance);
-        API.set_param(i,"approach_touch_2","Down");API.set_param(i,"approach_touch_2","Cancel");
-        assert(i->approach_rows.performance&&i->approach_rows.down==1);
-        API.set_param(i,"approach_step_touch_1","Up,500");assert(!i->approach_rows.performance);
-        API.set_param(i,"approach_step_touch_1","Down");API.set_param(i,"approach_step_touch_2","Down");
-        API.set_param(i,"approach_step_touch_1","Up,50");API.set_param(i,"approach_step_touch_2","Up,50");
-        assert(i->approach_rows.count==2&&!i->approach_rows.latch);
-        assert(input(i,60,1)==59);input(i,60,0);
-        assert(input(i,60,1)==55);input(i,60,0);assert(!i->approach_rows.performance);
-        API.set_param(i,"approach_control_1","LatchOn");assert(!i->approach_rows.performance&&!i->approach_rows.latch_slots);
-    }
+    i->approach_layout=0;
+    /* One-shot performance remains independent of the persistent row FIFO. */
+    touch(i,"approach_touch_1");assert(i->approach_rows.performance);for(int n=0;n<3;n++){input(i,60,1);input(i,60,0);}assert(!i->approach_rows.performance);
     for(int target=0;target<128;target++)for(int row=0;row<3;row++){int identity=(target+32*(row+1))%128,shift=target-identity;unsigned long long word=hb_ar_alias_word(shift);assert(hb_ar_alias_valid(word)&&hb_ar_alias_shift(word)==shift);}
+    API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_control_1","LatchOn");API.set_param(i,"approach_touch_1","Up,500");assert(i->approach_rows.performance);API.set_param(i,"approach_control_1","LatchOff");assert(!i->approach_rows.performance);
+    /* Per-slot preferences survive composed phrases and save/load. */
+    API.set_param(i,"approach_bank_1","Connector Below");API.set_param(i,"approach_bank_2","Secondary V");
+    API.set_param(i,"approach_control_1","LatchOn");API.set_param(i,"approach_control_2","LatchOn");
+    assert(i->approach_rows.latch_slots==3);
+    API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_touch_2","Down");
+    assert(i->approach_rows.count==2&&!i->approach_rows.latch);
+    /* Even long overlapping holds leave a finite armed sequence. */
+    API.set_param(i,"approach_touch_1","Up,500");API.set_param(i,"approach_touch_2","Up,500");
+    assert(i->approach_rows.performance);
+    assert(input(i,60,1)==59);input(i,60,0);assert(i->approach_rows.performance);
+    assert(input(i,60,1)==55);input(i,60,0);assert(!i->approach_rows.performance);
+    assert(i->approach_rows.latch_slots==3);
+    touch(i,"approach_touch_1");assert(i->approach_rows.latch);
+    for(int repeat=0;repeat<3;repeat++){assert(input(i,60,1)==59);input(i,60,0);assert(i->approach_rows.performance);}
+    API.get_param(i,"state",text,sizeof(text));restored=API.create_instance("",0);API.set_param(restored,"state",text);
+    assert(restored->approach_rows.latch_slots==3&&!restored->approach_rows.performance);API.destroy_instance(restored);
+    API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_control_1","LatchOff");API.set_param(i,"approach_touch_1","Up,50");
+    assert(!i->approach_rows.performance&&i->approach_rows.latch_slots==2);
+    API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_touch_1","Cancel");assert(!i->approach_rows.performance&&!i->approach_rows.down);
+    /* Held fingers and a member's latch turn cannot loop a composed phrase. */
+    API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_touch_2","Down");API.set_param(i,"approach_control_1","LatchOn");
+    for(int entry=0;entry<2;entry++){input(i,60,1);input(i,60,0);}assert(!i->approach_rows.performance&&i->approach_rows.latch_slots==3);
+    API.set_param(i,"approach_touch_1","Up,500");API.set_param(i,"approach_touch_2","Up,500");assert(!i->approach_rows.performance);
     API.destroy_instance(i);
     for(int mode=1;mode<=2;mode++){
         i=setup();i->player.config.mode=mode;i->player.config.size=2;API.set_param(i,"approach_bank_1","Stock: vi-ii-V");touch(i,"approach_touch_1");i->approach_rows.row_steps[0]=2;

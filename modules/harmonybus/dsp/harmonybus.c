@@ -4630,6 +4630,13 @@ if(!strcmp(key,"pad_preview_inputs")){
         notes[slot]=note==255?-1:(int)note;targets[slot]=target?(int)target-1:-1;
     }
     memcpy(instance->preview_notes,notes,sizeof(notes));memcpy(instance->preview_targets,targets,sizeof(targets));memcpy(instance->preview_rows,rows,sizeof(rows));
+    if(layout!=instance->approach_layout){
+        /* Layout changes invalidate the old gesture mode, but keep saved
+           latch preferences and row assignments for later use. */
+        instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;
+        instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.selected=0;
+        instance->approach_rows.turned=0;instance->approach_rows.bank_armed=-1;
+    }
     instance->preview_count=32;instance->approach_layout=layout;return;
 }
 
