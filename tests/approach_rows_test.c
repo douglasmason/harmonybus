@@ -28,7 +28,7 @@ int main(void){
         assert(!pad->motif.pending);API.destroy_instance(pad);
     }
     Inst *i=setup();i->approach_layout=1;char text[65536];
-    API.get_param(i,"approach_bank_1",text,sizeof(text));assert(!strcmp(text,"Stock: V-Target"));
+    API.get_param(i,"approach_bank_1",text,sizeof(text));assert(!strcmp(text,"Secondary V"));
     API.set_param(i,"approach_bank_1","Connector Below");API.set_param(i,"approach_bank_2","Secondary II");API.set_param(i,"approach_bank_3","Secondary V");
     API.set_param(i,"approach_mode_active","1");
     /* Non-overlapping, nonadjacent controls all enter the same FIFO. */
@@ -77,7 +77,7 @@ int main(void){
     API.set_param(i,"approach_touch_1","Up,500");API.set_param(i,"approach_touch_2","Up,500");assert(!i->approach_rows.performance);
     API.destroy_instance(i);
     for(int mode=1;mode<=2;mode++){
-        i=setup();i->player.config.mode=mode;i->player.config.size=2;API.set_param(i,"approach_bank_1","Stock: vi-ii-V");touch(i,"approach_touch_1");i->approach_rows.row_steps[0]=2;
+        i=setup();i->approach_layout=1;i->player.config.mode=mode;i->player.config.size=2;API.set_param(i,"approach_bank_1","Stock: vi-ii-V");touch(i,"approach_touch_1");i->approach_rows.row_steps[0]=2;
         g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;position=.25;
         g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
         g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=2,.harmony=chord(2,1,0)};

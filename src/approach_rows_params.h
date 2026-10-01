@@ -93,6 +93,7 @@ static int hb_ar_save(Inst *instance,char *buffer,int length,int used){
     if(used<length)used+=snprintf(buffer+used,(size_t)(length-used),",%d",state->count);
     for(int index=0;index<state->count&&used<length;index++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",state->order[index]);
     if(used<length)used+=snprintf(buffer+used,(size_t)(length-used),";ar2,%d;ar3,%d,%d,%d;ar4,%u",state->row_preset,state->row_slots[0],state->row_slots[1],state->row_slots[2],state->latch_slots);
+    if(used<length)used+=snprintf(buffer+used,(size_t)(length-used),";ar5,1");
     return used>=length?-1:used;
 }
 static void hb_ar_restore(Inst *instance,const char *source){
@@ -114,6 +115,10 @@ static void hb_ar_restore(Inst *instance,const char *source){
     else for(int row=0;row<3;row++)restored.row_slots[row]=2-row;
     const char *latches=strstr(source,";ar4,");restored.latch_slots=restored.turned=0;
     if(latches){char *end;long mask=strtol(latches+5,&end,10);if(end==latches+5||(*end&&*end!=';')||mask<0||mask>65535)return;restored.latch_slots=(unsigned)mask;}
+    /* Migrate only untouched legacy factory slots; keep custom assignments. */
+    if(!strstr(source,";ar5,1"))for(int slot=0;slot<16;slot++)
+        if(restored.bank[slot]==slot+1)restored.bank[slot]=HB_AR_DEFAULT_BANK[slot];
+    if(instance->approach_layout)restored.latch_slots=0;
     memset(restored.row_steps,0,sizeof(restored.row_steps));
     restored.performance=restored.latch=restored.row_event=0;restored.pending_row=restored.preview_row=-1;
     instance->approach_rows=restored;

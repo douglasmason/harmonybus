@@ -4632,10 +4632,11 @@ if(!strcmp(key,"pad_preview_inputs")){
     memcpy(instance->preview_notes,notes,sizeof(notes));memcpy(instance->preview_targets,targets,sizeof(targets));memcpy(instance->preview_rows,rows,sizeof(rows));
     if(layout!=instance->approach_layout){
         /* Layout changes invalidate the old gesture mode, but keep saved
-           latch preferences and row assignments for later use. */
+           row assignments. Entering spatial mode clears permanent motif latches. */
         instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;
         instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.selected=0;
         instance->approach_rows.turned=0;instance->approach_rows.bank_armed=-1;
+        if(layout)instance->approach_rows.latch_slots=0;
     }
     instance->preview_count=32;instance->approach_layout=layout;return;
 }
