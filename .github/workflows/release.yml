@@ -5,10 +5,16 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: read
+
+concurrency:
+  group: harmonybus-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   release:
@@ -18,7 +24,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check CI promotion invariants
+        run: python3 scripts/test_ci_release.py
+
+      - name: Select checks and recover tested release
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci_release.py plan hb
+
+      - name: Focused native and UI checks
+        if: steps.plan.outputs.mode == 'focused'
+        run: |
+          node --check modules/harmonybus/canvas.js
+          node tests/pad_pulse_widget_test.mjs
+          for test in harmony_core input_pad knob_latch connector_harmony; do
+            cc -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all "tests/${test}_test.c" src/harmony_core.c -lm -o "/tmp/${test}_test"
+            "/tmp/${test}_test"
+          done
+
       - name: Resolve and validate version/UI
+        if: steps.plan.outputs.mode == 'full'
         run: |
           VERSION=$(python3 -c 'import json; print(json.load(open("modules/harmonybus/module.json"))["version"])')
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
@@ -142,9 +168,11 @@ jobs:
           PY
 
       - name: Install build tools
+        if: steps.plan.outputs.mode == 'full'
         run: sudo apt-get update && sudo apt-get install -y clang lld file fonts-dejavu-core
 
       - name: Run native core, mapping, modifier, and timing tests
+        if: steps.plan.outputs.mode == 'full'
         run: |
           clang -std=c11 -O2 tests/harmony_core_test.c src/harmony_core.c -o /tmp/harmony_core_test
           /tmp/harmony_core_test
@@ -167,6 +195,7 @@ jobs:
           /tmp/settings_editor_test
 
       - name: Verify loop learning with four conductor callbacks
+        if: steps.plan.outputs.mode == 'full'
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/loop_learning_test.c src/harmony_core.c -lm -o /tmp/loop_learning_test
           /tmp/loop_learning_test
@@ -180,11 +209,13 @@ jobs:
           /tmp/humanize_settings_test
 
       - name: Verify follower boundary mapping and conductor ordering
+        if: steps.plan.outputs.mode == 'full'
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/follower_boundary_test.c src/harmony_core.c -lm -o /tmp/follower_boundary_test
           /tmp/follower_boundary_test
 
       - name: Verify follower reference, transpose, paths and anti-buffer
+        if: steps.plan.outputs.mode == 'full'
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/follower_reference_test.c src/harmony_core.c -lm -o /tmp/follower_reference_test
           /tmp/follower_reference_test
@@ -245,16 +276,19 @@ jobs:
           /tmp/render_velocity_test
 
       - name: Verify shared and tempo-relative buffer
+        if: steps.plan.outputs.mode == 'full'
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/global_buffer_test.c src/harmony_core.c -lm -o /tmp/global_buffer_test
           /tmp/global_buffer_test
 
       - name: Verify temporary chord state editing and pair input
+        if: steps.plan.outputs.mode == 'full'
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_state_test.c src/harmony_core.c -lm -o /tmp/chord_state_test
           /tmp/chord_state_test
 
       - name: Verify chord player MIDI lifecycle and voicings
+        if: steps.plan.outputs.mode == 'full'
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/chord_player_test.c src/harmony_core.c -lm -o /tmp/chord_player_test
           /tmp/chord_player_test
@@ -270,11 +304,13 @@ jobs:
           /tmp/chord_player_ubsan
 
       - name: Verify operation lanes and recording placement
+        if: steps.plan.outputs.mode == 'full'
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_test.c src/harmony_core.c -lm -o /tmp/motion_test
           /tmp/motion_test
 
       - name: Verify motifs, arp anchors and Render Rhythm
+        if: steps.plan.outputs.mode == 'full'
         run: |
           for suite in motif arp_start render_rhythm; do
             clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/${suite}_test.c src/harmony_core.c -lm -o /tmp/${suite}-release-test
@@ -282,14 +318,17 @@ jobs:
           done
 
       - name: Build guide from canonical Markdown and SVG
+        if: steps.plan.outputs.mode == 'full'
         run: |
           python3 -m pip install -r scripts/docs-requirements.txt
           python3 scripts/build_timing_guide.py
 
       - name: Build ARM64 HarmonyBus
+        if: steps.plan.outputs.mode == 'full'
         run: bash scripts/build_harmonybus_move.sh
 
       - name: Verify complete module loading and preset restoration
+        if: steps.plan.outputs.mode == 'full'
         run: |
           clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 -fPIC -shared \
             -include sys/mman.h -include unistd.h -Wl,-z,defs \
@@ -301,6 +340,7 @@ jobs:
             awk '$7 == "UND" && $8 ~ /^hb_/ { print; bad=1 } END { exit bad }'
 
       - name: Verify HarmonyBus package
+        if: steps.plan.outputs.mode == 'full'
         run: |
           gzip -t "$HB"
           rm -rf /tmp/hb-verify && mkdir -p /tmp/hb-verify
@@ -325,14 +365,21 @@ jobs:
           assert global_panel['knobs'][3]=='touch_hold_ms'
           PY
 
+      - name: Seal comprehensive release artifact
+        if: steps.plan.outputs.mode == 'full'
+        run: python3 scripts/ci_release.py seal hb
+
       - name: Preserve tested device package
+        if: steps.plan.outputs.mode == 'full'
         uses: actions/upload-artifact@v4
         with:
-          name: harmonybus-tested-module
-          path: dist/harmonybus-v*-module.tar.gz
+          name: comprehensive-release
+          path: ci-release/*
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Publish release
-        if: github.event_name != 'pull_request'
+        if: steps.plan.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -350,7 +397,7 @@ jobs:
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
       - name: Update Module Store metadata
-        if: github.event_name != 'pull_request'
+        if: steps.plan.outputs.publish == 'true'
         run: |
           python3 - <<'PY'
           import json, os
