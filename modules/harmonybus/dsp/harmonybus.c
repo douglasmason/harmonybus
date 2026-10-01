@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.224"
+#define HB_VERSION "0.2.225"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -425,7 +425,7 @@ static int hb_sync_from_monitor(Inst *instance){
     return changed;
 }
 static int hb_sync_conductor_from_monitor(Inst *instance){
-    if(!instance||instance->role!=0)return 0;
+    if(!instance||instance->role!=0||instance->movy_track>=0)return 0;
     /* Generated conductor voices, rather than raw keys, are authoritative.
        A raw monitor snapshot must not replace their held-note collection. */
     if(hb_cp_enabled(&instance->player))return 0;
@@ -1608,6 +1608,7 @@ static void hb_receiver_remove_source(Inst *source){
     }
 }
 static int hb_send_render_raw(Inst *source,const uint8_t input_packet[4],int suppress_external){
+    if(source->movy_track>=0)suppress_external=0; /* Private input is not a destination-track echo. */
     /* Track fader affects routed note attacks only. Local audio already has
        its own mixer gain; recorded inputs and note-off ownership stay intact. */
     uint8_t scaled_packet[4];memcpy(scaled_packet,input_packet,4);
@@ -1637,6 +1638,7 @@ static void hb_motion_flush_render(Inst *instance){
     }
 }
 static int hb_send_render(Inst *source,const uint8_t packet[4],int suppress_external){
+    if(source->movy_track>=0)suppress_external=0;
     if(hb_rr_pattern(source)<2&&!hb_rr_active(&source->motion_render.rhythm)&&!hb_mo_enabled(&source->motion)&&!source->motion_render.owned&&!source->motion_render.count)
         return hb_send_render_raw(source,packet,suppress_external);
     source->motion_render_suppress[packet[1]&15]=suppress_external;
@@ -3495,6 +3497,9 @@ if(instance){
 }for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(1);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
+    /* Movy delivers each private chain on channel 1; Receive selects bus
+       subscriptions and must never filter that already-isolated input. */
+    if(instance->movy_track>=0)return midi_channel==0;
     if(instance->source_channel>=0)return midi_channel==instance->source_channel;
     /* Prefer the source-aware Chain tag; on stock/unpatched hosts the
        conductor fallback in hb_monitor_channel() resolves the owning Move

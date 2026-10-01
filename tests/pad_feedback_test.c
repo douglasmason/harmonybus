@@ -7,7 +7,43 @@ static unsigned section(const char *view,const char *key){
     const char *start=strstr(view,key);unsigned mask=0;assert(start);
     assert(sscanf(start+strlen(key),"%u",&mask)==1);return mask;
 }
+static int routed_notes;
+static int route_probe(const uint8_t *packet,int length){if(length==4&&(packet[1]&0xf0)==0x90&&packet[3])routed_notes++;return length;}
+static void route_note(Inst *instance,int on){uint8_t message[3]={(uint8_t)(on?0x90:0x80),60,(uint8_t)(on?100:0)},output[64][3];int lengths[64];API.process_midi(instance,message,3,output,lengths,64);for(int block=0;block<100;block++){position+=.006;API.tick(instance,144,48000,output,lengths,64);}}
+static void movy_input_and_spatial_sequence(void){
+    host.midi_inject_to_move=route_probe;
+    for(int role=0;role<2;role++)for(int playback=0;playback<2;playback++)for(int destination=1;destination<=4;destination++){
+        Inst *instance=fixture();API.set_param(instance,"role",role?"Follower":"Conductor");
+        API.set_param(instance,"receive_channel","Off");char channel[4];snprintf(channel,sizeof(channel),"%d",destination);API.set_param(instance,"render_channel",channel);
+        API.set_param(instance,"hb_movy_clip","0,384,0,1,1,0,96,0,0");
+        API.set_param(instance,"hb_movy_playback",playback?"1":"0");
+        API.set_param(instance,"boundary_buffer_ms","0 ms");
+        assert(instance->source_channel==-1&&instance->movy_track==0);
+        assert(hb_source_channel_matches(instance,0));assert(!hb_source_channel_matches(instance,1));
+        routed_notes=0;route_note(instance,1);
+        assert(instance->note_on_count>0&&routed_notes>0);
+        route_note(instance,0);
+        API.destroy_instance(instance);
+    }
+    Inst *instance=fixture();instance->approach_layout=1;instance->preview_count=32;
+    memset(instance->preview_rows,0,sizeof(instance->preview_rows));
+    API.set_param(instance,"approach_bank_1","Connector Below");API.set_param(instance,"approach_bank_2","Connector Above");
+    API.set_param(instance,"approach_touch_1","Down");API.set_param(instance,"approach_touch_2","Down");
+    API.set_param(instance,"approach_touch_1","Up,50");API.set_param(instance,"approach_touch_2","Up,50");
+    hb_ar_state *state=&instance->approach_rows;
+    assert(state->sequence_count==2&&!state->performance);
+    assert(hb_ar_live_peek(state,3)==1&&hb_ar_live_peek(state,-1)==0);
+    hb_ar_live_advance(state,3);assert(hb_ar_live_peek(state,3)==2&&hb_ar_live_peek(state,-1)==0);
+    hb_ar_live_advance(state,3);assert(hb_ar_live_peek(state,3)==1);
+    API.set_param(instance,"approach_step_touch_3","Down");assert(state->sequence_count==2);
+    API.set_param(instance,"approach_step_touch_3","Up,50");assert(state->sequence_cursor==0);
+    char saved[8192];API.get_param(instance,"state",saved,sizeof(saved));assert(strstr(saved,";ar6,2,0,1"));
+    API.set_param(instance,"state",saved);assert(state->sequence_count==2&&state->sequence_cursor==0);
+    API.set_param(instance,"approach_touch_2","Down");assert(state->sequence_count==1);API.set_param(instance,"approach_touch_2","Up,50");
+    API.destroy_instance(instance);
+}
 int main(void){
+    movy_input_and_spatial_sequence();
     Inst *instance=fixture();instance->travel_map=0;instance->content_map=1;instance->chromatic_map=1;
     hb_set_shared_follower_scale(1);g_bus.observed_harmony=chord(0,0,0);hb_effective_write(g_bus.observed_harmony);
     instance->approach_layout=1;API.set_param(instance,"approach_bank_1","Connector Below");

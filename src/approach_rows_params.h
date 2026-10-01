@@ -1,4 +1,9 @@
 /* Dedicated approach layouts give knobs exclusive ownership of spatial assignments. */
+static int hb_ar_single_layout(const Inst *instance){
+    if(!instance->approach_layout||instance->preview_count!=32)return 0;
+    for(int index=0;index<32;index++)if(instance->preview_rows[index])return 0;
+    return 1;
+}
 static int hb_ar_spatial_layout(const Inst *instance){return instance->approach_layout!=0;}
 static int hb_ar_slot(const char *key,const char *prefix,int count){
     size_t length=strlen(prefix);if(strncmp(key,prefix,length))return -1;
@@ -31,12 +36,16 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
         for(int index=0;index<state->count;index++)if(state->order_slot[index]==slot){state->order[index]=hb_ar_code(state,slot);state->event=0;}
         return 1;}
     slot=hb_ar_slot(key,"approach_bank_",16);
-    if(slot>=0){int parsed=enum_index(value,MO_MOTIFS+1,43,-1);if(parsed>=0)state->bank[slot]=parsed+1;else for(int choice=0;choice<31;choice++)if((choice<13||choice>=29)&&choice!=2&&!strcmp(value,hb_ar_name(choice))){state->bank[slot]=-(choice+1);break;}state->row_event=0;for(int row=0;row<3;row++)if(state->row_slots[row]==slot)state->row_steps[row]=0;for(int index=0;index<state->count;index++)if(state->order_slot[index]==slot){state->order[index]=hb_ar_code(state,slot);state->event=0;}return 1;}
+    if(slot>=0){int parsed=enum_index(value,MO_MOTIFS+1,43,-1);if(parsed>=0)state->bank[slot]=parsed+1;else for(int choice=0;choice<31;choice++)if((choice<13||choice>=29)&&choice!=2&&!strcmp(value,hb_ar_name(choice))){state->bank[slot]=-(choice+1);break;}state->sequence_cursor=state->sequence_event=state->row_event=0;for(int row=0;row<3;row++)if(state->row_slots[row]==slot)state->row_steps[row]=0;for(int index=0;index<state->count;index++)if(state->order_slot[index]==slot){state->order[index]=hb_ar_code(state,slot);state->event=0;}return 1;}
     int row_knob=hb_ar_slot(key,"approach_touch_",16);
     if(row_knob>=0&&hb_ar_spatial_layout(instance)){
         unsigned bit=1u<<row_knob;
         if(!strcmp(value,"Down")){
-            if(!(state->knob_down&bit))hb_ar_row_touch(state,row_knob);
+            if(!(state->knob_down&bit)){
+                if(hb_ar_single_layout(instance))hb_ar_sequence_touch(state,row_knob);
+                else state->sequence_count=0;
+                hb_ar_row_touch(state,row_knob);
+            }
             state->knob_down|=bit;
         }else state->knob_down&=~bit;
         /* Spatial knob holds never arm, extend or cancel a step gesture. */
@@ -80,7 +89,7 @@ static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
     if(slot>=0)return snprintf(buffer,(size_t)length,"%s",hb_ar_name(state->knobs[slot]));
     slot=hb_ar_slot(key,"approach_bank_",16);
     if(slot>=0)return snprintf(buffer,(size_t)length,"%s",state->bank[slot]<0?hb_ar_name(-state->bank[slot]-1):MO_MOTIFS[state->bank[slot]]);
-    if(!strcmp(key,"approach_row_status"))return snprintf(buffer,(size_t)length,"%d,%d,%d,%u,%d,%u,%d,%d,%d,%d,%d,%d",state->enabled,state->cursor,state->count,state->down,state->bank_armed,state->selected,state->performance,state->row_preset,state->latch,state->row_slots[0],state->row_slots[1],state->row_slots[2]);
+    if(!strcmp(key,"approach_row_status")){unsigned sequence_mask=0;for(int index=0;index<state->sequence_count;index++)sequence_mask|=1u<<state->sequence_slots[index];return snprintf(buffer,(size_t)length,"%d,%d,%d,%u,%d,%u,%d,%d,%d,%d,%d,%d,%u",state->enabled,state->cursor,state->count,state->down,state->bank_armed,state->selected,state->performance,state->row_preset,state->latch,state->row_slots[0],state->row_slots[1],state->row_slots[2],sequence_mask);}
     if(!strcmp(key,"approach_rows_view")){int used=0;for(int row=0;row<3;row++){int slot=state->row_slots[row],ref=state->bank[slot];used+=snprintf(buffer+used,(size_t)(length-used),"%s%d,%s",row?"|":"",slot+1,ref<0?hb_ar_name(-ref-1):MO_MOTIFS[ref]);if(used>=length)return length-1;}return used;}
     return -1;
 }
@@ -94,6 +103,10 @@ static int hb_ar_save(Inst *instance,char *buffer,int length,int used){
     for(int index=0;index<state->count&&used<length;index++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",state->order[index]);
     if(used<length)used+=snprintf(buffer+used,(size_t)(length-used),";ar2,%d;ar3,%d,%d,%d;ar4,%u",state->row_preset,state->row_slots[0],state->row_slots[1],state->row_slots[2],state->latch_slots);
     if(used<length)used+=snprintf(buffer+used,(size_t)(length-used),";ar5,1");
+    if(state->sequence_count&&used<length){
+        used+=snprintf(buffer+used,(size_t)(length-used),";ar6,%d",state->sequence_count);
+        for(int index=0;index<state->sequence_count&&used<length;index++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",state->sequence_slots[index]);
+    }
     return used>=length?-1:used;
 }
 static void hb_ar_restore(Inst *instance,const char *source){
@@ -121,5 +134,12 @@ static void hb_ar_restore(Inst *instance,const char *source){
     if(instance->approach_layout)restored.latch_slots=0;
     memset(restored.row_steps,0,sizeof(restored.row_steps));
     restored.performance=restored.latch=restored.row_event=0;restored.pending_row=restored.preview_row=-1;
+    restored.sequence_count=restored.sequence_cursor=restored.sequence_event=0;
+    const char *sequence=strstr(source,";ar6,");
+    if(sequence){
+        char *end;long entries=strtol(sequence+5,&end,10);if(entries<1||entries>8)return;
+        for(int index=0;index<entries;index++){if(*end++!=',')return;char *start=end;long slot=strtol(start,&end,10);if(end==start||slot<0||slot>=16)return;restored.sequence_slots[index]=(int)slot;}
+        if(*end&&*end!=';')return;restored.sequence_count=(int)entries;
+    }
     instance->approach_rows=restored;
 }
