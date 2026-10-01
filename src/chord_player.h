@@ -139,6 +139,13 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
             int interval=choices[role][choice];
             if(interval>=0&&(chord&(1u<<hb_cp_mod(root+interval)))){tones[roles[role]]=hb_cp_mod(root+interval);break;}
         }
+        /* A diminished seventh is the ninth semitone, not a scale-derived b7.
+           Require the diminished triad so ordinary sixth chords stay sixths. */
+        unsigned diminished=(1u<<root)|(1u<<hb_cp_mod(root+3))|
+            (1u<<hb_cp_mod(root+6))|(1u<<hb_cp_mod(root+9));
+        if((chord&diminished)==diminished&&
+           !(chord&((1u<<hb_cp_mod(root+10))|(1u<<hb_cp_mod(root+11)))))
+            tones[6]=hb_cp_mod(root+9);
     }
     /* Quality overrides apply to Scale Root gestures. Chromatic keys use a
        selectable triad/seventh family instead of an arbitrary rotated scale.
