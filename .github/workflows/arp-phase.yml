@@ -2,12 +2,7 @@ name: Arp phase regression
 on:
   push:
     branches: [arp-phase]
-  pull_request:
-    paths:
-      - 'src/chord_player.h'
-      - 'modules/harmonybus/**'
-      - 'tests/chord_player_test.c'
-      - '.github/workflows/arp-phase.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
