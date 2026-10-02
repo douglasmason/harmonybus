@@ -41,6 +41,11 @@ static int hb_ar_input(Inst *instance,const uint8_t *input,int length){
         return 1;
     }
     if(!on||!hb_source_channel_matches(instance,channel)||instance->motif.editor.recording>=0)return 0;
+    if(!instance->movy_playback){
+        int spatial=instance->movy_pad_pending==source+1&&hb_approach_pad_enabled(instance);
+        hb_ar_pad_press(state,source,spatial?(state->pending_row<0?3:state->pending_row):-1,
+            spatial?instance->movy_pad_pending_shift:0);
+    }
     unsigned token=0;int shift=0,whole=0;
     if(instance->movy_playback&&instance->recorded_action_valid[source]){
         unsigned long long word=instance->recorded_actions[source][HB_MOTION_LANES];token=(word>>HB_AR_SHIFT)&2047;

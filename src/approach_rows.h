@@ -9,6 +9,7 @@ static const char *hb_ar_name(int choice){return HB_AR_NAMES[choice==2?3:choice]
 typedef struct {
     int row_slots[3],row_steps[3];
     int sequence_slots[8],sequence_count,sequence_cursor,sequence_event;
+    unsigned sequence_pad;
     int row_preset,row_event,pending_row,preview_row,performance,latch,used;
     double touched_at[16];
     int enabled,knobs[8],bank[16],order[8],order_slot[8],count,cursor,event,bank_armed;
@@ -38,6 +39,12 @@ static void hb_ar_advance(hb_ar_state *state){
 static void hb_ar_row_touch(hb_ar_state *state,int slot){
     for(int row=2;row>0;row--){state->row_slots[row]=state->row_slots[row-1];state->row_steps[row]=state->row_steps[row-1];}
     state->row_slots[0]=state->row_preset=slot;state->row_steps[0]=state->row_event=0;
+}
+/* Continue only consecutive presses of the same spatial approach identity. */
+static void hb_ar_pad_press(hb_ar_state *state,int source,int row,int shift){
+    unsigned pad=row==3?((unsigned)(shift+128)<<8)|(unsigned)(source+1):0;
+    if(!pad||pad!=state->sequence_pad)state->sequence_cursor=state->sequence_event=state->row_event=0;
+    state->sequence_pad=pad;
 }
 static unsigned hb_ar_sequence_peek(const hb_ar_state *state){return (unsigned)hb_ar_code(state,state->sequence_slots[state->sequence_cursor])|((unsigned)state->sequence_event<<6);}
 static void hb_ar_sequence_touch(hb_ar_state *state,int slot){
