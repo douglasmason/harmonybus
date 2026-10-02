@@ -69,4 +69,41 @@ static void automatic_gate(void){
     position=8;advance(instance,0,64);assert(!instance->player.repeat_override);
     API.destroy_instance(instance);
 }
-int main(void){automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}
+static void arm_target_once(Inst *instance){
+    API.set_param(instance,"motion_gesture_32","Knob,1000");
+    API.set_param(instance,"motion_gesture_32","Up,40,1040");
+    assert(instance->motion.gesture_once&(1ULL<<31));assert(instance->player.repeat_override);
+}
+static void target_release_once(void){
+    Inst *instance=fixture();arm_target_once(instance);
+    /* No approach is required: the whole first target hold owns the arp. */
+    midi(instance,1,60);int attacks=0;
+    for(int step=0;step<8;step++){
+        int count=advance(instance,125,64);
+        for(int event=0;event<count;event++)attacks+=(output[event][0]&0xf0)==0x90&&output[event][2]>0;
+        assert(instance->player.repeat_override);
+    }
+    assert(attacks>1);
+    midi(instance,1,64);midi(instance,0,64);advance(instance,125,64);assert(instance->player.repeat_override);
+    uint8_t wrong_channel[3]={0x81,60,0};API.process_midi(instance,wrong_channel,3,output,lengths,64);assert(instance->player.repeat_override);
+    midi(instance,1,67);midi(instance,0,60);assert(!instance->player.repeat_override); /* first target, not last held pad */
+    assert(!(instance->motion.gesture_once&(1ULL<<31)));
+    for(int step=0;step<4;step++){int count=advance(instance,125,64);for(int event=0;event<count;event++)assert((output[event][0]&0xf0)!=0x90||!output[event][2]);}
+    midi(instance,0,67);API.destroy_instance(instance);
+    /* Approach releases and recorded notes never consume the live one-shot. */
+    instance=fixture();instance->approach_layout=1;instance->preview_count=32;arm_target_once(instance);
+    API.set_param(instance,"hb_movy_input_approach","96,-36,3");midi(instance,1,96);advance(instance,125,64);midi(instance,0,96);advance(instance,125,64);
+    assert(instance->player.repeat_override&&!instance->motion.gesture_target_owner[31]);
+    instance->movy_playback=1;midi(instance,1,62);midi(instance,0,62);instance->movy_playback=0;advance(instance,125,64);
+    assert(instance->player.repeat_override&&!instance->motion.gesture_target_owner[31]);
+    midi(instance,1,60);advance(instance,250,64);assert(instance->player.repeat_override);
+    instance->movy_playback=1;midi(instance,0,60);instance->movy_playback=0;advance(instance,125,64);assert(instance->player.repeat_override);
+    uint8_t zero_velocity[3]={0x90,60,0};API.process_midi(instance,zero_velocity,3,output,lengths,64);assert(!instance->player.repeat_override);
+    /* Explicit permanent latch still survives a complete target gesture. */
+    API.set_param(instance,"motion_gesture_32","LatchOn");midi(instance,1,60);midi(instance,0,60);advance(instance,125,64);assert(instance->player.repeat_override);
+    API.set_param(instance,"motion_gesture_32","LatchOff");assert(!instance->player.repeat_override);
+    arm_target_once(instance);midi(instance,1,60);uint8_t stop=0xfc;API.process_midi(instance,&stop,1,output,lengths,64);advance(instance,0,64);
+    assert(!instance->motion.gesture_target_owner[31]&&!instance->player.repeat_override);
+    API.destroy_instance(instance);
+}
+int main(void){target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}

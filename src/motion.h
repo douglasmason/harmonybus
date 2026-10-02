@@ -26,6 +26,7 @@ typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host
     unsigned long long gesture_down,gesture_used,gesture_was_latched,gesture_latched;
     /* Timestamped host gestures share one detector across knobs and steps. */
     unsigned long long gesture_persistent,gesture_once,gesture_once_used,gesture_was_persistent,gesture_double,gesture_suppressed;
+    unsigned long long gesture_target_released; unsigned short gesture_target_owner[HB_MOTION_LANES];
     int gesture_last_lane,gesture_last_valid,gesture_last_off;double gesture_last_up;
     unsigned gesture_serial[HB_MOTION_GESTURES]; int gesture_operation[HB_MOTION_GESTURES],gesture_mode[HB_MOTION_GESTURES],gesture_threshold[HB_MOTION_GESTURES];
     unsigned tap_mask,tap_serial[15]; int tap_owner[15],tap_policy[15],enclosure_auto_off; int tap_first,tap_started,enclosure_step,cadence_program;
@@ -200,6 +201,8 @@ static unsigned long long hb_mo_pending_lanes(const hb_motion_config *config){
     return mask;
 }
 static void hb_mo_end_lanes(hb_motion_config *config,unsigned long long mask){
+    config->gesture_target_released&=~mask;
+    for(int lane=0;lane<HB_MOTION_LANES;lane++)if(mask&(1ULL<<lane))config->gesture_target_owner[lane]=0;
     config->held&=~mask;config->gesture_latched&=~mask;
     config->gesture_persistent&=~mask;config->gesture_once&=~mask;config->gesture_once_used&=~mask;
     config->gesture_down&=~mask;config->gesture_was_latched&=~mask;
@@ -220,6 +223,7 @@ static void hb_mo_gesture_reset(hb_motion_config *config){
     config->held&=~(config->gesture_down|config->gesture_latched);
     config->gesture_down=config->gesture_used=config->gesture_was_latched=config->gesture_latched=0;
     config->gesture_persistent=config->gesture_once=config->gesture_once_used=0;
+    config->gesture_target_released=0;memset(config->gesture_target_owner,0,sizeof(config->gesture_target_owner));
     config->gesture_was_persistent=config->gesture_double=config->gesture_suppressed=0;config->gesture_last_valid=0;
     config->tap_mask=0;config->tap_started=0;config->enclosure_step=0;config->events[HB_MOTION_LANES]=0;
 }
