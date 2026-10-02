@@ -8,10 +8,12 @@ int main(void){
     Inst *instance=fixture(),*other=API.create_instance("",NULL);
     API.set_param(other,"role","Follower");
     API.set_param(instance,"defaults_editor","Follower Chords");
-    API.set_param(instance,"defaults_control_1","Ninth");
+    API.set_param(instance,"follower_default_chord_form","Ninth");
+    API.set_param(instance,"defaults_control_1","Minor");
+    expect_value(other,"chord_quality","Minor");
     expect_value(other,"chord_form","Ninth");
     API.set_param(instance,"defaults_editor","Conductor Chords");
-    API.set_param(instance,"defaults_control_1","Triad");
+    API.set_param(instance,"conductor_default_chord_form","Triad");
     expect_value(other,"chord_form","Ninth");
     API.set_param(instance,"defaults_editor","Follower Scales");
     API.set_param(instance,"defaults_control_1","Strict Local");

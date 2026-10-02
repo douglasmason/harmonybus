@@ -8,8 +8,8 @@ static int hb_palette_role(const char *key){
 }
 static const char *hb_defaults_alias(Inst *instance,const char *key,char *alias,int length){
     int control=hb_mo_slot_key(key,"defaults_control_");if(control<0||control>=6)return key;
-    static const char *fields[2][6]={{"chord_form","chord_quality","chord_inversion","chord_voicing","strum_spread","chromatic_quality"},{"gap_scale","scale_context","dominant_scale","borrowed_scale","local_palette","scope"}};
-    if(instance->defaults_editor>=2&&control==5)return "defaults_scope";
+    static const char *fields[2][6]={{"chord_quality","chord_inversion","chord_voicing","strum_spread","chromatic_quality","scope"},{"gap_scale","scale_context","dominant_scale","borrowed_scale","local_palette","scope"}};
+    if(control==5)return "defaults_scope";
     snprintf(alias,(size_t)length,"%s_default_%s",instance->defaults_editor&1?"follower":"conductor",fields[instance->defaults_editor>=2][control]);return alias;
 }
 static const char *HB_GAP_OPTIONS[]={"Parent","Strict Local","Auto Local"};
@@ -79,6 +79,7 @@ static int hb_policy_get(Inst *instance,const char *key,char *buffer,int length)
         for(int field=0;field<HB_POLICY_FIELDS&&used<length;field++)if(instance->policy_overrides&(1u<<field))used+=snprintf(buffer+used,(size_t)(length-used)," %s",labels[field]);
         return used;
     }
+    if(!strcmp(key,"track_chord_form")&&!(instance->policy_overrides&(1u<<HB_P_FORM)))return snprintf(buffer,(size_t)length,"Role Default");
     int role,field=hb_policy_key(key,&role);if(field<0)return -1;
     int selected=role<0?hb_policy_value(instance,field):hb_role_default(role,field);
     if(HB_POLICY_OPTIONS[field])return snprintf(buffer,(size_t)length,"%s",HB_POLICY_OPTIONS[field][selected]);

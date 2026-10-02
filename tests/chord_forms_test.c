@@ -5,7 +5,7 @@
 static void shell_forms(void){
     hb_cp_config config;hb_cp_defaults(&config);config.mode=1;
     const unsigned expected[]={0x811,0x815,0x215,0x810,0x814};
-    for(int minor=0;minor<2;minor++)for(int form=12;form<HB_CP_FORMS;form++){
+    for(int minor=0;minor<2;minor++)for(int form=12;form<HB_CP_FOLLOW_DETECTED;form++){
         config.size=form;unsigned semantic=0,actual=0;int notes[12];
         int count=hb_cp_voice_semantic(config,60,0,0,minor?0x5ad:0xab5,notes,&semantic);
         for(int index=0;index<count;index++)actual|=1u<<(notes[index]%12);
@@ -29,7 +29,8 @@ static void generated_semantics_all_scales(void){
         API.set_param(instance,"follower_scale",FOLLOWER_SCALE_OPTS[scale_index]);
         API.set_param(instance,"chord_mode","Scale Degree");
         unsigned scale=hb_follower_input_scale(instance,0);
-        for(int form=12;form<HB_CP_FORMS;form++)for(int root=0;root<12;root++){
+        /* Dynamic Follow Detected is covered separately with a source harmony. */
+        for(int form=12;form<HB_CP_FOLLOW_DETECTED;form++)for(int root=0;root<12;root++){
             API.set_param(instance,"chord_form",CP_CHORD_FORM[form]);
             unsigned expected=0;int notes[12];
             hb_cp_voice_semantic(instance->player.config,60+root,root,0,scale,notes,&expected);
@@ -61,4 +62,49 @@ static void next_onset_and_operations(void){
     char value[64];API.get_param(instance,"motion_amount",value,sizeof(value));assert(!strcmp(value,"Shell 7"));
     API.destroy_instance(instance);
 }
-int main(void){shell_forms();generated_semantics_all_scales();next_onset_and_operations();puts("chord forms: semantic shells, rootless identity, unchanged held notes and cycle overrides pass");return 0;}
+static void follow_detected_forms(void){
+    hb_cp_config config;hb_cp_defaults(&config);config.mode=1;config.size=HB_CP_FOLLOW_DETECTED;config.inversion=1;
+    const unsigned detected[]={0x91,0x891,0x895,0x291,0x293,0x85,0xa1,0x249};
+    const unsigned roles[]={0x15,0x55,0x57,0x35,0x37,0x13,0x19,0x55};
+    for(int source_root=0;source_root<12;source_root++)for(int form=0;form<8;form++){
+        unsigned chord_mask=hb_transpose_mask(detected[form],source_root);
+        assert(hb_cp_detected_roles(source_root,chord_mask)==roles[form]);
+        for(int target=60;target<72;target++){
+            int actual[12],baseline[12];
+            int count=hb_cp_voice(config,target,source_root,chord_mask,0xab5,actual);
+            hb_cp_config explicit=config;explicit.size=2;
+            if(form==1||form==7)explicit.size=3;
+            if(form==2)explicit.size=4;
+            if(form==3)explicit.size=6;
+            if(form==4)explicit.size=7;
+            if(form==5)explicit.size=10;
+            if(form==6)explicit.size=11;
+            int expected=hb_cp_voice(explicit,target,source_root,chord_mask,0xab5,baseline);
+            assert(count==expected);expect_notes(actual,baseline,count);
+        }
+    }
+    config.mode=2;
+    for(int form=0;form<8;form++){
+        int actual[12];unsigned rendered=0;
+        int count=hb_cp_voice(config,60,0,detected[form],0xab5,actual);
+        for(int index=0;index<count;index++)rendered|=1u<<mod12(actual[index]);
+        assert(rendered==detected[form]);
+    }
+    Inst *instance=fixture();API.set_param(instance,"role","Follower");
+    API.set_param(instance,"track_chord_form","Role Default");
+    assert(hb_policy_value(instance,HB_P_FORM)==HB_CP_FOLLOW_DETECTED);
+    char value[128];API.get_param(instance,"track_chord_form",value,sizeof(value));assert(!strcmp(value,"Role Default"));
+    API.set_param(instance,"track_chord_form","Ninth");assert(hb_policy_value(instance,HB_P_FORM)==4);
+    API.set_param(instance,"conductor_default_chord_form","Sixth");assert(hb_policy_value(instance,HB_P_FORM)==4);
+    API.set_param(instance,"track_chord_form","Role Default");assert(hb_policy_value(instance,HB_P_FORM)==HB_CP_FOLLOW_DETECTED);
+    hb_harmony_t harmony=hb_infer_harmony((uint8_t[]){60,64,67,71},4);hb_effective_write(harmony);
+    API.get_param(instance,"detected_chord_form",value,sizeof(value));assert(strstr(value,"1357"));
+    API.get_param(instance,"pad_chord_form",value,sizeof(value));assert(!strcmp(value,"Follow Detected"));
+    API.set_param(instance,"track_chord_form","Rootless 7");
+    assert(hb_harmony_equal_effective(bus_read(),harmony));
+    API.get_param(instance,"detected_chord_form",value,sizeof(value));assert(strstr(value,"1357"));
+    harmony=hb_infer_harmony((uint8_t[]){60,64,67,71,74},5);hb_effective_write(harmony);
+    API.get_param(instance,"detected_chord_form",value,sizeof(value));assert(strstr(value,"13579"));
+    API.destroy_instance(instance);
+}
+int main(void){follow_detected_forms();shell_forms();generated_semantics_all_scales();next_onset_and_operations();puts("chord forms: semantic shells, rootless identity, unchanged held notes and cycle overrides pass");return 0;}

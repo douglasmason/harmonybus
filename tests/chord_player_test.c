@@ -27,6 +27,7 @@ static Inst *fixture(void){
     position=0;tempo=120;transport=2;render_count=recorded_count=0;
     move_midi_fx_init(&host);
     Inst *instance=API.create_instance("",NULL);
+    API.set_param(instance,"chord_form","Auto"); /* Legacy lifecycle expectations use mode-specific Auto. */
     API.set_param(instance,"chord_inversion","Auto");API.set_param(instance,"arp_order","Up"); /* Legacy fixtures choose their voicing/order explicitly. */
     instance->content_map=0; /* Legacy tests explicitly exercise Chord content. */
     instance->next_anti_buffer_ms=0; /* Legacy timing fixture: no onset guard. */

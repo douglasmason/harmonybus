@@ -62,7 +62,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.226'
+          assert module['version']=='0.2.227'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -395,12 +395,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Independent Color Chord Form on Pad Harmony, sharing the rendering form choices. Rootless 7 highlights thirds and sevenths without changing the played voicing. Preserve diminished sevenths in harmony-based forms. Compatible with Movy hbclean.136." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Unified eight-control Chord Forms panel with live detected harmony and degrees. Independent conductor, follower and pad forms; Follow Detected transfers the degree pattern to follower targets. Preserve saved choices. Compatible with Movy hbclean.137 framed Perform panels." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Independent Color Chord Form on Pad Harmony, sharing the rendering form choices. Rootless 7 highlights thirds and sevenths without changing the played voicing. Preserve diminished sevenths in harmony-based forms. Compatible with Movy hbclean.136." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Unified eight-control Chord Forms panel with live detected harmony and degrees. Independent conductor, follower and pad forms; Follow Detected transfers the degree pattern to follower targets. Preserve saved choices. Compatible with Movy hbclean.137 framed Perform panels." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
