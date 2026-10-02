@@ -40,7 +40,41 @@ static void pad_sequence_reset(void){
     API.set_param(pad,"hb_movy_input_approach","98,-36,3");input(pad,98,1);assert(state->tokens[98]==first);input(pad,98,0);
     API.destroy_instance(pad);
 }
-int main(void){
+static void held_approach_retrigger(void){
+    const char *operations[]={"Leading Tone","Secondary V","Secondary II","Connector Below","Connector Above"};
+    for(int op=0;op<5;op++)for(int triple=0;triple<2;triple++)for(int direct=0;direct<2;direct++){
+        Inst *i=setup();i->approach_layout=1;i->preview_count=32;i->retrigger_held=1;i->travel_map=direct?7:0;
+        API.set_param(i,"approach_bank_1",operations[op]);
+        if(triple){i->preview_rows[0]=1;i->approach_rows.row_slots[0]=0;}
+        else touch(i,"approach_touch_1");
+        const char *pad=triple?"96,-36,0":"96,-36,3";
+        API.set_param(i,"hb_movy_input_approach",pad);int first=input(i,96,1);assert(first>=0);
+        input(i,64,1);input(i,64,0); /* A later target replaces transient current intent. */
+        int cursor=i->approach_rows.sequence_cursor,event=i->approach_rows.sequence_event;
+        g_bus.observed_harmony=chord(5,0,0);hb_effective_write(g_bus.observed_harmony);
+        uint8_t output[64][3];int lengths[64],held=first;int count=API.tick(i,64,48000,output,lengths,64);
+        if(direct&&op!=2)assert(count==0); /* None + fixed offsets: no OFF/ON at all. */
+        for(int n=0;n<count;n++)if(lengths[n]==3&&(output[n][0]&0xf0)==0x90&&output[n][2])held=output[n][1];
+        assert(i->approach_rows.sequence_cursor==cursor&&i->approach_rows.sequence_event==event);
+        input(i,96,0);API.set_param(i,"hb_movy_input_approach",pad);int fresh=input(i,96,1);
+        if(held!=fresh)fprintf(stderr,"held approach %s layout %d: held %d fresh %d\n",operations[op],triple,held,fresh);
+        assert(held==fresh);input(i,96,0);assert(!i->follower_sounding[96]);API.destroy_instance(i);
+    }
+}
+static void dedicated_motif_latch(void){
+    Inst *i=setup();API.set_param(i,"approach_mode_active","1");
+    API.set_param(i,"approach_bank_1","Leading Tone");API.set_param(i,"approach_bank_2","Secondary V");
+    API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_touch_2","Down");
+    API.set_param(i,"approach_touch_1","Up,40");API.set_param(i,"approach_touch_2","Up,40");
+    API.set_param(i,"approach_motif_latch","On");
+    for(int n=0;n<6;n++){input(i,60,1);assert(i->approach_rows.tokens[60]==(n%2?5:14));input(i,60,0);assert(i->approach_rows.performance&&i->approach_rows.motif_latch);}
+    assert(!i->approach_rows.latch_slots); /* Whole motif latch does not alter individual saved latches. */
+    API.set_param(i,"approach_motif_latch","Off");input(i,60,1);assert(!i->approach_rows.tokens[60]);input(i,60,0);
+    API.set_param(i,"approach_motif_latch","On");touch(i,"approach_touch_1");assert(!i->approach_rows.motif_latch); /* New motif replaces the latched one. */
+    i->approach_layout=1;API.set_param(i,"approach_motif_latch","On");assert(!i->approach_rows.motif_latch);
+    char text[32];API.get_param(i,"approach_motif_latch",text,sizeof(text));assert(!strcmp(text,"Rows"));API.destroy_instance(i);
+}
+int main(void){dedicated_motif_latch();held_approach_retrigger();
     pad_sequence_reset();
     Inst *ordered=setup();ordered->approach_layout=1;ordered->preview_count=32;
     API.set_param(ordered,"approach_touch_3","Down");API.set_param(ordered,"approach_touch_1","Down");API.set_param(ordered,"approach_touch_2","Down");

@@ -1,5 +1,5 @@
 static const char *HB_DEFAULT_EDITORS[]={"Conductor Chords","Follower Chords","Conductor Scales","Follower Scales"};
-static const char *HB_PALETTES[]={"Ion / Dor / Loc","Lyd / Dor / Loc","Ion / Aeo / Loc","Lyd / Aeo / Loc","Ion / Dor / Loc#2","Lyd / Dor / Loc#2","Ion / Aeo / Loc#2","Lyd / Aeo / Loc#2","Role Default"};
+static const char *HB_PALETTES[]={"Ion / Dor / Loc","Lyd / Dor / Loc","Ion / Aeo / Loc","Lyd / Aeo / Loc","Ion / Dor / Loc#2","Lyd / Dor / Loc#2","Ion / Aeo / Loc#2","Lyd / Aeo / Loc#2","Follow Role"};
 static int hb_palette_role(const char *key){
     if(!strcmp(key,"local_palette"))return -1;
     if(!strcmp(key,"conductor_default_local_palette"))return 0;
@@ -27,13 +27,14 @@ static int hb_policy_key(const char *key,int *role){
     return -1;
 }
 static int hb_policy_set(Inst *instance,const char *key,const char *parameter){
+    if(!strcmp(parameter,"Follow Role"))parameter="Role Default";
     if(!strcmp(key,"defaults_editor")){instance->defaults_editor=enum_index(parameter,HB_DEFAULT_EDITORS,4,instance->defaults_editor);return 1;}
     char alias[96];key=hb_defaults_alias(instance,key,alias,sizeof(alias));
     if(!strcmp(key,"defaults_scope"))return 1;
     int palette_role=hb_palette_role(key);
     if(palette_role!=-2){
         int previous=0;for(int bit=0;bit<3;bit++)previous|=(palette_role<0?hb_policy_value(instance,HB_P_MAJOR+bit):hb_role_default(palette_role,HB_P_MAJOR+bit))<<bit;
-        int selected=enum_index(parameter,HB_PALETTES,palette_role<0?9:8,previous);
+        int selected=enum_index(!strcmp(parameter,"Role Default")?"Follow Role":parameter,HB_PALETTES,palette_role<0?9:8,previous);
         for(int bit=0;bit<3;bit++){
             int field=HB_P_MAJOR+bit;
             if(palette_role<0){
@@ -79,7 +80,7 @@ static int hb_policy_get(Inst *instance,const char *key,char *buffer,int length)
         for(int field=0;field<HB_POLICY_FIELDS&&used<length;field++)if(instance->policy_overrides&(1u<<field))used+=snprintf(buffer+used,(size_t)(length-used)," %s",labels[field]);
         return used;
     }
-    if(!strcmp(key,"track_chord_form")&&!(instance->policy_overrides&(1u<<HB_P_FORM)))return snprintf(buffer,(size_t)length,"Role Default");
+    if(!strcmp(key,"track_chord_form")&&!(instance->policy_overrides&(1u<<HB_P_FORM)))return snprintf(buffer,(size_t)length,"Follow Role");
     int role,field=hb_policy_key(key,&role);if(field<0)return -1;
     int selected=role<0?hb_policy_value(instance,field):hb_role_default(role,field);
     if(HB_POLICY_OPTIONS[field])return snprintf(buffer,(size_t)length,"%s",HB_POLICY_OPTIONS[field][selected]);

@@ -38,7 +38,6 @@ static void hb_cs_preset(hb_motion_lane *lane,int preset){
     lane->chord_state.note_phase=0;lane->chord_state_valid=1;
 }
 static int hb_cs_set(Inst *instance,const char *key,const char *value){
-    if(!strcmp(key,"track_chord_form"))key="chord_form";
     if(!strcmp(key,"chord_edit_target")||(!strcmp(key,"motif_edit")&&instance->motion.lanes[instance->motion.selected].operation==HB_MO_CHORD_STATE)){
         int selected=-1;
         if(!strcmp(key,"motif_edit"))selected=instance->motion.selected;
@@ -90,8 +89,8 @@ static int hb_cs_metadata(Inst *instance,char *buffer,int length){
         if(!spec->options||hb_policy_key(spec->key,&role)<0)continue;
         if(used>=length)return -1;
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",spec->key,HB_CS_NAMES[index]);
-        for(int option=0;option<spec->count;option++){
-            if(used>=length)return -1;used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",option?",":"",spec->options[option]);
+        for(int option=!strcmp(spec->key,"chord_form")?1:0;option<spec->count;option++){
+            if(used>=length)return -1;used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",(option>(!strcmp(spec->key,"chord_form")?1:0))?",":"",spec->options[option]);
         }
         if(used>=length)return -1;used+=snprintf(buffer+used,(size_t)(length-used),"]}");
     }
@@ -99,7 +98,6 @@ static int hb_cs_metadata(Inst *instance,char *buffer,int length){
     if(used<0||used>=length)return -1;used+=snprintf(buffer+used,(size_t)(length-used),"]");return used>=length?-1:used;
 }
 static int hb_cs_get(Inst *instance,const char *key,char *buffer,int length){
-    if(!strcmp(key,"track_chord_form"))key="chord_form";
     hb_motion_lane *lane=hb_cs_edit_lane(instance);
     if(!strcmp(key,"chain_params"))return hb_cs_metadata(instance,buffer,length);
     if(!strcmp(key,"chord_edit_target"))return lane?snprintf(buffer,(size_t)length,"Lane %d",instance->chord_edit_lane+1):snprintf(buffer,(size_t)length,"Track Settings");

@@ -93,7 +93,7 @@ static void follow_detected_forms(void){
     Inst *instance=fixture();API.set_param(instance,"role","Follower");
     API.set_param(instance,"track_chord_form","Role Default");
     assert(hb_policy_value(instance,HB_P_FORM)==HB_CP_FOLLOW_DETECTED);
-    char value[128];API.get_param(instance,"track_chord_form",value,sizeof(value));assert(!strcmp(value,"Role Default"));
+    char value[128];API.get_param(instance,"track_chord_form",value,sizeof(value));assert(!strcmp(value,"Follow Role"));
     API.set_param(instance,"track_chord_form","Ninth");assert(hb_policy_value(instance,HB_P_FORM)==4);
     API.set_param(instance,"conductor_default_chord_form","Sixth");assert(hb_policy_value(instance,HB_P_FORM)==4);
     API.set_param(instance,"track_chord_form","Role Default");assert(hb_policy_value(instance,HB_P_FORM)==HB_CP_FOLLOW_DETECTED);
@@ -107,4 +107,20 @@ static void follow_detected_forms(void){
     API.get_param(instance,"detected_chord_form",value,sizeof(value));assert(strstr(value,"13579"));
     API.destroy_instance(instance);
 }
-int main(void){follow_detected_forms();shell_forms();generated_semantics_all_scales();next_onset_and_operations();puts("chord forms: semantic shells, rootless identity, unchanged held notes and cycle overrides pass");return 0;}
+static void role_form_scope(void){
+    Inst *i=fixture();API.set_param(i,"role","Conductor");API.set_param(i,"chord_mode","Scale Degree");
+    API.set_param(i,"track_chord_form","Follow Role");API.set_param(i,"conductor_default_chord_form","Triad");
+    midi(i,1,60);advance(i,1,64);assert(i->player.keys[0].count==3);midi(i,0,60);advance(i,1,64);
+    API.set_param(i,"conductor_default_chord_form","Seventh");midi(i,1,60);advance(i,1,64);assert(i->player.keys[0].count==4);midi(i,0,60);advance(i,1,64);
+    API.set_param(i,"track_chord_form","Ninth");API.set_param(i,"conductor_default_chord_form","Power");
+    char text[64];API.get_param(i,"conductor_default_chord_form",text,sizeof(text));assert(!strcmp(text,"Power"));
+    API.get_param(i,"track_chord_form",text,sizeof(text));assert(!strcmp(text,"Ninth"));
+    midi(i,1,60);advance(i,1,64);assert(i->player.keys[0].count==5);midi(i,0,60);advance(i,1,64);
+    API.set_param(i,"motion_lane","1");API.set_param(i,"motion_operation","Chord/Arp State");API.set_param(i,"chord_edit_target","Lane 1");
+    int lane_form=i->motion.lanes[0].chord_state.size;
+    API.set_param(i,"track_chord_form","Follow Role");assert(!(i->policy_overrides&1));
+    API.get_param(i,"track_chord_form",text,sizeof(text));assert(!strcmp(text,"Follow Role"));
+    API.set_param(i,"track_chord_form","Sixth");assert(i->policy_values[HB_P_FORM]==6&&i->motion.lanes[0].chord_state.size==lane_form);
+    API.get_param(i,"conductor_default_chord_form",text,sizeof(text));assert(!strcmp(text,"Power"));API.destroy_instance(i);
+}
+int main(void){role_form_scope();follow_detected_forms();shell_forms();generated_semantics_all_scales();next_onset_and_operations();puts("chord forms: semantic shells, rootless identity, unchanged held notes and cycle overrides pass");return 0;}
