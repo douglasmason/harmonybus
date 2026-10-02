@@ -25,7 +25,9 @@ jobs:
           fetch-depth: 0
 
       - name: Check CI promotion invariants
-        run: python3 scripts/test_ci_release.py
+        run: |
+          python3 scripts/test_ci_release.py
+          python3 scripts/test_native_suites.py
 
       - name: Select checks and recover tested release
         id: plan
@@ -173,157 +175,17 @@ jobs:
         if: steps.plan.outputs.mode == 'full'
         run: sudo apt-get update && sudo apt-get install -y clang lld file fonts-dejavu-core
 
-      - name: Run native core, mapping, modifier, and timing tests
+      - name: Run comprehensive native suites in parallel
         if: steps.plan.outputs.mode == 'full'
-        run: |
-          clang -std=c11 -O2 tests/harmony_core_test.c src/harmony_core.c -o /tmp/harmony_core_test
-          /tmp/harmony_core_test
-          clang -std=c11 -O2 tests/approach_state_test.c -o /tmp/approach_state_test
-          /tmp/approach_state_test
-          clang -std=c11 -O2 tests/approach_pitch_test.c -o /tmp/approach_pitch_test
-          /tmp/approach_pitch_test
-          clang -std=c11 -O2 tests/closest_split_test.c -o /tmp/closest_split_test
-          /tmp/closest_split_test
-          clang -std=c11 -O2 tests/follower_timing_test.c -o /tmp/follower_timing_test
-          /tmp/follower_timing_test
+        run: python3 scripts/run_native_suites.py
 
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/mixed_cadence_test.c src/harmony_core.c -lm -o /tmp/mixed_cadence_test
-          /tmp/mixed_cadence_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/role_scale_test.c src/harmony_core.c -lm -o /tmp/role_scale_test
-          /tmp/role_scale_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/opening_preview_test.c src/harmony_core.c -lm -o /tmp/opening_preview_test
-          /tmp/opening_preview_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/settings_editor_test.c src/harmony_core.c -lm -o /tmp/settings_editor_test
-          /tmp/settings_editor_test
-
-      - name: Verify loop learning with four conductor callbacks
-        if: steps.plan.outputs.mode == 'full'
-        run: |
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/loop_learning_test.c src/harmony_core.c -lm -o /tmp/loop_learning_test
-          /tmp/loop_learning_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/clip_cache_test.c src/harmony_core.c -lm -o /tmp/clip_cache_test
-          /tmp/clip_cache_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/clip_timeline_test.c src/harmony_core.c -lm -o /tmp/clip_timeline_test
-          /tmp/clip_timeline_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/stop_release_test.c src/harmony_core.c -lm -o /tmp/stop_release_test
-          /tmp/stop_release_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/humanize_settings_test.c src/harmony_core.c -lm -o /tmp/humanize_settings_test
-          /tmp/humanize_settings_test
-
-      - name: Verify short-note lights and chromatic approach previews
-        if: steps.plan.outputs.mode == 'full'
-        run: |
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_feedback_test.c src/harmony_core.c -lm -o /tmp/pad_feedback_test
-          /tmp/pad_feedback_test
-
-      - name: Verify follower boundary mapping and conductor ordering
-        if: steps.plan.outputs.mode == 'full'
-        run: |
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/follower_boundary_test.c src/harmony_core.c -lm -o /tmp/follower_boundary_test
-          /tmp/follower_boundary_test
-
-      - name: Verify follower reference, transpose, paths and anti-buffer
-        if: steps.plan.outputs.mode == 'full'
-        run: |
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/follower_reference_test.c src/harmony_core.c -lm -o /tmp/follower_reference_test
-          /tmp/follower_reference_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/input_pad_test.c src/harmony_core.c -lm -o /tmp/input_pad_test
-          /tmp/input_pad_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_playback_test.c src/harmony_core.c -lm -o /tmp/pad_playback_test
-          /tmp/pad_playback_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/pad_refresh_bench.c src/harmony_core.c -lm -o /tmp/pad_refresh_bench
-          /tmp/pad_refresh_bench
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_arrival_test.c src/harmony_core.c -lm -o /tmp/pad_arrival_test
-          /tmp/pad_arrival_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/global_scale_test.c src/harmony_core.c -lm -o /tmp/global_scale_test
-          /tmp/global_scale_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/follower_scale_baseline_test.c src/harmony_core.c -lm -o /tmp/follower_scale_baseline_test
-          /tmp/follower_scale_baseline_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/progression_scale_test.c src/harmony_core.c -lm -o /tmp/progression_scale_test
-          /tmp/progression_scale_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/parallel_harmony_test.c src/harmony_core.c -lm -o /tmp/parallel_harmony_test
-          /tmp/parallel_harmony_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/recorded_input_test.c src/harmony_core.c -lm -o /tmp/recorded_input_test
-          /tmp/recorded_input_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/piano_approach_test.c src/harmony_core.c -lm -o /tmp/piano_approach_test
-          /tmp/piano_approach_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/follow_touch_test.c src/harmony_core.c -lm -o /tmp/follow_touch_test
-          /tmp/follow_touch_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/auto_chord_repeat_test.c src/harmony_core.c -lm -o /tmp/auto_chord_repeat_test
-          /tmp/auto_chord_repeat_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/secondary_chord_test.c src/harmony_core.c -lm -o /tmp/secondary_chord_test
-          /tmp/secondary_chord_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/backdoor_chord_test.c src/harmony_core.c -lm -o /tmp/backdoor_chord_test
-          /tmp/backdoor_chord_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/cadence_sequence_test.c src/harmony_core.c -lm -o /tmp/cadence_sequence_test
-          /tmp/cadence_sequence_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/secondary_degrees_test.c src/harmony_core.c -lm -o /tmp/secondary_degrees_test
-          /tmp/secondary_degrees_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/named_controls_test.c src/harmony_core.c -lm -o /tmp/named_controls_test
-          /tmp/named_controls_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_family_test.c src/harmony_core.c -lm -o /tmp/chord_family_test
-          /tmp/chord_family_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/double_tap_test.c src/harmony_core.c -lm -o /tmp/double_tap_test
-          /tmp/double_tap_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/knob_latch_test.c src/harmony_core.c -lm -o /tmp/knob_latch_test
-          /tmp/knob_latch_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_rows_test.c src/harmony_core.c -lm -o /tmp/approach_rows_test
-          /tmp/approach_rows_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/connector_harmony_test.c src/harmony_core.c -lm -o /tmp/connector_harmony_test
-          /tmp/connector_harmony_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_stability_test.c src/harmony_core.c -lm -o /tmp/approach_stability_test
-          /tmp/approach_stability_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_editor_test.c src/harmony_core.c -lm -o /tmp/motion_editor_test
-          /tmp/motion_editor_test > /tmp/motion_editor.jsonl
-          python3 -c 'import json; snapshots=[json.loads(line) for line in open("/tmp/motion_editor.jsonl")]; assert len(snapshots)==49; assert all(isinstance(s["params"],list) for s in snapshots)'
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/next_touch_test.c src/harmony_core.c -lm -o /tmp/next_touch_test
-          /tmp/next_touch_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/operation_recording_test.c src/harmony_core.c -lm -o /tmp/operation_recording_test
-          /tmp/operation_recording_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/render_velocity_test.c src/harmony_core.c -lm -o /tmp/render_velocity_test
-          /tmp/render_velocity_test
-
-      - name: Verify shared and tempo-relative buffer
-        if: steps.plan.outputs.mode == 'full'
-        run: |
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/global_buffer_test.c src/harmony_core.c -lm -o /tmp/global_buffer_test
-          /tmp/global_buffer_test
-
-      - name: Verify temporary chord state editing and pair input
-        if: steps.plan.outputs.mode == 'full'
-        run: |
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_state_test.c src/harmony_core.c -lm -o /tmp/chord_state_test
-          /tmp/chord_state_test
-
-      - name: Verify chord player MIDI lifecycle and voicings
-        if: steps.plan.outputs.mode == 'full'
-        run: |
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/chord_player_test.c src/harmony_core.c -lm -o /tmp/chord_player_test
-          /tmp/chord_player_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 tests/chord_forms_test.c src/harmony_core.c -lm -o /tmp/chord_forms_test
-          /tmp/chord_forms_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/top_note_test.c src/harmony_core.c -lm -o /tmp/top_note_test
-          /tmp/top_note_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_chord_test.c src/harmony_core.c -lm -o /tmp/approach_chord_test
-          /tmp/approach_chord_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/arp_edit_test.c src/harmony_core.c -lm -o /tmp/arp_edit_test
-          /tmp/arp_edit_test
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_player_test.c src/harmony_core.c -lm -o /tmp/chord_player_ubsan
-          /tmp/chord_player_ubsan
-
-      - name: Verify operation lanes and recording placement
-        if: steps.plan.outputs.mode == 'full'
-        run: |
-          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_test.c src/harmony_core.c -lm -o /tmp/motion_test
-          /tmp/motion_test
-
-      - name: Verify motifs, arp anchors and Render Rhythm
-        if: steps.plan.outputs.mode == 'full'
-        run: |
-          for suite in motif arp_start render_rhythm; do
-            clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/${suite}_test.c src/harmony_core.c -lm -o /tmp/${suite}-release-test
-            /tmp/${suite}-release-test
-          done
+      - name: Preserve native suite logs
+        if: always() && steps.plan.outputs.mode == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-suite-logs
+          path: /tmp/hb-native-logs
+          retention-days: 7
 
       - name: Build guide from canonical Markdown and SVG
         if: steps.plan.outputs.mode == 'full'
