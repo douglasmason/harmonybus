@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.231"
+#define HB_VERSION "0.2.232"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -3106,7 +3106,12 @@ static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int l
            Content/Travel semantics) from hb_map_follower_note_now(). */
         int saved_origin=instance->movy_playback;
         instance->movy_playback=instance->follower_origin[source_note];
+        /* Resolve the held pad's original operation before mapping its new
+           pitch. The transient current intent may belong to another pad. */
+        const unsigned long long *saved_events=instance->motion.event_override;
+        instance->motion.event_override=instance->motion_held_events[source_note];
         new_outputs[voice_count]=hb_map_follower_note_now(instance,source_note);
+        instance->motion.event_override=saved_events;
         /* A harmony change can change the displayed role without changing
            the MIDI pitch. Refresh that context without retriggering audio. */
         if(previous_outputs[voice_count]==new_outputs[voice_count])

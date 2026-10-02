@@ -40,7 +40,27 @@ static void pad_sequence_reset(void){
     API.set_param(pad,"hb_movy_input_approach","98,-36,3");input(pad,98,1);assert(state->tokens[98]==first);input(pad,98,0);
     API.destroy_instance(pad);
 }
-int main(void){
+static void held_approach_retrigger(void){
+    const char *operations[]={"Leading Tone","Secondary V","Secondary II","Connector Below","Connector Above"};
+    for(int op=0;op<5;op++)for(int triple=0;triple<2;triple++){
+        Inst *i=setup();i->approach_layout=1;i->preview_count=32;i->retrigger_held=1;
+        API.set_param(i,"approach_bank_1",operations[op]);
+        if(triple){i->preview_rows[0]=1;i->approach_rows.row_slots[0]=0;}
+        else touch(i,"approach_touch_1");
+        const char *pad=triple?"96,-36,0":"96,-36,3";
+        API.set_param(i,"hb_movy_input_approach",pad);int first=input(i,96,1);assert(first>=0);
+        input(i,64,1);input(i,64,0); /* A later target replaces transient current intent. */
+        int cursor=i->approach_rows.sequence_cursor,event=i->approach_rows.sequence_event;
+        g_bus.observed_harmony=chord(5,0,0);hb_effective_write(g_bus.observed_harmony);
+        uint8_t output[64][3];int lengths[64],held=-1;int count=API.tick(i,64,48000,output,lengths,64);
+        for(int n=0;n<count;n++)if(lengths[n]==3&&(output[n][0]&0xf0)==0x90&&output[n][2])held=output[n][1];
+        assert(i->approach_rows.sequence_cursor==cursor&&i->approach_rows.sequence_event==event);
+        input(i,96,0);API.set_param(i,"hb_movy_input_approach",pad);int fresh=input(i,96,1);
+        if(held!=fresh)fprintf(stderr,"held approach %s layout %d: held %d fresh %d\n",operations[op],triple,held,fresh);
+        assert(held==fresh);input(i,96,0);assert(!i->follower_sounding[96]);API.destroy_instance(i);
+    }
+}
+int main(void){held_approach_retrigger();
     pad_sequence_reset();
     Inst *ordered=setup();ordered->approach_layout=1;ordered->preview_count=32;
     API.set_param(ordered,"approach_touch_3","Down");API.set_param(ordered,"approach_touch_1","Down");API.set_param(ordered,"approach_touch_2","Down");
