@@ -15,7 +15,16 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
     else if(!strcmp(value,"Chromatic Above")||!strcmp(value,"Chrom Above")||!strcmp(value,"CCA"))value="Connector Above";
     else if(!strcmp(value,"Tritone V")||!strcmp(value,"TTS"))value="Tritone Sub";
     else if(!strcmp(value,"LT"))value="Leading Tone";
-    if(!strcmp(key,"approach_mode_active")){state->enabled=parse_i(value,0)!=0;state->down=state->knob_down=state->step_down=state->turned=0;state->performance=0;state->latch=0;state->bank_armed=-1;return 1;}
+    if(!strcmp(key,"approach_motif_latch")){
+        if(hb_ar_spatial_layout(instance))return 1;
+        int on=!strcmp(value,"On")||!strcmp(value,"1");
+        if(on&&state->count&&state->selected){
+            if(!state->performance)state->cursor=state->event=0;
+            state->motif_latch=state->latch=state->performance=1;
+        }else if(!on){state->motif_latch=state->latch=state->performance=0;}
+        return 1;
+    }
+    if(!strcmp(key,"approach_mode_active")){state->enabled=parse_i(value,0)!=0;state->down=state->knob_down=state->step_down=state->turned=0;state->performance=0;state->latch=state->motif_latch=0;state->bank_armed=-1;return 1;}
     int control=hb_ar_slot(key,"approach_control_",16);
     if(control>=0){
         if(hb_ar_spatial_layout(instance))return 1;
@@ -70,11 +79,11 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
         if(!strcmp(value,"Down")){
             if(*physical&bit)return 1;*physical|=bit;state->turned&=~bit;
             if(state->down&bit)return 1;
-            if(!state->down){state->count=0;state->cursor=state->event=0;state->selected=0;state->used=0;state->latch=!hb_ar_spatial_layout(instance)&&step_touch<0&&!!(state->latch_slots&bit);}
+            if(!state->down){state->motif_latch=0;state->count=0;state->cursor=state->event=0;state->selected=0;state->used=0;state->latch=!hb_ar_spatial_layout(instance)&&step_touch<0&&!!(state->latch_slots&bit);}
             state->performance=1;state->touched_at[slot]=hb_motion_position(instance);
             if(state->count<8){state->order_slot[state->count]=slot;state->order[state->count++]=hb_ar_code(state,slot);}
             state->selected|=bit;
-            if(state->count>1)state->latch=0;
+            if(state->count>1&&!state->motif_latch)state->latch=0;
             state->down|=bit;
         }else{*physical&=~bit;state->down=(hb_ar_spatial_layout(instance)?0:state->knob_down)|state->step_down;int elapsed=parse_i(strchr(value,',')?strchr(value,',')+1:"0",0);if(!state->down&&!state->latch&&state->count==1&&!(state->turned&bit)&&(elapsed>=g_hb_hold_ms||state->used))state->performance=0;}
         return 1;
@@ -127,6 +136,7 @@ static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
     if(slot>=0)return snprintf(buffer,(size_t)length,"%s",hb_ar_name(state->knobs[slot]));
     slot=hb_ar_slot(key,"approach_bank_",16);
     if(slot>=0)return snprintf(buffer,(size_t)length,"%s",state->bank[slot]<0?hb_ar_name(-state->bank[slot]-1):MO_MOTIFS[state->bank[slot]]);
+    if(!strcmp(key,"approach_motif_latch"))return snprintf(buffer,(size_t)length,"%s",hb_ar_spatial_layout(instance)?"Rows":state->motif_latch&&state->performance?"On":"Off");
     if(!strcmp(key,"approach_row_status")){unsigned sequence_mask=0;for(int index=0;index<state->sequence_count;index++)sequence_mask|=1u<<state->sequence_slots[index];int used=snprintf(buffer,(size_t)length,"%d,%d,%d,%u,%d,%u,%d,%d,%d,%d,%d,%d,%u,%d,%d,%d,%d",state->enabled,state->cursor,state->count,state->down,state->bank_armed,state->selected,state->performance,state->row_preset,state->latch,state->row_slots[0],state->row_slots[1],state->row_slots[2],sequence_mask,state->sequence_count?state->sequence_slots[state->sequence_cursor]:state->row_preset,state->sequence_cursor,state->sequence_event,state->sequence_count);for(int index=0;index<state->sequence_count&&used<length;index++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",state->sequence_slots[index]);return used;}
     if(!strcmp(key,"approach_rows_view")){int used=0;for(int row=0;row<3;row++){int slot=state->row_slots[row],ref=state->bank[slot];used+=snprintf(buffer+used,(size_t)(length-used),"%s%d,%s",row?"|":"",slot+1,ref<0?hb_ar_name(-ref-1):MO_MOTIFS[ref]);if(used>=length)return length-1;}return used;}
     return -1;
@@ -171,7 +181,7 @@ static void hb_ar_restore(Inst *instance,const char *source){
         if(restored.bank[slot]==slot+1)restored.bank[slot]=HB_AR_DEFAULT_BANK[slot];
     if(instance->approach_layout)restored.latch_slots=0;
     memset(restored.row_steps,0,sizeof(restored.row_steps));
-    restored.performance=restored.latch=restored.row_event=0;restored.pending_row=restored.preview_row=-1;
+    restored.performance=restored.latch=restored.motif_latch=restored.row_event=0;restored.pending_row=restored.preview_row=-1;
     restored.sequence_count=restored.sequence_cursor=restored.sequence_event=0;restored.sequence_pad=0;
     const char *sequence=strstr(source,";ar6,");
     if(sequence){

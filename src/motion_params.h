@@ -237,9 +237,9 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
             used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Scale Mode\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Parent Scale\",\"Simple Chord\",\"Simple Scale\"]}");
         }else if(selected==HB_MO_CHORD_FORM){
             used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Form\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[");
-            for(int form=0;form<HB_CP_FORMS;form++){
+            for(int form=1;form<HB_CP_FORMS;form++){
                 if(used<0||used>=length)return -1;
-                used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",form?",":"",CP_CHORD_FORM[form]);
+                used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",form>1?",":"",CP_CHORD_FORM[form]);
             }
             if(used<0||used>=length)return -1;
             used+=snprintf(buffer+used,(size_t)(length-used),"]}");
@@ -284,7 +284,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
                 used+=snprintf(buffer+used,(size_t)(length-used),",\"options_as_string\":true,\"options\":[\"Parent Scale\",\"Simple Chord\",\"Simple Scale\"]");
             }else if(settings->operation==HB_MO_CHORD_FORM){
                 used+=snprintf(buffer+used,(size_t)(length-used),",\"options_as_string\":true,\"options\":[");
-                for(int form=0;form<HB_CP_FORMS;form++)used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",form?",":"",CP_CHORD_FORM[form]);
+                for(int form=1;form<HB_CP_FORMS;form++)used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",form>1?",":"",CP_CHORD_FORM[form]);
                 used+=snprintf(buffer+used,(size_t)(length-used),"]");
             }
             used+=snprintf(buffer+used,(size_t)(length-used),"}");

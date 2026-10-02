@@ -61,7 +61,20 @@ static void held_approach_retrigger(void){
         assert(held==fresh);input(i,96,0);assert(!i->follower_sounding[96]);API.destroy_instance(i);
     }
 }
-int main(void){held_approach_retrigger();
+static void dedicated_motif_latch(void){
+    Inst *i=setup();API.set_param(i,"approach_mode_active","1");
+    API.set_param(i,"approach_bank_1","Leading Tone");API.set_param(i,"approach_bank_2","Secondary V");
+    API.set_param(i,"approach_touch_1","Down");API.set_param(i,"approach_touch_2","Down");
+    API.set_param(i,"approach_touch_1","Up,40");API.set_param(i,"approach_touch_2","Up,40");
+    API.set_param(i,"approach_motif_latch","On");
+    for(int n=0;n<6;n++){input(i,60,1);assert(i->approach_rows.tokens[60]==(n%2?5:14));input(i,60,0);assert(i->approach_rows.performance&&i->approach_rows.motif_latch);}
+    assert(!i->approach_rows.latch_slots); /* Whole motif latch does not alter individual saved latches. */
+    API.set_param(i,"approach_motif_latch","Off");input(i,60,1);assert(!i->approach_rows.tokens[60]);input(i,60,0);
+    API.set_param(i,"approach_motif_latch","On");touch(i,"approach_touch_1");assert(!i->approach_rows.motif_latch); /* New motif replaces the latched one. */
+    i->approach_layout=1;API.set_param(i,"approach_motif_latch","On");assert(!i->approach_rows.motif_latch);
+    char text[32];API.get_param(i,"approach_motif_latch",text,sizeof(text));assert(!strcmp(text,"Rows"));API.destroy_instance(i);
+}
+int main(void){dedicated_motif_latch();held_approach_retrigger();
     pad_sequence_reset();
     Inst *ordered=setup();ordered->approach_layout=1;ordered->preview_count=32;
     API.set_param(ordered,"approach_touch_3","Down");API.set_param(ordered,"approach_touch_1","Down");API.set_param(ordered,"approach_touch_2","Down");

@@ -10,7 +10,7 @@ typedef struct {
     int row_slots[3],row_steps[3];
     int sequence_slots[8],sequence_count,sequence_cursor,sequence_event;
     unsigned sequence_pad;
-    int row_preset,row_event,pending_row,preview_row,performance,latch,used;
+    int row_preset,row_event,pending_row,preview_row,performance,latch,motif_latch,used;
     double touched_at[16];
     int enabled,knobs[8],bank[16],order[8],order_slot[8],count,cursor,event,bank_armed;
     unsigned latch_slots,turned;
@@ -33,7 +33,7 @@ static void hb_ar_advance(hb_ar_state *state){
         do{state->event++;}while(state->event<phrase->count&&phrase->events[state->event].kind==2);
         if(state->event<phrase->count)return;
     }
-    state->event=0;state->cursor=(state->cursor+1)%state->count;if(!state->cursor&&(state->count>1||(!state->down&&!state->latch)))state->performance=0;
+    state->event=0;state->cursor=(state->cursor+1)%state->count;if(!state->cursor&&!state->motif_latch&&(state->count>1||(!state->down&&!state->latch)))state->performance=0;
 }
 /* Last three control touches form a persistent FIFO, independent of holds. */
 static void hb_ar_row_touch(hb_ar_state *state,int slot){

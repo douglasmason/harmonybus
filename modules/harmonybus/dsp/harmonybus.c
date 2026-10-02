@@ -3624,7 +3624,7 @@ static int hb_emit_role_change_flush(Inst *instance,uint8_t output[][3],int leng
 }
 static void hb_clear_instance_note_state(Inst *instance){
     if(!instance)return;
-    instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;instance->approach_rows.performance=instance->approach_rows.latch=0;instance->approach_rows.bank_armed=-1;memset(instance->approach_rows.swallow,0,sizeof(instance->approach_rows.swallow));
+    instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.motif_latch=0;instance->approach_rows.bank_armed=-1;memset(instance->approach_rows.swallow,0,sizeof(instance->approach_rows.swallow));
     instance->motif.cancel=1;instance->motif.editor.armed=-1;
     memset(instance->chord_pair_held,0,sizeof(instance->chord_pair_held));memset(instance->chord_pair_owner,0,sizeof(instance->chord_pair_owner));instance->chord_pair_render=0;
     instance->next_touch_mask=0;
@@ -4667,7 +4667,7 @@ if(!strcmp(key,"pad_preview_inputs")){
         /* Layout changes invalidate the old gesture mode, but keep saved
            row assignments. Entering spatial mode clears permanent motif latches. */
         instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;
-        instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.selected=0;
+        instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.motif_latch=instance->approach_rows.selected=0;
         instance->approach_rows.turned=0;instance->approach_rows.bank_armed=-1;
         if(layout)instance->approach_rows.latch_slots=0;
     }
@@ -6214,6 +6214,7 @@ int move_midi_fx_process_with_source(void *value,
 static void set_param(void *value,const char *key,const char *parameter){
     Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
     if(!strcmp(key,"hb_pressure_full_velocity")){instance->pressure_full_velocity=parse_i(parameter,0)!=0;return;}
+    if(!strcmp(key,"state")&&strstr(parameter,";freshrole1")){g_role_restored=0;g_pad_restored=0;}
     hb_role_sync(instance);
     if(!hb_ar_set(instance,key,parameter)&&!hb_cs_set(instance,key,parameter)&&!hb_rr_set(instance,key,parameter)&&!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
     if(!strcmp(key,"state")){hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);hb_rr_restore(instance,parameter);hb_ar_restore(instance,parameter);}

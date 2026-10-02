@@ -93,3 +93,7 @@ Single approach-row sequence members show their touch-order position beneath eve
 Chord + Arp one-shot remains active through approach pads and the full hold of the first live target pad played after arming. Releasing that target consumes it, even if other pads remain held. Recorded playback and unrelated releases do not consume it. Momentary holds and permanent latches retain their existing behavior.
 
 With Retrigger Held on, held approach notes retain the operation captured at their original press when harmony changes. Revoicing uses that operation against the new harmony and does not advance the approach sequence or resolve to the target.
+
+Knob 7 on both Harm Perform panels is Motif Latch. Turn right to repeat the currently armed whole motif/sequence; turn left to stop the latch. Its LED pulses white while latched. Selecting a new motif clears this latch. Approach layouts display Rows here and keep target pads independent; their approach pads already provide persistent access. Former knob-7 operations remain available on their step slots.
+
+Chord Forms uses shared Conductor Form and Follower Form values for the current set. This Track Form offers Follow Role or a local override, independent of any legacy Chord State editor. Auto is no longer offered in form menus; saved legacy Auto values remain supported internally. Role Defaults and Chord State panels are removed. New sets reset conductor form to Triad, follower/pad forms to Follow Detected, and track form to Follow Role.
