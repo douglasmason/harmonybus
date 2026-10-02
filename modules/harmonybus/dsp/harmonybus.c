@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.226"
+#define HB_VERSION "0.2.227"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -129,7 +129,7 @@ static int g_scale_exceptions[2]={0,0},g_scale_exceptions_restored=0;
 static int g_pad_play_color=3;
 static int g_pad_both_color=2;
 static int g_pad_tonic_color=9;
-static int g_pad_chord_form=0;
+static int g_pad_chord_form=HB_CP_FOLLOW_DETECTED;
 static int g_pad_settings[5]={6,3,3,2,0};
 static int g_pad_restored=0;
 static int g_humanize[3]={0,0,0},g_humanize_restored=0;
@@ -143,7 +143,7 @@ static const char *PAD_PLAY_COLORS[]={"Red","Orange","Yellow","Green","Cyan","Bl
 static const char *PAD_TONIC_COLORS[]={"Red","Orange","Yellow","Green","Cyan","Blue","Purple","Pink","Track","Grey"};
 static const char *PAD_BOTH_COLORS[]={"Blend","Red","Orange","Yellow","Green","Cyan","Blue","Purple","Pink","Track"};
 static const char **PAD_OPTIONS[]={PAD_MODES,PAD_RATES,PAD_SHAPES,PAD_COLORS,PAD_COLORS};
-static void hb_pad_defaults(void){int defaults[5]={6,3,3,2,0};g_pad_play_color=3;g_pad_both_color=2;g_pad_tonic_color=9;g_pad_chord_form=0;memcpy(g_pad_settings,defaults,sizeof(defaults));g_pad_restored=0;}
+static void hb_pad_defaults(void){int defaults[5]={6,3,3,2,0};g_pad_play_color=3;g_pad_both_color=2;g_pad_tonic_color=9;g_pad_chord_form=HB_CP_FOLLOW_DETECTED;memcpy(g_pad_settings,defaults,sizeof(defaults));g_pad_restored=0;}
 
 static int g_buffer_restored=0;
 static int g_lookahead_restored=0;
@@ -5456,7 +5456,7 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
 static unsigned hb_pad_chord_mask(Inst *instance,hb_harmony_t harmony){
     if(!harmony.valid)return 0;
     unsigned chord=hb_harmony_chord_mask(harmony);
-    if(!g_pad_chord_form)return chord;
+    if(!g_pad_chord_form||g_pad_chord_form==HB_CP_FOLLOW_DETECTED)return chord;
     hb_cp_config config;hb_cp_defaults(&config);
     config.mode=2;config.size=g_pad_chord_form;config.inversion=1;
     int notes[12];unsigned mask=0;
@@ -6026,6 +6026,22 @@ if(!strcmp(key,"pretranspose_root")){
 if(!strcmp(key,"final_root")){
     hb_harmony_t final_harmony=hb_render_harmony(instance);
     return snprintf(buffer,(size_t)length,"%s",final_harmony.valid?hb_pc_display(final_harmony.root_pc,final_harmony):"--");
+}
+if(!strcmp(key,"detected_chord_form")){
+    hb_harmony_t detected=hb_render_harmony(instance);
+    if(!detected.valid)return snprintf(buffer,(size_t)length,"--");
+    char name[48],degrees[16];hb_format_harmony(name,sizeof(name),detected);
+    unsigned roles=hb_cp_detected_roles(detected.root_pc,hb_harmony_chord_mask(detected));
+    int used=0;static const int order[]={0,2,4,6,1,3,5};
+    for(int index=0;index<7;index++)if(roles&(1u<<order[index])){
+        int role=order[index],degree=role+1;
+        if(role==1&&(roles&(1u<<2)))degree=9;
+        if(role==3&&(roles&(1u<<2)))degree=11;
+        if(role==5&&(roles&(1u<<6)))degree=13;
+        used+=snprintf(degrees+used,sizeof(degrees)-(size_t)used,"%d",degree);
+    }
+    degrees[used]=0;
+    return snprintf(buffer,(size_t)length,"%s %s",name,degrees);
 }
 if(!strcmp(key,"final_harmony"))return hb_format_harmony(buffer,length,hb_render_harmony(instance));
 if(!strcmp(key,"next_anti_buffer_ms")){

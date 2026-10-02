@@ -4,8 +4,9 @@
    by the host adapter; the adapter decides which role owns the output. */
 #define HB_CP_KEYS 16
 #define HB_CP_VOICES 12
-#define HB_CP_FORMS 17
-static const char *CP_CHORD_FORM[]={"Auto","Power","Triad","Seventh","Ninth","Add9","Sixth","6/9","Eleventh","Thirteenth","Sus2","Sus4","Shell 7","Shell 9","Shell 6/9","Rootless 7","Rootless 9"};
+#define HB_CP_FORMS 18
+#define HB_CP_FOLLOW_DETECTED 17
+static const char *CP_CHORD_FORM[]={"Auto","Power","Triad","Seventh","Ninth","Add9","Sixth","6/9","Eleventh","Thirteenth","Sus2","Sus4","Shell 7","Shell 9","Shell 6/9","Rootless 7","Rootless 9","Follow Detected"};
 typedef struct {
     int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread, phase;
     int quality, chromatic_quality, note_phase, clear_harmony, start;
@@ -102,8 +103,31 @@ static int hb_cp_chromatic_quality(int selection){
     static const int qualities[]={0,5,6,9,7,8};
     return qualities[hb_cp_clamp(selection,0,5)];
 }
+/* Translate detected chord members to degree roles before changing target root.
+   The destination scale/quality supplies pitches; detection supplies the form. */
+static unsigned hb_cp_detected_roles(int root,unsigned chord){
+    if(!chord)return (1u<<0)|(1u<<2)|(1u<<4);
+    unsigned relative=0,roles=0;
+    for(int interval=0;interval<12;interval++)if(chord&(1u<<hb_cp_mod(root+interval)))relative|=1u<<interval;
+    for(int interval=0;interval<12;interval++)if(relative&(1u<<interval)){
+        int role=0;
+        if(interval==1||interval==2)role=1;
+        else if(interval==3)role=(relative&(1u<<4))?1:2;
+        else if(interval==4)role=2;
+        else if(interval==5)role=3;
+        else if(interval==6)role=(relative&(1u<<7))?3:4;
+        else if(interval==7)role=4;
+        else if(interval==8)role=(relative&(1u<<7))?5:4;
+        else if(interval==9)role=(relative&(1u<<3))&&(relative&(1u<<6))&&!(relative&((1u<<7)|(1u<<10)|(1u<<11)))?6:5;
+        else if(interval>=10)role=6;
+        roles|=1u<<role;
+    }
+    return roles;
+}
 static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned chord,
                        unsigned scale,int *output,unsigned *semantic){
+    unsigned detected_roles=hb_cp_detected_roles(root,chord);
+    int follows_detected=config.size==HB_CP_FOLLOW_DETECTED;
     if(semantic)*semantic=0;
     config.size=hb_cp_clamp(config.size,0,HB_CP_FORMS-1);
     if(input<0)input=0;if(input>127)input=127;
@@ -111,6 +135,7 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
     int ordered[12],count=0,bass=input,tones[7];
     if(config.mode==1){if(!scale)return 0;root=hb_cp_mod(input);}
     else if(!chord)return 0;
+    if(follows_detected&&config.mode==2)config.size=0;
     tones[0]=root;int degree=1;
     for(int offset=1;offset<=24&&degree<7;offset++)
         if(scale&(1u<<hb_cp_mod(root+offset)))tones[degree++]=hb_cp_mod(root+offset);
@@ -179,7 +204,15 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
         {2,6,-1,-1,-1,-1,-1},{2,6,1,-1,-1,-1,-1}
     };
     unsigned selected=0;
-    if(config.mode==2&&config.size==0&&!config.quality){
+    if(follows_detected&&(config.mode==1||config.quality)){
+        static const int order[7]={0,2,4,6,1,3,5};
+        for(int index=0;index<7;index++){
+            int role=order[index];if(!(detected_roles&(1u<<role)))continue;
+            if(role==6&&symmetric_no_seventh&&!config.quality)continue;
+            int pitch=tones[role];
+            if(!(selected&(1u<<pitch))){ordered[count++]=pitch;selected|=1u<<pitch;}
+        }
+    }else if(config.mode==2&&config.size==0&&!config.quality){
         static const int order[7]={0,2,4,6,1,3,5};
         for(int index=0;index<7;index++){
             int pitch=tones[order[index]];
@@ -206,7 +239,7 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
        Power keeps its scale-derived quality; suspensions remain suspensions. */
     if(semantic){
         *semantic=selected;
-        if(config.size==1||config.size>=12)
+        if(config.size==1||(config.size>=12&&config.size<HB_CP_FOLLOW_DETECTED))
             *semantic|=(1u<<root)|(1u<<tones[2])|(1u<<tones[4]);
     }
     int inversion=0;
