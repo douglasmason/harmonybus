@@ -42,8 +42,8 @@ static void pad_sequence_reset(void){
 }
 static void held_approach_retrigger(void){
     const char *operations[]={"Leading Tone","Secondary V","Secondary II","Connector Below","Connector Above"};
-    for(int op=0;op<5;op++)for(int triple=0;triple<2;triple++){
-        Inst *i=setup();i->approach_layout=1;i->preview_count=32;i->retrigger_held=1;
+    for(int op=0;op<5;op++)for(int triple=0;triple<2;triple++)for(int direct=0;direct<2;direct++){
+        Inst *i=setup();i->approach_layout=1;i->preview_count=32;i->retrigger_held=1;i->travel_map=direct?7:0;
         API.set_param(i,"approach_bank_1",operations[op]);
         if(triple){i->preview_rows[0]=1;i->approach_rows.row_slots[0]=0;}
         else touch(i,"approach_touch_1");
@@ -52,7 +52,8 @@ static void held_approach_retrigger(void){
         input(i,64,1);input(i,64,0); /* A later target replaces transient current intent. */
         int cursor=i->approach_rows.sequence_cursor,event=i->approach_rows.sequence_event;
         g_bus.observed_harmony=chord(5,0,0);hb_effective_write(g_bus.observed_harmony);
-        uint8_t output[64][3];int lengths[64],held=-1;int count=API.tick(i,64,48000,output,lengths,64);
+        uint8_t output[64][3];int lengths[64],held=first;int count=API.tick(i,64,48000,output,lengths,64);
+        if(direct&&op!=2)assert(count==0); /* None + fixed offsets: no OFF/ON at all. */
         for(int n=0;n<count;n++)if(lengths[n]==3&&(output[n][0]&0xf0)==0x90&&output[n][2])held=output[n][1];
         assert(i->approach_rows.sequence_cursor==cursor&&i->approach_rows.sequence_event==event);
         input(i,96,0);API.set_param(i,"hb_movy_input_approach",pad);int fresh=input(i,96,1);
