@@ -2776,6 +2776,12 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
                 for(int pitch=0;pitch<12;pitch++)if(semantic_mask&(1u<<pitch))
                     key->semantic_mask|=1u<<mod12(pitch+g_bus.global_transpose);
             }
+            /* Retain explicitly requested quality, not internal approach-family
+               substitutions, when the conductor form omits its seventh. */
+            if(instance->role==0&&!approach_chord&&config.mode&&requested_config.quality>=5&&requested_config.quality<=12){
+                static const int seventh[]={11,10,10,10,9,11,11,10};
+                key->semantic_mask|=1u<<mod12(key->root_pc+seventh[requested_config.quality-5]);
+            }
             if(instance->role==0){instance->dirty=1;instance->frames_since_change=0;instance->conductor_note_on_pending=1;}
             key->recordable=instance->role==0&&!instance->movy_playback;
             memcpy(instance->motion_player_events[index],instance->motion.event_override?instance->motion.event_override:instance->motion.events,sizeof(instance->motion.events));
