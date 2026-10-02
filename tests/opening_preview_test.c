@@ -18,6 +18,14 @@ int main(void){
     assert(render_count==before&&recorded_count==recorded_before);
     API.set_param(conductor,"hb_opening_preview","1;60,1;63,1;67,1");
     opening=hb_opening_harmony();assert(hb_harmony_chord_mask(opening)==((1<<0)|(1<<3)|(1<<7)));
+    API.set_param(conductor,"chord_quality","Min7");
+    API.set_param(conductor,"track_chord_form","Power");
+    API.set_param(conductor,"hb_opening_preview","1;62,0");
+    opening=hb_opening_harmony();assert(opening.root_pc==2);
+    assert(hb_harmony_chord_mask(opening)==0x225&&hb_harmony_detected_mask(opening)==0x204);
+    API.set_param(conductor,"track_chord_form","Seventh");
+    opening=hb_opening_harmony();assert(hb_harmony_chord_mask(opening)==0x225&&hb_harmony_detected_mask(opening)==0x225);
+    assert(render_count==before&&recorded_count==recorded_before&&g_bus.seq==seq);
     API.set_param(conductor,"hb_opening_preview","0");assert(!hb_opening_harmony().valid);
     API.set_param(conductor,"hb_opening_preview","1;60,1;999,1");assert(!hb_opening_harmony().valid);
     API.set_param(conductor,"hb_opening_preview","1;60,1;64,1;67,1");g_movy_running=1;assert(!hb_opening_harmony().valid);

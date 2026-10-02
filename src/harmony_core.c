@@ -207,7 +207,7 @@ hb_harmony_t hb_refine_harmony_with_root(const uint8_t *notes,int note_count,hb_
         }
     }
     hb_harmony_t result=established;
-    result.bass_pc=bass%12;result.pitch_mask=input;result.chord_index=best_template;result.confidence=95;
+    result.bass_pc=bass%12;result.pitch_mask=input;result.detected_mask=0;result.chord_index=best_template;result.confidence=95;
     snprintf(result.name,sizeof(result.name),"%s%s",hb_pc_name(result.root_pc),templates[best_template].suffix);
     if(result.bass_pc!=result.root_pc){size_t used=strlen(result.name);snprintf(result.name+used,sizeof(result.name)-used,"/%s",hb_pc_name(result.bass_pc));}
     return result;
@@ -244,7 +244,7 @@ hb_harmony_t hb_infer_harmony_contextual(const uint8_t *notes,int note_count,
        competing inversion/re-rooting. */
     if((committed_minor&&has_m3)||(committed_major&&has_M3)){
         hb_harmony_t refined=hb_refine_harmony_with_root(notes,note_count,committed);
-        refined.pitch_mask=input;
+        refined.pitch_mask=input;refined.detected_mask=0;
         return refined;
     }
 
@@ -253,7 +253,7 @@ hb_harmony_t hb_infer_harmony_contextual(const uint8_t *notes,int note_count,
     if(has_m3||has_M3){
         if(raw.valid&&raw.root_pc==root)return raw;
         hb_harmony_t refined=hb_refine_harmony_with_root(notes,note_count,committed);
-        refined.pitch_mask=input;
+        refined.pitch_mask=input;refined.detected_mask=0;
         return refined;
     }
 
@@ -272,6 +272,7 @@ hb_harmony_t hb_transpose_harmony(hb_harmony_t harmony,int semitones) {
     if(harmony.intent_kind)harmony.intent_target=((harmony.intent_target+semitones)%12+12)%12;
     if(!harmony.valid||semitones==0)return harmony;harmony.root_pc=mod12(harmony.root_pc+semitones);harmony.bass_pc=mod12(harmony.bass_pc+semitones);
     uint16_t intent=0;for(int pitch=0;pitch<12;pitch++)if(harmony.intent_scale&BIT(pitch))intent|=BIT(mod12(pitch+semitones));harmony.intent_scale=intent;
+    uint16_t detected=0;for(int pc=0;pc<12;pc++)if(harmony.detected_mask&BIT(pc))detected|=BIT(mod12(pc+semitones));harmony.detected_mask=detected;
     uint16_t mask=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(harmony.pitch_mask&BIT(pitch_class))mask|=BIT(mod12(pitch_class+semitones));harmony.pitch_mask=mask;
     int template_index=harmony.chord_index&~HB_HARMONY_EXPLICIT_TONES;
     if(template_index>=0&&template_index<template_count){snprintf(harmony.name,sizeof(harmony.name),"%s%s%s",hb_pc_name(harmony.root_pc),templates[template_index].suffix,(harmony.chord_index&HB_HARMONY_EXPLICIT_TONES)?"+":"");

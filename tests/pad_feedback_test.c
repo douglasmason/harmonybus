@@ -7,6 +7,22 @@ static unsigned section(const char *view,const char *key){
     const char *start=strstr(view,key);unsigned mask=0;assert(start);
     assert(sscanf(start+strlen(key),"%u",&mask)==1);return mask;
 }
+static void all_pulse_options(void){
+    Inst *i=fixture();
+    const int forms[]={1,2,3,4,8,9,15,16};
+    const unsigned tones[]={0x81,0x91,0x891,0x895,0x8b5,0xab5,0x810,0x814};
+    const unsigned pulses[]={0,0x10,0x800,0x810,1,0x80,0x81,4,0x20,0x200,0x224,0xfff};
+    for(int root=0;root<12;root++)for(int f=0;f<8;f++){
+        hb_harmony_t h=chord(root,0,0);
+        hb_set_shared_follower_scale(1);globals.follower_explicit_root=root;
+        API.set_param(i,"pad_chord_form",CP_CHORD_FORM[forms[f]]);
+        for(int p=0;p<12;p++){
+            API.set_param(i,"pad_next_pulse",PAD_NEXT_PULSE[p]);
+            assert(hb_pad_next_mask(i,h)==hb_transpose_mask(tones[f]&pulses[p],root));
+        }
+    }
+    API.destroy_instance(i);
+}
 static void next_tone_pulse(void){
     Inst *instance=fixture();char view[4096],saved[65536],value[64];
     API.get_param(instance,"pad_next_pulse",value,sizeof(value));assert(!strcmp(value,"None"));
@@ -16,12 +32,15 @@ static void next_tone_pulse(void){
         uint8_t notes[4];for(int i=0;i<4;i++)notes[i]=60+root+intervals[quality][i];
         hb_harmony_t harmony=hb_infer_harmony(notes,4);harmony.root_pc=root;
         API.set_param(instance,"pad_next_pulse","3+7");
-        assert(hb_pad_next_mask(harmony)==((1u<<mod12(root+intervals[quality][1]))|(1u<<mod12(root+intervals[quality][3]))));
-        API.set_param(instance,"pad_next_pulse","9+11+13");assert(!hb_pad_next_mask(harmony));
+        assert(hb_pad_next_mask(instance,harmony)==((1u<<mod12(root+intervals[quality][1]))|(1u<<mod12(root+intervals[quality][3]))));
+        API.set_param(instance,"pad_chord_form","Rootless 7");
+        assert(hb_pad_next_mask(instance,harmony)==((1u<<mod12(root+intervals[quality][1]))|(1u<<mod12(root+intervals[quality][3]))));
+        API.set_param(instance,"pad_chord_form","Follow Detected");
+        API.set_param(instance,"pad_next_pulse","9+11+13");assert(!hb_pad_next_mask(instance,harmony));
     }
     API.set_param(instance,"pad_next_pulse","3+7");
     API.set_param(instance,"travel_map","None");API.set_param(instance,"chord_mode","Off");
-    API.set_param(instance,"pad_chord_form","Power");
+    API.set_param(instance,"pad_chord_form","Follow Detected");
     hb_set_shared_follower_scale(1);instance->next_lookahead=0;
     g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
     g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
@@ -40,6 +59,18 @@ static void next_tone_pulse(void){
     API.set_param(instance,"pad_display","Both Full Lookahead");
     /* Wrapping advances selection back to C major, without inventing a seventh. */
     position=3.5;API.get_param(instance,"pad_view",view,sizeof(view));assert(section(view,"|nextpulse1,")==1u<<4);
+    /* An explicit color form adds a seventh even when detection is a triad. */
+    API.set_param(instance,"pad_chord_form","Seventh");
+    API.set_param(instance,"pad_next_pulse","7");
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(section(view,"|nextpulse1,")==1u<<11);
+    position=1.5;API.set_param(instance,"pad_display","Effective");
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(section(view,"|nextpulse1,")==1u<<11);
+    API.set_param(instance,"pad_chord_form","Power");
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(!section(view,"|nextpulse1,"));
+    API.set_param(instance,"pad_chord_form","Follow Detected");
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(!section(view,"|nextpulse1,"));
+    API.set_param(instance,"pad_next_pulse","3+7");
+    API.set_param(instance,"pad_display","Both Full Lookahead");
     g_bus.next_model_count=0;g_bus.next_model_locked=0;
     API.get_param(instance,"pad_view",view,sizeof(view));assert(!section(view,"|nextpulse1,"));
     API.get_param(instance,"state",saved,sizeof(saved));assert(strstr(saved,";pnp1,3"));
@@ -129,7 +160,7 @@ static void movy_input_and_spatial_sequence(void){
     API.destroy_instance(instance);
 }
 int main(void){
-    next_tone_pulse();independent_pad_form();
+    all_pulse_options();next_tone_pulse();independent_pad_form();
     movy_input_and_spatial_sequence();
     Inst *instance=fixture();instance->travel_map=0;instance->content_map=1;instance->chromatic_map=1;
     hb_set_shared_follower_scale(1);g_bus.observed_harmony=chord(0,0,0);hb_effective_write(g_bus.observed_harmony);

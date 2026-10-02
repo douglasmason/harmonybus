@@ -107,6 +107,59 @@ static void follow_detected_forms(void){
     API.get_param(instance,"detected_chord_form",value,sizeof(value));assert(strstr(value,"13579"));
     API.destroy_instance(instance);
 }
+static void detected_source_forms(void){
+    /* Recorded evidence remains independent of the selected conductor form. */
+    for(int form=0;form<4;form++){
+        Inst *i=fixture();API.set_param(i,"role","Conductor");
+        API.set_param(i,"chord_mode","Scale Degree");API.set_param(i,"track_chord_form","Power");
+        i->movy_playback=i->movy_passthrough=1;
+        static const int notes[4][4]={{60,67,-1,-1},{60,64,70,-1},{64,70,-1,-1},{60,64,67,71}};
+        unsigned expected=0;
+        for(int n=0;n<4&&notes[form][n]>=0;n++){expected|=1u<<mod12(notes[form][n]);midi(i,1,notes[form][n]);}
+        for(int n=0;n<100;n++)advance(i,10,64);
+        hb_harmony_t detected=bus_read();assert(detected.valid);
+        if(hb_harmony_detected_mask(detected)!=expected)fprintf(stderr,"source form %d got %x expected %x\n",form,hb_harmony_detected_mask(detected),expected);
+        assert(hb_harmony_detected_mask(detected)==expected);
+        assert(hb_pad_chord_mask(i,detected)==expected);
+        API.destroy_instance(i);
+    }
+    /* Generated forms retain richer harmonic identity but report their form. */
+    Inst *i=fixture();API.set_param(i,"role","Conductor");API.set_param(i,"chord_mode","Scale Degree");
+    const char *forms[]={"Triad","Power","Shell 7","Rootless 7"};
+    unsigned masks[]={0x91,0x81,0x811,0x810};
+    for(int f=0;f<4;f++){
+        API.set_param(i,"track_chord_form",forms[f]);midi(i,1,60);advance(i,0,64);
+        hb_harmony_t detected=bus_read();
+        assert(hb_harmony_detected_mask(detected)==masks[f]);
+        assert(hb_harmony_chord_mask(detected)&0x10); /* Keep known major quality. */
+        Inst *follower=API.create_instance("",0);API.set_param(follower,"role","Follower");
+        hb_cp_config config;hb_cp_defaults(&config);config.mode=2;config.size=HB_CP_FOLLOW_DETECTED;
+        hb_player_note_on_config(follower,60,0,100,&config);
+        unsigned sounded=0;for(int n=0;n<follower->player.keys[0].count;n++)sounded|=1u<<mod12(follower->player.keys[0].notes[n]);
+        assert(sounded==masks[f]);API.destroy_instance(follower);
+
+        char text[128];API.get_param(i,"detected_chord_form",text,sizeof(text));
+        if(f==1)assert(strstr(text," 15")&&!strstr(text,"135"));
+        hb_harmony_t shifted=hb_transpose_harmony(detected,2);
+        assert(hb_harmony_detected_mask(shifted)==hb_transpose_mask(masks[f],2));
+        midi(i,0,60);advance(i,0,64);
+    }
+    API.destroy_instance(i);
+}
+static void quality_beyond_form(void){
+    Inst *i=fixture();API.set_param(i,"role","Conductor");
+    API.set_param(i,"chord_mode","Scale Degree");API.set_param(i,"chord_quality","Min7");
+    i->movy_playback=1; /* Unbaked recorded scale-degree input uses current forms. */
+    for(int form=0;form<2;form++){
+        API.set_param(i,"track_chord_form",form?"Seventh":"Power");
+        midi(i,1,62);advance(i,0,64);
+        hb_harmony_t h=bus_read();
+        assert(h.root_pc==2&&hb_harmony_chord_mask(h)==0x225);
+        assert(hb_harmony_detected_mask(h)==(form?0x225:0x204));
+        midi(i,0,62);advance(i,0,64);
+    }
+    API.destroy_instance(i);
+}
 static void role_form_scope(void){
     Inst *i=fixture();API.set_param(i,"role","Conductor");API.set_param(i,"chord_mode","Scale Degree");
     API.set_param(i,"track_chord_form","Follow Role");API.set_param(i,"conductor_default_chord_form","Triad");
@@ -123,4 +176,4 @@ static void role_form_scope(void){
     API.set_param(i,"track_chord_form","Sixth");assert(i->policy_values[HB_P_FORM]==6&&i->motion.lanes[0].chord_state.size==lane_form);
     API.get_param(i,"conductor_default_chord_form",text,sizeof(text));assert(!strcmp(text,"Power"));API.destroy_instance(i);
 }
-int main(void){role_form_scope();follow_detected_forms();shell_forms();generated_semantics_all_scales();next_onset_and_operations();puts("chord forms: semantic shells, rootless identity, unchanged held notes and cycle overrides pass");return 0;}
+int main(void){quality_beyond_form();detected_source_forms();role_form_scope();follow_detected_forms();shell_forms();generated_semantics_all_scales();next_onset_and_operations();puts("chord forms: semantic shells, rootless identity, unchanged held notes and cycle overrides pass");return 0;}
