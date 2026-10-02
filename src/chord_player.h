@@ -105,21 +105,25 @@ static int hb_cp_chromatic_quality(int selection){
 }
 /* Translate detected chord members to degree roles before changing target root.
    The destination scale/quality supplies pitches; detection supplies the form. */
+static int hb_cp_interval_role(int interval,unsigned relative){
+    int role=0;
+    if(interval==1||interval==2)role=1;
+    else if(interval==3)role=(relative&(1u<<4))?1:2;
+    else if(interval==4)role=2;
+    else if(interval==5)role=3;
+    else if(interval==6)role=(relative&(1u<<7))?3:4;
+    else if(interval==7)role=4;
+    else if(interval==8)role=(relative&(1u<<7))?5:4;
+    else if(interval==9)role=(relative&(1u<<3))&&(relative&(1u<<6))&&!(relative&((1u<<7)|(1u<<10)|(1u<<11)))?6:5;
+    else if(interval>=10)role=6;
+    return role;
+}
 static unsigned hb_cp_detected_roles(int root,unsigned chord){
     if(!chord)return (1u<<0)|(1u<<2)|(1u<<4);
     unsigned relative=0,roles=0;
     for(int interval=0;interval<12;interval++)if(chord&(1u<<hb_cp_mod(root+interval)))relative|=1u<<interval;
     for(int interval=0;interval<12;interval++)if(relative&(1u<<interval)){
-        int role=0;
-        if(interval==1||interval==2)role=1;
-        else if(interval==3)role=(relative&(1u<<4))?1:2;
-        else if(interval==4)role=2;
-        else if(interval==5)role=3;
-        else if(interval==6)role=(relative&(1u<<7))?3:4;
-        else if(interval==7)role=4;
-        else if(interval==8)role=(relative&(1u<<7))?5:4;
-        else if(interval==9)role=(relative&(1u<<3))&&(relative&(1u<<6))&&!(relative&((1u<<7)|(1u<<10)|(1u<<11)))?6:5;
-        else if(interval>=10)role=6;
+        int role=hb_cp_interval_role(interval,relative);
         roles|=1u<<role;
     }
     return roles;

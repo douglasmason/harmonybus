@@ -7,6 +7,40 @@ static unsigned section(const char *view,const char *key){
     const char *start=strstr(view,key);unsigned mask=0;assert(start);
     assert(sscanf(start+strlen(key),"%u",&mask)==1);return mask;
 }
+static void next_tone_pulse(void){
+    Inst *instance=fixture();char view[4096],saved[65536],value[64];
+    API.get_param(instance,"pad_next_pulse",value,sizeof(value));assert(!strcmp(value,"None"));
+    /* Guide-tone classification handles major, minor, half/full diminished. */
+    static const int intervals[5][4]={{0,4,7,11},{0,4,7,10},{0,3,7,10},{0,3,6,10},{0,3,6,9}};
+    for(int quality=0;quality<5;quality++)for(int root=0;root<12;root++){
+        uint8_t notes[4];for(int i=0;i<4;i++)notes[i]=60+root+intervals[quality][i];
+        hb_harmony_t harmony=hb_infer_harmony(notes,4);harmony.root_pc=root;
+        API.set_param(instance,"pad_next_pulse","3+7");
+        assert(hb_pad_next_mask(harmony)==((1u<<mod12(root+intervals[quality][1]))|(1u<<mod12(root+intervals[quality][3]))));
+        API.set_param(instance,"pad_next_pulse","9+11+13");assert(!hb_pad_next_mask(harmony));
+    }
+    API.set_param(instance,"pad_next_pulse","3+7");
+    API.set_param(instance,"travel_map","None");API.set_param(instance,"chord_mode","Off");
+    API.set_param(instance,"pad_chord_form","Power");
+    hb_set_shared_follower_scale(1);instance->next_lookahead=0;
+    g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=2,.harmony=chord(2,1,1)};
+    position=1.5;g_bus.observed_harmony=g_bus.next_model[0].harmony;hb_effective_write(g_bus.observed_harmony);
+    Inst unchanged=*instance;hb_harmony_t bus_before=bus_read();
+    API.get_param(instance,"pad_view",view,sizeof(view));
+    assert(section(view,"|nextpulse1,")==((1u<<5)|(1u<<0)));
+    assert(!memcmp(&unchanged,instance,sizeof(unchanged)));assert(hb_harmony_equal_effective(bus_before,bus_read()));
+    /* Wrapping advances selection back to C major, without inventing a seventh. */
+    position=3.5;API.get_param(instance,"pad_view",view,sizeof(view));assert(section(view,"|nextpulse1,")==1u<<4);
+    g_bus.next_model_count=0;g_bus.next_model_locked=0;
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(!section(view,"|nextpulse1,"));
+    API.get_param(instance,"state",saved,sizeof(saved));assert(strstr(saved,";pnp1,3"));
+    hb_pad_defaults();API.set_param(instance,"state",saved);assert(g_pad_next_pulse==3);
+    API.set_param(instance,"state","0;pd1,6,3,3,2,0;pnp1,0");assert(g_pad_next_pulse==3);
+    hb_pad_defaults();API.set_param(instance,"state","0;pd1,6,3,3,2,0");assert(!g_pad_next_pulse);
+    API.destroy_instance(instance);
+}
 static void independent_pad_form(void){
     Inst *instance=fixture();
     API.set_param(instance,"travel_map","None");
@@ -87,7 +121,8 @@ static void movy_input_and_spatial_sequence(void){
     API.set_param(instance,"approach_touch_2","Down");assert(state->sequence_count==1);API.set_param(instance,"approach_touch_2","Up,50");
     API.destroy_instance(instance);
 }
-int main(void){independent_pad_form();
+int main(void){
+    next_tone_pulse();independent_pad_form();
     movy_input_and_spatial_sequence();
     Inst *instance=fixture();instance->travel_map=0;instance->content_map=1;instance->chromatic_map=1;
     hb_set_shared_follower_scale(1);g_bus.observed_harmony=chord(0,0,0);hb_effective_write(g_bus.observed_harmony);

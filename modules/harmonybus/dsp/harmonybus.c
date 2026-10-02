@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.227"
+#define HB_VERSION "0.2.228"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -130,6 +130,9 @@ static int g_pad_play_color=3;
 static int g_pad_both_color=2;
 static int g_pad_tonic_color=9;
 static int g_pad_chord_form=HB_CP_FOLLOW_DETECTED;
+static int g_pad_next_pulse=0;
+static const char *PAD_NEXT_PULSE[]={"None","3","7","3+7","1","5","1+5","9","11","13","9+11+13","All"};
+static const unsigned PAD_NEXT_ROLES[]={0,4,64,68,1,16,17,2,8,32,42,127};
 static int g_pad_settings[5]={6,3,3,2,0};
 static int g_pad_restored=0;
 static int g_humanize[3]={0,0,0},g_humanize_restored=0;
@@ -143,7 +146,7 @@ static const char *PAD_PLAY_COLORS[]={"Red","Orange","Yellow","Green","Cyan","Bl
 static const char *PAD_TONIC_COLORS[]={"Red","Orange","Yellow","Green","Cyan","Blue","Purple","Pink","Track","Grey"};
 static const char *PAD_BOTH_COLORS[]={"Blend","Red","Orange","Yellow","Green","Cyan","Blue","Purple","Pink","Track"};
 static const char **PAD_OPTIONS[]={PAD_MODES,PAD_RATES,PAD_SHAPES,PAD_COLORS,PAD_COLORS};
-static void hb_pad_defaults(void){int defaults[5]={6,3,3,2,0};g_pad_play_color=3;g_pad_both_color=2;g_pad_tonic_color=9;g_pad_chord_form=HB_CP_FOLLOW_DETECTED;memcpy(g_pad_settings,defaults,sizeof(defaults));g_pad_restored=0;}
+static void hb_pad_defaults(void){int defaults[5]={6,3,3,2,0};g_pad_play_color=3;g_pad_both_color=2;g_pad_tonic_color=9;g_pad_chord_form=HB_CP_FOLLOW_DETECTED;g_pad_next_pulse=0;memcpy(g_pad_settings,defaults,sizeof(defaults));g_pad_restored=0;}
 
 static int g_buffer_restored=0;
 static int g_lookahead_restored=0;
@@ -4661,6 +4664,7 @@ if(!strcmp(key,"humanize_timing")||!strcmp(key,"humanize_velocity")||!strcmp(key
 }
 
 if(!strcmp(key,"render_velocity_percent")){instance->render_velocity_gain=hb_cp_clamp(parse_i(parameter,100),0,400)*100;return;}
+if(!strcmp(key,"pad_next_pulse")){g_pad_next_pulse=enum_index(parameter,PAD_NEXT_PULSE,12,g_pad_next_pulse);g_pad_restored=1;return;}
 if(!strcmp(key,"pad_chord_form")){g_pad_chord_form=enum_index(parameter,CP_CHORD_FORM,HB_CP_FORMS,g_pad_chord_form);g_pad_restored=1;return;}
 if(!strcmp(key,"pad_tonic_color")){g_pad_tonic_color=enum_index(parameter,PAD_TONIC_COLORS,10,g_pad_tonic_color);g_pad_restored=1;return;}
 if(!strcmp(key,"pad_both_color")){g_pad_both_color=enum_index(parameter,PAD_BOTH_COLORS,10,g_pad_both_color);g_pad_restored=1;return;}
@@ -5172,7 +5176,7 @@ static void hb_restore_state(Inst *instance,const char *state){
     }
     const char *pad_suffix=strstr(state,";pd1,");
     const char *play_color_suffix=strstr(state,";pp1,");int restored_play=-1;
-    int has_pad_state=pad_suffix||play_color_suffix||strstr(state,";pc2,")||strstr(state,";pt1,")||strstr(state,";pb1,")||strstr(state,";pf1,");
+    int has_pad_state=pad_suffix||play_color_suffix||strstr(state,";pc2,")||strstr(state,";pt1,")||strstr(state,";pb1,")||strstr(state,";pf1,")||strstr(state,";pnp1,");
     int restored_pads[5],restore_colors=!g_pad_restored&&has_pad_state;
     if(restore_colors){
         /* Older saves omitted their defaults. Bare factory presets instead
@@ -5180,6 +5184,11 @@ static void hb_restore_state(Inst *instance,const char *state){
         const int legacy_defaults[5]={2,3,3,4,2};
         memcpy(g_pad_settings,legacy_defaults,sizeof(legacy_defaults));
         g_pad_play_color=8;g_pad_both_color=0;g_pad_tonic_color=9;
+    }
+    if(restore_colors){
+        const char *pulse_suffix=strstr(state,";pnp1,");int restored_pulse=0;
+        g_pad_next_pulse=0;
+        if(pulse_suffix&&sscanf(pulse_suffix,";pnp1,%d",&restored_pulse)==1&&restored_pulse>=0&&restored_pulse<12)g_pad_next_pulse=restored_pulse;
     }
     const char *form_suffix=strstr(state,";pf1,");int restored_form=0;
     if(restore_colors){
@@ -5466,6 +5475,16 @@ static unsigned hb_pad_chord_mask(Inst *instance,hb_harmony_t harmony){
     return mask;
 }
 
+/* Select only tones present in the detected next chord, before pad-form filtering. */
+static unsigned hb_pad_next_mask(hb_harmony_t harmony){
+    if(!harmony.valid||!g_pad_next_pulse)return 0;
+    unsigned chord=hb_harmony_chord_mask(harmony),relative=0,mask=0;
+    for(int interval=0;interval<12;interval++)if(chord&(1u<<mod12(harmony.root_pc+interval)))relative|=1u<<interval;
+    for(int interval=0;interval<12;interval++)if((relative&(1u<<interval))&&
+        (PAD_NEXT_ROLES[g_pad_next_pulse]&(1u<<hb_cp_interval_role(interval,relative))))mask|=1u<<mod12(harmony.root_pc+interval);
+    return mask;
+}
+
 static unsigned hb_pad_target_inputs(Inst *preview,const Inst *instance,hb_harmony_t harmony){
     unsigned inputs=0,chord_mask=hb_pad_chord_mask((Inst*)instance,harmony);
     for(int pitch_class=0;pitch_class<12;pitch_class++){
@@ -5594,6 +5613,7 @@ if(!strcmp(key,"render_velocity_percent"))return snprintf(buffer,(size_t)length,
 if(!strcmp(key,"pad_tonic_color"))return snprintf(buffer,(size_t)length,"%s",PAD_TONIC_COLORS[g_pad_tonic_color]);
 if(!strcmp(key,"pad_both_color"))return snprintf(buffer,(size_t)length,"%s",PAD_BOTH_COLORS[g_pad_both_color]);
 if(!strcmp(key,"pad_play_color"))return snprintf(buffer,(size_t)length,"%s",PAD_PLAY_COLORS[g_pad_play_color]);
+if(!strcmp(key,"pad_next_pulse"))return snprintf(buffer,(size_t)length,"%s",PAD_NEXT_PULSE[g_pad_next_pulse]);
 if(!strcmp(key,"pad_chord_form"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_FORM[g_pad_chord_form]);
 if(!strcmp(key,"pad_effective_color"))return snprintf(buffer,(size_t)length,"%s",PAD_COLORS[g_pad_settings[3]]);
 if(!strcmp(key,"chord_grid_status")){
@@ -5739,6 +5759,8 @@ if(!strcmp(key,"state")){
     int used=get_param(value,"pad_state_base",buffer,length);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";pd1,%d,%d,%d,%d,%d",g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4]);
+    if(used<0||used>=length)return used;
+    if(g_pad_next_pulse)used+=snprintf(buffer+used,(size_t)(length-used),";pnp1,%d",g_pad_next_pulse);
     if(used<0||used>=length)return used;
     if(g_pad_chord_form)used+=snprintf(buffer+used,(size_t)(length-used),";pf1,%d",g_pad_chord_form);
     if(used<0||used>=length)return used;
@@ -5893,6 +5915,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         memset(preview.movy_input_target,0,sizeof(preview.movy_input_target));
         memset(preview.movy_pad_shift,0,sizeof(preview.movy_pad_shift));
         unsigned current_inputs=0,effective_inputs=0,lookahead_inputs=0,scale_inputs=0,tonic_inputs=0,full_inputs=0;
+        unsigned next_mask=hb_pad_next_mask(full_lookahead),next_inputs=0,next_pads=0;
         unsigned full_mask=full_lookahead.valid?hb_pad_chord_mask(instance,full_lookahead):0;
         unsigned current_mask=current.valid?hb_pad_chord_mask(instance,current):0;
         unsigned effective_mask=effective.valid?hb_pad_chord_mask(instance,effective):0;
@@ -5936,6 +5959,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
                         hb_pad_render_mask(&preview,instance,lookahead,source_note,1,0,0);
                     unsigned full_render=hb_harmony_equal_effective(full_lookahead,effective)?rendered_mask:
                         hb_pad_render_mask(&preview,instance,full_lookahead,source_note,1,0,0);
+                    if(full_render&&next_mask&&!(full_render&~next_mask))next_pads|=1u<<slot;
                     gap_colors[slot]=(current_render&&current_mask&&!(current_render&~current_mask)?1:0)
                         |(rendered_mask&&effective_mask&&!(rendered_mask&~effective_mask)?2:0)
                         |(rendered_mask&&effective_gap&&!(rendered_mask&~effective_gap)?4:0)
@@ -5961,7 +5985,12 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             lookahead_mask&&hb_harmony_equal_effective(full_lookahead,lookahead)?lookahead_inputs:
             current_mask&&hb_harmony_equal_effective(full_lookahead,current)?current_inputs:
             hb_pad_target_inputs(&preview,instance,full_lookahead);
+        if(next_mask)for(int pitch_class=0;pitch_class<12;pitch_class++){
+            unsigned rendered=hb_pad_render_mask(&preview,instance,full_lookahead,60+pitch_class,1,0,0);
+            if(rendered&&!(rendered&~next_mask))next_inputs|=1u<<pitch_class;
+        }
         int used=snprintf(buffer,(size_t)length,"%u,%u,%u,%d,%u,%d,%d,%d,%d,%d|tonic1,%u|full1,%d,%u",current_inputs,effective_inputs,scale_inputs,ready,lookahead_inputs,g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4],tonic_inputs,full_lookahead.valid!=0,full_inputs);
+        if(g_pad_next_pulse&&used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|nextpulse1,%u,%u",next_inputs,next_pads);
         if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|playpads1,%u|playflash1,%u",playing,flashing);
         if(pad_count&&used>=0&&used<length){
             used+=snprintf(buffer+used,(size_t)(length-used),"|outputs1");
