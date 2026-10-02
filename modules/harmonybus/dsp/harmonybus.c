@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.230"
+#define HB_VERSION "0.2.231"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4390,9 +4390,27 @@ static int process_with_actions(void *value,const uint8_t *input,int length,uint
     }
     return hb_motion_local_drain(instance,output,lengths,capacity);
 }
+/* Chord + Arp one-shots belong to the first physical target after arming.
+   Generated notes, clip playback and spatial approaches cannot consume them. */
+static void hb_gesture_target_input(Inst *instance,const uint8_t *input,int length){
+    if(length<3||instance->role>=2||instance->movy_playback)return;
+    int type=input[0]&0xf0,source=input[1]&127,channel=input[0]&15;
+    int on=type==0x90&&input[2],off=type==0x80||(type==0x90&&!input[2]);
+    if((!on&&!off)||!hb_source_channel_matches(instance,channel))return;
+    if(on&&(instance->motif.editor.recording>=0||instance->movy_pad_pending==source+1))return;
+    unsigned owner=(unsigned)(channel*128+source+1);
+    unsigned long long once=instance->motion.gesture_once&~instance->motion.gesture_persistent;
+    for(int lane=0;lane<HB_MOTION_LANES;lane++)if((once&(1ULL<<lane))&&instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT){
+        if(on&&!instance->motion.gesture_target_owner[lane])instance->motion.gesture_target_owner[lane]=(unsigned short)owner;
+        if(off&&instance->motion.gesture_target_owner[lane]==owner)instance->motion.gesture_target_released|=1ULL<<lane;
+    }
+}
 static void hb_gesture_finish_use(Inst *instance){
-    if(instance->active_count||instance->follower_queue_count)return;
-    unsigned long long mask=instance->motion.gesture_once_used&instance->motion.gesture_once&~instance->motion.gesture_persistent;
+    unsigned long long once=instance->motion.gesture_once&~instance->motion.gesture_persistent;
+    unsigned long long target_lanes=0;
+    for(int lane=0;lane<HB_MOTION_LANES;lane++)if(instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT)target_lanes|=1ULL<<lane;
+    unsigned long long mask=once&target_lanes&instance->motion.gesture_target_released;
+    if(!instance->active_count&&!instance->follower_queue_count)mask|=once&~target_lanes&instance->motion.gesture_once_used;
     if(mask){hb_mo_end_lanes(&instance->motion,mask);hb_auto_chord_repeat_sync(instance);}
 }
 #include "../../../src/motif_runtime.h"
@@ -4418,8 +4436,9 @@ static int process(void *value,const uint8_t *input,int length,uint8_t output[][
     Inst *instance=(Inst*)value;
     if(instance&&input&&length>0){
         if(input[0]==0xFC||(length>=3&&(input[0]&0xf0)==0xB0&&(input[1]==120||input[1]==123)))instance->motif.cancel=1;
-        if(hb_ar_input(instance,input,length))return 0;
-        if(hb_mt_input(instance,input,length))return 0;
+        hb_gesture_target_input(instance,input,length);
+        if(hb_ar_input(instance,input,length)){hb_gesture_finish_use(instance);return 0;}
+        if(hb_mt_input(instance,input,length)){hb_gesture_finish_use(instance);return 0;}
     }
     if(instance&&length>=3&&(input[0]&0xf0)==0x90&&input[2]&&instance->movy_playback&&instance->recorded_action_valid[input[1]&127])
         instance->motion.event_override=instance->recorded_actions[input[1]&127];
