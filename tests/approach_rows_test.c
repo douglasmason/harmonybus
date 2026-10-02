@@ -42,6 +42,11 @@ static void pad_sequence_reset(void){
 }
 int main(void){
     pad_sequence_reset();
+    Inst *ordered=setup();ordered->approach_layout=1;ordered->preview_count=32;
+    API.set_param(ordered,"approach_touch_3","Down");API.set_param(ordered,"approach_touch_1","Down");API.set_param(ordered,"approach_touch_2","Down");
+    char positions[512];API.get_param(ordered,"approach_row_status",positions,sizeof(positions));
+    char *tail=positions;for(int field=0;field<17;field++){tail=strchr(tail,',');assert(tail);tail++;}
+    assert(!strcmp(tail,"2,0,1"));API.destroy_instance(ordered);
     /* Spatial motif rows follow physical gates, independently of target pads. */
     {
         Inst *pad=setup();pad->approach_layout=1;
@@ -66,6 +71,7 @@ int main(void){
     }
     Inst *i=setup();i->approach_layout=1;char text[65536];
     API.get_param(i,"approach_bank_1",text,sizeof(text));assert(!strcmp(text,"Secondary V"));
+    API.get_param(i,"approach_bank_5",text,sizeof(text));assert(!strcmp(text,"Leading Tone"));
     API.set_param(i,"approach_bank_1","Connector Below");API.set_param(i,"approach_bank_2","Secondary II");API.set_param(i,"approach_bank_3","Secondary V");
     API.set_param(i,"approach_mode_active","1");
     /* Non-overlapping, nonadjacent controls all enter the same FIFO. */
