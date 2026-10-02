@@ -28,7 +28,7 @@ int main(void){
     expect_value(other,"local_major","Ionian");
     API.set_param(other,"local_palette","Role Default");
     expect_value(other,"local_major","Lydian");
-    expect_value(other,"local_palette","Role Default");
+    expect_value(other,"local_palette","Follow Role");
     char metadata[65536];int size=API.get_param(instance,"chain_params",metadata,sizeof(metadata));
     assert(size>0&&size<(int)sizeof(metadata));
     assert(strstr(metadata,"\"key\":\"defaults_control_5\",\"name\":\"Local Palette\""));
