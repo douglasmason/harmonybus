@@ -1,0 +1,395 @@
+[
+  {
+    "name": "harmony_core_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -O2 tests/harmony_core_test.c src/harmony_core.c -o /tmp/harmony_core_test",
+      "/tmp/harmony_core_test"
+    ]
+  },
+  {
+    "name": "approach_state_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -O2 tests/approach_state_test.c -o /tmp/approach_state_test",
+      "/tmp/approach_state_test"
+    ]
+  },
+  {
+    "name": "approach_pitch_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -O2 tests/approach_pitch_test.c -o /tmp/approach_pitch_test",
+      "/tmp/approach_pitch_test"
+    ]
+  },
+  {
+    "name": "closest_split_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -O2 tests/closest_split_test.c -o /tmp/closest_split_test",
+      "/tmp/closest_split_test"
+    ]
+  },
+  {
+    "name": "follower_timing_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -O2 tests/follower_timing_test.c -o /tmp/follower_timing_test",
+      "/tmp/follower_timing_test"
+    ]
+  },
+  {
+    "name": "mixed_cadence_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/mixed_cadence_test.c src/harmony_core.c -lm -o /tmp/mixed_cadence_test",
+      "/tmp/mixed_cadence_test"
+    ]
+  },
+  {
+    "name": "role_scale_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/role_scale_test.c src/harmony_core.c -lm -o /tmp/role_scale_test",
+      "/tmp/role_scale_test"
+    ]
+  },
+  {
+    "name": "opening_preview_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/opening_preview_test.c src/harmony_core.c -lm -o /tmp/opening_preview_test",
+      "/tmp/opening_preview_test"
+    ]
+  },
+  {
+    "name": "settings_editor_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/settings_editor_test.c src/harmony_core.c -lm -o /tmp/settings_editor_test",
+      "/tmp/settings_editor_test"
+    ]
+  },
+  {
+    "name": "loop_learning_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/loop_learning_test.c src/harmony_core.c -lm -o /tmp/loop_learning_test",
+      "/tmp/loop_learning_test"
+    ]
+  },
+  {
+    "name": "clip_cache_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/clip_cache_test.c src/harmony_core.c -lm -o /tmp/clip_cache_test",
+      "/tmp/clip_cache_test"
+    ]
+  },
+  {
+    "name": "clip_timeline_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/clip_timeline_test.c src/harmony_core.c -lm -o /tmp/clip_timeline_test",
+      "/tmp/clip_timeline_test"
+    ]
+  },
+  {
+    "name": "stop_release_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/stop_release_test.c src/harmony_core.c -lm -o /tmp/stop_release_test",
+      "/tmp/stop_release_test"
+    ]
+  },
+  {
+    "name": "humanize_settings_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/humanize_settings_test.c src/harmony_core.c -lm -o /tmp/humanize_settings_test",
+      "/tmp/humanize_settings_test"
+    ]
+  },
+  {
+    "name": "pad_feedback_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_feedback_test.c src/harmony_core.c -lm -o /tmp/pad_feedback_test",
+      "/tmp/pad_feedback_test"
+    ]
+  },
+  {
+    "name": "follower_boundary_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/follower_boundary_test.c src/harmony_core.c -lm -o /tmp/follower_boundary_test",
+      "/tmp/follower_boundary_test"
+    ]
+  },
+  {
+    "name": "follower_reference_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/follower_reference_test.c src/harmony_core.c -lm -o /tmp/follower_reference_test",
+      "/tmp/follower_reference_test"
+    ]
+  },
+  {
+    "name": "input_pad_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/input_pad_test.c src/harmony_core.c -lm -o /tmp/input_pad_test",
+      "/tmp/input_pad_test"
+    ]
+  },
+  {
+    "name": "pad_playback_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_playback_test.c src/harmony_core.c -lm -o /tmp/pad_playback_test",
+      "/tmp/pad_playback_test"
+    ]
+  },
+  {
+    "name": "pad_refresh_bench",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/pad_refresh_bench.c src/harmony_core.c -lm -o /tmp/pad_refresh_bench",
+      "/tmp/pad_refresh_bench"
+    ]
+  },
+  {
+    "name": "pad_arrival_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_arrival_test.c src/harmony_core.c -lm -o /tmp/pad_arrival_test",
+      "/tmp/pad_arrival_test"
+    ]
+  },
+  {
+    "name": "global_scale_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/global_scale_test.c src/harmony_core.c -lm -o /tmp/global_scale_test",
+      "/tmp/global_scale_test"
+    ]
+  },
+  {
+    "name": "follower_scale_baseline_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/follower_scale_baseline_test.c src/harmony_core.c -lm -o /tmp/follower_scale_baseline_test",
+      "/tmp/follower_scale_baseline_test"
+    ]
+  },
+  {
+    "name": "progression_scale_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/progression_scale_test.c src/harmony_core.c -lm -o /tmp/progression_scale_test",
+      "/tmp/progression_scale_test"
+    ]
+  },
+  {
+    "name": "parallel_harmony_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/parallel_harmony_test.c src/harmony_core.c -lm -o /tmp/parallel_harmony_test",
+      "/tmp/parallel_harmony_test"
+    ]
+  },
+  {
+    "name": "recorded_input_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/recorded_input_test.c src/harmony_core.c -lm -o /tmp/recorded_input_test",
+      "/tmp/recorded_input_test"
+    ]
+  },
+  {
+    "name": "piano_approach_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/piano_approach_test.c src/harmony_core.c -lm -o /tmp/piano_approach_test",
+      "/tmp/piano_approach_test"
+    ]
+  },
+  {
+    "name": "follow_touch_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/follow_touch_test.c src/harmony_core.c -lm -o /tmp/follow_touch_test",
+      "/tmp/follow_touch_test"
+    ]
+  },
+  {
+    "name": "auto_chord_repeat_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/auto_chord_repeat_test.c src/harmony_core.c -lm -o /tmp/auto_chord_repeat_test",
+      "/tmp/auto_chord_repeat_test"
+    ]
+  },
+  {
+    "name": "secondary_chord_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/secondary_chord_test.c src/harmony_core.c -lm -o /tmp/secondary_chord_test",
+      "/tmp/secondary_chord_test"
+    ]
+  },
+  {
+    "name": "backdoor_chord_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/backdoor_chord_test.c src/harmony_core.c -lm -o /tmp/backdoor_chord_test",
+      "/tmp/backdoor_chord_test"
+    ]
+  },
+  {
+    "name": "cadence_sequence_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/cadence_sequence_test.c src/harmony_core.c -lm -o /tmp/cadence_sequence_test",
+      "/tmp/cadence_sequence_test"
+    ]
+  },
+  {
+    "name": "secondary_degrees_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/secondary_degrees_test.c src/harmony_core.c -lm -o /tmp/secondary_degrees_test",
+      "/tmp/secondary_degrees_test"
+    ]
+  },
+  {
+    "name": "named_controls_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/named_controls_test.c src/harmony_core.c -lm -o /tmp/named_controls_test",
+      "/tmp/named_controls_test"
+    ]
+  },
+  {
+    "name": "chord_family_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_family_test.c src/harmony_core.c -lm -o /tmp/chord_family_test",
+      "/tmp/chord_family_test"
+    ]
+  },
+  {
+    "name": "double_tap_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/double_tap_test.c src/harmony_core.c -lm -o /tmp/double_tap_test",
+      "/tmp/double_tap_test"
+    ]
+  },
+  {
+    "name": "knob_latch_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/knob_latch_test.c src/harmony_core.c -lm -o /tmp/knob_latch_test",
+      "/tmp/knob_latch_test"
+    ]
+  },
+  {
+    "name": "approach_rows_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_rows_test.c src/harmony_core.c -lm -o /tmp/approach_rows_test",
+      "/tmp/approach_rows_test"
+    ]
+  },
+  {
+    "name": "connector_harmony_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/connector_harmony_test.c src/harmony_core.c -lm -o /tmp/connector_harmony_test",
+      "/tmp/connector_harmony_test"
+    ]
+  },
+  {
+    "name": "approach_stability_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_stability_test.c src/harmony_core.c -lm -o /tmp/approach_stability_test",
+      "/tmp/approach_stability_test"
+    ]
+  },
+  {
+    "name": "motion_editor_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_editor_test.c src/harmony_core.c -lm -o /tmp/motion_editor_test",
+      "/tmp/motion_editor_test > /tmp/motion_editor.jsonl",
+      "python3 -c 'import json; snapshots=[json.loads(line) for line in open(\"/tmp/motion_editor.jsonl\")]; assert len(snapshots)==49; assert all(isinstance(s[\"params\"],list) for s in snapshots)'"
+    ]
+  },
+  {
+    "name": "next_touch_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/next_touch_test.c src/harmony_core.c -lm -o /tmp/next_touch_test",
+      "/tmp/next_touch_test"
+    ]
+  },
+  {
+    "name": "operation_recording_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/operation_recording_test.c src/harmony_core.c -lm -o /tmp/operation_recording_test",
+      "/tmp/operation_recording_test"
+    ]
+  },
+  {
+    "name": "render_velocity_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/render_velocity_test.c src/harmony_core.c -lm -o /tmp/render_velocity_test",
+      "/tmp/render_velocity_test"
+    ]
+  },
+  {
+    "name": "global_buffer_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/global_buffer_test.c src/harmony_core.c -lm -o /tmp/global_buffer_test",
+      "/tmp/global_buffer_test"
+    ]
+  },
+  {
+    "name": "chord_state_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_state_test.c src/harmony_core.c -lm -o /tmp/chord_state_test",
+      "/tmp/chord_state_test"
+    ]
+  },
+  {
+    "name": "chord_player_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/chord_player_test.c src/harmony_core.c -lm -o /tmp/chord_player_test",
+      "/tmp/chord_player_test"
+    ]
+  },
+  {
+    "name": "chord_forms_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 tests/chord_forms_test.c src/harmony_core.c -lm -o /tmp/chord_forms_test",
+      "/tmp/chord_forms_test"
+    ]
+  },
+  {
+    "name": "top_note_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/top_note_test.c src/harmony_core.c -lm -o /tmp/top_note_test",
+      "/tmp/top_note_test"
+    ]
+  },
+  {
+    "name": "approach_chord_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_chord_test.c src/harmony_core.c -lm -o /tmp/approach_chord_test",
+      "/tmp/approach_chord_test"
+    ]
+  },
+  {
+    "name": "arp_edit_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/arp_edit_test.c src/harmony_core.c -lm -o /tmp/arp_edit_test",
+      "/tmp/arp_edit_test"
+    ]
+  },
+  {
+    "name": "chord_player_ubsan",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_player_test.c src/harmony_core.c -lm -o /tmp/chord_player_ubsan",
+      "/tmp/chord_player_ubsan"
+    ]
+  },
+  {
+    "name": "motion_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motion_test.c src/harmony_core.c -lm -o /tmp/motion_test",
+      "/tmp/motion_test"
+    ]
+  },
+  {
+    "name": "motif-release-test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motif_test.c src/harmony_core.c -lm -o /tmp/motif-release-test",
+      "/tmp/motif-release-test"
+    ]
+  },
+  {
+    "name": "arp_start-release-test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/arp_start_test.c src/harmony_core.c -lm -o /tmp/arp_start-release-test",
+      "/tmp/arp_start-release-test"
+    ]
+  },
+  {
+    "name": "render_rhythm-release-test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/render_rhythm_test.c src/harmony_core.c -lm -o /tmp/render_rhythm-release-test",
+      "/tmp/render_rhythm-release-test"
+    ]
+  }
+]
