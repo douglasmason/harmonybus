@@ -245,6 +245,8 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
         *semantic=selected;
         if(config.size==1||(config.size>=12&&config.size<HB_CP_FOLLOW_DETECTED))
             *semantic|=(1u<<root)|(1u<<tones[2])|(1u<<tones[4]);
+        /* An explicit seventh quality remains known even in a power form. */
+        if(config.quality>=5)*semantic|=1u<<tones[6];
     }
     int inversion=0;
     if(config.inversion>0&&config.inversion!=8){

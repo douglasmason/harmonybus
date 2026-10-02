@@ -20,6 +20,7 @@ typedef struct {
     int root_pc;
     int bass_pc;
     uint16_t pitch_mask;
+    uint16_t detected_mask; /* Exact generated voicing; zero uses observed pitch_mask. */
     int chord_index;
     int confidence;
     char name[24];
@@ -39,6 +40,7 @@ hb_harmony_t hb_infer_harmony_contextual(const uint8_t *notes, int note_count,
                                          hb_harmony_t committed);
 hb_harmony_t hb_transpose_harmony(hb_harmony_t h, int semitones);
 uint16_t hb_harmony_chord_mask(hb_harmony_t harmony);
+static inline uint16_t hb_harmony_detected_mask(hb_harmony_t h){return h.valid?(h.detected_mask?h.detected_mask:h.pitch_mask):0;}
 int hb_map_note(int midi_note, int reference_root_pc, hb_harmony_t target,
                 hb_map_mode_t mode);
 void hb_map_held_voices(const uint8_t *source_notes, int voice_count,
