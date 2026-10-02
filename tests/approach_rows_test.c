@@ -4,7 +4,44 @@
 static int input(Inst *i,int source,int on){uint8_t message[3]={(uint8_t)(on?0x90:0x80),(uint8_t)source,(uint8_t)(on?100:0)},output[64][3];int lengths[64],note=-1;int count=API.process_midi(i,message,3,output,lengths,64);for(int n=0;n<count;n++)if(lengths[n]==3&&(output[n][0]&0xf0)==0x90&&output[n][2])note=output[n][1];count=API.tick(i,64,48000,output,lengths,64);for(int n=0;n<count;n++)if(lengths[n]==3&&(output[n][0]&0xf0)==0x90&&output[n][2])note=output[n][1];return note;}
 static Inst *setup(void){Inst *i=fixture();i->travel_map=0;i->content_map=1;i->chromatic_map=1;i->boundary_buffer_ms=0;i->next_anti_buffer_ms=0;hb_set_shared_follower_scale(1);g_bus.observed_harmony=chord(0,0,0);hb_effective_write(g_bus.observed_harmony);return i;}
 static void touch(Inst *i,const char *key){API.set_param(i,key,"Down");API.set_param(i,key,"Up,50");}
+static void pad_sequence_reset(void){
+    Inst *pad=setup();pad->approach_layout=1;pad->preview_count=32;
+    API.set_param(pad,"approach_bank_1","Connector Below");API.set_param(pad,"approach_bank_2","Connector Above");
+    API.set_param(pad,"approach_touch_1","Down");API.set_param(pad,"approach_touch_2","Down");
+    API.set_param(pad,"approach_touch_1","Up,50");API.set_param(pad,"approach_touch_2","Up,50");
+    hb_ar_state *state=&pad->approach_rows;assert(state->sequence_count==2);
+    API.set_param(pad,"hb_movy_input_approach","96,-36,3");input(pad,96,1);assert(state->tokens[96]==1);
+    input(pad,96,0);assert(state->sequence_cursor==1); /* release preserves progress */
+    /* The same pad previews its next step; another pad previews the start. */
+    Inst preview=*pad;preview.approach_rows.preview_row=3;preview.movy_pad_shift[96]=-36;preview.movy_pad_shift[98]=-36;
+    hb_pad_render_mask(&preview,pad,g_bus.observed_harmony,96,1,0,0);assert(preview.approach_rows.tokens[96]==2);
+    hb_pad_render_mask(&preview,pad,g_bus.observed_harmony,98,1,0,0);assert(preview.approach_rows.tokens[98]==1);
+    assert(state->sequence_cursor==1);
+    API.set_param(pad,"hb_movy_input_approach","96,-36,3");input(pad,96,1);assert(state->tokens[96]==2);input(pad,96,0);
+    API.set_param(pad,"hb_movy_input_approach","96,-36,3");input(pad,96,1);assert(state->tokens[96]==1);
+    input(pad,60,1);assert(state->sequence_cursor==0&&!state->sequence_pad); /* target even while approach held */
+    input(pad,96,0);input(pad,60,0);
+    API.set_param(pad,"hb_movy_input_approach","96,-36,3");input(pad,96,1);assert(state->tokens[96]==1);input(pad,96,0);
+    API.set_param(pad,"hb_movy_input_approach","98,-36,3");input(pad,98,1);assert(state->tokens[98]==1);input(pad,98,0);
+    API.set_param(pad,"hb_movy_input_approach","96,-36,3");input(pad,96,1);assert(state->tokens[96]==1);input(pad,96,0);
+    /* Stock motifs have an inner event cursor, which resets with pad identity too. */
+    API.set_param(pad,"approach_bank_1","Stock: ii-V-Target");touch(pad,"approach_touch_1");
+    char strip[512];API.get_param(pad,"approach_sequence_view",strip,sizeof(strip));assert(!strcmp(strip,"0,3,0|ii|V|T"));
+    API.set_param(pad,"hb_movy_input_approach","96,-36,3");input(pad,96,1);unsigned first=state->tokens[96];input(pad,96,0);
+    API.get_param(pad,"approach_sequence_view",strip,sizeof(strip));assert(!strcmp(strip,"1,3,0|ii|V|T"));
+    API.set_param(pad,"hb_movy_input_approach","96,-36,3");input(pad,96,1);assert(state->tokens[96]==(first|64));input(pad,96,0);
+    API.set_param(pad,"hb_movy_input_approach","96,-36,3");input(pad,96,1);assert(state->tokens[96]==first);input(pad,96,0);
+    API.set_param(pad,"hb_movy_input_approach","98,-36,3");input(pad,98,1);assert(state->tokens[98]==first);input(pad,98,0);
+    unsigned cursor=state->sequence_event,identity=state->sequence_pad;
+    pad->movy_playback=1;input(pad,60,1);input(pad,60,0);pad->movy_playback=0;
+    assert(state->sequence_event==cursor&&state->sequence_pad==identity); /* playback cannot interrupt live progress */
+    input(pad,60,1);input(pad,60,0);
+    API.get_param(pad,"approach_sequence_view",strip,sizeof(strip));assert(!strcmp(strip,"0,3,0|ii|V|T"));
+    API.set_param(pad,"hb_movy_input_approach","98,-36,3");input(pad,98,1);assert(state->tokens[98]==first);input(pad,98,0);
+    API.destroy_instance(pad);
+}
 int main(void){
+    pad_sequence_reset();
     /* Spatial motif rows follow physical gates, independently of target pads. */
     {
         Inst *pad=setup();pad->approach_layout=1;

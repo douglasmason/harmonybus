@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.228"
+#define HB_VERSION "0.2.229"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -5412,6 +5412,15 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
     preview->approach_pad_armed=instance->approach_pad_armed;
     preview->motion=instance->motion;preview->motion.event_override=0;preview->next_touch_mask=instance->next_touch_mask;hb_next_touch_clear_expired(preview);
     hb_mo_input(&preview->motion,source_note,hb_motion_position(preview),hb_ms_to_beats(25));
+    /* Every pad preview starts from the live cursor, then simulates its own
+       identity switch privately; scanning other pads cannot consume a step. */
+    preview->approach_rows.sequence_pad=instance->approach_rows.sequence_pad;
+    preview->approach_rows.sequence_cursor=instance->approach_rows.sequence_cursor;
+    preview->approach_rows.sequence_event=instance->approach_rows.sequence_event;
+    preview->approach_rows.row_event=instance->approach_rows.row_event;
+    hb_ar_pad_press(&preview->approach_rows,source_note,
+        preview->movy_pad_shift[source_note]?preview->approach_rows.preview_row:-1,
+        preview->movy_pad_shift[source_note]);
     if((preview->approach_rows.enabled||preview->movy_pad_shift[source_note])&&hb_ar_live_peek(&preview->approach_rows,preview->movy_pad_shift[source_note]?preview->approach_rows.preview_row:-1)){
         unsigned token=hb_ar_live_peek(&preview->approach_rows,preview->movy_pad_shift[source_note]?preview->approach_rows.preview_row:-1);preview->approach_rows.tokens[source_note]=token;
         if((token&63)>=15&&(token&63)!=60)return hb_ar_preview(preview,source_note,token,root_only,output_low,output_high);

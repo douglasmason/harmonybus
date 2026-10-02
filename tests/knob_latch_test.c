@@ -47,5 +47,18 @@ int main(void){
         API.set_param(i,key,"LatchOff");assert(!(i->motion.gesture_persistent&bit));
         assert(!(hb_mo_pending_lanes(&i->motion)&bit));
     }
+    API.destroy_instance(i);i=fixture();
+    char lights[512];unsigned long long active,persistent,down,bit=1ULL<<15;
+    knob(i,32,40,10000);API.get_param(i,"motion_named_lights",lights,sizeof(lights));
+    assert(sscanf(lights,"%llu,%llu,%llu",&active,&persistent,&down)==3);
+    assert((active&bit)&&!(persistent&bit)&&!(down&bit));
+    API.set_param(i,"motion_gesture_32","Knob,11000");API.set_param(i,"motion_gesture_32","LatchOn");
+    API.set_param(i,"motion_gesture_32","Up,40,11040");
+    API.get_param(i,"motion_named_lights",lights,sizeof(lights));sscanf(lights,"%llu,%llu,%llu",&active,&persistent,&down);
+    assert((active&bit)&&(persistent&bit)&&!(down&bit));
+    played(i,60);release(i,60);assert(i->motion.gesture_persistent&(1ULL<<31));
+    API.set_param(i,"motion_gesture_32","LatchOff");
+    API.get_param(i,"motion_named_lights",lights,sizeof(lights));sscanf(lights,"%llu,%llu,%llu",&active,&persistent,&down);
+    assert(!(active&bit)&&!(persistent&bit)&&!(down&bit));
     API.destroy_instance(i);puts("knob latches: repeated taps, holds, directional turns, release ownership, persistent triggers pass");return 0;
 }
