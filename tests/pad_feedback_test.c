@@ -31,6 +31,13 @@ static void next_tone_pulse(void){
     API.get_param(instance,"pad_view",view,sizeof(view));
     assert(section(view,"|nextpulse1,")==((1u<<5)|(1u<<0)));
     assert(!memcmp(&unchanged,instance,sizeof(unchanged)));assert(hb_harmony_equal_effective(bus_before,bus_read()));
+    API.set_param(instance,"pad_display","Current");
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(!section(view,"|nextpulse1,"));
+    API.set_param(instance,"pad_display","Effective");
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(section(view,"|nextpulse1,")==1u<<4);
+    API.set_param(instance,"pad_display","Lookahead");
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(!section(view,"|nextpulse1,"));
+    API.set_param(instance,"pad_display","Both Full Lookahead");
     /* Wrapping advances selection back to C major, without inventing a seventh. */
     position=3.5;API.get_param(instance,"pad_view",view,sizeof(view));assert(section(view,"|nextpulse1,")==1u<<4);
     g_bus.next_model_count=0;g_bus.next_model_locked=0;

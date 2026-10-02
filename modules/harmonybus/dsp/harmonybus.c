@@ -5475,7 +5475,7 @@ static unsigned hb_pad_chord_mask(Inst *instance,hb_harmony_t harmony){
     return mask;
 }
 
-/* Select only tones present in the detected next chord, before pad-form filtering. */
+/* Select only detected preview tones, before pad-form filtering. */
 static unsigned hb_pad_next_mask(hb_harmony_t harmony){
     if(!harmony.valid||!g_pad_next_pulse)return 0;
     unsigned chord=hb_harmony_chord_mask(harmony),relative=0,mask=0;
@@ -5915,7 +5915,10 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         memset(preview.movy_input_target,0,sizeof(preview.movy_input_target));
         memset(preview.movy_pad_shift,0,sizeof(preview.movy_pad_shift));
         unsigned current_inputs=0,effective_inputs=0,lookahead_inputs=0,scale_inputs=0,tonic_inputs=0,full_inputs=0;
-        unsigned next_mask=hb_pad_next_mask(full_lookahead),next_inputs=0,next_pads=0;
+        hb_harmony_t pulse_harmony=g_pad_settings[0]>=5?full_lookahead:
+            g_pad_settings[0]==0||g_pad_settings[0]==2?effective:
+            g_pad_settings[0]!=1&&ready?lookahead:(hb_harmony_t){0};
+        unsigned next_mask=hb_pad_next_mask(pulse_harmony),next_inputs=0,next_pads=0;
         unsigned full_mask=full_lookahead.valid?hb_pad_chord_mask(instance,full_lookahead):0;
         unsigned current_mask=current.valid?hb_pad_chord_mask(instance,current):0;
         unsigned effective_mask=effective.valid?hb_pad_chord_mask(instance,effective):0;
@@ -5959,7 +5962,9 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
                         hb_pad_render_mask(&preview,instance,lookahead,source_note,1,0,0);
                     unsigned full_render=hb_harmony_equal_effective(full_lookahead,effective)?rendered_mask:
                         hb_pad_render_mask(&preview,instance,full_lookahead,source_note,1,0,0);
-                    if(full_render&&next_mask&&!(full_render&~next_mask))next_pads|=1u<<slot;
+                    unsigned pulse_render=g_pad_settings[0]>=5?full_render:
+                        g_pad_settings[0]==0||g_pad_settings[0]==2?rendered_mask:look_render;
+                    if(pulse_render&&next_mask&&!(pulse_render&~next_mask))next_pads|=1u<<slot;
                     gap_colors[slot]=(current_render&&current_mask&&!(current_render&~current_mask)?1:0)
                         |(rendered_mask&&effective_mask&&!(rendered_mask&~effective_mask)?2:0)
                         |(rendered_mask&&effective_gap&&!(rendered_mask&~effective_gap)?4:0)
@@ -5986,7 +5991,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             current_mask&&hb_harmony_equal_effective(full_lookahead,current)?current_inputs:
             hb_pad_target_inputs(&preview,instance,full_lookahead);
         if(next_mask)for(int pitch_class=0;pitch_class<12;pitch_class++){
-            unsigned rendered=hb_pad_render_mask(&preview,instance,full_lookahead,60+pitch_class,1,0,0);
+            unsigned rendered=hb_pad_render_mask(&preview,instance,pulse_harmony,60+pitch_class,1,0,0);
             if(rendered&&!(rendered&~next_mask))next_inputs|=1u<<pitch_class;
         }
         int used=snprintf(buffer,(size_t)length,"%u,%u,%u,%d,%u,%d,%d,%d,%d,%d|tonic1,%u|full1,%d,%u",current_inputs,effective_inputs,scale_inputs,ready,lookahead_inputs,g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4],tonic_inputs,full_lookahead.valid!=0,full_inputs);
