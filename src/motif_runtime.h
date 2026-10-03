@@ -1,6 +1,7 @@
 /* Included after the normal render path. Motif voices bypass remapping: their
    semantic relationships have already been resolved against the anchor. */
 static hb_harmony_t hb_mt_harmony_at(Inst *instance,double arrival,double now){
+    hb_harmony_t override;if(hb_override_read(instance,&override))return override;
     hb_harmony_t harmony=bus_read();
     if(hb_harmony_knowledge_ready_for(instance)){
         double phase=hb_next_phase(hb_clip_playhead()+arrival-now);
@@ -82,6 +83,8 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
            Fit has a 1/64-note density floor even after very late triggers. */
         if(onset<now-1e-6||(step<phrase->anchor&&duration*fit<0.0625))continue;
         if(step==phrase->anchor&&event->count)key_anchor=onset;
+        int step_start=count,override_root=0,override_semantic=0;
+        unsigned override_mask=0;
         for(int voice=0;voice<event->count;voice++){
             int pitch=hb_mt_relative(event,event->notes[voice].pitch,anchor,target,scale);
             unsigned collection=scale;
@@ -104,13 +107,29 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
             instance->motion.event_override=old_actions;instance->motion.render_flags=old_flags;
             instance->render_harmony=old_harmony;instance->render_harmony_active=old_active;
             int pitches[HB_CP_VOICES],voices=1;pitches[0]=pitch;
-            if(config.mode){config.playback=0;config.spread=0;voices=hb_cp_voice(config,pitch,harmony.valid?harmony.root_pc:mod12(target),hb_harmony_chord_mask(harmony),collection,pitches);}
+            unsigned semantic=0;
+            if(config.mode){config.playback=0;config.spread=0;voices=hb_cp_voice_semantic(config,pitch,harmony.valid?harmony.root_pc:mod12(target),hb_harmony_chord_mask(harmony),collection,pitches,&semantic);}
+            override_mask|=semantic;
+            override_root=config.mode==2&&harmony.valid?harmony.root_pc:mod12(pitch);
+            override_semantic|=semantic!=0;
             for(int generated=0;generated<voices;generated++){
                 if(pitches[generated]<0||pitches[generated]>127)continue;
                 if(count>=HB_MT_SCHEDULE){editor->error=8;return 0;}
                 int gain=(int)event->notes[voice].velocity*velocity/100;
                 staged[count++]=(hb_mt_scheduled){onset,end,instance->role==0?hb_key_pitch(instance,pitches[generated]):pitches[generated],hb_cp_clamp(gain,1,127),channel,instance->render_channel,0,1};
+                if(generated==0)staged[count-1].trail_target=(unsigned short)((instance->role==0?hb_key_pitch(instance,pitch):pitch)+1);
+                override_mask|=1u<<mod12(pitches[generated]);
             }
+        }
+        int owner_index=hb_override_index(instance);
+        if(count>step_start&&owner_index>=0&&g_override[owner_index].active&&
+           (g_override[owner_index].active==2||!instance->movy_playback)){
+            /* One complete chord per step, not one authority per voice.
+               Releasing/rearming the operation invalidates queued authority. */
+            staged[step_start].override_mask=override_mask;
+            staged[step_start].override_root=override_root;
+            staged[step_start].override_semantic=override_semantic;
+            staged[step_start].override_generation=g_override[owner_index].generation;
         }
     }
     int free_count=0;for(int index=0;index<HB_MT_SCHEDULE;index++)if(!runtime->events[index].used)free_count++;
@@ -224,6 +243,11 @@ static int hb_mt_input(Inst *instance,const uint8_t *input,int length){
 }
 static int hb_mt_emit(Inst *instance,hb_mt_scheduled *event,int on,uint8_t output[][3],int lengths[],int capacity){
     if(capacity<1)return 0;
+    if(on&&event->override_mask){
+        int index=hb_override_index(instance);
+        if(index>=0&&g_override[index].active&&g_override[index].generation==event->override_generation)
+            hb_override_offer(&g_override[index],event->override_mask,event->override_root,event->override_semantic);
+    }
     int local_shared=0,render_shared=0;
     for(int index=0;index<HB_MT_SCHEDULE;index++){
         const hb_mt_scheduled *other=&instance->motif.events[index];
@@ -233,6 +257,7 @@ static int hb_mt_emit(Inst *instance,hb_mt_scheduled *event,int on,uint8_t outpu
     }
     if(!local_shared){output[0][0]=(uint8_t)((on?0x90:0x80)|event->channel);output[0][1]=(uint8_t)event->pitch;output[0][2]=(uint8_t)(on?event->velocity:0);lengths[0]=3;}
     if(event->render>=0&&!render_shared){uint8_t packet[4]={(uint8_t)(on?0x29:0x28),(uint8_t)((on?0x90:0x80)|event->render),(uint8_t)event->pitch,(uint8_t)(on?event->velocity:0)};hb_send_render_raw(instance,packet,event->render==event->channel);}
+    if(on&&!local_shared)hb_trail_heard(instance,event->trail_target);
     event->started=on;
     if(on&&instance->key_pending&&event->on+1e-6>=instance->key_pending_at){hb_key_commit(instance,instance->key_pending_context);instance->key_pending=0;}
     if(instance->role==0){instance->conductor_note_on_pending|=on;instance->dirty|=on;instance->frames_since_change=0;hb_publish_instance_notes(instance);}

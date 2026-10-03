@@ -157,6 +157,7 @@ static int hb_sc_get(Inst *instance,const char *key,char *buffer,int length){
     snprintf(values[6],80,"%s",current.blues?"Blues":scale>=0?FOLLOWER_SCALE_OPTS[scale]:"Custom scale");
     int capturing=0;for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_pool[index].role==0&&g_pool[index].movy_track==g_sc_record_track&&g_sc_record_track>=0)capturing=1;
     snprintf(values[7],80,"%s",capturing?"Conductor REC":g_sc_record_track>=0?"Follower live only":"Live / clips");
+    if(g_override_winner>=0)snprintf(values[7],80,"Override T%d %s",g_pool[g_override_winner].movy_track>=0?g_pool[g_override_winner].movy_track+1:g_override_winner+1,g_override[g_override_winner].active==1?"LIVE":"INPUT");
     if(field>=0&&field<8)return snprintf(buffer,(size_t)length,"%s",values[field]);
     if(field>=0)return -1;
     return snprintf(buffer,(size_t)length,"dp1|%s|%s|%s|%s|%s|%s|%s|%s",values[0],values[1],values[2],values[3],values[4],values[5],values[6],values[7]);

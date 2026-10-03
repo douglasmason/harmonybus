@@ -13,9 +13,12 @@
 enum { HB_MO_OFF, HB_MO_VELOCITY, HB_MO_PAN, HB_MO_OCTAVE, HB_MO_ROTATE,
        HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY, HB_MO_BELOW, HB_MO_ABOVE,
        HB_MO_ENCLOSE_AB, HB_MO_ENCLOSE_BA, HB_MO_REPEAT, HB_MO_REVERSE,
-       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO, HB_MO_CHORD_FORM, HB_MO_AUTO_CHORD_REPEAT, HB_MO_SECONDARY_II, HB_MO_SECONDARY_V, HB_MO_SECONDARY_VI, HB_MO_BACKDOOR_II, HB_MO_BACKDOOR_V, HB_MO_CHROM_ABOVE, HB_MO_TRITONE_II, HB_MO_CADENCE_II_V, HB_MO_CADENCE_BACKDOOR, HB_MO_CADENCE_TRITONE, HB_MO_TRITONE_V, HB_MO_SECONDARY_III, HB_MO_SECONDARY_IV, HB_MO_SECONDARY_VII, HB_MO_MIXED_FIRST, HB_MO_MIXED_LAST=HB_MO_MIXED_FIRST+13, HB_MO_MOTIF, HB_MO_CHORD_STATE, HB_MO_LEADING_TONE, HB_MO_UPPER_DIM, HB_MO_KEY_CENTER, HB_MO_PARALLEL_SCALE };
+       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO, HB_MO_CHORD_FORM, HB_MO_AUTO_CHORD_REPEAT, HB_MO_SECONDARY_II, HB_MO_SECONDARY_V, HB_MO_SECONDARY_VI, HB_MO_BACKDOOR_II, HB_MO_BACKDOOR_V, HB_MO_CHROM_ABOVE, HB_MO_TRITONE_II, HB_MO_CADENCE_II_V, HB_MO_CADENCE_BACKDOOR, HB_MO_CADENCE_TRITONE, HB_MO_TRITONE_V, HB_MO_SECONDARY_III, HB_MO_SECONDARY_IV, HB_MO_SECONDARY_VII, HB_MO_MIXED_FIRST, HB_MO_MIXED_LAST=HB_MO_MIXED_FIRST+13, HB_MO_MOTIF, HB_MO_CHORD_STATE, HB_MO_LEADING_TONE, HB_MO_UPPER_DIM, HB_MO_KEY_CENTER, HB_MO_PARALLEL_SCALE, HB_MO_LIVE_HARMONY_OVERRIDE, HB_MO_HARMONY_OVERRIDE };
 #include "cadences.h"
 static int hb_mo_mixed(int operation){return operation>=HB_MO_MIXED_FIRST&&operation<=HB_MO_MIXED_LAST;}
+/* Low three choices resolve on release; high three on press. Scope and
+   resolution are independent even though the compact knob lists both. */
+static int hb_mo_chord_arp_choice(int amount){return amount>=0&&amount<6?amount:1;}
 typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through,touch_mode,auto_off; int motif_playback,motif_arrival,motif_target,motif_late,motif_grid,motif_completion; hb_cp_config chord_state;int chord_state_valid,chord_input; } hb_motion_lane;
 typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned long long held;
     unsigned revision[HB_MOTION_LANES]; unsigned long long render_flags;
@@ -43,6 +46,7 @@ typedef struct {
     hb_motion_burst bursts[HB_MOTION_BURSTS];
     unsigned short refs[16][128];
     uint8_t queue[HB_MOTION_QUEUE][3];
+    unsigned short trail_in,trail_out,trail_queue[HB_MOTION_QUEUE];
     int head,count,owned,repeat_pending,pan_dirty[16],base_pan[16];
     unsigned long long next_serial;
     unsigned enclosure_revision;
@@ -593,7 +597,7 @@ static void hb_mo_capture(hb_motion_config *config,double beat,double condition,
         int active=hb_mo_value_at(config,lane,beat,condition,voice,&value);
         if((config->held&(1ULL<<lane))&&(settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE||settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V))active=0;
         /* Explicitly evolving automatic lanes remain live on replay. */
-        if(settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!(config->held&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
+        if(settings.operation==HB_MO_LIVE_HARMONY_OVERRIDE||settings.operation==HB_MO_HARMONY_OVERRIDE||settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!(config->held&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
         result[lane]=HB_MO_RECORDED|hb_mo_operation_word(active?settings.operation:0)|
             ((unsigned long long)settings.grid<<37)|((unsigned long long)(settings.offset+400)<<41)|
             (unsigned long long)(uint32_t)(int32_t)hb_mo_round(value*1000.0);
@@ -609,13 +613,19 @@ static int hb_mo_value(const hb_motion_config *config,int index,double beat,int 
 static int hb_mo_push(hb_motion_route *route,int status,int pitch,int velocity){
     if(route->rhythm_enabled||hb_rr_active(&route->rhythm)){
         uint8_t message[3]={(uint8_t)status,(uint8_t)pitch,(uint8_t)velocity};
-        hb_rr_push(&route->rhythm,message,route->rhythm_now,route->rhythm_delay);return 1;
+        route->rhythm.trail_in=route->trail_in;hb_rr_push(&route->rhythm,message,route->rhythm_now,route->rhythm_delay);return 1;
     }
     if(route->count>=HB_MOTION_QUEUE)return 0;
     int index=(route->head+route->count)%HB_MOTION_QUEUE;
+    route->trail_queue[index]=((status&240)==0x90&&velocity)?route->trail_in:0;
     route->queue[index][0]=(uint8_t)status;route->queue[index][1]=(uint8_t)pitch;route->queue[index][2]=(uint8_t)velocity;route->count++;return 1;
 }
-static int hb_mo_pop(hb_motion_route *route,uint8_t message[3]){if(!route->count)return hb_rr_pop(&route->rhythm,route->rhythm_now,message);memcpy(message,route->queue[route->head],3);route->head=(route->head+1)%HB_MOTION_QUEUE;route->count--;return 1;}
+static int hb_mo_pop(hb_motion_route *route,uint8_t message[3]){
+    route->trail_out=0;
+    if(!route->count){int result=hb_rr_pop(&route->rhythm,route->rhythm_now,message);route->trail_out=route->rhythm.trail_out;return result;}
+    route->trail_out=route->trail_queue[route->head];memcpy(message,route->queue[route->head],3);
+    route->head=(route->head+1)%HB_MOTION_QUEUE;route->count--;return 1;
+}
 /* Releasing one source must not silence a different source mapped to that pitch. */
 static int hb_mo_release(hb_motion_route *route,hb_motion_owner *owner){
     if(!owner->sounding)return 1;

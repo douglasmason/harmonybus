@@ -3,9 +3,9 @@ _Static_assert(sizeof(hb_cp_config)==16*sizeof(int),"Chord state wire format req
 #define HB_MOTION_PARAMS_H
 #include "motion_metadata.h"
 /* The selected lane is an editor cursor. Holds are runtime-only, never state. */
-static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim","Key Center","Parallel Scale"};
+static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim","Key Center","Parallel Scale","Live Harmony Override","Override Harmony (Live + Recorded)"};
 static const char *hb_mo_operation_name(int operation){return MO_OPERATIONS[operation==HB_MO_ABOVE?HB_MO_SECONDARY_II:operation];}
-static const char *MO_CHORD_ARP[]={"Chord Only","Both","Arp Only"};
+static const char *MO_CHORD_ARP[]={"Chord Only / Release","Both / Release","Arp Only / Release","Chord Only / Press","Both / Press","Arp Only / Press"};
 static const char *MO_STATE_PRESETS[]={"Custom","Scale Degree Burst","Current Harmony Burst"};
 static const char *MO_MOTIFS[]={"New Motif", "Stock: V-Target", "Stock: ii-V-Target", "Stock: iv-bVII-Target", "Stock: bII7-Target", "Stock: ii-bII7-Target", "Stock: bVI-bVII-I", "Stock: bVI-V-I", "Stock: bIII-IV-I", "Stock: vi-V-I", "Stock: iii-vi-ii-V-I", "Stock: IV-iv-I", "Stock: ii halfdim-V-i", "Stock: I-VI7-ii-V-I", "Stock: V/V-V-I", "Stock: ii/V-V/V-V-I", "Stock: V/ii-ii-V-I", "Stock: V/vi-vi-ii-V-I", "Stock: vii dim/V-V-I", "Stock: III7-VI7-II7-V7-I", "User 1", "User 2", "User 3", "User 4", "User 5", "User 6", "User 7", "User 8", "User 9", "User 10", "User 11", "User 12", "User 13", "User 14", "User 15", "User 16","Stock: vi-ii-V","Stock: ii-V-LT","Stock: iv-bVII-LT","Stock: ii-bII7-LT","Stock: iii-vi-ii","Stock: IV-ii-V","Stock: vii-iii-vi","Stock: LT-ii-V"};
 static const char *MO_SCALE_MODES[]={"Parent Scale","Simple Chord","Simple Scale"};
@@ -26,7 +26,7 @@ static const char *MO_RANDOM[]={"Repeat","Evolve"};
 typedef struct { const char *key; size_t offset; int low,high; const char *const *options; } hb_motion_parameter;
 #define MO_FIELD(name,low,high,options) {"motion_" #name,__builtin_offsetof(hb_motion_lane,name),low,high,options}
 static const hb_motion_parameter MO_PARAMETERS[]={
-    MO_FIELD(operation,0,54,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
+    MO_FIELD(operation,0,56,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
     MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM)
@@ -54,7 +54,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     int control=hb_mo_slot_key(key,"motion_control_");
     if(control>=0){
         int operation=config->lanes[control].operation;
-        config->lanes[control].amount=operation==HB_MO_AUTO_CHORD_REPEAT?enum_index(value,MO_CHORD_ARP,3,config->lanes[control].amount):operation==HB_MO_HARMONY?(!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,config->lanes[control].amount),0,100)):operation==HB_MO_MOTIF?enum_index(value,MO_MOTIFS,44,config->lanes[control].amount):hb_mo_has_scale_mode(operation)?1+enum_index(value,MO_SCALE_MODES,3,hb_mo_clamp(config->lanes[control].amount-1,0,2)):operation==HB_MO_CHORD_FORM?
+        config->lanes[control].amount=operation==HB_MO_AUTO_CHORD_REPEAT?(!strcmp(value,"Chord Only")?0:!strcmp(value,"Both")?1:!strcmp(value,"Arp Only")?2:enum_index(value,MO_CHORD_ARP,6,config->lanes[control].amount)):operation==HB_MO_HARMONY?(!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,config->lanes[control].amount),0,100)):operation==HB_MO_MOTIF?enum_index(value,MO_MOTIFS,44,config->lanes[control].amount):hb_mo_has_scale_mode(operation)?1+enum_index(value,MO_SCALE_MODES,3,hb_mo_clamp(config->lanes[control].amount-1,0,2)):operation==HB_MO_CHORD_FORM?
             enum_index(value,CP_CHORD_FORM,HB_CP_FORMS,config->lanes[control].amount):
             hb_mo_clamp(parse_i(value,config->lanes[control].amount),-400,400);
         config->revision[control]++;return 1;
@@ -206,7 +206,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
-        for(int operation=0;operation<=HB_MO_PARALLEL_SCALE;operation++){
+        for(int operation=0;operation<=HB_MO_HARMONY_OVERRIDE;operation++){
             if(operation==HB_MO_ABOVE)continue; /* Legacy serialized ID, consolidated picker. */
             if(hb_mo_mixed(operation)||operation==HB_MO_CADENCE_II_V||operation==HB_MO_CADENCE_BACKDOOR||operation==HB_MO_CADENCE_TRITONE)continue;
             if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&!config->host_capabilities&&operation!=selected)continue;
@@ -214,7 +214,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
             used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",count++?",":"",MO_OPERATIONS[operation]);
         }
         if(used<0||used>=length)return -1;
-        used+=snprintf(buffer+used,(size_t)(length-used),"],\"readOnly\":%s},{\"key\":\"motion_enabled\",\"name\":\"Auto\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Off\",\"On\"],\"readOnly\":%s}]",config->selected>=16?"true":"false",(hb_mo_enclosure_mask(selected)||(selected>=HB_MO_REPEAT&&selected<=HB_MO_SPEED&&config->host_capabilities<2))?"true":"false");
+        used+=snprintf(buffer+used,(size_t)(length-used),"],\"readOnly\":%s},{\"key\":\"motion_enabled\",\"name\":\"Auto\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Off\",\"On\"],\"readOnly\":%s}]",config->selected>=16?"true":"false",(selected==HB_MO_HARMONY_OVERRIDE||selected==HB_MO_LIVE_HARMONY_OVERRIDE||hb_mo_enclosure_mask(selected)||(selected>=HB_MO_REPEAT&&selected<=HB_MO_SPEED&&config->host_capabilities<2))?"true":"false");
         if(used<0||used>=length)return -1;
         used--;
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_touch_mode\",\"name\":\"Touch Mode\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Hold\",\"%s\",\"Tap/Hold\"]}]",hb_mo_touch_options(config)[1]);
@@ -276,7 +276,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
             if(settings->operation==HB_MO_HARMONY){
                 used+=snprintf(buffer+used,(size_t)(length-used),",\"options_as_string\":true,\"options\":[\"Current\",\"Next\"]");
             }else if(settings->operation==HB_MO_AUTO_CHORD_REPEAT){
-                used+=snprintf(buffer+used,(size_t)(length-used),",\"options_as_string\":true,\"options\":[\"Chord Only\",\"Arp Only\",\"Both\"]");
+                used+=snprintf(buffer+used,(size_t)(length-used),",\"options_as_string\":true,\"options\":[\"Chord Only / Release\",\"Arp Only / Release\",\"Both / Release\",\"Chord Only / Press\",\"Arp Only / Press\",\"Both / Press\"]");
             }else if(settings->operation==HB_MO_CHORD_STATE){
                 used+=snprintf(buffer+used,(size_t)(length-used),",\"options_as_string\":true,\"options\":[\"Custom\",\"Scale Degree Burst\",\"Current Harmony Burst\"]");
             }else if(settings->operation==HB_MO_MOTIF){
@@ -317,7 +317,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"motion_advance"))return snprintf(buffer,(size_t)length,"%s",MO_ADVANCE[config->lanes[config->selected].advance]);
     if(!strcmp(key,"motion_lane"))return hb_mo_edit_label(config,config->selected,buffer,length);
     int control=hb_mo_slot_key(key,"motion_control_");
-    if(control>=0&&config->lanes[control].operation==HB_MO_AUTO_CHORD_REPEAT)return snprintf(buffer,(size_t)length,"%s",MO_CHORD_ARP[config->lanes[control].amount==0?0:config->lanes[control].amount==2?2:1]);
+    if(control>=0&&config->lanes[control].operation==HB_MO_AUTO_CHORD_REPEAT)return snprintf(buffer,(size_t)length,"%s",MO_CHORD_ARP[hb_mo_chord_arp_choice(config->lanes[control].amount)]);
     if(control>=0&&config->lanes[control].operation==HB_MO_HARMONY)return snprintf(buffer,(size_t)length,"%s",config->lanes[control].amount>=50?"Next":"Current");
     if(control>=0&&config->lanes[control].operation==HB_MO_CHORD_STATE)return snprintf(buffer,(size_t)length,"%s",MO_STATE_PRESETS[hb_mo_clamp(config->lanes[control].amount,0,2)]);
     if(control>=0&&config->lanes[control].operation==HB_MO_MOTIF)return snprintf(buffer,(size_t)length,"%s",MO_MOTIFS[hb_mo_clamp(config->lanes[control].amount,0,43)]);
@@ -358,9 +358,9 @@ static int hb_mo_save(hb_motion_config *config,char *buffer,int length,int used)
         used+=snprintf(buffer+used,(size_t)(length-used),";mt1,%d,%d",index,config->lanes[index].touch_mode);
     for(int index=0;index<HB_MOTION_LANES;index++)if(config->lanes[index].auto_off!=(index==32?1:0)&&used>=0&&used<length)
         used+=snprintf(buffer+used,(size_t)(length-used),";mn1,%d,%d",index,config->lanes[index].auto_off);
-    /* Old numeric amounts were ignored; mark the new three-way interpretation. */
+    /* Old numeric amounts were ignored; mark the scope/resolution interpretation. */
     for(int lane=0;lane<HB_MOTION_LANES;lane++)if(config->lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT&&
-        (config->lanes[lane].amount==0||config->lanes[lane].amount==2)){
+        (hb_mo_chord_arp_choice(config->lanes[lane].amount)!=1)){
         if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),";ca1");break;
     }
     /* Omit untouched lanes so legacy/default snapshots remain byte-identical. */

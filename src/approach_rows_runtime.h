@@ -78,6 +78,7 @@ static unsigned hb_ar_preview(Inst *preview,int source,unsigned token,int root_o
     preview->player.config=config;
     unsigned mask=0;preview->preview_single_low=preview->preview_single_high=0;
     if(valid)for(int index=0;index<HB_MT_SCHEDULE;index++)if(preview->motif.events[index].used){
+        if(preview->preview_target<0&&preview->motif.events[index].trail_target)preview->preview_target=preview->motif.events[index].trail_target-1;
         int pitch=preview->motif.events[index].pitch;mask|=1u<<mod12(pitch);
         if(pitch<64)preview->preview_single_low|=1ULL<<pitch;else preview->preview_single_high|=1ULL<<(pitch-64);
     }
