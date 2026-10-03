@@ -7,9 +7,9 @@ static int hb_palette_role(const char *key){
     return -2;
 }
 static const char *hb_defaults_alias(Inst *instance,const char *key,char *alias,int length){
-    int control=hb_mo_slot_key(key,"defaults_control_");if(control<0||control>=6)return key;
-    static const char *fields[2][6]={{"chord_quality","chord_inversion","chord_voicing","strum_spread","chromatic_quality","scope"},{"gap_scale","scale_context","dominant_scale","borrowed_scale","local_palette","scope"}};
-    if(control==5)return "defaults_scope";
+    int control=hb_mo_slot_key(key,"defaults_control_");if(control<0||control>=7)return key;
+    static const char *fields[2][7]={{"chord_quality","chord_inversion","chord_voicing","strum_spread","chromatic_quality","scope","scope"},{"gap_scale","scale_context","dominant_scale","dominant_minor_scale","borrowed_scale","local_palette","scope"}};
+    if(control>=(instance->defaults_editor>=2?6:5))return "defaults_scope";
     snprintf(alias,(size_t)length,"%s_default_%s",instance->defaults_editor&1?"follower":"conductor",fields[instance->defaults_editor>=2][control]);return alias;
 }
 static const char *HB_GAP_OPTIONS[]={"Parent","Strict Local","Auto Local"};
@@ -17,7 +17,7 @@ static const char *HB_CONTEXT_OPTIONS[]={"Current Harm","Current + Next","Full L
 static const char *HB_MAJOR_OPTIONS[]={"Ionian","Lydian"};
 static const char *HB_MINOR_OPTIONS[]={"Dorian","Aeolian"};
 static const char *HB_HALFDIM_OPTIONS[]={"Locrian","Locrian #2"};
-static const char **HB_POLICY_OPTIONS[]={CP_CHORD_FORM,CP_CHORD_QUALITY,CP_CHORD_INVERSION,CP_CHORD_VOICING,0,CP_CHROMATIC_QUALITY,HB_GAP_OPTIONS,HB_CONTEXT_OPTIONS,HB_MAJOR_OPTIONS,HB_MINOR_OPTIONS,HB_HALFDIM_OPTIONS,DOMINANT_SCALE_OPTS,BORROWED_SCALE_OPTS};
+static const char **HB_POLICY_OPTIONS[]={CP_CHORD_FORM,CP_CHORD_QUALITY,CP_CHORD_INVERSION,CP_CHORD_VOICING,0,CP_CHROMATIC_QUALITY,HB_GAP_OPTIONS,HB_CONTEXT_OPTIONS,HB_MAJOR_OPTIONS,HB_MINOR_OPTIONS,HB_HALFDIM_OPTIONS,DOMINANT_SCALE_OPTS,BORROWED_SCALE_OPTS,DOMINANT_SCALE_OPTS};
 static int hb_policy_key(const char *key,int *role){
     *role=-1;
     if(!strncmp(key,"track_",6))key+=6;
@@ -45,7 +45,7 @@ static int hb_policy_set(Inst *instance,const char *key,const char *parameter){
         }
         hb_role_sync(instance);return 1;
     }
-    if(!strcmp(key,"dominant_scale")||!strcmp(key,"borrowed_scale"))return 0;
+    if(!strcmp(key,"dominant_scale")||!strcmp(key,"dominant_minor_scale")||!strcmp(key,"borrowed_scale"))return 0;
     if(!strcmp(key,"chord_reset_overrides")){
         if(!strcmp(parameter,"Reset")){instance->policy_overrides=0;instance->policy_initialized=0;hb_role_sync(instance);}return 1;
     }
@@ -53,6 +53,7 @@ static int hb_policy_set(Inst *instance,const char *key,const char *parameter){
     if(role<0&&!strcmp(parameter,"Role Default")){
         instance->policy_overrides&=~(1u<<field);instance->policy_initialized=0;hb_role_sync(instance);return 1;
     }
+    if(!strcmp(parameter,"Off")&&(field==HB_P_DOMINANT||field==HB_P_DOMINANT_MINOR))parameter="Parent / Minimal";
     int previous=role<0?hb_policy_value(instance,field):hb_role_default(role,field);
     int selected=HB_POLICY_OPTIONS[field]?enum_index(parameter,HB_POLICY_OPTIONS[field],HB_POLICY_MAX[field]+1,previous):parse_i(parameter,previous);
     if(field==HB_P_SPREAD)for(int division=0;division<9;division++)if(!strcmp(parameter,BUFFER_DIVISIONS[division]))selected=-division-1;
@@ -71,12 +72,12 @@ static int hb_policy_get(Inst *instance,const char *key,char *buffer,int length)
         if(palette_role<0&&!(instance->policy_overrides&(7u<<HB_P_MAJOR)))selected=8;
         return snprintf(buffer,(size_t)length,"%s",HB_PALETTES[selected]);
     }
-    if(!strcmp(key,"dominant_scale")||!strcmp(key,"borrowed_scale"))return -1;
+    if(!strcmp(key,"dominant_scale")||!strcmp(key,"dominant_minor_scale")||!strcmp(key,"borrowed_scale"))return -1;
     if(!strcmp(key,"chord_reset_overrides"))return snprintf(buffer,(size_t)length,"Off");
     if(!strcmp(key,"chord_scope")){
         if(!instance->policy_overrides)return snprintf(buffer,(size_t)length,"%s defaults",instance->role==0?"Conductor":"Follower");
         int used=snprintf(buffer,(size_t)length,"Track:");
-        static const char *labels[]={"Form","Quality","Inversion","Voicing","Spread","Chromatic","Gap","Context","Major","Minor","HalfDim","Dominant","Borrowed"};
+        static const char *labels[]={"Form","Quality","Inversion","Voicing","Spread","Chromatic","Gap","Context","Major","Minor","HalfDim","DomMajor","Borrowed","DomMinor"};
         for(int field=0;field<HB_POLICY_FIELDS&&used<length;field++)if(instance->policy_overrides&(1u<<field))used+=snprintf(buffer+used,(size_t)(length-used)," %s",labels[field]);
         return used;
     }
@@ -88,7 +89,7 @@ static int hb_policy_get(Inst *instance,const char *key,char *buffer,int length)
 }
 
 static int hb_defaults_metadata(Inst *instance,char *buffer,int length,int used){
-    for(int control=1;control<=6;control++){
+    for(int control=1;control<=(instance->defaults_editor>=2?7:6);control++){
         char key[32],alias[96],match[128];snprintf(key,sizeof(key),"defaults_control_%d",control);
         const char *target=hb_defaults_alias(instance,key,alias,sizeof(alias));
         snprintf(match,sizeof(match),"\"key\":\"%s\"",target);

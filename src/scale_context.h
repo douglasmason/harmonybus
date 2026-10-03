@@ -65,9 +65,17 @@ static unsigned hb_local_output_scale(Inst *instance,hb_harmony_t harmony){
     if(harmony.intent_kind==4)return hb_accommodate_chord(hb_explicit_scale_mask(harmony.root_pc,12),harmony,harmony.root_pc);
     /* Connector identity is explicit but does not imply a dominant cadence. */
     if(harmony.intent_kind==5)return local;
-    unsigned collection=hb_explicit_scale_mask(destination,minor?2:1);
-    unsigned dominant=hb_dominant_scale_mask(instance,harmony,destination);
-    if(dominant)collection=dominant;
+    int tonic=0;hb_resolve_follower_reference_root(instance,&tonic);tonic=mod12(tonic+g_bus.global_transpose);
+    unsigned collection=hb_effective_parent(instance,tonic);
+    /* Preserve the destination mode when supported by its parent. Explicit
+       borrowed/chromatic targets need a local baseline of the stated quality. */
+    if(!(collection&(1u<<destination))||hb_target_minor(collection,destination)!=minor)
+        collection=hb_explicit_scale_mask(destination,minor?2:1);
+    int relative=mod12(harmony.root_pc-destination);
+    unsigned chord=hb_harmony_chord_mask(harmony);
+    int leading=relative==11&&(chord&(1u<<mod12(harmony.root_pc+3)))&&(chord&(1u<<mod12(harmony.root_pc+6)));
+    if((relative==7&&hb_chord_dominant(harmony))||leading||relative==2)
+        collection=hb_function_family(instance,destination,collection,minor,relative==7?1:leading?2:0);
     else {unsigned borrowed=hb_borrowed_scale_mask(instance,harmony,destination,collection);if(borrowed)collection=borrowed;}
     return hb_accommodate_chord(collection,harmony,destination);
 }

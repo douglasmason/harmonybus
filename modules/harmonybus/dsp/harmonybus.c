@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.238"
+#define HB_VERSION "0.2.239"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -102,8 +102,8 @@ typedef struct {
 } hb_monitor_shared_t;
 static hb_monitor_shared_t *g_monitor=0;
 #define HB_GLOBAL_MAGIC 0x4842474Cu
-#define HB_GLOBAL_VERSION 4u
-#define HB_GLOBAL_SHM "/harmonybus-global-v4"
+#define HB_GLOBAL_VERSION 5u
+#define HB_GLOBAL_SHM "/harmonybus-global-v5"
 typedef struct {
     uint32_t magic;
     uint32_t version;
@@ -243,7 +243,7 @@ typedef struct { uint8_t source,pitch,velocity,on; } hb_rx_event;
 static int g_render_window=0,g_render_restored=0;
 #include "../../../src/approach_rows.h"
 #include "../../../src/key_context.h"
-typedef struct { hb_key_context context; hb_harmony_t input,output; int valid; } hb_key_harmony_cache;
+typedef struct { hb_key_context context; hb_harmony_t input,output; int valid,major_choice,minor_choice; } hb_key_harmony_cache;
 typedef struct { unsigned closest_source,closest_target; int closest_root,closest_valid,closest_pc[12]; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_scope,key_schedule_arm,key_pending; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[16][128]; int chord_pair_owner[16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 unsigned long long motion_follower_events[64][HB_MOTION_LANES+1],motion_output_events[128][HB_MOTION_LANES+1];
 unsigned long long motion_player_events[HB_CP_KEYS][HB_MOTION_LANES+1],motion_held_events[128][HB_MOTION_LANES+1];
@@ -350,40 +350,8 @@ static int hb_monitor_channel(Inst *instance){
        host's slot_recv_channel callback. The source-aware Chain patch tags
        the parent track's recv channel into source and we cache it here. */
     if(instance->resolved_source_channel>=0&&instance->resolved_source_channel<16)return instance->resolved_source_channel;
-    /* Fallback for stock/unpatched Chain hosts: Move's four track receive
-       channels are track-index aligned (Track 1 -> Ch1 ... Track 4 -> Ch4).
-       We can recover the conductor's owning track from the saved set state,
-       which is much safer than accepting every cable-2 note broadcast. */
-    if(instance->role==0){
-        char uuid[128],name[128];
-        if(hb_read_active_set(uuid,sizeof(uuid),name,sizeof(name))){
-            int track=hb_find_conductor_track(uuid);
-            if(track>=0&&track<4)return track;
-        }
-    }else if(instance->role==1){
-        /* If the source-aware Chain tag has not arrived yet, recover a UNIQUE
-           follower's owning track from saved slot state. This keeps Foll Trk
-           populated from the realtime monitor after reload/navigation without
-           accepting notes from unrelated tracks. */
-        char uuid[128],name[128];
-        if(hb_read_active_set(uuid,sizeof(uuid),name,sizeof(name))){
-            int found=-1;
-            char path[512];
-            for(int track=0;track<4;track++){
-                snprintf(path,sizeof(path),"/data/UserData/schwung/set_state/%s/slot_%d.json",uuid,track);
-                long size=0;char *json=hb_read_text_file(path,&size);(void)size;
-                if(!json)continue;
-                int has_module=strstr(json,"harmonybus")!=0;
-                int is_follower=(strstr(json,"hb15,1,")||strstr(json,"hb14,1,")||strstr(json,"hb13,1,")||strstr(json,"hb12,1,")||strstr(json,"hb11,1,")||strstr(json,"hb10,1,")||strstr(json,"hb9,1,")||strstr(json,"hb8,1,")||strstr(json,"hb7,1,")||strstr(json,"hb6,1,")||strstr(json,"hb5,1,")||strstr(json,"hb4,1,")||strstr(json,"hb3,1,")||strstr(json,"hb2,1,")||strstr(json,"hb1,1,"));
-                free(json);
-                if(has_module&&is_follower){
-                    if(found>=0)return -1; /* ambiguous: wait for real track tag */
-                    found=track;
-                }
-            }
-            if(found>=0)return found;
-        }
-    }
+    /* Never discover ownership from saved files on an audio callback. The
+       source-aware Chain tag or explicit source channel is authoritative. */
     return -1;
 }
 static int hb_monitor_snapshot_channel(Inst *instance,uint8_t velocities[128],uint32_t *generation){
@@ -924,15 +892,36 @@ static hb_key_context hb_key_for(Inst *instance){
     return context;
 }
 static int hb_key_pitch(Inst *instance,int pitch){return hb_key_map(hb_key_for(instance),pitch);}
+static unsigned hb_function_family(Inst *instance,int target,unsigned parent,int minor,int kind);
+static int hb_target_minor(unsigned parent,int target);
 static hb_harmony_t hb_key_harmony(Inst *instance,hb_harmony_t harmony){
     hb_key_context context=hb_key_for(instance);if(!context.active||!harmony.valid||
         (!context.blues&&context.source_root==context.target_root&&context.source_mask==context.target_mask))return harmony;
     for(int slot=0;slot<4;slot++){
         hb_key_harmony_cache *cached=&instance->key_cache[slot];
-        if(cached->valid&&!memcmp(&cached->context,&context,sizeof(context))&&!memcmp(&cached->input,&harmony,sizeof(harmony)))return cached->output;
+        if(cached->valid&&cached->major_choice==hb_policy_value(instance,HB_P_DOMINANT)&&cached->minor_choice==hb_policy_value(instance,HB_P_DOMINANT_MINOR)&&!memcmp(&cached->context,&context,sizeof(context))&&!memcmp(&cached->input,&harmony,sizeof(harmony)))return cached->output;
     }
     unsigned mask=hb_key_mask(context,hb_harmony_chord_mask(harmony));
     uint8_t notes[12];int count=0,root=mod12(hb_key_map(context,60+harmony.root_pc));
+    unsigned original=hb_harmony_chord_mask(harmony);
+    int has_intent=harmony.intent_kind>0&&harmony.intent_kind<4;
+    int old_target=has_intent?harmony.intent_target:context.source_root;
+    int target=has_intent?mod12(hb_key_map(context,60+old_target)):context.target_root;
+    int relative=mod12(harmony.root_pc-old_target);
+    int functional=relative==7&&(original&(1u<<mod12(harmony.root_pc+4)))&&!(original&(1u<<mod12(harmony.root_pc+11)));
+    int leading=relative==11&&(original&(1u<<mod12(harmony.root_pc+3)))&&(original&(1u<<mod12(harmony.root_pc+6)));
+    if(!context.blues&&(functional||leading)){
+        root=mod12(target+(functional?7:11));
+        /* Keep the functional core. In particular, do not turn V into v or
+           a leading-tone chord into a chord rooted on the lowered seventh. */
+        mask&=~((1u<<mod12(root+3))|(1u<<mod12(root+4))|(1u<<mod12(root+6))|(1u<<mod12(root+7)));
+        mask|=(1u<<root)|(1u<<mod12(root+(functional?4:3)))|(1u<<mod12(root+(functional?7:6)));
+        if(original&(1u<<mod12(harmony.root_pc+(functional?10:9)))){
+            mask&=~((1u<<mod12(root+9))|(1u<<mod12(root+10))|(1u<<mod12(root+11)));
+            mask|=1u<<mod12(root+(functional?10:9));
+        }
+        if(leading){int mapped_old=mod12(hb_key_map(context,60+harmony.root_pc));if(mapped_old!=root)mask&=~(1u<<mapped_old);}
+    }
     if(context.blues)mask=(1u<<root)|(1u<<mod12(root+4))|(1u<<mod12(root+7))|(1u<<mod12(root+10));
     for(int interval=0;interval<12;interval++)if(mask&(1u<<mod12(root+interval)))notes[count++]=(uint8_t)(48+root+interval);
     hb_harmony_t transformed=hb_infer_harmony(notes,count);
@@ -942,7 +931,9 @@ static hb_harmony_t hb_key_harmony(Inst *instance,hb_harmony_t harmony){
     if(transformed.chord_index>=0)transformed.chord_index|=HB_HARMONY_EXPLICIT_TONES;
     transformed.intent_kind=harmony.intent_kind;transformed.intent_target=mod12(hb_key_map(context,60+harmony.intent_target));
     transformed.intent_scale=(uint16_t)hb_key_mask(context,harmony.intent_scale);
+    transformed.intent_minor=hb_target_minor(context.target_mask,transformed.intent_target);
     hb_key_harmony_cache *cached=&instance->key_cache[instance->key_cache_cursor++%4];
+    cached->major_choice=hb_policy_value(instance,HB_P_DOMINANT);cached->minor_choice=hb_policy_value(instance,HB_P_DOMINANT_MINOR);
     cached->context=context;cached->input=harmony;cached->output=transformed;cached->valid=1;
     return transformed;
 }
@@ -2048,17 +2039,41 @@ static int hb_parent_scale_index(Inst *instance,hb_harmony_t harmony){
 }
 /* Source-root/scale still define INPUT degrees. These substitutions only
    choose the OUTPUT collection, using the effective (possibly shifted) chord. */
+/* Family belongs to a resolution target, not to the root of its V chord.
+   kind: 0 = preceding ii, 1 = V, 2 = leading tone. Altered is V-only. */
+static int hb_target_minor(unsigned parent,int target){
+    return (parent&(1u<<mod12(target+3)))&&!(parent&(1u<<mod12(target+4)));
+}
+static unsigned hb_function_family(Inst *instance,int target,unsigned parent,int minor,int kind){
+    int choice=hb_policy_value(instance,minor?HB_P_DOMINANT_MINOR:HB_P_DOMINANT);
+    if(!choice)return parent;
+    if(choice==3){
+        if(kind==1)return hb_explicit_scale_mask(mod12(target+8),9);
+        if(kind==0)return parent;
+        return hb_explicit_scale_mask(mod12(target),8);
+    }
+    static const int scales[]={0,8,9,0,1,19};
+    return hb_explicit_scale_mask(mod12(target),scales[choice]);
+}
+static unsigned hb_effective_parent(Inst *instance,int tonic){
+    hb_key_context context=hb_key_for(instance);
+    if(context.active)return context.target_mask;
+    return hb_explicit_scale_mask(tonic,hb_parent_scale_index(instance,(hb_harmony_t){.valid=1,.root_pc=tonic}));
+}
 static uint16_t hb_dominant_scale_mask(Inst *instance,hb_harmony_t harmony,int tonic){
-    if(!instance||!hb_policy_value(instance,HB_P_DOMINANT)||!harmony.valid)return 0;
+    if(!instance||!harmony.valid)return 0;
     unsigned chord=hb_harmony_chord_mask(harmony);
-    int root=mod12(harmony.root_pc),relative=mod12(root-tonic);
+    int explicit_context=harmony.intent_kind>0&&harmony.intent_kind<4;
+    int target=explicit_context?harmony.intent_target:tonic;
+    unsigned parent=hb_effective_parent(instance,tonic);
+    int minor=explicit_context?harmony.intent_minor:hb_target_minor(parent,target);
+    int root=mod12(harmony.root_pc),relative=mod12(root-target);
     int dominant=relative==7&&(chord&(1u<<mod12(root+4)))&&!(chord&(1u<<mod12(root+11)));
     int leading=relative==11&&(chord&(1u<<mod12(root+3)))&&(chord&(1u<<mod12(root+6)));
-    if(!dominant&&!leading)return 0;
-    if(hb_policy_value(instance,HB_P_DOMINANT)==3&&dominant)return hb_explicit_scale_mask(mod12(root+1),9);
-    /* Altered V is a dominant-root scale; vii-dim uses the tonic's harmonic
-       minor collection instead of an unrelated altered collection. */
-    return hb_explicit_scale_mask(tonic,hb_policy_value(instance,HB_P_DOMINANT)==2?9:8);
+    int preceding=explicit_context&&harmony.intent_kind==1&&relative==2;
+    if(!dominant&&!leading&&!preceding)return 0;
+    if(!hb_policy_value(instance,minor?HB_P_DOMINANT_MINOR:HB_P_DOMINANT))return 0;
+    return hb_function_family(instance,target,parent,minor,dominant?1:leading?2:0);
 }
 /* Alter the selected collection only where chord tones require it. Preserve
    all existing chord tones; never substitute a new inferred parent wholesale. */
@@ -2528,14 +2543,11 @@ static unsigned hb_relative_target_scale(Inst *instance,int target,unsigned pare
     return hb_explicit_scale_mask(mod12(target),1);
 }
 static unsigned hb_relative_dominant_scale(Inst *instance,int root,int destination,int leading,unsigned parent){
-    hb_harmony_t functional={0};functional.valid=1;functional.root_pc=mod12(root);
-    functional.bass_pc=functional.root_pc;functional.chord_index=leading?5:10;
-    functional.pitch_mask=hb_harmony_chord_mask(functional);
-    unsigned selected=hb_dominant_scale_mask(instance,functional,mod12(destination));
-    return selected?selected:parent;
+    (void)root;
+    return hb_function_family(instance,destination,parent,hb_target_minor(parent,destination),leading?2:1);
 }
 /* Resolve a recorded cadence step against its current destination. */
-typedef struct {int root,quality,destination;unsigned scale;} hb_cadence_result;
+typedef struct {int root,quality,destination;unsigned scale;int minor;} hb_cadence_result;
 static hb_cadence_result hb_resolve_cadence(Inst *instance,const hb_cadence_step *step,int target,unsigned parent){
     unsigned collection=hb_relative_target_scale(instance,target,parent);
     for(int depth=0;depth<3&&step->path[depth];depth++){
@@ -2544,7 +2556,8 @@ static hb_cadence_result hb_resolve_cadence(Inst *instance,const hb_cadence_step
         target+=term<0?major[-term]:hb_nth_scale_interval_from_root(collection,mod12(target),term-1);
         collection=hb_relative_target_scale(instance,target,parent);
     }
-    hb_cadence_result result={target,0,target,collection};
+    hb_cadence_result result={target,0,target,collection,hb_target_minor(collection,target)};
+    if(step->kind==HB_CAD_MINOR_DEGREE||step->kind==HB_CAD_MINOR_DOMINANT||step->kind==HB_CAD_MINOR_TARGET)result.minor=1;
     if(step->kind==HB_CAD_BORROWED||step->kind==HB_CAD_MINOR_DEGREE||step->kind==HB_CAD_MINOR_DOMINANT||step->kind==HB_CAD_MINOR_TARGET)
         result.scale=hb_explicit_scale_mask(mod12(target),2);
     if(step->kind==HB_CAD_DOMINANT||step->kind==HB_CAD_MINOR_DOMINANT){
@@ -2554,6 +2567,8 @@ static hb_cadence_result hb_resolve_cadence(Inst *instance,const hb_cadence_step
         result.root=target-1;result.quality=9;
         result.scale=hb_relative_dominant_scale(instance,result.root,target,1,result.scale);
     }else if(step->kind==HB_CAD_DEGREE||step->kind==HB_CAD_BORROWED||step->kind==HB_CAD_MINOR_DEGREE){
+        if(step->degree==2&&(step->kind==HB_CAD_DEGREE||step->kind==HB_CAD_MINOR_DEGREE))
+            result.scale=hb_function_family(instance,target,result.scale,hb_target_minor(result.scale,target),0);
         result.root+=hb_nth_scale_interval_from_root(result.scale,mod12(target),step->degree-1)-(step->degree>=6?12:0);
         if(step->kind==HB_CAD_MINOR_DEGREE)result.quality=8;
         else if(step->kind==HB_CAD_DEGREE&&(instance->motion.render_flags&HB_MO_SIMPLE)&&!(instance->motion.render_flags&HB_MO_SIMPLE_SCALE)){
@@ -2678,7 +2693,7 @@ static hb_approach_result hb_resolve_chord_approach(Inst *instance,int target_no
         if(cadence){
             hb_cadence_result result=hb_resolve_cadence(instance,cadence,target_note,target_scale);
             root_note=result.root;target_scale=result.scale;config.quality=result.quality;
-            intent_target=mod12(result.destination);intent_kind=(cadence->kind==HB_CAD_DOMINANT||cadence->kind==HB_CAD_MINOR_DOMINANT)?2:cadence->kind==HB_CAD_LEADING?3:1;
+            intent_target=mod12(result.destination);intent_minor=result.minor;intent_kind=(cadence->kind==HB_CAD_DOMINANT||cadence->kind==HB_CAD_MINOR_DOMINANT)?2:cadence->kind==HB_CAD_LEADING?3:1;
             if(cadence->kind==HB_CAD_TARGET&&pad_approach)config.quality=config.chromatic_quality==6?hb_cp_auto_leading_quality(target_note+1,target_scale):hb_cp_chromatic_quality(config.chromatic_quality);
         }else if(secondary==12||secondary==13){
             root_note=target_note+(secondary==12?-1:1);config.quality=9;
@@ -2687,6 +2702,8 @@ static hb_approach_result hb_resolve_chord_approach(Inst *instance,int target_no
             unsigned parent_collection=target_scale;
             int parent_root=target_note+hb_relative_approach_offset(secondary,target_note,parent_collection);
             target_scale=hb_relative_target_scale(instance,target_note,target_scale);
+            intent_minor=hb_target_minor(target_scale,target_note);
+            if(secondary==1)target_scale=hb_function_family(instance,target_note,target_scale,hb_target_minor(target_scale,target_note),0);
             root_note+=hb_relative_approach_offset(secondary,target_note,target_scale);
             if(secondary==5||secondary==6){
                 static const int borrowed[]={2,2,3,13};
@@ -2729,7 +2746,7 @@ static hb_approach_result hb_resolve_chord_approach(Inst *instance,int target_no
         }
         if(!intent_kind)intent_kind=secondary==2||secondary==6?2:chord_modifier==2&&!(instance->motion.render_flags&HB_MO_CONNECTOR_ABOVE)?4:secondary?1:5;
         if(secondary==6)intent_target=mod12(target_note+3);
-        intent_minor=(target_scale&(1u<<mod12(intent_target+3)))&&!(target_scale&(1u<<mod12(intent_target+4)));
+        if(!cadence&&!secondary)intent_minor=hb_target_minor(hb_approach_scale(instance,harmony),intent_target);
         while(root_note<0)root_note+=12;while(root_note>127)root_note-=12;
     return (hb_approach_result){root_note,intent_kind,intent_target,intent_minor,target_scale,config};
 }
@@ -2752,7 +2769,7 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         hb_explicit_scale_mask(scale_root,hb_parent_scale_index(instance,harmony));
     if(hb_cp_mode(player)!=1&&harmony.valid)
         scale=hb_output_chord_scale_at_transpose(instance,untransposed,scale_root,(uint16_t)scale,0);
-    uint16_t dominant=hb_policy_value(instance,HB_P_GAP)?0:hb_dominant_scale_mask(instance,harmony,mod12(scale_root+g_bus.global_transpose));
+    uint16_t dominant=(hb_cp_mode(player)==1||hb_policy_value(instance,HB_P_GAP))?0:hb_dominant_scale_mask(instance,harmony,mod12(scale_root+g_bus.global_transpose));
     if(dominant){
         scale=0;
         for(int pitch=0;pitch<12;pitch++)if(dominant&(1u<<pitch))scale|=1u<<mod12(pitch-g_bus.global_transpose);
@@ -2890,6 +2907,23 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         hb_harmony_t destination=hb_key_harmony(instance,harmony);
         unsigned mapped_scale=scale_mode&&!approach_chord?context.target_mask:
             hb_key_mask(context,hb_transpose_mask(scale,scale_mode?g_bus.global_transpose:0));
+        if(!context.blues&&voice_config.mode){
+            int original_root=scale_mode?mod12(modified_note+g_bus.global_transpose):harmony.root_pc;
+            int source_target=approach_chord?intent_target:context.source_root;
+            unsigned original_mask=0;for(int voice=0;voice<voice_count;voice++)original_mask|=1u<<mod12(reference_pitches[voice]);
+            int functional=mod12(original_root-source_target)==7&&(original_mask&(1u<<mod12(original_root+4)))&&!(original_mask&(1u<<mod12(original_root+11)));
+            int leading=approach_chord&&intent_kind==3;
+            int preceding=approach_chord&&intent_kind==1&&mod12(original_root-source_target)==2;
+            if(functional||leading||preceding){
+                int target=approach_chord?mod12(hb_key_map(context,60+source_target)):context.target_root;
+                int new_root=mod12(target+(functional?7:leading?11:2));
+                int delta=new_root-mod12(mapped_input);while(delta>6)delta-=12;while(delta< -6)delta+=12;mapped_input+=delta;
+                mapped_scale=hb_function_family(instance,target,context.target_mask,hb_target_minor(context.target_mask,target),functional?1:leading?2:0);
+                if(functional)voice_config.quality=6;
+                else if(leading)voice_config.quality=9;
+                else voice_config.quality=0;
+            }
+        }
         if(context.blues&&voice_config.mode){
             voice_config.quality=6;
             mapped_scale=hb_explicit_scale_mask(voice_config.mode==1?mod12(mapped_input):destination.root_pc,6);
@@ -3667,11 +3701,8 @@ static int hb_source_channel_matches(Inst *instance,int midi_channel){
        subscriptions and must never filter that already-isolated input. */
     if(instance->movy_track>=0)return midi_channel==0;
     if(instance->source_channel>=0)return midi_channel==instance->source_channel;
-    /* Prefer the source-aware Chain tag; on stock/unpatched hosts the
-       conductor fallback in hb_monitor_channel() resolves the owning Move
-       track from set state. Never accept-all for a conductor, because cable-2
-       is broadcast and that is exactly how follower-track notes leaked into
-       the conductor local/global panels. */
+    /* Wait for authoritative ownership; do not read disk or accept unrelated
+       broadcast notes while a conductor's source channel is unresolved. */
     int owning_channel=hb_monitor_channel(instance);
     if(owning_channel>=0&&owning_channel<16)return midi_channel==owning_channel;
     return instance->role==0?0:1;
@@ -4800,7 +4831,7 @@ static int hb_context_to_legacy_stability(int context){
     return 2;
 }
 static const char *BORROWED_SCALE_OPTS[]={"Minimal","Aeolian","Dorian","Mixolydian b6"};
-static const char *DOMINANT_SCALE_OPTS[]={"Off","Harmonic Minor","Melodic Minor","Altered V"};
+static const char *DOMINANT_SCALE_OPTS[]={"Parent / Minimal","Harmonic Minor","Melodic Minor","Altered V","Major","Harmonic Major"};
 static const char *CP_CHORD_MODE[]={"Off","Rendered Note Root","Conductor Chord"};
 static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth","Played Top Note"};
 static const char *CP_CHORD_VOICING[]={"Close","Root + Fifth Low","Alternate Up","Shell"};
@@ -4991,8 +5022,13 @@ if(!strcmp(key,"borrowed_scale")){
     hb_set_scale_exceptions(hb_shared_dominant_scale(),selected);
     return;
 }
+if(!strcmp(key,"dominant_minor_scale")){
+    int selected=enum_index(!strcmp(parameter,"Off")?"Parent / Minimal":parameter,DOMINANT_SCALE_OPTS,6,hb_role_default(0,HB_P_DOMINANT_MINOR));
+    for(int role=0;role<2;role++)hb_role_store(role,HB_P_DOMINANT_MINOR,selected);
+    g_role_restored=1;return;
+}
 if(!strcmp(key,"dominant_scale")){
-    int selected=enum_index(parameter,DOMINANT_SCALE_OPTS,4,hb_shared_dominant_scale());
+    int selected=enum_index(!strcmp(parameter,"Off")?"Parent / Minimal":parameter,DOMINANT_SCALE_OPTS,6,hb_shared_dominant_scale());
     hb_set_scale_exceptions(selected,hb_shared_borrowed_scale());
     return;
 }
@@ -5480,13 +5516,13 @@ static void hb_restore_state(Inst *instance,const char *state){
         int dominant=0,borrowed=0;
         const char *shared_suffix=strstr(state,";ss1,");
         if(shared_suffix){
-            if(sscanf(shared_suffix,";ss1,%d,%d",&dominant,&borrowed)==2&&dominant>=0&&dominant<4&&borrowed>=0&&borrowed<4)
+            if(sscanf(shared_suffix,";ss1,%d,%d",&dominant,&borrowed)==2&&dominant>=0&&dominant<6&&borrowed>=0&&borrowed<4)
                 hb_set_scale_exceptions(dominant,borrowed);
         }else{
             /* Legacy per-track presets: first non-default choice seeds the
                global setting. Defaults on earlier tracks cannot hide it. */
             const char *legacy=strstr(state,";ds1,");
-            if(legacy&&sscanf(legacy,";ds1,%d",&dominant)==1&&dominant>0&&dominant<4)
+            if(legacy&&sscanf(legacy,";ds1,%d",&dominant)==1&&dominant>0&&dominant<6)
                 hb_set_scale_exceptions(dominant,0);
         }
     }
@@ -5881,7 +5917,7 @@ if(!strcmp(key,"scale_status")){
 
 if(!strcmp(key,"motion_editor")){
     /* One control-thread snapshot replaces a page of synchronous IPC reads. */
-    static const char *keys[]={"motion_lane","motion_operation","motion_pattern","motion_amount","motion_offset","motion_enabled","motion_grid","motion_cycle","motion_phase","motion_probability","motion_group","motion_evolve","motion_advance","motion_every","motion_from","motion_through","motion_auto_off","motion_touch_mode","motion_condition_range","motion_condition_status","motion_overview","motion_bypass","motion_punch","touch_hold_ms","chord_edit_target","chord_mode","chord_form","chord_quality","chromatic_quality","chord_inversion","chord_voicing","arp_playback","arp_hold","arp_order","arp_rate","arp_gate","arp_start","arp_phase","arp_note_phase","arp_clear_harmony","strum_spread","chord_input","chord_state_copy","defaults_editor","defaults_control_1","defaults_control_2","defaults_control_3","defaults_control_4","defaults_control_5","defaults_control_6","local_palette"};
+    static const char *keys[]={"motion_lane","motion_operation","motion_pattern","motion_amount","motion_offset","motion_enabled","motion_grid","motion_cycle","motion_phase","motion_probability","motion_group","motion_evolve","motion_advance","motion_every","motion_from","motion_through","motion_auto_off","motion_touch_mode","motion_condition_range","motion_condition_status","motion_overview","motion_bypass","motion_punch","touch_hold_ms","chord_edit_target","chord_mode","chord_form","chord_quality","chromatic_quality","chord_inversion","chord_voicing","arp_playback","arp_hold","arp_order","arp_rate","arp_gate","arp_start","arp_phase","arp_note_phase","arp_clear_harmony","strum_spread","chord_input","chord_state_copy","defaults_editor","defaults_control_1","defaults_control_2","defaults_control_3","defaults_control_4","defaults_control_5","defaults_control_6","defaults_control_7","local_palette"};
     int used=snprintf(buffer,(size_t)length,"{\"params\":");
     if(used>=length)return -1;
     int count=hb_cs_metadata(instance,buffer+used,length-used);
@@ -6366,6 +6402,7 @@ if(((!strcmp(key,"state")||!strcmp(key,"pad_state_base"))||!strcmp(key,"cp_state
     return used+snprintf(buffer+used,(size_t)(length-used),";cp1,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d;ds1,%d;cq1,%d,%d;ph1,%d;np1,%d",instance->player.config.mode,instance->player.config.size,instance->player.config.inversion,instance->player.config.voicing,instance->player.config.playback,instance->player.config.latch,instance->player.config.order,instance->player.config.rate,instance->player.config.gate,instance->player.config.spread,hb_shared_dominant_scale(),instance->player.config.quality,instance->player.config.chromatic_quality,instance->player.config.phase,instance->player.config.note_phase);
 }
 if(!strcmp(key,"borrowed_scale"))return snprintf(buffer,(size_t)length,"%s",BORROWED_SCALE_OPTS[hb_shared_borrowed_scale()]);
+if(!strcmp(key,"dominant_minor_scale"))return snprintf(buffer,(size_t)length,"%s",DOMINANT_SCALE_OPTS[hb_role_default(instance->role==0?0:1,HB_P_DOMINANT_MINOR)]);
 if(!strcmp(key,"dominant_scale"))return snprintf(buffer,(size_t)length,"%s",DOMINANT_SCALE_OPTS[hb_shared_dominant_scale()]);
 if(!strcmp(key,"chord_mode"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_MODE[instance->player.config.mode]);
 if(!strcmp(key,"chord_quality"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_QUALITY[instance->player.config.quality]);
