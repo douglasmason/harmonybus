@@ -106,4 +106,35 @@ static void target_release_once(void){
     assert(!instance->motion.gesture_target_owner[31]&&!instance->player.repeat_override);
     API.destroy_instance(instance);
 }
-int main(void){target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}
+static void selectable_modes(void){
+    Inst *instance=fixture();configure(instance);
+    const char *modes[]={"Chord Only","Arp Only","Both"};
+    for(int mode=0;mode<3;mode++){
+        API.set_param(instance,"motion_control_32",modes[mode]);
+        API.set_param(instance,"motion_gesture_32","LatchOn");
+        assert(hb_cp_mode(&instance->player)==(mode==1?0:2));
+        assert(hb_cp_playback(&instance->player)==(mode==0?0:1));
+        midi(instance,1,60);advance(instance,1,64);
+        assert(hb_cp_held(&instance->player)==1);
+        assert(instance->player.keys[0].count==(mode==1?1:4));
+        midi(instance,0,60);advance(instance,125,64);
+        assert(instance->player.repeat_override); /* Release never consumes permanent latch. */
+        API.set_param(instance,"motion_gesture_32","LatchOff");advance(instance,125,64);
+        assert(!instance->player.repeat_override&&!instance->player.sounding_count);
+        char state[16384],label[32];API.get_param(instance,"state",state,sizeof(state));
+        API.destroy_instance(instance);instance=API.create_instance("",0);API.set_param(instance,"state",state);
+        API.get_param(instance,"motion_control_32",label,sizeof(label));assert(!strcmp(label,modes[mode]));
+    }
+    /* Switching while held flushes old voices and preserves the latch. */
+    API.set_param(instance,"motion_gesture_32","LatchOn");midi(instance,1,60);advance(instance,125,64);
+    API.set_param(instance,"motion_control_32","Arp Only");advance(instance,125,64);
+    assert(instance->motion.gesture_persistent&(1ULL<<31));
+    assert(!hb_cp_held(&instance->player)&&!instance->player.sounding_count);
+    midi(instance,0,60);API.destroy_instance(instance);
+    /* A numeric amount saved before modes existed must still mean Both. */
+    hb_motion_config old,restored;hb_mo_defaults(&old);hb_mo_defaults(&restored);
+    old.lanes[31].amount=2;char saved[16384]={0};hb_mo_save(&old,saved,sizeof(saved),0);
+    char *marker=strstr(saved,";ca1");assert(marker);memmove(marker,marker+4,strlen(marker+4)+1);
+    hb_mo_restore(&restored,saved);assert(restored.lanes[31].amount==1);
+}
+int main(void){selectable_modes();target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}
