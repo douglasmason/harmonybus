@@ -18,10 +18,10 @@ static double hb_rr_time(double beat,int pattern,double span){
 #define HB_RR_VOICES 256
 #define HB_RR_EVENTS 512
 typedef struct {int used,closed,channel,pitch,sounding;unsigned serial;double delay;} hb_rr_voice;
-typedef struct {int used,owner;unsigned serial;double due;uint8_t midi[3];} hb_rr_event;
+typedef struct {int used,owner;unsigned serial;double due;unsigned short trail;uint8_t midi[3];} hb_rr_event;
 typedef struct {
     hb_rr_voice voices[HB_RR_VOICES];hb_rr_event events[HB_RR_EVENTS];
-    unsigned short refs[16][128];unsigned serial;int count,owned,panic,cursor;
+    unsigned short trail_in,trail_out;unsigned short refs[16][128];unsigned serial;int count,owned,panic,cursor;
 } hb_rr_route;
 static void hb_rr_panic(hb_rr_route *r){
     memset(r->voices,0,sizeof(r->voices));memset(r->events,0,sizeof(r->events));r->count=0;r->owned=0;r->panic=1;r->cursor=0;
@@ -50,11 +50,12 @@ static void hb_rr_push(hb_rr_route *r,const uint8_t midi[3],double now,double de
     }else delay=0;
     for(int i=0;i<HB_RR_EVENTS;i++)if(!r->events[i].used){
         hb_rr_event *e=&r->events[i];*e=(hb_rr_event){.used=1,.owner=owner,.serial=++r->serial,.due=now+delay};
-        memcpy(e->midi,midi,3);r->count++;return;
+        e->trail=on?r->trail_in:0;memcpy(e->midi,midi,3);r->count++;return;
     }
     hb_rr_panic(r);
 }
 static int hb_rr_pop(hb_rr_route *r,double now,uint8_t midi[3]){
+    r->trail_out=0;
     if(r->panic){
         while(r->cursor<2048){int i=r->cursor++;if(r->refs[i/128][i%128]){
             r->refs[i/128][i%128]=0;midi[0]=0x80|i/128;midi[1]=i%128;midi[2]=0;return 1;
@@ -83,7 +84,7 @@ static int hb_rr_pop(hb_rr_route *r,double now,uint8_t midi[3]){
             }else if(r->refs[ch][pitch])continue;
             r->refs[ch][pitch]=0;
         }
-        memcpy(midi,e.midi,3);return 1;
+        r->trail_out=e.trail;memcpy(midi,e.midi,3);return 1;
     }return 0;
 }
 #endif

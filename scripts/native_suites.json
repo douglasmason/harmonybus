@@ -405,5 +405,19 @@
       "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/shared_context_test.c src/harmony_core.c -lm -o /tmp/shared_context_test",
       "/tmp/shared_context_test"
     ]
+  },
+  {
+    "name": "harmony_override_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -fsanitize=undefined -fno-sanitize-recover=all tests/harmony_override_test.c src/harmony_core.c -lm -o /tmp/harmony_override_test",
+      "/tmp/harmony_override_test"
+    ]
+  },
+  {
+    "name": "pad_trail_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -fsanitize=undefined -fno-sanitize-recover=all tests/pad_trail_test.c src/harmony_core.c -lm -o /tmp/pad_trail_test",
+      "/tmp/pad_trail_test"
+    ]
   }
 ]

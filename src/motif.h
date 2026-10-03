@@ -25,7 +25,11 @@ typedef struct {
     unsigned char held[16][128],swallow[16][128];
     hb_mt_phrase draft,undo;
 } hb_mt_recorder;
-typedef struct {double on,off;int pitch,velocity,channel,render,started,used;int pad_owner,pad_playback;} hb_mt_scheduled;
+typedef struct {double on,off;int pitch,velocity,channel,render,started,used;int pad_owner,pad_playback;
+    unsigned override_mask;int override_root,override_semantic;
+    unsigned long long override_generation;
+    unsigned short trail_target;
+} hb_mt_scheduled;
 typedef struct {
     hb_mt_recorder editor;
     int playback_lane;

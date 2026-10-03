@@ -17,7 +17,7 @@ typedef struct {
     unsigned sequence, harmony_mask, harmony_sequence, semantic_mask;
     hb_cp_config onset_config;
     int harmony_root, playback_origin, range;
-    unsigned transform_revision;
+    unsigned transform_revision,trail_serial;
     int notes[HB_CP_VOICES];
     double due[HB_CP_VOICES];
     unsigned started;
