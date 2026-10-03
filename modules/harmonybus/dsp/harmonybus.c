@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.236"
+#define HB_VERSION "0.2.237"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -3913,8 +3913,12 @@ static void hb_auto_chord_repeat_sync(Inst *instance){
     if(instance->role<2)for(int lane=0;lane<HB_MOTION_LANES;lane++){
         double value;
         if(instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT&&
-           hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&value))active=1;
+           hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&value)){
+            int amount=instance->motion.lanes[lane].amount;
+            active|=amount==0?1:amount==2?2:3;
+        }
     }
+    active=active==3?1:active==1?2:active==2?3:0;
     if(active==instance->player.repeat_override)return;
     /* Mode boundaries release all old ownership before accepting new presses.
        Preserve the operation gesture that caused the boundary. */

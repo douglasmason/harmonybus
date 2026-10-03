@@ -25,7 +25,7 @@ typedef struct {
 typedef struct {
     hb_cp_config config;
     int state_override;hb_cp_config state_config;
-    int repeat_override; /* Runtime operation; never written into saved panel settings. */
+    int repeat_override; /* Runtime overlay: 0 off, 1 both, 2 chord only, 3 arp only. */
     hb_cp_key keys[HB_CP_KEYS];
     uint8_t sounding[16][128], retrigger[16][128];
     int sounding_channels[16];
@@ -37,8 +37,8 @@ typedef struct {
     double seconds, beat, next_beat, gate_beat;
 } hb_chord_player;
 static const hb_cp_config *hb_cp_settings(const hb_chord_player *player){return player->state_override?&player->state_config:&player->config;}
-static int hb_cp_mode(const hb_chord_player *player){int mode=hb_cp_settings(player)->mode;return player->repeat_override&&!mode?2:mode;}
-static int hb_cp_playback(const hb_chord_player *player){return player->repeat_override?1:hb_cp_settings(player)->playback;}
+static int hb_cp_mode(const hb_chord_player *player){int mode=hb_cp_settings(player)->mode;return player->repeat_override==3?0:player->repeat_override&&!mode?2:mode;}
+static int hb_cp_playback(const hb_chord_player *player){return player->repeat_override==2?0:player->repeat_override?1:hb_cp_settings(player)->playback;}
 static hb_cp_config hb_cp_effective_config(const hb_chord_player *player){
     hb_cp_config config=*hb_cp_settings(player);config.mode=hb_cp_mode(player);config.playback=hb_cp_playback(player);return config;
 }
