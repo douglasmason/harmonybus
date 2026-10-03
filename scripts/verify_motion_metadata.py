@@ -35,7 +35,7 @@ def main() -> None:
     assert maps[4]['motion_from']['options'] == [str(cycle) for cycle in range(1,9)]
     assert maps[4]['motion_through']['options'] == maps[4]['motion_from']['options']
     assert maps[4]['motion_every']['options'] == [str(cycle) for cycle in range(1,17)]
-    assert map_module['capabilities']['ui_hierarchy']['levels']['motion_conditions']['knobs'] == ['motion_lane','motion_every','motion_from','motion_through','motion_auto_off','motion_enabled','motion_condition_range','motion_condition_status']
+    assert map_module['capabilities']['ui_hierarchy']['levels']['motion_conditions']['knobs'] == ['motion_lane','motion_every','motion_from','motion_through','motion_auto_off','touch_hold_ms','motion_condition_range','motion_condition_status']
     assert maps[0]['motion_offset'] == map_canonical['motion_offset']
     assert maps[3]['motion_offset']['name'] == 'Decay %' and maps[3]['motion_offset']['min'] == 0
     assert maps[3]['motion_advance']['options'] == ['Clock','Note','Chord']

@@ -103,7 +103,7 @@ jobs:
                   assert any(parameter.get('key')==key for parameter in levels[page]['params'])
           chord_mode=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='chord_mode')
           assert chord_mode['default']=='Off'
-          dominant=next(parameter for parameter in levels['follower_root']['params'] if parameter.get('key')=='track_dominant_scale')
+          dominant=next(parameter for parameter in levels['track_scales']['params'] if parameter.get('key')=='track_dominant_scale')
           assert dominant['options']==['Parent / Minimal','Harmonic Minor','Melodic Minor','Altered V','Major','Harmonic Major','Follow Role'] and dominant['default']=='Follow Role'
           assert next(p for p in module['capabilities']['chain_params'] if p['key']=='track_dominant_minor_scale')['options']==dominant['options']
           assert next(p for p in module['capabilities']['chain_params'] if p['key']=='conductor_default_dominant_minor_scale')['default']=='Harmonic Minor'
@@ -124,9 +124,9 @@ jobs:
               'next_shift','next_loop_length','next_position','next_harmony'
           ]
           assert next(p for p in levels['next_harm']['params'] if p.get('key')=='boundary_buffer_ms')==buffer
-          assert levels['global_transpose']['name']=='Global Transpose'
+          assert levels['global_transpose']['name']=='Key & Scale'
           assert levels['global_transpose']['knobs']==[
-              'master_transpose','transpose','accidentals','touch_hold_ms','key_center_scale','conductor_key_travel','parallel_scale','key_center'
+              'master_transpose','transpose','accidentals','key_center_scale','conductor_key_travel','parallel_scale','key_center','sounding_key'
           ]
           assert any(item.get('level')=='global_transpose' for item in levels['root']['params'])
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
