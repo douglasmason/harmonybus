@@ -2,7 +2,7 @@
 #define HB_KEY_CONTEXT_H
 /* Render-only, shared musical context. Source degrees and classifier evidence
    stay in the recorded key. Onset snapshots own their eventual note-offs. */
-typedef struct { int active,source_root,target_root; unsigned source_mask,target_mask; } hb_key_context;
+typedef struct { int active,source_root,target_root,blues; unsigned source_mask,target_mask; } hb_key_context;
 static hb_key_context g_key_context;
 static int g_key_scale_mode=1,g_key_conductor_travel,g_key_settings_restored,g_parallel_manual,g_key_lane_parallel;
 static int g_key_armed,g_parallel_scale=2,g_parallel_on,g_parallel_latch;

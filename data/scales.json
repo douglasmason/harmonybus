@@ -1,0 +1,405 @@
+{
+  "scales": [
+    {
+      "id": "major",
+      "name": "Major",
+      "keyboard_name": "Major",
+      "keyboard_id": 0,
+      "hb_id": 1,
+      "parallel_id": 1,
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "minor",
+      "name": "Natural Minor",
+      "keyboard_name": "Minor",
+      "keyboard_id": 1,
+      "hb_id": 2,
+      "parallel_id": 2,
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "dorian",
+      "name": "Dorian",
+      "keyboard_name": "Dorian",
+      "keyboard_id": 2,
+      "hb_id": 3,
+      "parallel_id": 3,
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "phrygian",
+      "name": "Phrygian",
+      "keyboard_name": "Phrygian",
+      "keyboard_id": 3,
+      "hb_id": 4,
+      "parallel_id": 4,
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "lydian",
+      "name": "Lydian",
+      "keyboard_name": "Lydian",
+      "keyboard_id": 4,
+      "hb_id": 5,
+      "parallel_id": 5,
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        7,
+        9,
+        11
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "mixolydian",
+      "name": "Mixolydian",
+      "keyboard_name": "Mixolydian",
+      "keyboard_id": 5,
+      "hb_id": 6,
+      "parallel_id": 6,
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "locrian",
+      "name": "Locrian",
+      "keyboard_name": "Locrian",
+      "keyboard_id": 6,
+      "hb_id": 7,
+      "parallel_id": 7,
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        6,
+        8,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "harm_min",
+      "name": "Harmonic Minor",
+      "keyboard_name": "Harm Min",
+      "keyboard_id": 7,
+      "hb_id": 8,
+      "parallel_id": 8,
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        11
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "mel_min",
+      "name": "Melodic Minor",
+      "keyboard_name": "Mel Min",
+      "keyboard_id": 8,
+      "hb_id": 9,
+      "parallel_id": 9,
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "maj_penta",
+      "name": "Maj Penta",
+      "keyboard_name": "Maj Penta",
+      "keyboard_id": 9,
+      "hb_id": null,
+      "parallel_id": null,
+      "intervals": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "min_penta",
+      "name": "Min Penta",
+      "keyboard_name": "Min Penta",
+      "keyboard_id": 10,
+      "hb_id": null,
+      "parallel_id": null,
+      "intervals": [
+        0,
+        3,
+        5,
+        7,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "blues_six_note",
+      "name": "Blues",
+      "keyboard_name": "Blues 6-note",
+      "keyboard_id": 11,
+      "hb_id": null,
+      "parallel_id": null,
+      "intervals": [
+        0,
+        3,
+        5,
+        6,
+        7,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "chromatic",
+      "name": "Chromatic",
+      "keyboard_name": "Chromatic",
+      "keyboard_id": 12,
+      "hb_id": null,
+      "parallel_id": null,
+      "intervals": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "dorian_b2",
+      "name": "Dorian b2",
+      "keyboard_name": "Dorian b2",
+      "keyboard_id": 13,
+      "hb_id": 10,
+      "parallel_id": 10,
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "lydian_aug",
+      "name": "Lydian Augmented",
+      "keyboard_name": "Lydian Aug",
+      "keyboard_id": 14,
+      "hb_id": 11,
+      "parallel_id": 11,
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        9,
+        11
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "lydian_dom",
+      "name": "Lydian Dominant",
+      "keyboard_name": "Lydian Dom",
+      "keyboard_id": 15,
+      "hb_id": 12,
+      "parallel_id": 12,
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        7,
+        9,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "mixolydian_b6",
+      "name": "Mixolydian b6",
+      "keyboard_name": "Mixolydian b6",
+      "keyboard_id": 16,
+      "hb_id": 13,
+      "parallel_id": 13,
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "locrian_#2",
+      "name": "Locrian #2",
+      "keyboard_name": "Locrian #2",
+      "keyboard_id": 17,
+      "hb_id": 14,
+      "parallel_id": 14,
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        6,
+        8,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "altered",
+      "name": "Altered",
+      "keyboard_name": "Altered",
+      "keyboard_id": 18,
+      "hb_id": 15,
+      "parallel_id": 15,
+      "intervals": [
+        0,
+        1,
+        3,
+        4,
+        6,
+        8,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "whole_tone",
+      "name": "Whole Tone",
+      "keyboard_name": "Whole Tone",
+      "keyboard_id": 19,
+      "hb_id": 16,
+      "parallel_id": 16,
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "augmented",
+      "name": "Augmented",
+      "keyboard_name": "Augmented",
+      "keyboard_id": 20,
+      "hb_id": 17,
+      "parallel_id": 17,
+      "intervals": [
+        0,
+        3,
+        4,
+        7,
+        8,
+        11
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "blues_dominant",
+      "name": "Blues",
+      "keyboard_name": "Blues",
+      "keyboard_id": 21,
+      "hb_id": 18,
+      "parallel_id": 19,
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "chord_quality": "dominant"
+    }
+  ],
+  "parallel_operations": [
+    {
+      "id": "relative_major_minor",
+      "name": "Relative Major/Minor",
+      "parallel_id": 18
+    }
+  ]
+}
