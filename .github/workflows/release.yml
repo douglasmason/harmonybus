@@ -236,7 +236,8 @@ jobs:
           global_panel=module['capabilities']['ui_hierarchy']['levels']['global_transpose']
           assert global_panel['knobs'][0]=='master_transpose'
           assert global_panel['knobs'][1]=='transpose'
-          assert global_panel['knobs'][3]=='touch_hold_ms'
+          assert global_panel['knobs'][3]=='key_center_scale'
+          assert 'touch_hold_ms' in module['capabilities']['ui_hierarchy']['levels']['motion_conditions']['knobs']
           PY
 
       - name: Seal comprehensive release artifact
