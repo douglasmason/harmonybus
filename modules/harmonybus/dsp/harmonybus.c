@@ -5012,7 +5012,7 @@ static void hb_set_scale_exceptions(int dominant,int borrowed){
     g_scale_exceptions_restored=1;
 }
 static void set_param_base(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
-if(!strcmp(key,"trail_enable")){instance->trail_enabled=atoi(parameter)!=0;return;}
+if(!strcmp(key,"trail_enable")){instance->trail_enabled=!strcmp(parameter,"1");return;}
 if(!strcmp(key,"trail_clear")){memset(instance->trail_valid,0,sizeof(instance->trail_valid));return;}
 if(!strcmp(key,"pad_preview_inputs")){
     size_t size=strlen(parameter);int notes[32],targets[32],rows[32],layout=0;
@@ -5827,7 +5827,7 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
     else hb_player_note_on(preview,source_note,0,100);
     for(int owner=0;owner<HB_CP_KEYS;owner++)if(preview->player.keys[owner].used){
         hb_cp_key *voice=&preview->player.keys[owner];
-        {uint8_t target_message[3]={0x90,(uint8_t)voice->played_pitch,100};int pitch,gain,pan,skip;double off;
+        if(preview->trail_enabled&&root_only){uint8_t target_message[3]={0x90,(uint8_t)voice->played_pitch,100};int pitch,gain,pan,skip;double off;
         preview->motion.event_override=preview->motion_player_events[owner];
         hb_motion_resolve_output(preview,target_message,&pitch,&gain,&pan,&off,&skip);
         if(!skip)preview->preview_target=pitch;}
@@ -5863,9 +5863,9 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
        render it separately on the same private preview; no live state changes. */
     if(follower_single&&output_low&&output_high){
         unsigned long long low=preview->preview_single_low,high=preview->preview_single_high;
-        unsigned gap_mask=preview->preview_gap_mask;
+        unsigned gap_mask=preview->preview_gap_mask;int target=preview->preview_target;
         hb_pad_render_mask(preview,instance,harmony,source_note,0,output_low,output_high);
-        preview->preview_single_low=low;preview->preview_single_high=high;preview->preview_gap_mask=gap_mask;
+        preview->preview_single_low=low;preview->preview_single_high=high;preview->preview_gap_mask=gap_mask;preview->preview_target=target;
     }
     return rendered_mask;
 }
