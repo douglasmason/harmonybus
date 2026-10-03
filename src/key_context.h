@@ -7,9 +7,10 @@ static hb_key_context g_key_context;
 static int g_key_scale_mode=1,g_key_conductor_travel,g_key_settings_restored,g_parallel_manual,g_key_lane_parallel;
 static int g_key_armed,g_parallel_scale=2,g_parallel_on,g_parallel_latch;
 static hb_key_context g_parallel_previous;
+static char g_key_preview[32];
 static int hb_key_mod(int pitch){int value=pitch%12;return value<0?value+12:value;}
 static int hb_key_map(hb_key_context context,int pitch){
-    if(!context.active||!context.source_mask||!context.target_mask)return pitch;
+    if(!context.active||!context.source_mask||!context.target_mask||(context.source_root==context.target_root&&context.source_mask==context.target_mask))return pitch;
     int source[12],target[12],source_count=0,target_count=0;
     for(int interval=0;interval<12;interval++){
         if(context.source_mask&(1u<<hb_key_mod(context.source_root+interval)))source[source_count++]=interval;
