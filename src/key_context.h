@@ -9,8 +9,12 @@ static int g_key_armed,g_parallel_scale=2,g_parallel_on,g_parallel_latch;
 static hb_key_context g_parallel_previous;
 static char g_key_preview[32];
 static int hb_key_mod(int pitch){int value=pitch%12;return value<0?value+12:value;}
+static int hb_key_pitch_identity(hb_key_context context){
+    return !context.active||!context.source_mask||!context.target_mask||
+        (context.source_root==context.target_root&&context.source_mask==context.target_mask);
+}
 static int hb_key_map(hb_key_context context,int pitch){
-    if(!context.active||!context.source_mask||!context.target_mask||(context.source_root==context.target_root&&context.source_mask==context.target_mask))return pitch;
+    if(hb_key_pitch_identity(context))return pitch;
     int source[12],target[12],source_count=0,target_count=0;
     for(int interval=0;interval<12;interval++){
         if(context.source_mask&(1u<<hb_key_mod(context.source_root+interval)))source[source_count++]=interval;
@@ -29,6 +33,7 @@ static int hb_key_map(hb_key_context context,int pitch){
     while(mapped<0)mapped+=12;while(mapped>127)mapped-=12;return mapped;
 }
 static unsigned hb_key_mask(hb_key_context context,unsigned mask){
+    if(hb_key_pitch_identity(context))return mask&0xfffu;
     unsigned mapped=0;for(int pitch=0;pitch<12;pitch++)if(mask&(1u<<pitch))mapped|=1u<<hb_key_mod(hb_key_map(context,60+pitch));return mapped;
 }
 #endif

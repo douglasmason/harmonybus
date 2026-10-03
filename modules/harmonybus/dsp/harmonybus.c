@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.239"
+#define HB_VERSION "0.2.240"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -140,8 +140,8 @@ static int g_pad_settings[5]={6,3,3,2,0};
 static int g_pad_restored=0;
 static int g_humanize[3]={0,0,0},g_humanize_restored=0;
 static const char *PAD_KEYS[]={"pad_display","pad_pulse_rate","pad_pulse_shape","pad_current_color","pad_lookahead_color"};
-static const int PAD_LIMITS[]={7,8,4,9,9};
-static const char *PAD_MODES[]={"Effective","Current","Effective","Both","Lookahead","Full Lookahead","Both Full Lookahead"};
+static const int PAD_LIMITS[]={8,8,4,9,9};
+static const char *PAD_MODES[]={"Effective","Current","Effective","Both","Lookahead","Full Lookahead","Both Full Lookahead","Harmony Off"};
 static const char *PAD_RATES[]={"Off","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};
 static const char *PAD_SHAPES[]={"Smooth","Triangle","Square","None"};
 static const char *PAD_COLORS[]={"Red","Orange","Yellow","Green","Cyan","Blue","Purple","Pink","Track"};
@@ -2899,10 +2899,12 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         memcpy(pitches,bounded,(size_t)count*sizeof(int));voice_count=count;melody=top;
     }
     int reference_pitches[HB_CP_VOICES];memcpy(reference_pitches,pitches,sizeof(reference_pitches));
-    if(instance->role==0&&hb_key_for(instance).active){
+    hb_key_context voice_context=hb_key_for(instance);
+    if(instance->role==0&&voice_context.active&&
+       (voice_context.blues||g_key_conductor_travel||!hb_key_pitch_identity(voice_context))){
         /* Reinterpret the input, then voice it in the destination collection.
            Snapping each generated voice independently collapses chord forms. */
-        hb_key_context context=hb_key_for(instance);
+        hb_key_context context=voice_context;
         int mapped_input=hb_key_conductor_pitch(instance,modified_note+g_bus.global_transpose);
         hb_harmony_t destination=hb_key_harmony(instance,harmony);
         unsigned mapped_scale=scale_mode&&!approach_chord?context.target_mask:
@@ -6184,6 +6186,14 @@ if(!strcmp(key,"pad_view")){
         hb_shared_follower_scale(),hb_follower_input_scale_index(instance,scale_root),hb_approach_pad_enabled(instance));
     return used;
 }
+/* Harmony Off exposes input geometry and source-owner feedback only.
+   Avoid opening/next-harmony analysis and every per-pad voice simulation. */
+if(!strcmp(key,"pad_render")&&g_pad_settings[0]==7){
+    int root=hb_global_explicit_root();hb_resolve_follower_reference_root(instance,&root);
+    unsigned scale=hb_follower_input_scale(instance,root);
+    return snprintf(buffer,(size_t)length,"0,0,%u,0,0,7,0,3,%d,%d|input1,%d,%d,%d,%u,0",
+        scale,g_pad_settings[3],g_pad_settings[4],root,hb_shared_follower_scale(),hb_follower_input_scale_index(instance,root),scale);
+}
 if(!strcmp(key,"pad_render")&&instance->role!=1){
     unsigned playing=0,flashing=0;unsigned long long low=0,high=0,flash_low=0,flash_high=0;
     for(int pitch=0;pitch<128;pitch++)if(instance->pad_flash_seconds[pitch]>0){if(pitch<64)flash_low|=1ULL<<pitch;else flash_high|=1ULL<<(pitch-64);}
@@ -6553,6 +6563,12 @@ static void set_param(void *value,const char *key,const char *parameter){
     Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
     if(!strcmp(key,"hb_pressure_full_velocity")){instance->pressure_full_velocity=parse_i(parameter,0)!=0;return;}
     if(!strcmp(key,"state")&&strstr(parameter,";freshrole1")){g_role_restored=0;g_pad_restored=0;}
+    /* Transport telemetry is not a settings edit. Its base handlers own all
+       required work; do not rescan every track's role/operation state for each
+       per-chain heartbeat or clip position update. */
+    if(!strcmp(key,"hb_movy_block")||!strcmp(key,"hb_movy_clip")||!strcmp(key,"hb_opening_preview")){
+        set_param_base(value,key,parameter);return;
+    }
     hb_role_sync(instance);
     if(!strcmp(key,"key_center")){
         if(!strcmp(parameter,"Off")||!strcmp(parameter,"LatchOff")){for(int index=0;index<HB_MAX_INSTANCES;index++)g_pool[index].key_pending=0;g_key_armed=0;memset(&g_key_context,0,sizeof(g_key_context));g_parallel_on=g_parallel_latch=0;}
