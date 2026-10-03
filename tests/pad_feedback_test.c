@@ -196,7 +196,23 @@ static void separate_color_forms(void){
     API.destroy_instance(instance);
 }
 
-int main(void){
+
+static void harmony_off_view(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"follower_scale","Major");API.set_param(instance,"pad_display","Harmony Off");
+    char first[4096],second[4096],setting[64];
+    API.get_param(instance,"pad_display",setting,sizeof(setting));assert(!strcmp(setting,"Harmony Off"));
+    hb_effective_write(chord(0,0,1));API.get_param(instance,"pad_view",first,sizeof(first));
+    hb_effective_write(chord(6,1,1));API.get_param(instance,"pad_view",second,sizeof(second));
+    assert(!strcmp(first,second));
+    assert(strstr(first,"0,0,2741,0,0,7,0,3,"));
+    assert(!strstr(first,"outputs1,")&&!strstr(first,"gapcolors1,")&&!strstr(first,"nextpulse1,"));
+    assert(strstr(first,"|input1,0,1,1,2741,0"));
+    API.set_param(instance,"pad_display","Effective");API.get_param(instance,"pad_view",second,sizeof(second));
+    assert(strcmp(first,second));API.destroy_instance(instance);
+}
+
+int main(void){harmony_off_view();
     separate_color_forms();
     all_pulse_options();next_tone_pulse();independent_pad_form();
     movy_input_and_spatial_sequence();
