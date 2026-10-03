@@ -2899,10 +2899,12 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         memcpy(pitches,bounded,(size_t)count*sizeof(int));voice_count=count;melody=top;
     }
     int reference_pitches[HB_CP_VOICES];memcpy(reference_pitches,pitches,sizeof(reference_pitches));
-    if(instance->role==0&&hb_key_for(instance).active){
+    hb_key_context voice_context=hb_key_for(instance);
+    if(instance->role==0&&voice_context.active&&
+       (voice_context.blues||g_key_conductor_travel||!hb_key_pitch_identity(voice_context))){
         /* Reinterpret the input, then voice it in the destination collection.
            Snapping each generated voice independently collapses chord forms. */
-        hb_key_context context=hb_key_for(instance);
+        hb_key_context context=voice_context;
         int mapped_input=hb_key_conductor_pitch(instance,modified_note+g_bus.global_transpose);
         hb_harmony_t destination=hb_key_harmony(instance,harmony);
         unsigned mapped_scale=scale_mode&&!approach_chord?context.target_mask:

@@ -76,7 +76,33 @@ static void functional_key_change(void){
     API.destroy_instance(instance);
 }
 
-int main(void){functional_key_change();blues_mode();
+static void unchanged_key_voicings(void){
+    /* Arming or landing on the same key must preserve complete voicings,
+       including octave placement, rather than running another harmonization. */
+    const char *forms[]={"Triad","Seventh","Ninth"};
+    for(int minor=0;minor<2;minor++)for(int mode=0;mode<3;mode++)
+    for(int form=0;form<3;form++)for(int note=59;note<=72;note++){
+        int expected[128]={0};
+        for(int state=0;state<3;state++){
+            Inst *instance=fixture();single_setup(instance);
+            API.set_param(instance,"role","Conductor");
+            API.set_param(instance,"follower_scale",minor?"Natural Minor":"Major");
+            API.set_param(instance,"chord_form",forms[form]);
+            instance->player.config.mode=mode;
+            instance->movy_playback=1;
+            if(state==1)API.set_param(instance,"key_center","On");
+            if(state==2)g_key_context=hb_key_baseline(instance);
+            render_count=0;midi(instance,1,note);advance(instance,2,64);
+            int actual[128]={0};
+            for(int event=0;event<render_count;event++)
+                if((rendered[event][1]&0xf0)==0x90&&rendered[event][3])actual[rendered[event][2]]++;
+            if(!state)memcpy(expected,actual,sizeof(expected));
+            else assert(!memcmp(expected,actual,sizeof(expected)));
+            release(instance,note);API.destroy_instance(instance);
+        }
+    }
+}
+int main(void){unchanged_key_voicings();functional_key_change();blues_mode();
     Inst *instance=fixture();single_setup(instance);
     new_key_major(instance,62);
     assert(g_key_context.target_root==2&&!g_key_armed);
