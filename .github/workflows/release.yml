@@ -104,7 +104,10 @@ jobs:
           chord_mode=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='chord_mode')
           assert chord_mode['default']=='Off'
           dominant=next(parameter for parameter in levels['follower_root']['params'] if parameter.get('key')=='track_dominant_scale')
-          assert dominant['options']==['Off','Harmonic Minor','Melodic Minor','Altered V','Follow Role'] and dominant['default']=='Off'
+          assert dominant['options']==['Parent / Minimal','Harmonic Minor','Melodic Minor','Altered V','Major','Harmonic Major','Follow Role'] and dominant['default']=='Follow Role'
+          assert next(p for p in module['capabilities']['chain_params'] if p['key']=='track_dominant_minor_scale')['options']==dominant['options']
+          assert next(p for p in module['capabilities']['chain_params'] if p['key']=='conductor_default_dominant_minor_scale')['default']=='Harmonic Minor'
+          assert 'track_dominant_minor_scale' in levels['track_scales']['knobs']
           assert levels['follower_touch']['knobs']==[f'motion_control_{i}' for i in range(1,9)]
           assert levels['follower_source']['name']=='Foll Map'
           assert levels['follower_root']['name']=='Foll Root'
