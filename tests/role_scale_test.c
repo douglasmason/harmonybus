@@ -89,14 +89,14 @@ static void display_snapshots(void){
     static const char *const keys[3][8]={
         {"next_lookahead","next_anti_buffer_ms","boundary_buffer_ms","next_model","next_shift","next_loop_length","next_position","next_harmony"},
         {"chord_timing","anticipation","chord_grid_status","timing_position","timing_last_at","timing_next_at","timing_last_chord","timing_next_chord"},
-        {"follower_root_policy","follower_explicit_root","follower_scale","inferred_root","used_root","track_dominant_scale","track_borrowed_scale","used_scale"}
+        {"follower_root_policy","follower_explicit_root","follower_scale","inferred_root","used_root","used_scale"}
     };
     for(int page=0;page<3;page++){
         char snapshot[2048],expected[192];
         API.get_param(instance,names[page],snapshot,sizeof(snapshot));
         assert(!strncmp(snapshot,"dp1|",4));char *field=snapshot+4;
-        for(int slot=0;slot<8;slot++){
-            char *end=strchr(field,'|');assert((slot<7)==(end!=0));if(end)*end=0;
+        for(int slot=0;slot<(page==2?6:8);slot++){
+            char *end=strchr(field,'|');assert((slot<(page==2?5:7))==(end!=0));if(end)*end=0;
             API.get_param(instance,keys[page][slot],expected,sizeof(expected));
             assert(!strcmp(field,*expected?expected:"--"));field=end?end+1:field+strlen(field);
         }

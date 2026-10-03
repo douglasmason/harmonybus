@@ -5159,16 +5159,14 @@ if(!strcmp(key,"hb_opening_preview")){
 }
 if(!strcmp(key,"hb_movy_clip")){
     hb_movy_clip_t clip={0};clip.slot=-1;
-    if(sscanf(parameter,"%llu,%llu,%llu,%llu,%u,%u,%u",&clip.tick,&clip.period,&clip.origin,&clip.revision,&clip.active,&clip.running,&clip.ppqn)==7&&clip.ppqn==96&&clip.active<=2&&clip.running<=1&&(!clip.active||clip.period>0)&&clip.period<=9007199254740991ULL){
+    int track=-1,slot=-1;
+    int fields=sscanf(parameter,"%llu,%llu,%llu,%llu,%u,%u,%u,%d,%d",
+        &clip.tick,&clip.period,&clip.origin,&clip.revision,&clip.active,&clip.running,&clip.ppqn,&track,&slot);
+    if(fields>=7&&clip.ppqn==96&&clip.active<=2&&clip.running<=1&&(!clip.active||clip.period>0)&&clip.period<=9007199254740991ULL){
         clip.present=1;
-        int slot=-1,ignored_track=-1;
-        if(sscanf(parameter,"%llu,%llu,%llu,%llu,%u,%u,%u,%d,%d",&clip.tick,&clip.period,&clip.origin,&clip.revision,&clip.active,&clip.running,&clip.ppqn,&ignored_track,&slot)==9&&slot>=0&&slot<128)clip.slot=slot;
+        if(fields==9&&slot>=0&&slot<128)clip.slot=slot;
         g_movy_clips[instance-g_pool]=clip;
-        int track=-1;
-        if(sscanf(parameter,"%llu,%llu,%llu,%llu,%u,%u,%u,%d",
-            &clip.tick,&clip.period,&clip.origin,&clip.revision,
-            &clip.active,&clip.running,&clip.ppqn,&track)==8&&track>=0&&track<16)
-            instance->movy_track=track;
+        if(fields>=8&&track>=0&&track<16)instance->movy_track=track;
     }
     return;
 }
@@ -5915,6 +5913,7 @@ int shared_result=hb_sc_get(instance,key,buffer,length);if(shared_result>=0)retu
 int display_result=hb_display_snapshot(instance,key,buffer,length);if(display_result>=0)return display_result;
 int rhythm_result=hb_rr_get(instance,key,buffer,length);if(rhythm_result>=0)return rhythm_result;
 int state_result=hb_cs_get(instance,key,buffer,length);if(state_result>=0||!strcmp(key,"chain_params"))return state_result;
+if(!strcmp(key,"sounding_key"))return hb_sc_get(instance,"shared_context_0",buffer,length);
 if(!strcmp(key,"key_center_view")){
     hb_key_context current=hb_key_baseline(instance);
     char local[32];get_param(instance,"key_center",local,sizeof(local));

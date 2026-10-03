@@ -114,14 +114,14 @@ static int hb_sc_set(Inst *instance,const char *key,const char *text){
     }
     if(!strcmp(key,"hb_shared_flush")){hb_sc_resolve(instance);return 1;}
     if(!strcmp(key,"hb_shared_record")){
-        int track=atoi(text);g_sc_record_track=track>=0&&track<16?track:-1;
+        int track=(int)strtol(text,0,10);g_sc_record_track=track>=0&&track<16?track:-1;
         if(g_sc_record_track>=0)for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_pool[index].role==0&&g_pool[index].movy_track==track)
             for(int kind=0;kind<HB_SC_KINDS;kind++)if(g_sc_live[index][kind].on&&g_sc_count<64)
                 g_sc_events[(g_sc_head+g_sc_count++)%64]=(hb_sc_event){track,kind,g_sc_live[index][kind]};
         return 1;
     }
     if(!strcmp(key,"hb_shared_handoff")){
-        int track=atoi(text);if(track<0||track>=16)return 1;
+        int track=(int)strtol(text,0,10);if(track<0||track>=16)return 1;
         memset(g_sc_replay[track],0,sizeof(g_sc_replay[track]));
         for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_pool[index].movy_track==track){
             g_sc_live[index][HB_SC_KEY].on=g_sc_live[index][HB_SC_PARENT].on=0;
