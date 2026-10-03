@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.237"
+#define HB_VERSION "0.2.238"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -40,6 +40,7 @@ extern int close(int);
 #endif
 #include "schwung_midi_api.h"
 #include "../../../src/harmony_core.h"
+#include "../../../src/scale_catalog.h"
 #include "../../../src/approach_state.h"
 #include "../../../src/closest_split.h"
 #include "../../../src/approach_pitch.h"
@@ -198,10 +199,10 @@ static void hb_store_scale_exceptions(int dominant,int borrowed){
 static int hb_shared_follower_scale(void){
     hb_global_open();
     int scale=g_global_shared?g_global_shared->follower_scale:g_scale_fallback;
-    return scale>=0&&scale<18?scale:1;
+    return scale>=0&&scale<HB_SCALE_COUNT?scale:1;
 }
 static void hb_set_shared_follower_scale(int scale){
-    if(scale<0||scale>17)return;
+    if(scale<0||scale>=HB_SCALE_COUNT)return;
     g_scale_fallback=scale;
     hb_global_open();
     if(g_global_shared){
@@ -913,22 +914,31 @@ static int hb_resolve_follower_reference_root(Inst *instance,int *root_out){
     return hb_infer_follower_root(instance,root_out);
 }
 static int hb_map_follower_note_unoperated(Inst *instance,int source_note);
-static hb_key_context hb_key_for(Inst *instance){return instance->key_scope?instance->key_onset:g_key_context;}
+static hb_key_context hb_key_for(Inst *instance){
+    hb_key_context context=instance->key_scope?instance->key_onset:g_key_context;
+    if(!context.active&&HB_SCALE_DOMINANT[hb_shared_follower_scale()]){
+        int root=0;hb_resolve_follower_reference_root(instance,&root);
+        context.active=context.blues=1;context.source_root=context.target_root=mod12(root+g_bus.global_transpose);
+        context.source_mask=context.target_mask=hb_explicit_scale_mask(context.target_root,hb_shared_follower_scale());
+    }
+    return context;
+}
 static int hb_key_pitch(Inst *instance,int pitch){return hb_key_map(hb_key_for(instance),pitch);}
 static hb_harmony_t hb_key_harmony(Inst *instance,hb_harmony_t harmony){
     hb_key_context context=hb_key_for(instance);if(!context.active||!harmony.valid||
-        (context.source_root==context.target_root&&context.source_mask==context.target_mask))return harmony;
+        (!context.blues&&context.source_root==context.target_root&&context.source_mask==context.target_mask))return harmony;
     for(int slot=0;slot<4;slot++){
         hb_key_harmony_cache *cached=&instance->key_cache[slot];
         if(cached->valid&&!memcmp(&cached->context,&context,sizeof(context))&&!memcmp(&cached->input,&harmony,sizeof(harmony)))return cached->output;
     }
     unsigned mask=hb_key_mask(context,hb_harmony_chord_mask(harmony));
     uint8_t notes[12];int count=0,root=mod12(hb_key_map(context,60+harmony.root_pc));
+    if(context.blues)mask=(1u<<root)|(1u<<mod12(root+4))|(1u<<mod12(root+7))|(1u<<mod12(root+10));
     for(int interval=0;interval<12;interval++)if(mask&(1u<<mod12(root+interval)))notes[count++]=(uint8_t)(48+root+interval);
     hb_harmony_t transformed=hb_infer_harmony(notes,count);
     transformed.root_pc=root;transformed.bass_pc=mod12(hb_key_map(context,60+harmony.bass_pc));
     transformed.pitch_mask=(uint16_t)mask;
-    transformed.detected_mask=(uint16_t)hb_key_mask(context,hb_harmony_detected_mask(harmony));
+    transformed.detected_mask=(uint16_t)(context.blues?mask:hb_key_mask(context,hb_harmony_detected_mask(harmony)));
     if(transformed.chord_index>=0)transformed.chord_index|=HB_HARMONY_EXPLICIT_TONES;
     transformed.intent_kind=harmony.intent_kind;transformed.intent_target=mod12(hb_key_map(context,60+harmony.intent_target));
     transformed.intent_scale=(uint16_t)hb_key_mask(context,harmony.intent_scale);
@@ -944,6 +954,7 @@ static hb_key_context hb_key_baseline(Inst *instance){
         context.source_root=context.target_root=mod12(root+g_bus.global_transpose);
         int scale=hb_follower_input_scale_index(instance,root);if(scale<1)scale=1;
         context.source_mask=context.target_mask=hb_explicit_scale_mask(context.source_root,scale);
+        context.blues=HB_SCALE_DOMINANT[scale];
     }
     context.active=1;return context;
 }
@@ -961,8 +972,9 @@ static void hb_key_parallel(Inst *instance,int on){
     if(on){
         hb_key_context saved=g_key_context;g_key_context=g_parallel_previous;
         hb_key_context base=hb_key_baseline(instance);g_key_context=saved;
+        base.blues=HB_SCALE_DOMINANT[HB_PARALLEL_SCALE_IDS[g_parallel_scale]];
         if(g_parallel_scale==18)hb_key_relative(&base);
-        else base.target_mask=hb_explicit_scale_mask(base.target_root,g_parallel_scale);
+        else base.target_mask=hb_explicit_scale_mask(base.target_root,HB_PARALLEL_SCALE_IDS[g_parallel_scale]);
         g_key_context=base;
     }
     else if(g_parallel_on){g_key_context=g_parallel_previous;g_parallel_on=0;}
@@ -974,12 +986,13 @@ static hb_key_context hb_key_destination(Inst *instance,int source){
     context.target_root=mod12(instance->role==1?target:hb_key_map(context,target));
     /* Retaining the pitch collection selects its mode at the landing degree. */
     if(g_parallel_on||g_key_scale_mode==2){
+        context.blues=HB_SCALE_DOMINANT[HB_PARALLEL_SCALE_IDS[g_parallel_scale]];
         if(g_parallel_scale==18){
             /* A pressed destination is explicit: relative choice supplies its
                major/minor quality without moving away from the chosen pad. */
             int minor=(inherited_mask&(1u<<mod12(context.target_root+3)))&&!(inherited_mask&(1u<<mod12(context.target_root+4)));
             context.target_mask=hb_explicit_scale_mask(context.target_root,minor?2:1);
-        }else context.target_mask=hb_explicit_scale_mask(context.target_root,g_parallel_scale);
+        }else context.target_mask=hb_explicit_scale_mask(context.target_root,HB_PARALLEL_SCALE_IDS[g_parallel_scale]);
     }
     else if(g_key_scale_mode==0){
         int minor=(context.target_mask&(1u<<mod12(context.target_root+3)))&&!(context.target_mask&(1u<<mod12(context.target_root+4)));
@@ -993,6 +1006,7 @@ static void hb_key_commit(hb_key_context context){
 }
 static const char *HB_KEY_NAMES[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
 static const char *hb_key_quality(hb_key_context context){
+    if(context.blues)return " Blues";
     return (context.target_mask&(1u<<mod12(context.target_root+3)))&&!(context.target_mask&(1u<<mod12(context.target_root+4)))?"m":"";
 }
 static void hb_key_land(Inst *instance,int source){hb_key_commit(hb_key_destination(instance,source));}
@@ -2810,6 +2824,10 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         local=hb_transpose_harmony(local,g_bus.global_transpose);
         scale=hb_transpose_mask(hb_local_output_scale(instance,local),-g_bus.global_transpose);
     }
+    if(hb_key_for(instance).blues&&config.mode){
+        voice_config.quality=6;
+        scale=hb_explicit_scale_mask(scale_mode?mod12(modified_note):harmony.root_pc,6);
+    }
     int voice_count=hb_cp_voice_semantic(voice_config,modified_note+(scale_mode?0:g_bus.global_transpose),
         harmony.root_pc,harmony.valid?(voice_config.size==HB_CP_FOLLOW_DETECTED?hb_harmony_detected_mask(harmony):hb_harmony_chord_mask(harmony)):0,
         (instance->role==0||harmony.valid||secondary||cadence)?scale:0,pitches,&semantic_mask);
@@ -2872,6 +2890,10 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         hb_harmony_t destination=hb_key_harmony(instance,harmony);
         unsigned mapped_scale=scale_mode&&!approach_chord?context.target_mask:
             hb_key_mask(context,hb_transpose_mask(scale,scale_mode?g_bus.global_transpose:0));
+        if(context.blues&&voice_config.mode){
+            voice_config.quality=6;
+            mapped_scale=hb_explicit_scale_mask(voice_config.mode==1?mod12(mapped_input):destination.root_pc,6);
+        }
         unsigned ignored_semantic=0;
         voice_count=hb_cp_voice_semantic(voice_config,mapped_input,destination.root_pc,
             destination.valid?(voice_config.size==HB_CP_FOLLOW_DETECTED?hb_harmony_detected_mask(destination):hb_harmony_chord_mask(destination)):0,
@@ -3443,29 +3465,7 @@ static uint16_t hb_scale_mask(hb_harmony_t harmony){
     uint16_t mask=0;for(int i=0;i<7;i++)mask|=(uint16_t)(1u<<((harmony.root_pc+degrees[i])%12));return mask;
 }
 static uint16_t hb_explicit_scale_mask(int root_pc,int scale_index){
-    static const int intervals[15][7]={
-        {0,2,4,5,7,9,11},   /* Major / Ionian */
-        {0,2,3,5,7,8,10},   /* Natural Minor / Aeolian */
-        {0,2,3,5,7,9,10},   /* Dorian */
-        {0,1,3,5,7,8,10},   /* Phrygian */
-        {0,2,4,6,7,9,11},   /* Lydian */
-        {0,2,4,5,7,9,10},   /* Mixolydian */
-        {0,1,3,5,6,8,10},   /* Locrian */
-        {0,2,3,5,7,8,11},   /* Harmonic Minor */
-        {0,2,3,5,7,9,11},   /* Melodic Minor */
-        {0,1,3,5,7,9,10},   /* Dorian b2 */
-        {0,2,4,6,8,9,11},   /* Lydian Augmented */
-        {0,2,4,6,7,9,10},   /* Lydian Dominant */
-        {0,2,4,5,7,8,10},   /* Mixolydian b6 */
-        {0,2,3,5,6,8,10},   /* Locrian #2 */
-        {0,1,3,4,6,8,10}    /* Altered */
-    };
-    if(scale_index==16)return hb_transpose_mask(0x555u,root_pc);
-    if(scale_index==17)return hb_transpose_mask(0x999u,root_pc); /* 0,3,4,7,8,11 */
-    if(scale_index<1||scale_index>15)return 0;
-    uint16_t mask=0;
-    for(int i=0;i<7;i++)mask|=(uint16_t)(1u<<mod12(root_pc+intervals[scale_index-1][i]));
-    return mask;
+    return scale_index>0&&scale_index<HB_SCALE_COUNT?hb_transpose_mask(HB_SCALE_MASKS[scale_index],root_pc):0;
 }
 static hb_harmony_t hb_follower_scale_target(Inst *instance,hb_harmony_t harmony){
     if(!harmony.valid)return harmony;
@@ -4753,7 +4753,9 @@ static const char *hb_next_lookahead_label(int index){
     for(int option=0;option<HB_LOOKAHEAD_COUNT;option++)if(NEXT_LOOKAHEAD_IDS[option]==index)return NEXT_LOOKAHEAD_OPTS[option];
     return "Off";
 }
-static const char *ROLE_OPTS[]={"Conductor","Follower","Off","Receiver"};static const char *RETRIGGER_OPTS[]={"Off","On"};static const char *APPROACH_OPTS[]={"Chrom Below","Off","Scale Above"};static const char *APPROACH_MODE_OPTS[]={"Next","Held","Off"};static const char *QUANT_GRID_OPTS[]={"Off","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SOURCE_POLICY_OPTS[]={"Infer Input","Infer Notes","Explicit"};static const char *CLIP_SLOT_OPTS[]={"Auto","1","2","3","4","5","6","7","8"};static const char *SENSOR_SOURCE_OPTS[]={"Realtime","Realtime + Clip","Clip"};static const char *CLIP_CONTEXT_OPTS[]={"Clip + Realtime","Realtime Only"};static const char *SOURCE_CH_OPTS[]={"Auto","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *RENDER_CH_OPTS[]={"Off","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *MODE_OPTS[]={"Relative","Smooth","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *MAP_TARGET_OPTS[]={"Chord","Scale"};static const char *TIMING_OPTS[]={"Observed","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SCALE_OPTS[]={"Infer","Major","Natural Minor","Dorian","Phrygian","Lydian","Mixolydian","Locrian","Harmonic Minor","Melodic Minor","Dorian b2","Lydian Augmented","Lydian Dominant","Mixolydian b6","Locrian #2","Altered","Whole Tone","Augmented"};static const char *ANTICIPATION_OPTS[]={"On Grid","1/64 Early","1/32 Early","1/16 Early","1/8 Early","1/4 Early"};static const char *CONTEXT_OPTS[]={"Live","1/32","1/16","1/8","1/4","1/2","1 Bar"};static const char *TIMESCALE_OPTS[]={"Free","1/16","1/8","1/4","1/2","1 Bar"};static const char *STABILITY_OPTS[]={"Responsive","Balanced","Stable"};static const char *ACCIDENTAL_OPTS[]={"Auto","Sharps","C#D#F#G#Bb","C#EbF#G#Bb","C#EbF#AbBb","DbEbF#AbBb","Flats"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
+static const char *ROLE_OPTS[]={"Conductor","Follower","Off","Receiver"};static const char *RETRIGGER_OPTS[]={"Off","On"};static const char *APPROACH_OPTS[]={"Chrom Below","Off","Scale Above"};static const char *APPROACH_MODE_OPTS[]={"Next","Held","Off"};static const char *QUANT_GRID_OPTS[]={"Off","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};static const char *FOLLOWER_SOURCE_POLICY_OPTS[]={"Infer Input","Infer Notes","Explicit"};static const char *CLIP_SLOT_OPTS[]={"Auto","1","2","3","4","5","6","7","8"};static const char *SENSOR_SOURCE_OPTS[]={"Realtime","Realtime + Clip","Clip"};static const char *CLIP_CONTEXT_OPTS[]={"Clip + Realtime","Realtime Only"};static const char *SOURCE_CH_OPTS[]={"Auto","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *RENDER_CH_OPTS[]={"Off","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"};static const char *MODE_OPTS[]={"Relative","Smooth","Nearest"};static const char *POLICY_OPTS[]={"Explicit","Current Input Root","Auto-Infer"};static const char *MAP_TARGET_OPTS[]={"Chord","Scale"};static const char *TIMING_OPTS[]={"Observed","1/16","1/8","1/4","1/2","1 Bar","2 Bars","4 Bars"};
+#define FOLLOWER_SCALE_OPTS HB_SCALE_NAMES
+static const char *ANTICIPATION_OPTS[]={"On Grid","1/64 Early","1/32 Early","1/16 Early","1/8 Early","1/4 Early"};static const char *CONTEXT_OPTS[]={"Live","1/32","1/16","1/8","1/4","1/2","1 Bar"};static const char *TIMESCALE_OPTS[]={"Free","1/16","1/8","1/4","1/2","1 Bar"};static const char *STABILITY_OPTS[]={"Responsive","Balanced","Stable"};static const char *ACCIDENTAL_OPTS[]={"Auto","Sharps","C#D#F#G#Bb","C#EbF#G#Bb","C#EbF#AbBb","DbEbF#AbBb","Flats"};static const char *PC_OPTS[]={"C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
 static const char *MASTER_ROOT_OPTS[]={"As Played","C","C# / Db","D","D# / Eb","E","F","F# / Gb","G","G# / Ab","A","A# / Bb","B"};
 static int hb_timing_to_legacy_timescale(int timing){
     /* Chord Grid is a musical-boundary hint, not a mandatory dwell time. */
@@ -5206,7 +5208,7 @@ if(!strcmp(key,"track_role")||!strcmp(key,"role")){
     else if(!strcmp(parameter,"Non-Avoid"))value=7;
     else if(!strcmp(parameter,"123567"))value=8;
     instance->content_map=value;
-}else if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward","Direct","Closest Split Chromatic","None"};if(instance->travel_map==6)instance->chromatic_map=1;instance->travel_map=!strcmp(parameter,"Closest Split 2")?6:enum_index(parameter,opts,8,instance->travel_map);}else if(!strcmp(key,"chromatic_map")){instance->chromatic_map=enum_index(parameter,MO_SWITCH,2,hb_chromatic_travel(instance));if(instance->travel_map==6)instance->travel_map=3;}else if(!strcmp(key,"split_map")){static const char *opts[]={"Harm. / Out","135 / 2467","1357 / 246","Act. / Out"};instance->follower_split_map=enum_index(parameter,opts,4,instance->follower_split_map);}else if(!strcmp(key,"approach")){instance->approach_control=enum_index(parameter,APPROACH_OPTS,3,HB_APPROACH_OFF);instance->approach_pad_armed=HB_APPROACH_OFF;}else if(!strcmp(key,"approach_mode")){instance->approach_mode=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);hb_receiver_remove_source(instance);int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"quant_timing")){/* follower-render timing only */g_bus.quant_timing=enum_index(parameter,QUANT_GRID_OPTS,8,g_bus.quant_timing);g_quant_restored=1;}else if(!strcmp(key,"chord_timing")){/* follower-render timing only */g_bus.chord_timing=!strcmp(parameter,"Free")?0:enum_index(parameter,TIMING_OPTS,8,g_bus.chord_timing);g_bus.chord_timescale=0;for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used){int limit=hb_arp_phase_limit(g_pool[index].player.config.rate);g_pool[index].player.config.note_phase=hb_cp_clamp(g_pool[index].player.config.note_phase,-limit,limit);}}else if(!strcmp(key,"anticipation")){/* follower-render timing only */g_bus.anticipation=enum_index(parameter,ANTICIPATION_OPTS,6,g_bus.anticipation);}else if(!strcmp(key,"boundary_buffer_ms")){/* follower-render capture window only */int parsed=parse_i(parameter,instance->boundary_buffer_ms);for(int division=0;division<9;division++)if(!strcmp(parameter,BUFFER_DIVISIONS[division]))parsed=-division-1;if(parsed< -9)parsed=0;if(parsed>1000)parsed=1000;instance->boundary_buffer_ms=parsed;g_buffer_restored=1;}else if(!strcmp(key,"analysis_release_ms")){int parsed=parse_i(parameter,g_bus.analysis_release_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.analysis_release_ms=parsed;}else if(!strcmp(key,"follower_scale")){hb_set_shared_follower_scale(enum_index(parameter,FOLLOWER_SCALE_OPTS,18,hb_shared_follower_scale()));}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;hb_set_master_transpose(parsed);}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,g_bus.inference_window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.inference_window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
+}else if(!strcmp(key,"travel_map")){static const char *opts[]={"Relative","Closest","Upward","Closest Split","Downward","Direct","Closest Split Chromatic","None"};if(instance->travel_map==6)instance->chromatic_map=1;instance->travel_map=!strcmp(parameter,"Closest Split 2")?6:enum_index(parameter,opts,8,instance->travel_map);}else if(!strcmp(key,"chromatic_map")){instance->chromatic_map=enum_index(parameter,MO_SWITCH,2,hb_chromatic_travel(instance));if(instance->travel_map==6)instance->travel_map=3;}else if(!strcmp(key,"split_map")){static const char *opts[]={"Harm. / Out","135 / 2467","1357 / 246","Act. / Out"};instance->follower_split_map=enum_index(parameter,opts,4,instance->follower_split_map);}else if(!strcmp(key,"approach")){instance->approach_control=enum_index(parameter,APPROACH_OPTS,3,HB_APPROACH_OFF);instance->approach_pad_armed=HB_APPROACH_OFF;}else if(!strcmp(key,"approach_mode")){instance->approach_mode=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;}else if(!strcmp(key,"map_target"))instance->map_target=enum_index(parameter,MAP_TARGET_OPTS,2,instance->map_target);else if(!strcmp(key,"source_channel")){int idx=enum_index(parameter,SOURCE_CH_OPTS,17,instance->source_channel+1);instance->source_channel=idx-1;instance->resolved_source_channel=-1;}else if(!strcmp(key,"render_channel")){hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);hb_receiver_remove_source(instance);int idx=enum_index(parameter,RENDER_CH_OPTS,17,instance->render_channel+1);instance->render_channel=idx-1;}else if(!strcmp(key,"quant_timing")){/* follower-render timing only */g_bus.quant_timing=enum_index(parameter,QUANT_GRID_OPTS,8,g_bus.quant_timing);g_quant_restored=1;}else if(!strcmp(key,"chord_timing")){/* follower-render timing only */g_bus.chord_timing=!strcmp(parameter,"Free")?0:enum_index(parameter,TIMING_OPTS,8,g_bus.chord_timing);g_bus.chord_timescale=0;for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used){int limit=hb_arp_phase_limit(g_pool[index].player.config.rate);g_pool[index].player.config.note_phase=hb_cp_clamp(g_pool[index].player.config.note_phase,-limit,limit);}}else if(!strcmp(key,"anticipation")){/* follower-render timing only */g_bus.anticipation=enum_index(parameter,ANTICIPATION_OPTS,6,g_bus.anticipation);}else if(!strcmp(key,"boundary_buffer_ms")){/* follower-render capture window only */int parsed=parse_i(parameter,instance->boundary_buffer_ms);for(int division=0;division<9;division++)if(!strcmp(parameter,BUFFER_DIVISIONS[division]))parsed=-division-1;if(parsed< -9)parsed=0;if(parsed>1000)parsed=1000;instance->boundary_buffer_ms=parsed;g_buffer_restored=1;}else if(!strcmp(key,"analysis_release_ms")){int parsed=parse_i(parameter,g_bus.analysis_release_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.analysis_release_ms=parsed;}else if(!strcmp(key,"follower_scale")){hb_set_shared_follower_scale(enum_index(parameter,FOLLOWER_SCALE_OPTS,HB_SCALE_COUNT,hb_shared_follower_scale()));}else if(!strcmp(key,"context")){g_bus.context=enum_index(parameter,CONTEXT_OPTS,7,g_bus.context);g_bus.stability=hb_context_to_legacy_stability(g_bus.context);}else if(!strcmp(key,"chord_timescale"))g_bus.chord_timescale=enum_index(parameter,TIMESCALE_OPTS,6,g_bus.chord_timescale);else if(!strcmp(key,"stability"))g_bus.stability=enum_index(parameter,STABILITY_OPTS,3,g_bus.stability);else if(!strcmp(key,"accidentals")){int previous=g_bus.accidentals;g_bus.accidentals=enum_index(parameter,ACCIDENTAL_OPTS,7,g_bus.accidentals);if(g_bus.accidentals==0&&previous!=0)g_bus.auto_spell_locked=0;}else if(!strcmp(key,"root_policy"))g_bus.global_root_policy=enum_index(parameter,POLICY_OPTS,3,g_bus.global_root_policy);else if(!strcmp(key,"explicit_root"))g_bus.global_explicit_root=enum_index(parameter,PC_OPTS,12,g_bus.global_explicit_root);else if(!strcmp(key,"input_root"))g_bus.global_input_root=enum_index(parameter,PC_OPTS,12,g_bus.global_input_root);else if(!strcmp(key,"transpose")){int parsed=parse_i(parameter,g_bus.global_transpose);if(parsed<-24)parsed=-24;if(parsed>24)parsed=24;hb_set_master_transpose(parsed);}else if(!strcmp(key,"window_ms")){int parsed=parse_i(parameter,g_bus.inference_window_ms);if(parsed<0)parsed=0;if(parsed>500)parsed=500;g_bus.inference_window_ms=parsed;}else if(!strcmp(key,"state"))hb_restore_state(instance,parameter);}
 static void hb_restore_state(Inst *instance,const char *state){
     if(!instance||!state)return;
     int values[25];for(int i=0;i<25;i++)values[i]=-999;
@@ -5374,7 +5376,7 @@ static void hb_restore_state(Inst *instance,const char *state){
         if(values[22]>=0&&values[22]<8)instance->travel_map=values[22];
         /* Old conductor defaults must not win over the first saved follower.
            Once restored/edited, stale track copies cannot change the input key. */
-        if(!g_scale_restored&&values[23]>=0&&values[23]<18&&(values[0]==1||values[23]>0))
+        if(!g_scale_restored&&values[23]>=0&&values[23]<HB_SCALE_COUNT&&(values[0]==1||values[23]>0))
             hb_set_shared_follower_scale(values[23]);
         if(!g_quant_restored&&values[24]>=0&&values[24]<8){g_bus.quant_timing=values[24];g_quant_restored=1;}
     }
@@ -5865,7 +5867,7 @@ if(!strcmp(key,"key_center"))return snprintf(buffer,(size_t)length,"%s",g_key_ar
 if(!strcmp(key,"parallel_mode"))return snprintf(buffer,(size_t)length,"%s",g_parallel_on?(g_parallel_latch?"Latch":"Hold"):"Off");
 if(!strcmp(key,"conductor_key_travel"))return snprintf(buffer,(size_t)length,"%s",g_key_conductor_travel?"Closest Chord Tone":"Relative");
 if(!strcmp(key,"key_center_scale"))return snprintf(buffer,(size_t)length,"%s",g_key_scale_mode==2?"Use Parallel Scale":g_key_scale_mode==0?"Simplified Major/Minor":"Mode from Parent");
-if(!strcmp(key,"parallel_scale"))return snprintf(buffer,(size_t)length,"%s",g_parallel_scale==18?"Relative Major/Minor":FOLLOWER_SCALE_OPTS[g_parallel_scale]);
+if(!strcmp(key,"parallel_scale"))return snprintf(buffer,(size_t)length,"%s",HB_PARALLEL_NAMES[g_parallel_scale]);
 int approach_result=hb_ar_get(instance,key,buffer,length);if(approach_result>=0)return approach_result;
 int motif_result=hb_mt_get(instance,key,buffer,length);if(motif_result>=0)return motif_result;
 hb_role_sync(instance);int policy_result=hb_policy_get(instance,key,buffer,length);if(policy_result>=0)return policy_result;
@@ -6522,7 +6524,7 @@ static void set_param(void *value,const char *key,const char *parameter){
     }
     if(!strcmp(key,"conductor_key_travel")){g_key_conductor_travel=!strcmp(parameter,"Closest Chord Tone");return;}
     if(!strcmp(key,"key_center_scale")){static const char *options[]={"Simplified Major/Minor","Mode from Parent","Use Parallel Scale"};g_key_scale_mode=enum_index(parameter,options,3,g_key_scale_mode);return;}
-    if(!strcmp(key,"parallel_scale")){g_parallel_scale=!strcmp(parameter,"Relative Major/Minor")?18:enum_index(parameter,FOLLOWER_SCALE_OPTS,18,g_parallel_scale);if(g_parallel_scale<1)g_parallel_scale=1;if(g_parallel_on)hb_key_parallel(instance,1);return;}
+    if(!strcmp(key,"parallel_scale")){g_parallel_scale=enum_index(parameter,HB_PARALLEL_NAMES,HB_PARALLEL_COUNT,g_parallel_scale);if(g_parallel_scale<1)g_parallel_scale=1;if(g_parallel_on)hb_key_parallel(instance,1);return;}
     if(!strcmp(key,"parallel_mode")){
         if(!strcmp(parameter,"LatchOn")){g_parallel_latch=1;hb_key_parallel(instance,1);}
         else if(!strcmp(parameter,"Off")||!strcmp(parameter,"LatchOff")){g_parallel_latch=g_parallel_manual=0;hb_key_parallel(instance,0);}
@@ -6533,7 +6535,7 @@ static void set_param(void *value,const char *key,const char *parameter){
     if(!hb_ar_set(instance,key,parameter)&&!hb_cs_set(instance,key,parameter)&&!hb_rr_set(instance,key,parameter)&&!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
     if(!strcmp(key,"state")){
         if(!g_key_settings_restored){const char *suffix=strstr(parameter,";kc1,");int mode,travel,scale;
-            if(suffix&&sscanf(suffix,";kc1,%d,%d,%d",&mode,&travel,&scale)==3&&mode>=0&&mode<=2&&travel>=0&&travel<=1&&scale>=1&&scale<=18){g_key_scale_mode=mode;g_key_conductor_travel=travel;g_parallel_scale=scale;g_key_settings_restored=1;}}
+            if(suffix&&sscanf(suffix,";kc1,%d,%d,%d",&mode,&travel,&scale)==3&&mode>=0&&mode<=2&&travel>=0&&travel<=1&&scale>=1&&scale<HB_PARALLEL_COUNT){g_key_scale_mode=mode;g_key_conductor_travel=travel;g_parallel_scale=scale;g_key_settings_restored=1;}}
         hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);hb_rr_restore(instance,parameter);hb_ar_restore(instance,parameter);}
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_role_sync(&g_pool[index]);
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);

@@ -58,13 +58,14 @@ jobs:
           node tests/pad_pulse_widget_test.mjs
           python3 scripts/build_motion_metadata.py
           git diff --exit-code -- src/motion_metadata.h
+          python3 scripts/build_scale_catalog.py --check
           python3 scripts/verify_motion_metadata.py
           python3 - <<'PY'
           import json
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.237'
+          assert module['version']=='0.2.238'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']

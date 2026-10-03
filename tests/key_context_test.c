@@ -10,7 +10,51 @@ static void new_key_major(Inst *instance,int target){
     API.set_param(instance,"parallel_scale","Major");API.set_param(instance,"key_center_scale","Use Parallel Scale");API.set_param(instance,"key_center","On");
     assert(press_mask(instance,target)==(1u<<mod12(target)));release(instance,target);
 }
-int main(void){
+static void blues_mode(void){
+    const int major[]={60,62,64,65,67,69,71},dorian[]={60,62,63,65,67,69,70};
+    for(int library=0;library<2;library++)for(int role=0;role<2;role++){
+        Inst *instance=fixture();single_setup(instance);
+        API.set_param(instance,"role",role?"Follower":"Conductor");
+        API.set_param(instance,"source_channel","1");API.set_param(instance,"render_channel","4");
+        if(library)API.set_param(instance,"follower_scale","Blues");
+        else {API.set_param(instance,"parallel_scale","Blues");API.set_param(instance,"parallel_mode","Down");}
+        assert(hb_key_for(instance).blues);
+        assert(hb_key_for(instance).target_mask==hb_explicit_scale_mask(0,3));
+        for(int form=0;form<3;form++){
+            instance->player.config.mode=1;
+            API.set_param(instance,"chord_form",form==0?"Triad":form==1?"Seventh":"Ninth");
+            for(int degree=0;degree<7;degree++){
+                int root=mod12(dorian[degree]),input=library?dorian[degree]:major[degree];
+                unsigned expected=(1u<<root)|(1u<<mod12(root+4))|(1u<<mod12(root+7));
+                if(form>=1)expected|=1u<<mod12(root+10);
+                if(form>=2)expected|=1u<<mod12(root+2);
+                unsigned actual=press_mask(instance,input);
+                if(actual!=expected)fprintf(stderr,"blues library%d role%d form%d degree%d: %x != %x\n",library,role,form,degree,actual,expected);
+                assert(actual==expected);release(instance,input);
+            }
+        }
+        char state[32768],label[32];API.get_param(instance,"state",state,sizeof(state));
+        API.destroy_instance(instance);instance=API.create_instance("",NULL);API.set_param(instance,"state",state);
+        API.get_param(instance,library?"follower_scale":"parallel_scale",label,sizeof(label));assert(!strcmp(label,"Blues"));
+        API.destroy_instance(instance);
+    }
+    Inst *instance=fixture();single_setup(instance);
+    API.set_param(instance,"parallel_scale","Blues");API.set_param(instance,"parallel_mode","Down");
+    hb_harmony_t transformed=hb_key_harmony(instance,hb_render_harmony(instance));
+    assert(hb_harmony_chord_mask(transformed)==((1u<<0)|(1u<<4)|(1u<<7)|(1u<<10)));
+    API.set_param(instance,"parallel_mode","Up");assert(!hb_key_for(instance).blues);
+    API.set_param(instance,"follower_scale","Dorian");
+    API.set_param(instance,"parallel_mode","Down");
+    assert(g_key_context.source_mask==g_key_context.target_mask);
+    transformed=hb_key_harmony(instance,hb_render_harmony(instance));
+    assert(hb_harmony_chord_mask(transformed)==((1u<<0)|(1u<<4)|(1u<<7)|(1u<<10)));
+    API.set_param(instance,"key_center_scale","Use Parallel Scale");
+    API.set_param(instance,"key_center","On");press_mask(instance,62);release(instance,62);
+    assert(g_key_context.blues&&g_key_context.target_root==2);
+    assert(g_key_context.target_mask==hb_explicit_scale_mask(2,3));
+    API.destroy_instance(instance);
+}
+int main(void){blues_mode();
     Inst *instance=fixture();single_setup(instance);
     new_key_major(instance,62);
     assert(g_key_context.target_root==2&&!g_key_armed);
