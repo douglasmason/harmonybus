@@ -64,7 +64,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.233'
+          assert module['version']=='0.2.235'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -120,15 +120,15 @@ jobs:
               'next_shift','next_loop_length','next_position','next_harmony'
           ]
           assert next(p for p in levels['next_harm']['params'] if p.get('key')=='boundary_buffer_ms')==buffer
-          assert levels['global_transpose']['name']=='Global'
+          assert levels['global_transpose']['name']=='Global Transpose'
           assert levels['global_transpose']['knobs']==[
-              'master_transpose','transpose','accidentals','touch_hold_ms','hpath_0','hpath_1','hpath_2','hpath_3'
+              'master_transpose','transpose','accidentals','touch_hold_ms','key_center_scale','conductor_key_travel','parallel_scale','key_center'
           ]
           assert any(item.get('level')=='global_transpose' for item in levels['root']['params'])
           source=Path('modules/harmonybus/dsp/harmonybus.c').read_text()
           assert 'static void hb_render_conductor_event' in source
-          assert 'rendered_note=note+g_bus.global_transpose' in source
-          assert 'render_pitch=source_note+g_bus.global_transpose' in source
+          assert 'rendered_note=is_on?hb_key_conductor_pitch(instance,note+g_bus.global_transpose)' in source
+          assert 'render_pitch=local_pitch' in source
           # Final-stage follower transpose is verified by follower_reference_test.
           assert 'if(!strcmp(key,"pretranspose_root"))' in source
           assert 'if(!strcmp(key,"final_root"))' in source

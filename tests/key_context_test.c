@@ -1,0 +1,99 @@
+#define HB_SECONDARY_FIXTURE
+#include "secondary_chord_test.c"
+static unsigned press_mask(Inst *instance,int note){
+    render_count=0;midi(instance,1,note);advance(instance,2,64);
+    unsigned mask=0;for(int index=0;index<render_count;index++)if((rendered[index][1]&0xf0)==0x90&&rendered[index][3])mask|=1u<<mod12(rendered[index][2]);
+    return mask;
+}
+static void single_setup(Inst *instance){instance->travel_map=7;instance->content_map=1;instance->player.config.mode=0;instance->boundary_buffer_ms=0;}
+static void new_key_major(Inst *instance,int target){
+    API.set_param(instance,"parallel_scale","Major");API.set_param(instance,"key_center_scale","Use Parallel Scale");API.set_param(instance,"key_center","On");
+    assert(press_mask(instance,target)==(1u<<mod12(target)));release(instance,target);
+}
+int main(void){
+    Inst *instance=fixture();single_setup(instance);
+    new_key_major(instance,62);
+    assert(g_key_context.target_root==2&&!g_key_armed);
+    const int inputs[]={60,69,62,67},expected[]={62,71,64,69};
+    for(int index=0;index<4;index++){assert(press_mask(instance,inputs[index])==(1u<<mod12(expected[index])));release(instance,inputs[index]);}
+    /* Existing recorded degrees take the same path, unchanged. */
+    instance->movy_playback=1;assert(press_mask(instance,64)==(1u<<6));release(instance,64);instance->movy_playback=0;
+    Inst *other=API.create_instance("",NULL);API.set_param(other,"role","Follower");API.set_param(other,"render_channel","5");single_setup(other);
+    assert(press_mask(other,60)==(1u<<2));release(other,60);
+    API.set_param(instance,"parallel_scale","Natural Minor");API.set_param(instance,"parallel_mode","Down");
+    {unsigned actual=press_mask(other,64);assert(actual==(1u<<5));}release(other,64);
+    API.set_param(instance,"parallel_mode","Up");assert(press_mask(other,64)==(1u<<6));release(other,64);
+    /* Conductor output changes too; classifier remains in source-key space. */
+    API.set_param(other,"role","Conductor");single_setup(other);API.set_param(other,"source_channel","1");API.set_param(other,"render_channel","5");{unsigned actual=press_mask(other,60);assert(actual==(1u<<2));}release(other,60);
+    API.destroy_instance(other);API.destroy_instance(instance);
+    instance=fixture();single_setup(instance);instance->boundary_buffer_ms=100;
+    API.set_param(instance,"key_center_scale","Use Parallel Scale");API.set_param(instance,"parallel_scale","Major");API.set_param(instance,"key_center","On");
+    midi(instance,1,62);assert(g_key_context.target_root==2);
+    render_count=0;advance(instance,150,64);
+    for(int index=0;index<render_count;index++)if((rendered[index][1]&0xf0)==0x90&&rendered[index][3])assert(rendered[index][2]==62);
+    release(instance,62);API.destroy_instance(instance);
+    /* Auto-chord retains the degree progression and new-key chord qualities. */
+    instance=fixture();single_setup(instance);new_key_major(instance,62);instance->player.config.mode=1;
+    API.set_param(instance,"chord_form","Triad");
+    const unsigned chords[]={ (1u<<2)|(1u<<6)|(1u<<9),(1u<<11)|(1u<<2)|(1u<<6),(1u<<4)|(1u<<7)|(1u<<11),(1u<<9)|(1u<<1)|(1u<<4)};
+    for(int index=0;index<4;index++){unsigned actual=press_mask(instance,inputs[index]);if(actual!=chords[index])fprintf(stderr,"progression %d: %x != %x\n",index,actual,chords[index]);assert(actual==chords[index]);release(instance,inputs[index]);}
+    API.destroy_instance(instance);
+    /* The motif's anchor lands before the shared change is committed. */
+    instance=fixture();single_setup(instance);API.set_param(instance,"approach_mode_active","1");API.set_param(instance,"approach_bank_1","Stock: ii-V-Target");API.set_param(instance,"approach_touch_1","Down");API.set_param(instance,"approach_touch_1","Up,50");API.set_param(instance,"key_center","On");
+    for(int step=0;step<3;step++){press_mask(instance,62);assert(g_key_armed==(step<2));release(instance,62);}
+    assert(g_key_context.target_root==2);API.destroy_instance(instance);
+    /* Closest uses the NEW chord, not a transposed old closest result. */
+    instance=fixture();single_setup(instance);new_key_major(instance,62);instance->travel_map=1;instance->content_map=0;
+    assert(press_mask(instance,60)==(1u<<1));release(instance,60); /* Dmaj7's C#, nearest C. */
+    instance->travel_map=0;assert(press_mask(instance,60)==(1u<<2));release(instance,60);
+    API.destroy_instance(instance);
+    /* All three target-scale policies and their persistence. */
+    for(int mode=0;mode<3;mode++){
+        instance=fixture();single_setup(instance);
+        API.set_param(instance,"key_center_scale",mode==0?"Simplified Major/Minor":mode==1?"Mode from Parent":"Use Parallel Scale");
+        API.set_param(instance,"parallel_scale","Major");API.set_param(instance,"key_center","On");press_mask(instance,64);release(instance,64);
+        unsigned expected_scale=mode==0?hb_explicit_scale_mask(4,2):mode==1?hb_explicit_scale_mask(0,1):hb_explicit_scale_mask(4,1);
+        assert(g_key_context.target_root==4&&g_key_context.target_mask==expected_scale);
+        API.set_param(instance,"conductor_key_travel","Closest Chord Tone");
+        char saved[32768];API.get_param(instance,"state",saved,sizeof(saved));assert(strstr(saved,";kc1,"));
+        g_key_settings_restored=0;g_key_scale_mode=99;API.set_param(instance,"state",saved);assert(g_key_scale_mode==mode&&g_key_conductor_travel==1);
+        API.destroy_instance(instance);
+    }
+    instance=fixture();single_setup(instance);new_key_major(instance,65);
+    API.set_param(instance,"role","Conductor");API.set_param(instance,"source_channel","1");API.set_param(instance,"render_channel","4");single_setup(instance);
+    API.set_param(instance,"conductor_key_travel","Closest Chord Tone");
+    assert(press_mask(instance,60)==1u);release(instance,60); /* C is already a tone of the new F chord. */
+    API.destroy_instance(instance);
+    instance=fixture();single_setup(instance);API.set_param(instance,"motion_operation_1","Key Center");API.set_param(instance,"motion_gesture_1","Touch");
+    press_mask(instance,62);assert(g_key_context.target_root==2);release(instance,62);API.destroy_instance(instance);
+    instance=fixture();single_setup(instance);new_key_major(instance,71);
+    assert(hb_key_pitch(instance,60)==59); /* C4's relative B chooses B3. */
+    instance->travel_map=0;
+    uint8_t pitches[3]={65,69,72};hb_commit_observed_harmony(hb_infer_harmony(pitches,3));
+    API.set_param(instance,"key_center","Off");
+    for(int note=36;note<96;note++){
+        int mapped=hb_map_follower_note_unoperated(instance,note);
+        assert(mapped-note<=6&&mapped-note>=-6);
+    }
+    API.destroy_instance(instance);
+    /* Stock-track receivers hear exactly one transformation; conductor evidence
+       remains in reference-key space for every follower and loop prediction. */
+    instance=fixture();single_setup(instance);new_key_major(instance,62);
+    Inst *leader=API.create_instance("",NULL);API.set_param(leader,"role","Conductor");API.set_param(leader,"source_channel","1");API.set_param(leader,"render_channel","4");
+    leader->player.config.mode=1;API.set_param(leader,"chord_form","Triad");
+    Inst *receiver=API.create_instance("",NULL);API.set_param(receiver,"role","Receiver");API.set_param(receiver,"source_channel","4");
+    assert(press_mask(leader,60)==((1u<<2)|(1u<<6)|(1u<<9)));
+    int delivered=advance(receiver,1,64);unsigned heard=0;
+    for(int event=0;event<delivered;event++)if((output[event][0]&0xf0)==0x90&&output[event][2])heard|=1u<<mod12(output[event][1]);
+    assert(heard==((1u<<2)|(1u<<6)|(1u<<9)));
+    advance(leader,100,64);assert(bus_read().root_pc==0);
+    instance->travel_map=0;assert(press_mask(instance,64)==(1u<<6));release(instance,64);release(leader,60);
+    API.destroy_instance(receiver);API.destroy_instance(leader);API.destroy_instance(instance);
+    /* An automatically scheduled motif commits at its future anchor, never
+       at its initial trigger; cancellation cannot leave a delayed key change. */
+    instance=fixture();single_setup(instance);API.set_param(instance,"motif_preset","ii-V-Target");API.set_param(instance,"motif_arrival","Next Bar");API.set_param(instance,"motif_arm","1");API.set_param(instance,"key_center","On");
+    midi(instance,1,62);assert(instance->key_pending&&!g_key_context.active&&g_key_armed);
+    advance(instance,2100,64);assert(g_key_context.active&&g_key_context.target_root==2&&!g_key_armed);
+    API.destroy_instance(instance);
+    puts("key context: progression degrees, shared live/recorded/conductor output, parallel restore, delayed landing and motif anchor pass");
+}
