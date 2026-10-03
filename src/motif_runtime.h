@@ -234,7 +234,7 @@ static int hb_mt_emit(Inst *instance,hb_mt_scheduled *event,int on,uint8_t outpu
     if(!local_shared){output[0][0]=(uint8_t)((on?0x90:0x80)|event->channel);output[0][1]=(uint8_t)event->pitch;output[0][2]=(uint8_t)(on?event->velocity:0);lengths[0]=3;}
     if(event->render>=0&&!render_shared){uint8_t packet[4]={(uint8_t)(on?0x29:0x28),(uint8_t)((on?0x90:0x80)|event->render),(uint8_t)event->pitch,(uint8_t)(on?event->velocity:0)};hb_send_render_raw(instance,packet,event->render==event->channel);}
     event->started=on;
-    if(on&&instance->key_pending&&event->on+1e-6>=instance->key_pending_at){hb_key_commit(instance->key_pending_context);instance->key_pending=0;}
+    if(on&&instance->key_pending&&event->on+1e-6>=instance->key_pending_at){hb_key_commit(instance,instance->key_pending_context);instance->key_pending=0;}
     if(instance->role==0){instance->conductor_note_on_pending|=on;instance->dirty|=on;instance->frames_since_change=0;hb_publish_instance_notes(instance);}
     return local_shared?0:1;
 }
