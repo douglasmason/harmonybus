@@ -103,4 +103,45 @@ static void display_snapshots(void){
     }
     API.destroy_instance(instance);
 }
-int main(void){inheritance();collections();context_scopes();display_snapshots();puts("role defaults, visible overrides, migration, local parallel scales and contextual ii-V selection pass");return 0;}
+
+static void functional_families(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"dominant_scale","Harmonic Major");
+    API.set_param(instance,"dominant_minor_scale","Harmonic Minor");
+    for(int target=0;target<12;target++){
+        unsigned major=hb_explicit_scale_mask(target,1),minor=hb_explicit_scale_mask(target,2);
+        hb_cadence_step ii={.kind=HB_CAD_DEGREE,.degree=2};
+        hb_cadence_step dominant={.kind=HB_CAD_DOMINANT};
+        hb_cadence_result pre=hb_resolve_cadence(instance,&ii,60+target,major);
+        hb_cadence_result five=hb_resolve_cadence(instance,&dominant,60+target,major);
+        assert(pre.root==62+target&&pre.scale==hb_explicit_scale_mask(target,19));
+        assert(five.root==55+target&&five.scale==pre.scale&&!five.minor);
+        pre=hb_resolve_cadence(instance,&ii,60+target,minor);
+        five=hb_resolve_cadence(instance,&dominant,60+target,minor);
+        assert(pre.scale==hb_explicit_scale_mask(target,8)&&five.scale==pre.scale&&five.minor);
+        /* Altered belongs to V. Its preceding ii retains the destination parent. */
+        API.set_param(instance,"dominant_scale","Altered V");
+        pre=hb_resolve_cadence(instance,&ii,60+target,major);
+        five=hb_resolve_cadence(instance,&dominant,60+target,major);
+        assert(pre.scale==major&&five.scale==hb_explicit_scale_mask(mod12(target+7),15));
+        API.set_param(instance,"dominant_scale","Harmonic Major");
+    }
+    /* The override must not change the identity of the major resolution target. */
+    API.set_param(instance,"dominant_scale","Harmonic Minor");
+    hb_cp_config config=instance->player.config;
+    hb_approach_result result=hb_resolve_chord_approach(instance,60,hb_explicit_scale_mask(0,1),config,chord(0,0,0),2,0,0,0);
+    assert(result.intent_target==0&&!result.intent_minor&&result.scale==hb_explicit_scale_mask(0,8));
+    /* Existing explicit chord tones win over a family substitution. */
+    API.set_param(instance,"gap_scale","Auto Local");
+    API.set_param(instance,"dominant_scale","Harmonic Major");
+    hb_harmony_t dminor=chord(2,1,1);dminor.intent_kind=1;dminor.intent_target=0;dminor.intent_minor=0;
+    assert(hb_local_output_scale(instance,dminor)&(1u<<9));
+    /* Preferences survive a state save independently. */
+    char saved[16384],value[64];API.get_param(instance,"state",saved,sizeof(saved));
+    API.destroy_instance(instance);instance=API.create_instance("",0);API.set_param(instance,"state",saved);
+    API.get_param(instance,"track_dominant_scale",value,sizeof(value));assert(!strcmp(value,"Harmonic Major"));
+    API.get_param(instance,"track_dominant_minor_scale",value,sizeof(value));assert(!strcmp(value,"Harmonic Minor"));
+    API.destroy_instance(instance);
+}
+
+int main(void){functional_families();inheritance();collections();context_scopes();display_snapshots();puts("role defaults, visible overrides, migration, local parallel scales and contextual ii-V selection pass");return 0;}

@@ -309,8 +309,8 @@ static void dominant_shift(void){
     Inst *instance=fixture();API.set_param(instance,"follower_scale","Natural Minor");
     hb_harmony_t g7=infer4(55,59,62,65),gminor=infer4(55,58,62,65),bb=infer4(58,62,65,69),leading=infer4(59,62,65,68);
     assert(g7.root_pc==7&&leading.root_pc==11);
-    assert(!hb_dominant_scale_mask(instance,g7,0));
-    API.set_param(instance,"dominant_scale","Harmonic Minor");
+    assert(hb_dominant_scale_mask(instance,g7,0)==hb_explicit_scale_mask(0,8));
+    API.set_param(instance,"dominant_minor_scale","Harmonic Minor");
     assert(hb_dominant_scale_mask(instance,g7,0)==hb_explicit_scale_mask(0,8));
     assert(hb_dominant_scale_mask(instance,leading,0)==hb_explicit_scale_mask(0,8));
     assert(!hb_dominant_scale_mask(instance,gminor,0)&&!hb_dominant_scale_mask(instance,bb,0));
@@ -321,9 +321,9 @@ static void dominant_shift(void){
        melodic minor its natural 9 (A). Source labels do not change. */
     assert(!strcmp(hb_follower_degree_role_for_note(instance,62),"2nd"));
     assert(hb_map_follower_note_now(instance,62)%12==8);
-    API.set_param(instance,"dominant_scale","Melodic Minor");
+    API.set_param(instance,"dominant_minor_scale","Melodic Minor");
     assert(hb_map_follower_note_now(instance,62)%12==9);
-    API.set_param(instance,"dominant_scale","Altered V");
+    API.set_param(instance,"dominant_minor_scale","Altered V");
     unsigned altered=hb_explicit_scale_mask(8,9);
     assert(hb_dominant_scale_mask(instance,g7,0)==altered);
     target=hb_follower_scale_target(instance,g7);
@@ -335,9 +335,9 @@ static void dominant_shift(void){
     API.set_param(instance,"chord_mode","Conductor Chord");API.set_param(instance,"chord_form","Ninth");
     midi(instance,1,55);assert(advance(instance,0,64)==5);
     int saw_flat9=0;for(int index=0;index<5;index++)if(output[index][1]%12==8)saw_flat9=1;assert(saw_flat9);
-    char state[512],restored[512];API.get_param(instance,"state",state,sizeof(state));
+    char state[16384],restored[16384];API.get_param(instance,"state",state,sizeof(state));
     Inst *copy=API.create_instance("",NULL);API.set_param(copy,"state",state);API.get_param(copy,"state",restored,sizeof(restored));
-    assert(!strcmp(state,restored)&&hb_shared_dominant_scale()==3);
+    assert(!strcmp(state,restored)&&hb_policy_value(copy,HB_P_DOMINANT_MINOR)==3);
     API.destroy_instance(copy);API.destroy_instance(instance);
 }
 static void release_harmony_and_state(void){

@@ -54,7 +54,29 @@ static void blues_mode(void){
     assert(g_key_context.target_mask==hb_explicit_scale_mask(2,3));
     API.destroy_instance(instance);
 }
-int main(void){blues_mode();
+
+static void functional_key_change(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"parallel_scale","Natural Minor");API.set_param(instance,"parallel_mode","Down");
+    hb_harmony_t dominant=infer4(55,59,62,65);
+    assert(hb_harmony_chord_mask(hb_key_harmony(instance,dominant))==tones(7,4,7,10));
+    hb_harmony_t secondary=infer4(57,61,64,67);secondary.intent_kind=2;secondary.intent_target=2;secondary.intent_minor=1;
+    hb_harmony_t mapped=hb_key_harmony(instance,secondary);
+    assert(mapped.root_pc==9&&mapped.intent_target==2&&mapped.intent_minor);
+    assert(hb_harmony_chord_mask(mapped)==tones(9,4,7,10));
+    hb_harmony_t leading=infer4(59,62,65,68);leading.intent_kind=3;leading.intent_target=0;
+    mapped=hb_key_harmony(instance,leading);
+    assert(mapped.root_pc==11&&hb_harmony_chord_mask(mapped)==tones(11,3,6,9));
+    API.destroy_instance(instance);
+    instance=fixture();API.set_param(instance,"role","Conductor");
+    API.set_param(instance,"source_channel","1");API.set_param(instance,"render_channel","4");
+    API.set_param(instance,"chord_mode","Scale Degree");API.set_param(instance,"chord_form","Seventh");
+    API.set_param(instance,"parallel_scale","Natural Minor");API.set_param(instance,"parallel_mode","Down");
+    assert(press_mask(instance,67)==tones(7,4,7,10));release(instance,67);
+    API.destroy_instance(instance);
+}
+
+int main(void){functional_key_change();blues_mode();
     Inst *instance=fixture();single_setup(instance);
     new_key_major(instance,62);
     assert(g_key_context.target_root==2&&!g_key_armed);

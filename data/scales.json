@@ -393,6 +393,24 @@
         10
       ],
       "chord_quality": "dominant"
+    },
+    {
+      "id": "harmonic_major",
+      "name": "Harmonic Major",
+      "keyboard_name": "Harmonic Major",
+      "keyboard_id": 22,
+      "hb_id": 19,
+      "parallel_id": 20,
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        8,
+        11
+      ],
+      "chord_quality": "diatonic"
     }
   ],
   "parallel_operations": [

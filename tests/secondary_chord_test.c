@@ -11,6 +11,7 @@ static void release(Inst *instance,int input){midi(instance,0,input);advance(ins
 static unsigned tones(int root,int third,int fifth,int seventh){return (1u<<mod12(root))|(1u<<mod12(root+third))|(1u<<mod12(root+fifth))|(1u<<mod12(root+seventh));}
 static Inst *setup(void){
     Inst *instance=fixture();instance->motion.lanes[4].operation=HB_MO_HARMONY;instance->motion.lanes[4].amount=100;instance->motion.lanes[4].enabled=0;instance->motion.lanes[4].auto_off=1;instance->motion.lanes[13].operation=HB_MO_ABOVE;instance->motion.lanes[13].enabled=0;instance->motion.lanes[15].operation=HB_MO_BELOW;instance->motion.lanes[15].enabled=0;instance->travel_map=7;instance->content_map=1;
+    API.set_param(instance,"dominant_minor_scale","Parent / Minimal"); /* This fixture exercises unmodified parent modes. */
     API.set_param(instance,"chord_form","Seventh");
     API.set_param(instance,"motion_lane","1");API.set_param(instance,"motion_operation","Secondary II");
     API.set_param(instance,"motion_lane","2");API.set_param(instance,"motion_operation","Secondary V");
