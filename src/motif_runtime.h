@@ -62,12 +62,13 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
     double fit=1;
     if(onset_override<0&&editor->late==1&&before>0&&arrival-now<before)fit=(arrival-now)/before;
     hb_harmony_t harmony=use_tap_context?runtime->tap_harmony:hb_mt_harmony_at(instance,arrival,now);
+    if(instance->role==1)harmony=hb_key_harmony(instance,harmony);
     int target=use_tap_context?runtime->tap_target:hb_mt_target_pitch(instance,input,harmony);
     if(target<0){editor->error=7;return 0;}
     unsigned scale=harmony.valid?hb_follower_scale_target(instance,harmony).pitch_mask:hb_follower_input_scale(instance,reference_root(instance));
     if(!scale)scale=0xFFF;
     int anchor=phrase->events[phrase->anchor].notes[0].pitch;
-    hb_mt_scheduled staged[HB_MT_SCHEDULE];int count=0;
+    hb_mt_scheduled staged[HB_MT_SCHEDULE];int count=0;double key_anchor=-1;
     double offset=-before;
     for(int step=0;step<phrase->count;step++){
         const hb_mt_event *event=&phrase->events[step];double duration=hb_mt_duration(phrase,step,rhythm,span);
@@ -80,6 +81,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
         /* Retain the anchor and tail. Drop missed attacks, never bunch them up.
            Fit has a 1/64-note density floor even after very late triggers. */
         if(onset<now-1e-6||(step<phrase->anchor&&duration*fit<0.0625))continue;
+        if(step==phrase->anchor&&event->count)key_anchor=onset;
         for(int voice=0;voice<event->count;voice++){
             int pitch=hb_mt_relative(event,event->notes[voice].pitch,anchor,target,scale);
             unsigned collection=scale;
@@ -107,14 +109,18 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
                 if(pitches[generated]<0||pitches[generated]>127)continue;
                 if(count>=HB_MT_SCHEDULE){editor->error=8;return 0;}
                 int gain=(int)event->notes[voice].velocity*velocity/100;
-                staged[count++]=(hb_mt_scheduled){onset,end,pitches[generated],hb_cp_clamp(gain,1,127),channel,instance->render_channel,0,1};
+                staged[count++]=(hb_mt_scheduled){onset,end,instance->role==0?hb_key_pitch(instance,pitches[generated]):pitches[generated],hb_cp_clamp(gain,1,127),channel,instance->render_channel,0,1};
             }
         }
     }
     int free_count=0;for(int index=0;index<HB_MT_SCHEDULE;index++)if(!runtime->events[index].used)free_count++;
     if(count>free_count){editor->error=8;return 0;}
     for(int source=0,index=0;source<count&&index<HB_MT_SCHEDULE;index++)if(!runtime->events[index].used)runtime->events[index]=staged[source++];
-    runtime->pending+=count;runtime->cancel=0;runtime->last_beat=now;runtime->have_beat=1;runtime->was_running=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;editor->error=0;runtime->flash_serial++;runtime->flash_pitch=input;runtime->flash_step=phrase->anchor;return 1;
+    runtime->pending+=count;runtime->cancel=0;runtime->last_beat=now;runtime->have_beat=1;runtime->was_running=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;editor->error=0;runtime->flash_serial++;runtime->flash_pitch=input;runtime->flash_step=phrase->anchor;if(instance->key_schedule_arm&&g_key_armed&&key_anchor>=0){
+        instance->key_pending=1;instance->key_pending_at=key_anchor;
+        instance->key_pending_context=hb_key_destination(instance,input);
+    }
+    return 1;
 }
 
 static const hb_mt_phrase *hb_mt_selected(Inst *instance,hb_mt_phrase *builtin){
@@ -228,6 +234,7 @@ static int hb_mt_emit(Inst *instance,hb_mt_scheduled *event,int on,uint8_t outpu
     if(!local_shared){output[0][0]=(uint8_t)((on?0x90:0x80)|event->channel);output[0][1]=(uint8_t)event->pitch;output[0][2]=(uint8_t)(on?event->velocity:0);lengths[0]=3;}
     if(event->render>=0&&!render_shared){uint8_t packet[4]={(uint8_t)(on?0x29:0x28),(uint8_t)((on?0x90:0x80)|event->render),(uint8_t)event->pitch,(uint8_t)(on?event->velocity:0)};hb_send_render_raw(instance,packet,event->render==event->channel);}
     event->started=on;
+    if(on&&instance->key_pending&&event->on+1e-6>=instance->key_pending_at){hb_key_commit(instance->key_pending_context);instance->key_pending=0;}
     if(instance->role==0){instance->conductor_note_on_pending|=on;instance->dirty|=on;instance->frames_since_change=0;hb_publish_instance_notes(instance);}
     return local_shared?0:1;
 }
@@ -236,7 +243,7 @@ static int hb_mt_tick(Inst *instance,uint8_t output[][3],int lengths[],int capac
     int running=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;
     if((runtime->was_running&&!running)||(runtime->have_beat&&running&&now<runtime->last_beat-1e-6))runtime->cancel=1;
     runtime->was_running=running;runtime->last_beat=now;runtime->have_beat=1;
-    if(runtime->cancel)runtime->tap_active=0;
+    if(runtime->cancel){runtime->tap_active=0;instance->key_pending=0;}
     if(runtime->tap_active&&runtime->editor.playback>=2&&runtime->editor.completion){
         double next=runtime->tap_arrival+hb_mt_step_offset(instance,&runtime->tap_phrase,runtime->tap_step);
         if(now+1e-6>=next&&now>runtime->tap_last_due+1e-6){

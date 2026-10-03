@@ -13,7 +13,7 @@
 enum { HB_MO_OFF, HB_MO_VELOCITY, HB_MO_PAN, HB_MO_OCTAVE, HB_MO_ROTATE,
        HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY, HB_MO_BELOW, HB_MO_ABOVE,
        HB_MO_ENCLOSE_AB, HB_MO_ENCLOSE_BA, HB_MO_REPEAT, HB_MO_REVERSE,
-       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO, HB_MO_CHORD_FORM, HB_MO_AUTO_CHORD_REPEAT, HB_MO_SECONDARY_II, HB_MO_SECONDARY_V, HB_MO_SECONDARY_VI, HB_MO_BACKDOOR_II, HB_MO_BACKDOOR_V, HB_MO_CHROM_ABOVE, HB_MO_TRITONE_II, HB_MO_CADENCE_II_V, HB_MO_CADENCE_BACKDOOR, HB_MO_CADENCE_TRITONE, HB_MO_TRITONE_V, HB_MO_SECONDARY_III, HB_MO_SECONDARY_IV, HB_MO_SECONDARY_VII, HB_MO_MIXED_FIRST, HB_MO_MIXED_LAST=HB_MO_MIXED_FIRST+13, HB_MO_MOTIF, HB_MO_CHORD_STATE, HB_MO_LEADING_TONE, HB_MO_UPPER_DIM };
+       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO, HB_MO_CHORD_FORM, HB_MO_AUTO_CHORD_REPEAT, HB_MO_SECONDARY_II, HB_MO_SECONDARY_V, HB_MO_SECONDARY_VI, HB_MO_BACKDOOR_II, HB_MO_BACKDOOR_V, HB_MO_CHROM_ABOVE, HB_MO_TRITONE_II, HB_MO_CADENCE_II_V, HB_MO_CADENCE_BACKDOOR, HB_MO_CADENCE_TRITONE, HB_MO_TRITONE_V, HB_MO_SECONDARY_III, HB_MO_SECONDARY_IV, HB_MO_SECONDARY_VII, HB_MO_MIXED_FIRST, HB_MO_MIXED_LAST=HB_MO_MIXED_FIRST+13, HB_MO_MOTIF, HB_MO_CHORD_STATE, HB_MO_LEADING_TONE, HB_MO_UPPER_DIM, HB_MO_KEY_CENTER, HB_MO_PARALLEL_SCALE };
 #include "cadences.h"
 static int hb_mo_mixed(int operation){return operation>=HB_MO_MIXED_FIRST&&operation<=HB_MO_MIXED_LAST;}
 typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through,touch_mode,auto_off; int motif_playback,motif_arrival,motif_target,motif_late,motif_grid,motif_completion; hb_cp_config chord_state;int chord_state_valid,chord_input; } hb_motion_lane;
@@ -593,7 +593,7 @@ static void hb_mo_capture(hb_motion_config *config,double beat,double condition,
         int active=hb_mo_value_at(config,lane,beat,condition,voice,&value);
         if((config->held&(1ULL<<lane))&&(settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE||settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V))active=0;
         /* Explicitly evolving automatic lanes remain live on replay. */
-        if(settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!(config->held&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
+        if(settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!(config->held&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
         result[lane]=HB_MO_RECORDED|hb_mo_operation_word(active?settings.operation:0)|
             ((unsigned long long)settings.grid<<37)|((unsigned long long)(settings.offset+400)<<41)|
             (unsigned long long)(uint32_t)(int32_t)hb_mo_round(value*1000.0);
