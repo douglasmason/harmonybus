@@ -15,7 +15,7 @@ static void all_pulse_options(void){
     for(int root=0;root<12;root++)for(int f=0;f<8;f++){
         hb_harmony_t h=chord(root,0,0);
         hb_set_shared_follower_scale(1);globals.follower_explicit_root=root;
-        API.set_param(i,"pad_chord_form",CP_CHORD_FORM[forms[f]]);
+        API.set_param(i,"pad_chord_form",CP_CHORD_FORM[forms[f]]);API.set_param(i,"pad_next_chord_form",CP_CHORD_FORM[forms[f]]);
         for(int p=0;p<12;p++){
             API.set_param(i,"pad_next_pulse",PAD_NEXT_PULSE[p]);
             assert(hb_pad_next_mask(i,h)==hb_transpose_mask(tones[f]&pulses[p],root));
@@ -33,14 +33,14 @@ static void next_tone_pulse(void){
         hb_harmony_t harmony=hb_infer_harmony(notes,4);harmony.root_pc=root;
         API.set_param(instance,"pad_next_pulse","3+7");
         assert(hb_pad_next_mask(instance,harmony)==((1u<<mod12(root+intervals[quality][1]))|(1u<<mod12(root+intervals[quality][3]))));
-        API.set_param(instance,"pad_chord_form","Rootless 7");
+        API.set_param(instance,"pad_chord_form","Rootless 7");API.set_param(instance,"pad_next_chord_form","Rootless 7");
         assert(hb_pad_next_mask(instance,harmony)==((1u<<mod12(root+intervals[quality][1]))|(1u<<mod12(root+intervals[quality][3]))));
-        API.set_param(instance,"pad_chord_form","Follow Detected");
+        API.set_param(instance,"pad_chord_form","Follow Detected");API.set_param(instance,"pad_next_chord_form","Follow Detected");
         API.set_param(instance,"pad_next_pulse","9+11+13");assert(!hb_pad_next_mask(instance,harmony));
     }
     API.set_param(instance,"pad_next_pulse","3+7");
     API.set_param(instance,"travel_map","None");API.set_param(instance,"chord_mode","Off");
-    API.set_param(instance,"pad_chord_form","Follow Detected");
+    API.set_param(instance,"pad_chord_form","Follow Detected");API.set_param(instance,"pad_next_chord_form","Follow Detected");
     hb_set_shared_follower_scale(1);instance->next_lookahead=0;
     g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
     g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
@@ -60,14 +60,14 @@ static void next_tone_pulse(void){
     /* Wrapping advances selection back to C major, without inventing a seventh. */
     position=3.5;API.get_param(instance,"pad_view",view,sizeof(view));assert(section(view,"|nextpulse1,")==1u<<4);
     /* An explicit color form adds a seventh even when detection is a triad. */
-    API.set_param(instance,"pad_chord_form","Seventh");
+    API.set_param(instance,"pad_chord_form","Seventh");API.set_param(instance,"pad_next_chord_form","Seventh");
     API.set_param(instance,"pad_next_pulse","7");
     API.get_param(instance,"pad_view",view,sizeof(view));assert(section(view,"|nextpulse1,")==1u<<11);
     position=1.5;API.set_param(instance,"pad_display","Effective");
     API.get_param(instance,"pad_view",view,sizeof(view));assert(section(view,"|nextpulse1,")==1u<<11);
     API.set_param(instance,"pad_chord_form","Power");
     API.get_param(instance,"pad_view",view,sizeof(view));assert(!section(view,"|nextpulse1,"));
-    API.set_param(instance,"pad_chord_form","Follow Detected");
+    API.set_param(instance,"pad_chord_form","Follow Detected");API.set_param(instance,"pad_next_chord_form","Follow Detected");
     API.get_param(instance,"pad_view",view,sizeof(view));assert(!section(view,"|nextpulse1,"));
     API.set_param(instance,"pad_next_pulse","3+7");
     API.set_param(instance,"pad_display","Both Full Lookahead");
@@ -109,7 +109,7 @@ static void independent_pad_form(void){
     }
     hb_harmony_t harmony=chord(0,0,1);hb_effective_write(harmony);g_bus.observed_harmony=harmony;
     Inst preview=*instance;
-    assert(hb_pad_target_inputs(&preview,instance,harmony)==((1u<<4)|(1u<<10)));
+    assert(hb_pad_target_inputs(&preview,instance,harmony,hb_pad_chord_mask(instance,harmony))==((1u<<4)|(1u<<10)));
     assert(instance->player.config.size==4);
     char snapshot[4096];unsigned current=0,effective=0,scale=0;
     API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
@@ -159,7 +159,45 @@ static void movy_input_and_spatial_sequence(void){
     API.set_param(instance,"approach_touch_2","Down");assert(state->sequence_count==1);API.set_param(instance,"approach_touch_2","Up,50");
     API.destroy_instance(instance);
 }
+static void separate_color_forms(void){
+    Inst *instance=fixture();char view[4096],saved[65536];
+    assert(!g_pad_adjacent_shading);
+    static const int qualities[5][4]={{0,4,7,11},{0,4,7,10},{0,3,7,10},{0,3,6,10},{0,3,6,9}};
+    for(int quality=0;quality<5;quality++)for(int root=0;root<12;root++){
+        uint8_t notes[4];for(int index=0;index<4;index++)notes[index]=60+root+qualities[quality][index];
+        hb_harmony_t detected=hb_infer_harmony(notes,4);detected.root_pc=root;
+        assert(hb_pad_chord_mask_form(instance,detected,18)==(1u<<root));
+        assert(hb_pad_chord_mask_form(instance,detected,19)==((1u<<root)|(1u<<mod12(root+qualities[quality][1]))));
+        assert(hb_pad_chord_mask_form(instance,detected,20)==((1u<<root)|(1u<<mod12(root+qualities[quality][3]))));
+    }
+    API.set_param(instance,"travel_map","None");API.set_param(instance,"chord_mode","Off");
+    API.set_param(instance,"pad_chord_form","Root Only");API.set_param(instance,"pad_next_chord_form","Root + Seventh");
+    API.set_param(instance,"pad_next_pulse","7");
+    hb_harmony_t harmony=chord(0,0,1);
+    assert(hb_pad_chord_mask(instance,harmony)==1);
+    assert(hb_pad_chord_mask_form(instance,harmony,19)==17);
+    assert(hb_pad_chord_mask_form(instance,harmony,20)==1025);
+    g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=harmony};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=2,.harmony=harmony};
+    position=1;g_bus.observed_harmony=harmony;hb_effective_write(harmony);
+    API.get_param(instance,"pad_view",view,sizeof(view));
+    unsigned current,effective,scale,ready,next,full_valid,full;
+    assert(sscanf(view,"%u,%u,%u,%u,%u",&current,&effective,&scale,&ready,&next)==5);
+    assert(current==1&&effective==1);
+    assert(sscanf(strstr(view,"|full1,")+7,"%u,%u",&full_valid,&full)==2);assert(full==1025);
+    assert(section(view,"|nextpulse1,")==1024);
+    API.set_param(instance,"pad_display","Effective");
+    API.get_param(instance,"pad_view",view,sizeof(view));assert(section(view,"|nextpulse1,")==0);
+    API.get_param(instance,"state",saved,sizeof(saved));
+    hb_pad_defaults();API.set_param(instance,"state",saved);assert(g_pad_chord_form==18&&g_pad_next_chord_form==20);
+    char *next_suffix=strstr(saved,";pnf1,");assert(next_suffix);char *suffix_end=strchr(next_suffix+1,';');if(suffix_end)memmove(next_suffix,suffix_end,strlen(suffix_end)+1);else *next_suffix=0;
+    hb_pad_defaults();API.set_param(instance,"state",saved);assert(g_pad_chord_form==18&&g_pad_next_chord_form==18);
+    API.destroy_instance(instance);
+}
+
 int main(void){
+    separate_color_forms();
     all_pulse_options();next_tone_pulse();independent_pad_form();
     movy_input_and_spatial_sequence();
     Inst *instance=fixture();instance->travel_map=0;instance->content_map=1;instance->chromatic_map=1;

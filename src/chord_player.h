@@ -4,9 +4,9 @@
    by the host adapter; the adapter decides which role owns the output. */
 #define HB_CP_KEYS 16
 #define HB_CP_VOICES 12
-#define HB_CP_FORMS 18
+#define HB_CP_FORMS 21
 #define HB_CP_FOLLOW_DETECTED 17
-static const char *CP_CHORD_FORM[]={"Auto","Power","Triad","Seventh","Ninth","Add9","Sixth","6/9","Eleventh","Thirteenth","Sus2","Sus4","Shell 7","Shell 9","Shell 6/9","Rootless 7","Rootless 9","Follow Detected"};
+static const char *CP_CHORD_FORM[]={"Auto","Power","Triad","Seventh","Ninth","Add9","Sixth","6/9","Eleventh","Thirteenth","Sus2","Sus4","Shell 7","Shell 9","Shell 6/9","Rootless 7","Rootless 9","Follow Detected","Root Only","Root + Third","Root + Seventh"};
 typedef struct {
     int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread, phase;
     int quality, chromatic_quality, note_phase, clear_harmony, start;
@@ -205,7 +205,9 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
         {0,2,4,5,-1,-1,-1},{0,2,4,5,1,-1,-1},{0,2,4,6,1,3,-1},
         {0,2,4,6,1,3,5},{0,1,4,-1,-1,-1,-1},{0,3,4,-1,-1,-1,-1},
         {0,2,6,-1,-1,-1,-1},{0,2,6,1,-1,-1,-1},{0,2,5,1,-1,-1,-1},
-        {2,6,-1,-1,-1,-1,-1},{2,6,1,-1,-1,-1,-1}
+        {2,6,-1,-1,-1,-1,-1},{2,6,1,-1,-1,-1,-1},
+        {-1,-1,-1,-1,-1,-1,-1},{0,-1,-1,-1,-1,-1,-1},
+        {0,2,-1,-1,-1,-1,-1},{0,6,-1,-1,-1,-1,-1}
     };
     unsigned selected=0;
     if(follows_detected&&(config.mode==1||config.quality)){
@@ -243,7 +245,7 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
        Power keeps its scale-derived quality; suspensions remain suspensions. */
     if(semantic){
         *semantic=selected;
-        if(config.size==1||(config.size>=12&&config.size<HB_CP_FOLLOW_DETECTED))
+        if(config.size==1||(config.size>=12&&config.size<HB_CP_FOLLOW_DETECTED)||config.size>=18)
             *semantic|=(1u<<root)|(1u<<tones[2])|(1u<<tones[4]);
 
     }

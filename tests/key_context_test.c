@@ -95,5 +95,44 @@ int main(void){
     midi(instance,1,62);assert(instance->key_pending&&!g_key_context.active&&g_key_armed);
     advance(instance,2100,64);assert(g_key_context.active&&g_key_context.target_root==2&&!g_key_armed);
     API.destroy_instance(instance);
+    /* Background conductor clips: saved voices and raw chord input both
+       reach the stock receiver in the new key with matched note-offs. */
+    for(int baked=0;baked<2;baked++){
+        instance=fixture();single_setup(instance);new_key_major(instance,62);
+        leader=API.create_instance("",NULL);API.set_param(leader,"role","Conductor");API.set_param(leader,"source_channel","1");API.set_param(leader,"render_channel","4");
+        leader->player.config.mode=1;API.set_param(leader,"chord_form","Triad");
+        leader->movy_playback=1;leader->movy_passthrough=baked;
+        receiver=API.create_instance("",NULL);API.set_param(receiver,"role","Receiver");API.set_param(receiver,"source_channel","4");
+        if(baked){press_mask(leader,60);press_mask(leader,64);press_mask(leader,67);}else press_mask(leader,60);
+        delivered=advance(receiver,1,64);heard=0;
+        for(int event=0;event<delivered;event++)if((output[event][0]&0xf0)==0x90&&output[event][2])heard|=1u<<mod12(output[event][1]);
+        assert(heard==((1u<<2)|(1u<<6)|(1u<<9)));
+        release(leader,60);if(baked){release(leader,64);release(leader,67);}
+        delivered=advance(receiver,1,64);heard=0;
+        for(int event=0;event<delivered;event++)if((output[event][0]&0xf0)==0x80||((output[event][0]&0xf0)==0x90&&!output[event][2]))heard|=1u<<mod12(output[event][1]);
+        assert(heard==((1u<<2)|(1u<<6)|(1u<<9)));
+        API.destroy_instance(receiver);API.destroy_instance(leader);API.destroy_instance(instance);
+    }
+    instance=fixture();single_setup(instance);
+    char view[128];
+    API.set_param(instance,"parallel_mode","Down");
+    API.get_param(instance,"key_center",view,sizeof(view));assert(!strcmp(view,"Off"));
+    API.set_param(instance,"parallel_mode","Up");
+    API.set_param(instance,"parallel_scale","Relative Major/Minor");
+    API.set_param(instance,"parallel_mode","Down");
+    assert(g_key_context.target_root==9&&g_key_context.target_mask==hb_explicit_scale_mask(9,2));
+    assert(hb_key_pitch(instance,60)==57);
+    API.set_param(instance,"parallel_scale","Relative Major/Minor");assert(g_key_context.target_root==9);
+    API.set_param(instance,"transpose","2");
+    assert(g_key_context.source_root==2&&g_key_context.target_root==11);
+    API.set_param(instance,"parallel_mode","Up");assert(!g_key_context.active);
+    API.set_param(instance,"transpose","0");
+    API.set_param(instance,"follower_explicit_root","A");API.set_param(instance,"follower_scale","Natural Minor");
+    API.set_param(instance,"parallel_mode","Down");assert(g_key_context.target_root==0);
+    API.set_param(instance,"parallel_mode","Up");API.destroy_instance(instance);
+    instance=fixture();single_setup(instance);
+    API.set_param(instance,"key_center","On");press_mask(instance,62);release(instance,62);
+    API.get_param(instance,"key_center_view",view,sizeof(view));assert(strstr(view,"C>Dm"));
+    API.destroy_instance(instance);
     puts("key context: progression degrees, shared live/recorded/conductor output, parallel restore, delayed landing and motif anchor pass");
 }
