@@ -99,7 +99,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
                 pitch=approach.root;collection=approach.scale;config=approach.config;
             }else{
                 if(cadence){hb_cadence_result result=hb_resolve_cadence(instance,cadence,pitch,collection);pitch=result.root;collection=result.scale;}
-                else if(event->secondary)pitch+=hb_relative_approach_offset(event->secondary,pitch,hb_relative_target_scale(instance,pitch,collection,event->secondary==2||event->secondary==12));
+                else if(event->secondary)pitch+=hb_relative_approach_offset(event->secondary,pitch,hb_secondary_collection(instance,event->secondary,pitch,collection));
                 if(event->modifier<0)pitch--;
                 else if(event->modifier==1)pitch=hb_mt_walk(pitch,1,collection);
                 else if(event->modifier==2)pitch++;

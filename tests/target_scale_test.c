@@ -85,7 +85,33 @@ static void persistence_and_track_isolation(void){
     API.destroy_instance(other);API.destroy_instance(instance);
 }
 
-int main(void){
+static void plain_and_dominant_degrees(void){
+    Inst *instance=setup();instance->player.config.mode=1;
+    API.set_param(instance,"dominant_minor_scale","Harmonic Minor");
+    API.set_param(instance,"motion_lane","1");
+    API.set_param(instance,"motion_operation","Secondary Fifth");
+    assert(instance->motion.lanes[0].operation==HB_MO_SECONDARY_FIFTH);
+    tap(instance,1);assert(played(instance,71)==tones(65,4,7,11));release(instance,71); /* fifth of B Locrian is F, not F# */
+    API.set_param(instance,"motion_operation","Secondary II");
+    tap(instance,1);assert(played(instance,62)==tones(64,3,7,10));release(instance,62); /* parent C gives Em7 */
+    API.set_param(instance,"motion_operation","Secondary II (Dom)");
+    tap(instance,1);assert(played(instance,62)==tones(64,3,6,10));release(instance,62); /* D harmonic minor gives E halfdim */
+    API.set_param(instance,"motion_operation","Secondary IV (Dom)");
+    tap(instance,1);assert(played(instance,62)==tones(67,3,7,10));release(instance,62);
+    API.set_param(instance,"motion_operation","Secondary VI (Dom)");
+    tap(instance,1);assert(played(instance,62)==tones(58,4,7,11));release(instance,62);
+    API.set_param(instance,"dominant_minor_scale","Altered V");
+    assert(hb_secondary_collection(instance,15,62,hb_explicit_scale_mask(0,1))==hb_explicit_scale_mask(2,2));
+    for(int role=14;role<=17;role++){
+        instance->motion.events[HB_MOTION_LANES]=hb_mo_role_word(role);
+        assert(hb_mo_source_secondary(&instance->motion)==role);
+    }
+    API.set_param(instance,"approach_bank_1","Secondary IV (Dom)");
+    assert(instance->approach_rows.bank[0]==-34);
+    assert(hb_ar_intent(hb_ar_code(&instance->approach_rows,0))==hb_mo_role_word(16));
+    API.destroy_instance(instance);
+}
+int main(void){plain_and_dominant_degrees();
     source_and_quality();musical_output();cadence_and_dominant_family();persistence_and_track_isolation();
     puts("target scales: Auto/Parent/Simplified, quality families, MIDI, cadences, precedence and persistence pass");
 }

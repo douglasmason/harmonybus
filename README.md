@@ -1,3 +1,11 @@
+Secondary Fifth is now a separate parent-scale degree operation. Secondary II, IV and VI (Dom) simplify the target in Auto and use its dominant-preparation family; Altered V remains V-only. Ordinary secondaries preserve the parent collection by default. Parent/Simplified explicitly overrides Auto target simplification. Existing operation IDs are unchanged.
+
+The performance footer now shows compact mode/track, sounding key center and parent scale, and current > next harmony as key-relative Roman numerals. Unknown harmony is --; h7 means half-diminished. Long scale names are abbreviated to fit. Footer data rides the existing pad snapshot without additional host reads.
+
+**HarmonyBus 0.2.244 / Movy hbclean.160 — reinforced target trails.**
+
+Trail reinforcement starts a single target onset at 80% of Trail Strength and a repeat within the selected history window at 100%. Dim Trail decays toward 30% of Trail Strength; Blend into Background still fades to the background. Repeats refresh the peak and decay continuously. Pitch Class combines octave hits. Generated chord voices and arp repeats do not count. The native history retains two onsets per pitch, including hits between UI polls. Install HarmonyBus 0.2.244 and Movy hbclean.160 together; Movy retains single-hit compatibility with older history snapshots. Validated against Schwung 1.7.3.
+
 **HarmonyBus 0.2.243 / Movy hbclean.159 — target scales and full Harm Play banks.**
 
 Harm Play 1 and 2 now expose all sixteen saved operation/motif assignments, matching step buttons 1–8 and 9–16. Harm Play Settings holds Key Center, Parallel Scale, Motif Latch and Chord + Arp on knobs 1–4; the step buttons remain playable from this page. Shift-turn Parallel Scale still selects its scale. The four special controls retain teal feedback, captured releases and latch behavior. Key Change Scale and Conductor Travel remain on Key & Scale.

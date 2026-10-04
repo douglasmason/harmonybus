@@ -204,6 +204,10 @@ static void harmony_off_view(void){
     API.get_param(instance,"pad_display",setting,sizeof(setting));assert(!strcmp(setting,"Harmony Off"));
     hb_effective_write(chord(0,0,1));API.get_param(instance,"pad_view",first,sizeof(first));
     hb_effective_write(chord(6,1,1));API.get_param(instance,"pad_view",second,sizeof(second));
+    /* Harmony Off freezes pad colors, but the musical footer stays live. */
+    char *first_footer=strstr(first,"|footer1,"),*second_footer=strstr(second,"|footer1,");
+    assert(first_footer&&second_footer);assert(strcmp(first_footer,second_footer));
+    *first_footer=*second_footer=0;
     assert(!strcmp(first,second));
     assert(strstr(first,"0,0,2741,0,0,7,0,3,"));
     assert(!strstr(first,"outputs1,")&&!strstr(first,"gapcolors1,")&&!strstr(first,"nextpulse1,"));

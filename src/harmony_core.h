@@ -24,7 +24,7 @@ typedef struct {
     int chord_index;
     int confidence;
     char name[24];
-    int intent_kind,intent_target,intent_minor;uint16_t intent_scale; /* 0 unknown, 1 degree, 2 V, 3 leading, 4 subV, 5 connector */
+    int intent_kind,intent_target,intent_minor;uint16_t intent_scale; /* 0 unknown, 1 degree, 2 V, 3 leading, 4 subV, 5 connector, 6 recorded parent, 7 explicit secondary collection */
 } hb_harmony_t;
 
 typedef enum {

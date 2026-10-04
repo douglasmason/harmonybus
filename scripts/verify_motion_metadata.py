@@ -39,7 +39,7 @@ def main() -> None:
     assert maps[0]['motion_offset'] == map_canonical['motion_offset']
     assert maps[3]['motion_offset']['name'] == 'Decay %' and maps[3]['motion_offset']['min'] == 0
     assert maps[3]['motion_advance']['options'] == ['Clock','Note','Chord']
-    assert maps[3]['motion_operation']['options'][-6:] == ['Leading Tone', 'Upper Dim', 'Key Center', 'Parallel Scale', 'Live Harmony Override', 'Override Harmony (Live + Recorded)']
+    assert maps[3]['motion_operation']['options'][-10:] == ['Leading Tone', 'Upper Dim', 'Key Center', 'Parallel Scale', 'Live Harmony Override', 'Override Harmony (Live + Recorded)', 'Secondary Fifth', 'Secondary II (Dom)', 'Secondary IV (Dom)', 'Secondary VI (Dom)']
     assert 'II-V-Target' not in maps[3]['motion_operation']['options']
     assert not any(option.startswith('Clip ') for option in maps[0]['motion_operation']['options'])
     assert maps[1]['motion_operation']['options'] == map_canonical['motion_operation']['options']
