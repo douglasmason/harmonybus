@@ -3080,7 +3080,7 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
                 key->semantic_mask|=1u<<mod12(key->root_pc+seventh[requested_config.quality-5]);
             }
             if(instance->role==0){instance->dirty=1;instance->frames_since_change=0;instance->conductor_note_on_pending=1;}
-            key->recordable=instance->role==0&&!instance->movy_playback;
+            key->recordable=instance->role==0&&!instance->movy_playback&&!instance->synthetic_advance&&!instance->adopt_held;
             memcpy(instance->motion_player_events[index],instance->motion.event_override?instance->motion.event_override:instance->motion.events,sizeof(instance->motion.events));
             if(approach_chord)instance->motion_player_events[index][HB_MOTION_LANES]|=HB_MO_CHORD_APPROACH;
             key->playback_origin=instance->movy_playback;
@@ -4919,6 +4919,7 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
 static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int capacity){
     hb_key_operations_sync();
     Inst *instance=(Inst*)value;if(!instance)return 0;
+    int advanced=0;
     if(instance->advance_pending&&capacity>0){
         unsigned owner=instance->advance_owner;int channel=(owner-1)/128,note=(owner-1)%128;
         if(!owner||!instance->physical_velocity[channel][note]){instance->advance_pending=instance->advance_phase=0;}
@@ -4929,7 +4930,7 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
             instance->synthetic_advance=0;
             if(instance->advance_phase){instance->advance_pending--;instance->advance_phase=0;}
             else instance->advance_phase=1;
-            hb_pad_observe_output(instance,output,lengths,count);return count;
+            advanced=count;
         }
     }
     hb_trail_boundary(instance);
@@ -4939,7 +4940,7 @@ static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int l
         instance->pad_flash_seconds[pitch]=remaining>0?remaining:0;
     }
     int was_playing=instance->last_transport_playing;
-    int emitted=hb_mt_tick(instance,output,lengths,capacity);
+    int emitted=advanced+hb_mt_tick(instance,output+advanced,lengths+advanced,capacity-advanced);
     emitted+=tick_base(value,frames,sample_rate,output+emitted,lengths+emitted,capacity-emitted);
     hb_pad_observe_output(instance,output,lengths,emitted);
     if(was_playing&&!instance->last_transport_playing)memset(instance->pad_flash_seconds,0,sizeof(instance->pad_flash_seconds));
