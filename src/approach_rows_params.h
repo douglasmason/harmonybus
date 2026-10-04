@@ -24,7 +24,7 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
         }else if(!on){state->motif_latch=state->latch=state->performance=0;}
         return 1;
     }
-    if(!strcmp(key,"approach_mode_active")){state->enabled=parse_i(value,0)!=0;state->down=state->knob_down=state->step_down=state->turned=0;state->performance=0;state->latch=state->motif_latch=0;state->bank_armed=-1;return 1;}
+    if(!strcmp(key,"approach_mode_active")){state->enabled=parse_i(value,0)!=0;if(instance->surface_enabled)return 1;state->down=state->knob_down=state->step_down=state->turned=0;state->performance=0;state->latch=state->motif_latch=0;state->bank_armed=-1;return 1;}
     int control=hb_ar_slot(key,"approach_control_",16);
     if(control>=0){
         if(hb_ar_spatial_layout(instance))return 1;

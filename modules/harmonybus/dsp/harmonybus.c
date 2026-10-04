@@ -5193,12 +5193,26 @@ static void hb_set_scale_exceptions(int dominant,int borrowed){
     for(int role=0;role<2;role++){hb_role_store(role,HB_P_DOMINANT,dominant);hb_role_store(role,HB_P_BORROWED,borrowed);}
     g_scale_exceptions_restored=1;
 }
+/* Both surfaces share the selected input mode, including its gesture reset. */
+static void hb_surface_layout(Inst *instance){
+    int layout=instance->surface_enabled&&instance->surface_count[0]?
+        instance->surface_approach_layout:instance->move_approach_layout;
+    if(layout!=instance->approach_layout){
+        /* Layout changes invalidate the old gesture mode, but keep saved
+           row assignments. Entering spatial mode clears permanent motif latches. */
+        instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;
+        instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.motif_latch=instance->approach_rows.selected=0;
+        instance->approach_rows.turned=0;instance->approach_rows.bank_armed=-1;
+        if(layout)instance->approach_rows.latch_slots=0;
+    }
+    instance->approach_layout=layout;
+}
 static void set_param_base(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
 if(!strcmp(key,"trail_enable")){instance->trail_enabled=!strcmp(parameter,"1");return;}
 if(!strcmp(key,"trail_clear")){memset(instance->trail_valid,0,sizeof(instance->trail_valid));memset(instance->trail_previous_valid,0,sizeof(instance->trail_previous_valid));return;}
 if(!strcmp(key,"surface_enabled")){
     instance->surface_enabled=!strcmp(parameter,"1");
-    instance->approach_layout=instance->move_approach_layout||(instance->surface_enabled&&instance->surface_approach_layout);return;
+    hb_surface_layout(instance);return;
 }
 int surface_bank=!strcmp(key,"surface_preview0")?0:!strcmp(key,"surface_preview1")?1:-1;
 if(!strcmp(key,"pad_preview_inputs")||surface_bank>=0){
@@ -5217,19 +5231,11 @@ if(!strcmp(key,"pad_preview_inputs")||surface_bank>=0){
         memcpy(instance->surface_targets[surface_bank],targets,sizeof(targets));
         memcpy(instance->surface_rows[surface_bank],rows,sizeof(rows));
         instance->surface_count[surface_bank]=32;instance->surface_approach_layout=layout;
-        instance->approach_layout=instance->move_approach_layout||(instance->surface_enabled&&layout);return;
+        hb_surface_layout(instance);return;
     }
-    instance->move_approach_layout=layout;layout=layout||(instance->surface_enabled&&instance->surface_approach_layout);
+    instance->move_approach_layout=layout;
     memcpy(instance->preview_notes,notes,sizeof(notes));memcpy(instance->preview_targets,targets,sizeof(targets));memcpy(instance->preview_rows,rows,sizeof(rows));
-    if(layout!=instance->approach_layout){
-        /* Layout changes invalidate the old gesture mode, but keep saved
-           row assignments. Entering spatial mode clears permanent motif latches. */
-        instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;
-        instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.motif_latch=instance->approach_rows.selected=0;
-        instance->approach_rows.turned=0;instance->approach_rows.bank_armed=-1;
-        if(layout)instance->approach_rows.latch_slots=0;
-    }
-    instance->preview_count=32;instance->approach_layout=layout;return;
+    instance->preview_count=32;hb_surface_layout(instance);return;
 }
 
 if(!strcmp(key,"hb_tempo")){

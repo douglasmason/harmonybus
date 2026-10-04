@@ -38,6 +38,24 @@ int main(void){
     assert(API.get_param(instance,"surface_view0",external,sizeof(external))<0);
     /* Rejected payloads leave the last complete surface untouched. */
     API.set_param(instance,"surface_preview0","garbage");assert(instance->surface_targets[0][0]==64);
+    /* Session view may leave Move's last spatial preview cached. */
+    API.set_param(instance,"pad_preview_inputs",lower);
+    API.set_param(instance,"surface_enabled","1");
+    instance->approach_rows.latch_slots=1;
+    API.set_param(instance,"surface_preview0",move);
+    assert(!instance->approach_layout);
+    API.set_param(instance,"surface_preview0",lower);
+    assert(instance->approach_layout&&!instance->approach_rows.latch_slots);
+    API.set_param(instance,"surface_preview0",move);
+    API.set_param(instance,"approach_touch_1","Down");
+    assert(instance->approach_rows.down&1);
+    API.set_param(instance,"approach_mode_active","0");
+    assert(instance->approach_rows.down&1); /* A Copy/clip view change cannot steal the external hold. */
+    API.set_param(instance,"approach_touch_1","Up,500");
+    assert(!(instance->approach_rows.down&1));
+    API.set_param(instance,"approach_control_1","LatchOn");
+    API.set_param(instance,"approach_mode_active","1");
+    assert(instance->approach_rows.latch&&instance->approach_rows.performance);
     API.destroy_instance(instance);
     puts("external surfaces: canonical parity, independent banks, bounded errors, Move restoration pass");
 }
