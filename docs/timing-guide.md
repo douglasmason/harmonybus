@@ -4,9 +4,9 @@ Harm Play 1 and 2 now expose all sixteen saved operation/motif assignments, matc
 
 Settings knobs 5–8 are Target Scale Source, Simple Major, Simple Minor and Simple Dim. These are saved per track:
 
-- **Auto** uses the parent collection for ordinary secondary degrees and simplifies the destination for Secondary V and Leading Tone. Existing Simple Chord/Simple Scale operation choices remain active in Auto.
-- **Parent** keeps the destination's parent collection, including the established borrowed/chromatic-target fallback. **Simplified** uses the selected destination-quality family. Both explicit choices override legacy per-operation simplification flags.
-- Major: Major (default), Lydian or Harmonic Major. Minor: Natural Minor (default), Dorian, Harmonic Minor or Melodic Minor. Diminished/half-diminished: Locrian (default) or Locrian #2.
+**Auto** uses the parent collection for ordinary secondary degrees and simplifies the destination for Secondary V and Leading Tone. Existing Simple Chord/Simple Scale operation choices remain active in Auto.
+**Parent** keeps the destination's parent collection, including the established borrowed/chromatic-target fallback. **Simplified** uses the selected destination-quality family. Both explicit choices override legacy per-operation simplification flags.
+Major: Major (default), Lydian or Harmonic Major. Minor: Natural Minor (default), Dorian, Harmonic Minor or Melodic Minor. Diminished/half-diminished: Locrian (default) or Locrian #2.
 
 The destination's third and fifth select the quality family. Existing Dominant to Major/Minor treatment is applied afterward; a named dominant-family choice can therefore override the simplified collection on ii/V/leading-tone approaches. Parent / Minimal leaves the chosen collection in place. Dominant and leading-tone chord function is retained. Live chords, single-note approaches and motif/cadence rendering share the resolver; stored source pitches and assignment IDs are unchanged. Old states without these controls load Auto with the default families, so explicit dominant/leading-tone approaches now use Auto's tonicized destination collection. Existing held voices finish with their onset pitches.
 
