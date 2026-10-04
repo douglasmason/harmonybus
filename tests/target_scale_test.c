@@ -156,7 +156,21 @@ static void dominant_color_performance(void){
     API.set_param(instance,"dominant_color","0");assert(!instance->dominant_color_held);
     API.destroy_instance(other);API.destroy_instance(instance);
 }
-int main(void){dominant_color_performance();dominant_family_contract();plain_and_dominant_degrees();
+static void diminished_destination(void){
+    Inst *instance=setup();unsigned parent=hb_explicit_scale_mask(0,1);
+    hb_cadence_step step={.kind=HB_CAD_DOMINANT};
+    hb_cadence_result result=hb_resolve_cadence(instance,&step,71,parent);
+    assert(result.root==70&&result.destination==71&&result.quality==9);
+    assert(hb_relative_approach_offset(2,71,parent)==-1);
+    assert(hb_relative_approach_offset(14,71,parent)!=-1); /* plain Fifth stays distinct */
+    hb_cp_config config=instance->player.config;
+    hb_harmony_t harmony={0};
+    hb_approach_result approach=hb_resolve_chord_approach(instance,71,parent,config,harmony,2,0,0,0);
+    assert(approach.root==70&&approach.config.quality==9&&approach.intent_kind==3);
+    for(int target=60;target<=62;target+=2){result=hb_resolve_cadence(instance,&step,target,parent);assert(result.root==target-5&&result.quality==6);}
+    API.destroy_instance(instance);
+}
+int main(void){diminished_destination();dominant_color_performance();dominant_family_contract();plain_and_dominant_degrees();
     source_and_quality();musical_output();cadence_and_dominant_family();persistence_and_track_isolation();
     puts("target scales: Auto/Parent/Simplified, quality families, MIDI, cadences, precedence and persistence pass");
 }

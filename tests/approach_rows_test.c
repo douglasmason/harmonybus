@@ -104,7 +104,7 @@ int main(void){dedicated_motif_latch();held_approach_retrigger();
         assert(!pad->motif.pending);API.destroy_instance(pad);
     }
     Inst *i=setup();i->approach_layout=1;char text[65536];
-    API.get_param(i,"approach_bank_1",text,sizeof(text));assert(!strcmp(text,"Secondary V"));
+    API.get_param(i,"approach_bank_1",text,sizeof(text));assert(!strcmp(text,"Secondary V (Dom)"));
     API.get_param(i,"approach_bank_5",text,sizeof(text));assert(!strcmp(text,"Leading Tone"));
     API.set_param(i,"approach_bank_1","Connector Below");API.set_param(i,"approach_bank_2","Secondary II");API.set_param(i,"approach_bank_3","Secondary V");
     API.set_param(i,"approach_mode_active","1");

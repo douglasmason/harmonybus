@@ -60,7 +60,7 @@ static int hb_ar_input(Inst *instance,const uint8_t *input,int length){
     hb_ar_schedule(instance,source,shift,token,input[2],channel,whole);
     if(state->swallow[channel][source]<255)state->swallow[channel][source]++;
     if(!instance->movy_playback){
-        if(instance->action_count<64){
+        if(!instance->synthetic_advance&&instance->action_count<64){
             int slot=(instance->action_head+instance->action_count)%64;
             instance->movy_pad_shift[source]=shift;state->tokens[source]=token;
             hb_capture_input_intent(instance,source,instance->action_queue[slot]);
