@@ -773,7 +773,7 @@ A pad or recorded input is the reference; its resolved target may be a different
 
 See [Transformation layers](transformation-layers.md) for examples, recording semantics and the boundary that prevents an override from remapping its own triggering event.
 
-### Harm Play release tail
+## Harm Play release tail
 
 Release Length sets the tail duration for the temporary Chord + Arp operation.
 It defaults to 0 ms. Its choices match Follower Buffer and Strum: milliseconds
