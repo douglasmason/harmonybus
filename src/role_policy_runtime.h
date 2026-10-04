@@ -29,6 +29,8 @@ static int *hb_policy_chord_field(Inst *instance,int field){
     case HB_P_SPREAD:return &config->spread;case HB_P_CHROMATIC:return &config->chromatic_quality;default:return 0;}
 }
 static int hb_policy_value(Inst *instance,int field){
+    if(instance&&(field==HB_P_DOMINANT||field==HB_P_DOMINANT_MINOR)&&
+       (instance->dominant_color_held||instance->dominant_color_latched))return instance->dominant_color_family;
     if(instance&&(instance->policy_overrides&(1u<<field)))return instance->policy_values[field];
     return hb_role_default(instance&&instance->role==0?0:1,field);
 }

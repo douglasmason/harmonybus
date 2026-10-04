@@ -128,7 +128,35 @@ static void dominant_family_contract(void){
     assert(hb_function_family(instance,2,parent,1,1)==hb_explicit_scale_mask(2,8)); /* preserve A7 even with a custom minor baseline */
     API.destroy_instance(instance);
 }
-int main(void){dominant_family_contract();plain_and_dominant_degrees();
+static void dominant_color_performance(void){
+    Inst *instance=setup(),*other=API.create_instance("",0);
+    API.set_param(instance,"dominant_scale","Simplified Target");
+    API.set_param(instance,"dominant_minor_scale","Harmonic Minor");
+    unsigned parent=hb_explicit_scale_mask(0,1);
+    API.set_param(instance,"dominant_color","Down");
+    assert(hb_policy_value(instance,HB_P_DOMINANT)==3&&hb_policy_value(instance,HB_P_DOMINANT_MINOR)==3);
+    assert(hb_policy_value(other,HB_P_DOMINANT)==6);
+    assert(hb_function_family(instance,2,parent,1,1)==hb_explicit_scale_mask(10,9));
+    assert(hb_function_family(instance,2,parent,1,0)==hb_explicit_scale_mask(2,8));
+    API.set_param(instance,"dominant_minor_scale","Melodic Minor");
+    API.set_param(instance,"dominant_color","Up");
+    assert(hb_policy_value(instance,HB_P_DOMINANT)==6&&hb_policy_value(instance,HB_P_DOMINANT_MINOR)==2);
+    API.set_param(instance,"dominant_color","LatchOn");API.set_param(instance,"dominant_color","Down");API.set_param(instance,"dominant_color","Up");
+    assert(hb_policy_value(instance,HB_P_DOMINANT)==3);
+    API.set_param(instance,"dominant_color_family","Harmonic Major");
+    assert(hb_policy_value(instance,HB_P_DOMINANT)==5);
+    char state[32768],label[64];API.get_param(instance,"state",state,sizeof(state));
+    API.set_param(instance,"state",state);API.get_param(instance,"dominant_color",label,sizeof(label));
+    assert(!strcmp(label,"Off")&&instance->dominant_color_family==5);
+    API.set_param(instance,"dominant_color","Down");hb_stop_instance_note_state(instance);
+    assert(!instance->dominant_color_held&&!instance->dominant_color_latched);
+    API.set_param(instance,"dominant_color","LatchOn");API.set_param(instance,"performance_reset","1");
+    assert(!instance->dominant_color_latched);
+    API.set_param(instance,"dominant_color","1");assert(instance->dominant_color_held);
+    API.set_param(instance,"dominant_color","0");assert(!instance->dominant_color_held);
+    API.destroy_instance(other);API.destroy_instance(instance);
+}
+int main(void){dominant_color_performance();dominant_family_contract();plain_and_dominant_degrees();
     source_and_quality();musical_output();cadence_and_dominant_family();persistence_and_track_isolation();
     puts("target scales: Auto/Parent/Simplified, quality families, MIDI, cadences, precedence and persistence pass");
 }

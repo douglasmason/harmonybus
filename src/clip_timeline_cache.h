@@ -102,7 +102,7 @@ static void hb_timeline_refresh(int configuration_changed,int restart){
     for(int index=0;index<HB_MAX_INSTANCES;index++){
         Inst *instance=&g_pool[index];hb_movy_clip_t *clip=&g_movy_clips[index];
         hb_clip_timeline_owner *owner=&g_timeline_owners[index];
-        if(!instance->used||instance->role!=0||!clip->present||clip->active!=1||clip->slot<0){
+        if(!instance->used||instance->role!=0||!clip->present||clip->active!=1||clip->slot<0||instance->dominant_color_held||instance->dominant_color_latched){
             if(owner->entry){memset(owner,0,sizeof(*owner));g_timeline_dirty=1;}continue;
         }
         int track=instance->movy_track>=0?instance->movy_track:index,target=-1;
