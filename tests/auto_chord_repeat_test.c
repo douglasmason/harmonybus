@@ -185,6 +185,64 @@ static void rapid_same_pad(void){
         API.destroy_instance(instance);
     }
 }
+/* Separate spatial approach rows must keep emitting after the target consumes
+   Chord + Arp / Release. Check injected render notes, not only player flags. */
+static void spatial_release_cycles(void){
+    const int gaps[]={0,1,250,1000};
+    for(int layout=1;layout<=2;layout++)for(int stock=0;stock<3;stock++)for(int gap=0;gap<4;gap++){
+        Inst *instance=fixture();instance->approach_layout=layout;instance->preview_count=32;
+        instance->player.config.phase=2;instance->player.config.start=5;
+        instance->next_anti_buffer_ms=25;instance->retrigger_held=1;
+        API.set_param(instance,"approach_bank_1",stock?"Stock: ii-V-Target":"Secondary V (Dom)");
+        if(stock==2){
+            API.set_param(instance,"approach_bank_1","Secondary V (Dom)");
+            API.set_param(instance,"approach_bank_2","Secondary II");
+            API.set_param(instance,"approach_touch_2","Down");
+            API.set_param(instance,"approach_touch_1","Down");
+            API.set_param(instance,"approach_touch_2","Up,50");
+        }else API.set_param(instance,"approach_touch_1","Down");
+        API.set_param(instance,"approach_touch_1","Up,50");
+        int source=layout==1?96:92;
+        const char *alias=layout==1?"96,-36,3":"92,-32,0";
+        arm_target_once(instance);
+        for(int cycle=0;cycle<3;cycle++){
+            for(int repeat=0;repeat<4;repeat++){
+                render_count=0;
+                API.set_param(instance,"hb_movy_input_approach",alias);midi(instance,1,source);
+                for(int frame=0;frame<4;frame++)advance(instance,1,64);
+                int attacks=0;for(int event=0;event<render_count;event++)
+                    attacks+=(rendered[event][1]&0xf0)==0x90&&rendered[event][3]>0;
+                assert(attacks>0);
+                midi(instance,0,source);
+                if(gaps[gap])advance(instance,gaps[gap],64);
+            }
+            midi(instance,1,60);advance(instance,10,64);midi(instance,0,60);
+            assert(!instance->player.repeat_override);
+            if(gaps[gap])advance(instance,gaps[gap],64);
+        }
+        advance(instance,10,64);
+        assert(!instance->motif.pending&&!instance->player.sounding_count);
+        API.destroy_instance(instance);
+    }
+}
+static void target_after_approach_attack(void){
+    for(int phase=0;phase<3;phase++)for(int latch=0;latch<2;latch++){
+        Inst *instance=fixture();instance->approach_layout=1;instance->preview_count=32;
+        instance->player.config.phase=phase;instance->player.config.start=5;
+        instance->player.config.latch=latch;
+        API.set_param(instance,"approach_touch_2","Down");API.set_param(instance,"approach_touch_1","Down");
+        API.set_param(instance,"approach_touch_2","Up,50");API.set_param(instance,"approach_touch_1","Up,50");
+        arm_target_once(instance);
+        API.set_param(instance,"hb_movy_input_approach","96,-36,3");midi(instance,1,96);advance(instance,1,64);
+        if(latch)midi(instance,0,96); /* A retained arp pool has the same timing risk as overlap. */
+        render_count=0;midi(instance,1,60);advance(instance,1,64);
+        int attacks=0;for(int event=0;event<render_count;event++)attacks+=(rendered[event][1]&0xf0)==0x90&&rendered[event][3]>0;
+        assert((attacks>0)==(phase!=1)); /* Auto stays quantized; other modes attack before release. */
+        midi(instance,0,60);midi(instance,0,96);advance(instance,1,64);
+        assert(!instance->player.repeat_override&&!instance->player.sounding_count);
+        API.destroy_instance(instance);
+    }
+}
 static void reset_track_and_advance(void){
     Inst *instance=fixture(),*other=API.create_instance("",0);
     API.set_param(other,"role","Follower");API.set_param(other,"render_channel","8");
@@ -224,4 +282,89 @@ static void reset_track_and_advance(void){
     API.set_param(instance,"track_defaults_reset","2");assert(instance->movy_track==15&&instance->role==3);
     API.destroy_instance(other);API.destroy_instance(instance);
 }
-int main(void){reset_track_and_advance();activate_existing_hold();rapid_same_pad();six_resolution_modes();selectable_modes();target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}
+static void release_operation(void){
+    for(int mode=0;mode<5;mode++){
+        Inst *instance=fixture();API.set_param(instance,"harm_play_release","500 ms");
+        arm_target_once(instance);
+        if(mode){
+            API.set_param(instance,"harm_play_release_control","Down");
+            if(mode==1||mode==4)API.set_param(instance,"harm_play_release_control","Up,40");
+            if(mode==3){API.set_param(instance,"harm_play_release_control","LatchOn");API.set_param(instance,"harm_play_release_control","Up,40");}
+            if(mode==4){API.set_param(instance,"harm_play_release_control","Down");API.set_param(instance,"harm_play_release_control","Up,40");}
+        }
+        midi(instance,1,60);advance(instance,1,64);
+        assert(!instance->player.release_used);
+        midi(instance,0,61);assert(!instance->player.release_used); /* Unrelated OFF cannot spend it. */
+        midi(instance,0,60);advance(instance,1,64);
+        int tails=0;for(int k=0;k<HB_CP_KEYS;k++)tails+=instance->player.keys[k].used&&instance->player.keys[k].release_end>0;
+        assert(!!tails==(mode>0&&mode<4));assert(!instance->player.release_armed);
+        if(mode==2){API.set_param(instance,"harm_play_release_control","Up,40");assert(!instance->player.release_held&&!instance->player.release_armed);}
+        assert(instance->player.release_latched==(mode==3));
+        API.destroy_instance(instance);
+    }
+    Inst *instance=fixture();
+    API.set_param(instance,"harm_play_release_control","Down");API.set_param(instance,"harm_play_release_control","Up,1000");assert(!instance->player.release_armed);
+    API.set_param(instance,"harm_play_release_control","Down");API.set_param(instance,"harm_play_release_control","Cancel");assert(!instance->player.release_held&&!instance->player.release_armed);
+    API.destroy_instance(instance);
+}
+static void release_envelope(void){
+    Inst *synced=fixture();API.set_param(synced,"harm_play_release","1/4");API.set_param(synced,"harm_play_release_control","LatchOn");
+    arm_target_once(synced);midi(synced,1,60);advance(synced,1,64);midi(synced,0,60);advance(synced,1,64);
+    advance(synced,100,64);tempo=60;advance(synced,600,64);assert(synced->player.repeat_override);
+    advance(synced,210,64);advance(synced,1,64);assert(!synced->player.repeat_override&&!synced->player.sounding_count);
+    char sync_state[16384],sync_label[32];API.get_param(synced,"state",sync_state,sizeof(sync_state));
+    API.set_param(synced,"harm_play_release","0 ms");API.set_param(synced,"state",sync_state);
+    API.get_param(synced,"harm_play_release",sync_label,sizeof(sync_label));assert(!strcmp(sync_label,"1/4"));
+    API.destroy_instance(synced);
+
+    for(int follow=0;follow<2;follow++)for(int chord_only=0;chord_only<2;chord_only++){
+        Inst *instance=fixture();API.set_param(instance,"harm_play_release","500 ms");API.set_param(instance,"harm_play_release_control","LatchOn");
+        API.set_param(instance,"harm_play_release_harmony",follow?"Follow Harmony":"Freeze at Release");
+        API.set_param(instance,"motion_control_32",chord_only?"Chord Only / Release":"Both / Release");
+        arm_target_once(instance);midi(instance,1,60);advance(instance,1,64);
+        instance->retrigger_held=1;uint8_t changed[]={64,68,71,74};hb_commit_observed_harmony(hb_infer_harmony(changed,4));
+        advance(instance,1,64);
+        for(int key=0;key<HB_CP_KEYS;key++)if(instance->player.keys[key].used){
+            assert(instance->player.keys[key].harmony_root==4);
+            assert(instance->player.keys[key].held&&!instance->player.keys[key].release_end);
+        }
+        midi(instance,0,60);
+        assert(instance->player.repeat_override); /* Final release owns its audible tail. */
+        int soft=0;double release_deadline=0;
+        for(int step=0;step<51;step++){
+            if(step==5){
+                for(int key=0;key<HB_CP_KEYS;key++)if(instance->player.keys[key].used)release_deadline=instance->player.keys[key].release_end;
+                instance->retrigger_held=1;
+                uint8_t notes[]={62,65,69,72};hb_commit_observed_harmony(hb_infer_harmony(notes,4));
+            }
+            int count=advance(instance,10,64);
+            if(step==5)for(int key=0;key<HB_CP_KEYS;key++)if(instance->player.keys[key].used)
+                {assert(instance->player.keys[key].release_end==release_deadline);assert(instance->player.keys[key].harmony_root==(follow?2:4));} /* Released harmony and deadline stay frozen. */
+            for(int event=0;event<count;event++)if((output[event][0]&0xf0)==0x90&&output[event][2]>0&&output[event][2]<100)soft++;
+        }
+        advance(instance,1,64);
+        assert(!instance->player.repeat_override&&!instance->player.sounding_count);
+        if(!chord_only)assert(soft>0);
+        char state[16384],value[32];API.get_param(instance,"state",state,sizeof(state));API.destroy_instance(instance);
+        instance=API.create_instance("",0);API.set_param(instance,"state",state);
+        API.get_param(instance,"harm_play_release",value,sizeof(value));assert(!strcmp(value,"500 ms"));
+        assert(instance->player.release_follow_harmony==follow);
+        API.destroy_instance(instance);
+    }
+    /* A spatial re-strike interrupts its own tail, keeps the alias, and attacks
+       at the new velocity instead of inheriting the fade. */
+    Inst *instance=fixture();instance->approach_layout=1;instance->preview_count=32;
+    API.set_param(instance,"harm_play_release","500 ms");API.set_param(instance,"harm_play_release_control","LatchOn");arm_target_once(instance);
+    for(int repeat=0;repeat<4;repeat++){
+        API.set_param(instance,"hb_movy_input_approach","96,-36,3");midi(instance,1,96);
+        int count=advance(instance,1,64),full=0;
+        for(int event=0;event<count;event++)full+=(output[event][0]&0xf0)==0x90&&output[event][2]==100;
+        assert(full);midi(instance,0,96);advance(instance,20,64);
+    }
+    midi(instance,1,60);advance(instance,1,64);midi(instance,0,60);advance(instance,20,64);
+    API.set_param(instance,"hb_movy_input_approach","96,-36,3");midi(instance,1,96);advance(instance,1,64);
+    assert(instance->movy_pad_shift[96]==-36&&!instance->player.repeat_override);
+    midi(instance,0,96);uint8_t stop=0xfc;API.process_midi(instance,&stop,1,output,lengths,64);advance(instance,1,64);
+    assert(!instance->player.sounding_count);API.destroy_instance(instance);
+}
+int main(void){release_operation();release_envelope();target_after_approach_attack();spatial_release_cycles();reset_track_and_advance();activate_existing_hold();rapid_same_pad();six_resolution_modes();selectable_modes();target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}

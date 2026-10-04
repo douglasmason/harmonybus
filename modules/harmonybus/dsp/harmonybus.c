@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.246"
+#define HB_VERSION "0.2.247"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -256,7 +256,7 @@ char follower_display[8][24]; int follower_display_valid;
 int follower_input_seen; /* Direct MIDI takes ownership from monitor fallback. */
 char harmony_display[4][48]; int harmony_display_valid;
 unsigned long long next_touch_mask; double next_touch_started,next_touch_until; hb_harmony_t next_touch_observed;
-uint8_t physical_velocity[16][128];unsigned short physical_target;int adopt_held,advance_pending,advance_phase,synthetic_advance;unsigned short advance_owner;
+uint8_t physical_velocity[16][128];unsigned short physical_target,target_attack_owner;int adopt_held,advance_pending,advance_phase,synthetic_advance;unsigned short advance_owner;
 int pressure_full_velocity;uint16_t pad_sounding[128];double pad_flash_seconds[128];unsigned long long preview_single_low,preview_single_high;unsigned preview_gap_mask;int approach_layout;int preview_count,preview_notes[32],preview_targets[32],preview_rows[32]; signed char movy_pad_shift[128]; int movy_pad_pending, movy_pad_pending_shift; uint8_t movy_input_degree[128],movy_input_target[128]; uint8_t follower_origin[128], follower_queue_origin[64]; int used,role,mode,content_map,travel_map,chromatic_map,touch_lanes[9],follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_quant_beat[64]; double follower_queue_harmony_beat[64]; hb_harmony_t render_harmony; int render_harmony_active; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],recorded_source_pitch[16][128],passthrough_held[128]; } Inst;
 #include "../../../src/role_policy_runtime.h"
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
@@ -1448,7 +1448,7 @@ static void hb_commit_observed_harmony(hb_harmony_t harmony){
         for(int owner=0;owner<HB_MAX_INSTANCES;owner++)if(g_pool[owner].used){
             hb_chord_player *player=&g_pool[owner].player;
             if(!hb_cp_settings(player)->clear_harmony||!hb_cp_settings(player)->latch)continue;
-            for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&!player->keys[key].held)
+            for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&!player->keys[key].held&&!player->keys[key].release_end)
                 memset(&player->keys[key],0,sizeof(player->keys[key]));
         }
     }
@@ -3091,6 +3091,13 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
             key->harmony_root=harmony.valid?harmony.root_pc:-1;
             key->harmony_mask=harmony.valid?hb_harmony_chord_mask(harmony):0;
             hb_override_capture(instance,source_note,1,key->root_pc,pitches,voice_count,key->semantic_mask);
+            /* A resolving target starts its own first-note-free attack. An
+               overlapping or latched approach pool must not defer it until
+               the old arp division, where a short target tap can vanish. */
+            if(!instance->movy_playback&&instance->target_attack_owner==channel*128+source_note+1){
+                instance->target_attack_owner=0;
+                if(hb_cp_playback(player)==1&&hb_cp_settings(player)->phase!=1){player->running=0;player->step=0;}
+            }
             break;
         }
     }
@@ -3381,11 +3388,13 @@ static void hb_reharmonize_held_chords(Inst *instance){
     runtime_config->latch=0;instance->approach_pad_armed=HB_APPROACH_OFF;
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
-        if(!key->used)continue;
+        if(!key->used||(key->release_end>0&&!key->release_follow))continue; /* Default: frozen release harmony. */
         int transform_due=key->transform_revision!=instance->play_revision;
         if(!transform_due&&(key->harmony_sequence==sequence||
             (key->harmony_root==harmony.root_pc&&key->harmony_mask==mask)))continue;
         int held=key->held;unsigned order=key->sequence;
+        int release_synced=key->release_synced,release_follow=key->release_follow;double release_start=key->release_start,release_end=key->release_end;
+        key->release_end=0; /* Following harmony does not re-trigger the release envelope. */
         instance->motion.event_override=instance->motion_player_events[index];
         int saved_origin=instance->movy_playback;
         instance->movy_playback=key->playback_origin;
@@ -3397,6 +3406,7 @@ static void hb_reharmonize_held_chords(Inst *instance){
         instance->movy_playback=saved_origin;
         instance->motion.event_override=0;
         key->held=held;key->sequence=order;changed=1;
+        key->release_synced=release_synced;key->release_follow=release_follow;key->release_start=release_start;key->release_end=release_end;
     }
     runtime_config->latch=latch;instance->approach_pad_armed=armed;
     /* Revoicing is not a new gesture. In particular, resetting Auto at a
@@ -3933,7 +3943,7 @@ static void hb_clear_instance_note_state(Inst *instance){
     instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.motif_latch=0;instance->approach_rows.bank_armed=-1;memset(instance->approach_rows.swallow,0,sizeof(instance->approach_rows.swallow));
     instance->motif.cancel=1;instance->motif.editor.armed=-1;
     memset(instance->chord_pair_held,0,sizeof(instance->chord_pair_held));memset(instance->chord_pair_owner,0,sizeof(instance->chord_pair_owner));instance->chord_pair_render=0;
-    instance->next_touch_mask=0;
+    instance->next_touch_mask=0;instance->target_attack_owner=0;
     instance->movy_pad_pending=0;memset(instance->movy_pad_shift,0,sizeof(instance->movy_pad_shift));
     instance->motion.held=0;instance->motion.pitch_held=0;instance->motion.enclosure=0;hb_mo_gesture_reset(&instance->motion);
     hb_mo_input_reset(&instance->motion);
@@ -3963,8 +3973,9 @@ static void hb_clear_instance_note_state(Inst *instance){
     instance->frames_since_change=0;
 }
 static void hb_stop_instance_note_state(Inst *instance){
+    instance->player.release_held=instance->player.release_armed=instance->player.release_latched=0;
     instance->dominant_color_held=instance->dominant_color_latched=0;
-    memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=0;instance->advance_pending=instance->advance_phase=0;
+    memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=instance->target_attack_owner=0;instance->advance_pending=instance->advance_phase=0;
     hb_override_clear(instance);
     instance->key_pending=instance->key_schedule_arm=0;
     /* Clearing the maps first loses the actual sounding pitch for raw and
@@ -4670,6 +4681,7 @@ static int tick_core(void *value,int frames,int sample_rate,uint8_t output[][3],
     double previous_beat=player->beat;
     double tempo=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
     if(tempo<=0.0)tempo=120.0;
+    player->release_beats+=elapsed*tempo/60.0;
     player->beat=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING?hb_current_beat():player->beat+elapsed*tempo/60.0;
     if(player->beat+1e-6<previous_beat)hb_cp_clear(player);
     if(player->flushing){
@@ -4759,13 +4771,25 @@ static void hb_gesture_target_input(Inst *instance,const uint8_t *input,int leng
     int type=input[0]&0xf0,source=input[1]&127,channel=input[0]&15;
     int on=type==0x90&&input[2],off=type==0x80||(type==0x90&&!input[2]);
     if((!on&&!off)||!hb_source_channel_matches(instance,channel))return;
+    if(on&&instance->player.release_ms!=0&&instance->motion.gesture_target_released){
+        /* The resolution was released: any new physical hit interrupts its
+           finishing tail and starts a fresh gesture under restored settings. */
+        int pending=instance->movy_pad_pending,shift=instance->movy_pad_pending_shift,row=instance->approach_rows.pending_row;
+        hb_mo_end_lanes(&instance->motion,instance->motion.gesture_target_released);
+        hb_auto_chord_repeat_sync(instance);
+        instance->movy_pad_pending=pending;instance->movy_pad_pending_shift=shift;instance->approach_rows.pending_row=row;
+    }
     if(on&&(instance->motif.editor.recording>=0||instance->movy_pad_pending==source+1))return;
     unsigned owner=(unsigned)(channel*128+source+1);
     unsigned long long once=(instance->motion.gesture_once|instance->motion.gesture_down)&~instance->motion.gesture_persistent;
     unsigned long long resolve_press=0;
     for(int lane=0;lane<HB_MOTION_LANES;lane++)if((once&(1ULL<<lane))&&instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT){
         if(on&&hb_mo_chord_arp_choice(instance->motion.lanes[lane].amount)>=3)resolve_press|=1ULL<<lane;
-        if(on&&!instance->motion.gesture_target_owner[lane])instance->motion.gesture_target_owner[lane]=(unsigned short)owner;
+        if(on&&!instance->motion.gesture_target_owner[lane]){
+            instance->motion.gesture_target_owner[lane]=(unsigned short)owner;
+            if(hb_mo_chord_arp_choice(instance->motion.lanes[lane].amount)<3)
+                instance->target_attack_owner=(unsigned short)owner;
+        }
         if(off&&instance->motion.gesture_target_owner[lane]==owner)instance->motion.gesture_target_released|=1ULL<<lane;
     }
     /* Resolve before rendering the target: it plays with underlying settings,
@@ -4778,6 +4802,17 @@ static void hb_gesture_finish_use(Inst *instance){
     unsigned long long target_lanes=0;
     for(int lane=0;lane<HB_MOTION_LANES;lane++)if(instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT)target_lanes|=1ULL<<lane;
     unsigned long long mask=once&target_lanes&instance->motion.gesture_target_released;
+    if(instance->player.release_ms!=0)for(int lane=0;lane<HB_MOTION_LANES;lane++)if(mask&(1ULL<<lane)){
+        int owner=instance->motion.gesture_target_owner[lane]-1,waiting=0;
+        for(int key=0;key<HB_CP_KEYS;key++){
+            const hb_cp_key *held=&instance->player.keys[key];
+            if(held->used&&held->channel==owner/128&&held->source==owner%128&&
+               (held->held||held->release_end>hb_cp_release_clock(&instance->player,held)))waiting=1;
+        }
+        for(int event=0;event<instance->follower_queue_count;event++)
+            if(instance->follower_queue_channel[event]==owner/128&&instance->follower_queue_note[event]==owner%128)waiting=1;
+        if(waiting)mask&=~(1ULL<<lane);
+    }
     if(!instance->active_count&&!instance->follower_queue_count)mask|=once&~target_lanes&instance->motion.gesture_once_used;
     if(mask){hb_mo_end_lanes(&instance->motion,mask);hb_auto_chord_repeat_sync(instance);}
 }
@@ -4845,10 +4880,10 @@ static void hb_key_operations_sync(void){
 }
 static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int capacity){
     Inst *instance=(Inst*)value;if(!instance)return 0;
-    if(input&&length>=1&&input[0]==0xfc){memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=0;}
+    if(input&&length>=1&&input[0]==0xfc){memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=instance->target_attack_owner=0;}
     if(input&&length>=3&&!instance->movy_playback&&hb_source_channel_matches(instance,input[0]&15)){
         int type=input[0]&0xf0,channel=input[0]&15,note=input[1]&127;
-        if(type==0xb0&&(note==120||note==123)){memset(instance->physical_velocity[channel],0,128);instance->physical_target=0;}
+        if(type==0xb0&&(note==120||note==123)){memset(instance->physical_velocity[channel],0,128);instance->physical_target=instance->target_attack_owner=0;}
         else if(type==0x80||(type==0x90&&!input[2]))instance->physical_velocity[channel][note]=0;
         else if(type==0x90&&instance->role<2&&instance->motif.editor.recording<0&&instance->movy_pad_pending!=note+1){
             instance->physical_velocity[channel][note]=input[2];instance->physical_target=(unsigned short)(channel*128+note+1);
@@ -5756,6 +5791,10 @@ static void hb_restore_state(Inst *instance,const char *state){
            parsed_config.order>=0&&parsed_config.order<7&&parsed_config.rate>=0&&parsed_config.rate<18&&
            parsed_config.gate>=0&&parsed_config.gate<4&&parsed_config.spread>=-9&&parsed_config.spread<=1000)config=parsed_config;
     }
+    instance->player.release_ms=instance->player.release_follow_harmony=0;
+    instance->player.release_held=instance->player.release_armed=instance->player.release_latched=instance->player.release_used=instance->player.release_turned=0;
+    const char *release_suffix=strstr(state,";hr1,");int release_ms,release_follow=0;
+    if(release_suffix&&sscanf(release_suffix,";hr1,%d,%d",&release_ms,&release_follow)>=1){instance->player.release_ms=hb_cp_clamp(release_ms,-9,1000);instance->player.release_follow_harmony=release_follow==1;}
     instance->render_velocity_gain=10000;
     const char *velocity_suffix=strstr(state,";rv1,");int render_gain=10000;
     if(velocity_suffix&&sscanf(velocity_suffix,";rv1,%d",&render_gain)==1&&render_gain>=0&&render_gain<=40000)
@@ -6107,6 +6146,9 @@ static hb_harmony_t hb_opening_harmony(void){
 }
 #include "../../../src/shared_context_runtime.h"
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+if(!strcmp(key,"harm_play_release_control"))return snprintf(buffer,(size_t)length,"%s",instance->player.release_latched?"Latch":instance->player.release_held?"Hold":instance->player.release_armed?"Armed":"Off");
+if(!strcmp(key,"harm_play_release_harmony"))return snprintf(buffer,(size_t)length,"%s",instance->player.release_follow_harmony?"Follow Harmony":"Freeze at Release");
+if(!strcmp(key,"harm_play_release")){int setting=instance->player.release_ms;return setting<0?snprintf(buffer,(size_t)length,"%s",BUFFER_DIVISIONS[-setting-1]):snprintf(buffer,(size_t)length,"%d ms",setting);}
 int shared_result=hb_sc_get(instance,key,buffer,length);if(shared_result>=0)return shared_result;
 int display_result=hb_display_snapshot(instance,key,buffer,length);if(display_result>=0)return display_result;
 int rhythm_result=hb_rr_get(instance,key,buffer,length);if(rhythm_result>=0)return rhythm_result;
@@ -6361,6 +6403,8 @@ if(!strcmp(key,"state")){
         used+=snprintf(buffer+used,(size_t)(length-used),";la1,%d,%d",instance->next_lookahead,instance->next_anti_buffer_ms);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";hu1,%d,%d,%d;ss1,%d,%d",g_humanize[0],g_humanize[1],g_humanize[2],hb_shared_dominant_scale(),hb_shared_borrowed_scale());
+    if(used<0||used>=length)return used;
+    if(instance->player.release_ms||instance->player.release_follow_harmony)used+=snprintf(buffer+used,(size_t)(length-used),";hr1,%d,%d",instance->player.release_ms,instance->player.release_follow_harmony);
     if(used<0||used>=length)return used;
     if(instance->render_velocity_gain!=10000)used+=snprintf(buffer+used,(size_t)(length-used),";rv1,%d",instance->render_velocity_gain);
     if(used<0||used>=length)return used;
@@ -6880,6 +6924,24 @@ static void hb_reset_track_defaults(Inst *instance,int track){
 }
 static void set_param(void *value,const char *key,const char *parameter){
     Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
+    if(!strcmp(key,"harm_play_release_control")){
+        hb_chord_player *p=&instance->player;
+        if(!strcmp(parameter,"Down")){p->release_held=1;p->release_used=p->release_turned=0;}
+        else if(!strcmp(parameter,"LatchOn")||!strcmp(parameter,"LatchOff")){
+            p->release_latched=!strcmp(parameter,"LatchOn");p->release_armed=p->release_held=0;p->release_turned=1;
+        }else if(!strncmp(parameter,"Up,",3)){
+            if(p->release_held&&!p->release_used&&!p->release_turned&&!p->release_latched&&parse_i(parameter+3,1000)<g_hb_hold_ms)p->release_armed=!p->release_armed;
+            p->release_held=0;
+        }else if(!strcmp(parameter,"Cancel"))p->release_held=0;
+        else if(!strcmp(parameter,"Off"))p->release_held=p->release_armed=p->release_latched=0;
+        return;
+    }
+    if(!strcmp(key,"harm_play_release_harmony")){instance->player.release_follow_harmony=!strcmp(parameter,"Follow Harmony");return;}
+    if(!strcmp(key,"harm_play_release")){
+        int setting=hb_cp_clamp(parse_i(parameter,0),0,1000);
+        for(int index=0;index<9;index++)if(!strcmp(parameter,BUFFER_DIVISIONS[index]))setting=-index-1;
+        instance->player.release_ms=setting;return;
+    }
     if(!strcmp(key,"track_defaults_reset")){hb_reset_track_defaults(instance,parse_i(parameter,-1));return;}
     if(!strcmp(parameter,"Secondary V"))parameter="Secondary V (Dom)";
     if(!strcmp(key,"harm_play_advance")){
@@ -6933,7 +6995,7 @@ static void set_param(void *value,const char *key,const char *parameter){
     instance->adopt_held=!strncmp(key,"motion_gesture_",15)||!strncmp(key,"motion_hold_",12);
     if(!hb_ar_set(instance,key,parameter)&&!hb_cs_set(instance,key,parameter)&&!hb_rr_set(instance,key,parameter)&&!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
     if(!strcmp(key,"state")){
-        memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=0;instance->advance_pending=instance->advance_phase=0;
+        memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=instance->target_attack_owner=0;instance->advance_pending=instance->advance_phase=0;
         if(!g_key_settings_restored){const char *suffix=strstr(parameter,";kc1,");int mode,travel,scale;
             if(suffix&&sscanf(suffix,";kc1,%d,%d,%d",&mode,&travel,&scale)==3&&mode>=0&&mode<=2&&travel>=0&&travel<=1&&scale>=1&&scale<HB_PARALLEL_COUNT){g_key_scale_mode=mode;g_key_conductor_travel=travel;g_parallel_scale=scale;g_key_settings_restored=1;}}
         instance->dominant_color_held=instance->dominant_color_latched=0;instance->dominant_color_family=3;

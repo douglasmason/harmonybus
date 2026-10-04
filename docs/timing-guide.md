@@ -1,6 +1,6 @@
-HarmonyBus 0.2.246 / Movy hbclean.163 includes Dominant Color on Harm Play Settings knob 5. Touch applies the selected dominant family to the current track, release restores the underlying major/minor settings, clockwise turn latches, and counterclockwise turn switches it off. Shift-turn selects a family (Altered V initially). Hold is solid teal; latch pulses teal. Only the selected family is saved; active holds/latches reset on stop or reload. Altered V keeps secondary preparation chords on their simplified baseline.
+HarmonyBus 0.2.247 / Movy hbclean.164 includes Dominant Color on Harm Play Settings knob 5. Touch applies the selected dominant family to the current track, release restores the underlying major/minor settings, clockwise turn latches, and counterclockwise turn switches it off. Shift-turn selects a family (Altered V initially). Hold is solid teal; latch pulses teal. Only the selected family is saved; active holds/latches reset on stop or reload. Altered V keeps secondary preparation chords on their simplified baseline.
 
-In Movy hbclean.163, Harm Play Settings knob 7 advances an active motif on a held target without recording a new input press. Chord + Arp can adopt an existing physical hold independently of Retrigger Held. Releasing the adopted target ends a one-shot; explicit latch persists. Rapid release/repress preserves the attack even between audio ticks. Secondary V (Dom) uses a semitone-below leading-tone approach for diminished destinations. Harmony Setup in Steps offers Reset Track via Shift + touch, preserving clips and shared settings while restoring track-number HarmonyBus defaults.
+In Movy hbclean.164, Harm Play Settings knob 7 advances an active motif on a held target without recording a new input press. Chord + Arp can adopt an existing physical hold independently of Retrigger Held. Releasing the adopted target ends a one-shot; explicit latch persists. Rapid release/repress preserves the attack even between audio ticks. Secondary V (Dom) uses a semitone-below leading-tone approach for diminished destinations. Harmony Setup in Steps offers Reset Track via Shift + touch, preserving clips and shared settings while restoring track-number HarmonyBus defaults.
 
 Target Scale Source is now knob 6. The Simple Major, Minor and Dim families move to Harmony Setup in Steps mode. The control remains usable alongside the sixteen Harm Play step assignments. A conductor color suspends learned predictions while active and reuses its saved baseline timeline on release; it does not replace that timeline with a temporary performance.
 
@@ -772,3 +772,24 @@ Repeated preview-layout writes are suppressed, identity key maps bypass harmony 
 A pad or recorded input is the reference; its resolved target may be a different pitch. Chord generation then supplies harmonic intent, and arp/strum timing emits the individual voices. Preserve note ownership and apply master transpose once. The dashed harmony-override branch is agreed behavior still in development, not a released feature.
 
 See [Transformation layers](transformation-layers.md) for examples, recording semantics and the boundary that prevents an override from remapping its own triggering event.
+
+## Harm Play release tail
+
+Release Length sets the tail duration for the temporary Chord + Arp operation.
+It defaults to 0 ms. Its choices match Follower Buffer and Strum: milliseconds
+through 1000 ms, followed by note lengths from 1/64 through 4 Bars.
+Musical values follow elapsed beats, including tempo changes during a tail;
+millisecond values keep their wall-clock duration.
+
+After a pad release, an arp continues with progressively softer MIDI attacks.
+Chord-only mode holds its notes until the tail ends; the instrument supplies
+any actual amplitude fade. Re-striking an approach pad restarts its attack at
+the new velocity. A new physical hit interrupts a resolving target's final tail
+and restores the underlying settings. Stop and panic cut tails immediately.
+
+Held notes can follow conductor harmony changes. Shift-turn Release chooses Freeze at Release (default) or Follow Harmony.
+Frozen tails retain their release-time pitches. Following tails revoice with
+conductor changes without restarting their fade. The choice applies to newly
+released tails and is saved per track.
+
+Release has two controls on Harm Play Settings: knob 6 is the Release operation; knob 7 is Release Length; knob 8 is Advance Motif. Hold Release for momentary use, tap to arm the next eligible Chord + Arp note release (tap again to disarm), and turn right/left to latch/unlatch it. A note-on or unrelated note-off does not consume the arm. Releasing a note while holding the control counts as using it, so lifting the control does not re-arm it. Shift-turn Release chooses Freeze at Release (default) or Follow Harmony. Length remains directly adjustable with the established millisecond and beat options. Stop clears the operation and tails; saved settings retain length and harmony policy, not transient arms/latches. Target Scale remains in the advanced harmony settings.
