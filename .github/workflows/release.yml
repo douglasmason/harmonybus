@@ -75,7 +75,7 @@ jobs:
           for level in levels.values():
               level['params']=[{**item,**canonical[item['key']]} if 'key' in item else item for item in level['params']]
           buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
-          assert buffer['options']==[f'{ms} ms' for ms in [0,25,*range(50,1001,50)]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars','4 Bars']
+          assert buffer['options']==[f'{ms} ms' for ms in [0,25,50,100,200,350,500,750,1000]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars','4 Bars']
           assert buffer['default']=='1/16'
           assert levels['root']['name']=='Harmony Bus'
           master=next(p for p in levels['global_transpose']['params'] if p.get('key')=='master_transpose')
