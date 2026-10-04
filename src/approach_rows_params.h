@@ -24,7 +24,7 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
         }else if(!on){state->motif_latch=state->latch=state->performance=0;}
         return 1;
     }
-    if(!strcmp(key,"approach_mode_active")){state->enabled=parse_i(value,0)!=0;state->down=state->knob_down=state->step_down=state->turned=0;state->performance=0;state->latch=state->motif_latch=0;state->bank_armed=-1;return 1;}
+    if(!strcmp(key,"approach_mode_active")){state->enabled=parse_i(value,0)!=0;if(instance->surface_enabled)return 1;state->down=state->knob_down=state->step_down=state->turned=0;state->performance=0;state->latch=state->motif_latch=0;state->bank_armed=-1;return 1;}
     int control=hb_ar_slot(key,"approach_control_",16);
     if(control>=0){
         if(hb_ar_spatial_layout(instance))return 1;
@@ -131,6 +131,7 @@ static int hb_ar_sequence_view(Inst *instance,char *buffer,int length){
 static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"approach_sequence_view"))return hb_ar_sequence_view(instance,buffer,length);
     hb_ar_state *state=&instance->approach_rows;int slot=hb_ar_slot(key,"approach_knob_",8);
+    if(!strcmp(key,"approach_latch_slots"))return snprintf(buffer,(size_t)length,"%u",state->latch_slots);
     int control=hb_ar_slot(key,"approach_control_",16);
     if(control>=0)return snprintf(buffer,(size_t)length,"%s",state->bank[control]<0?hb_ar_name(-state->bank[control]-1):MO_MOTIFS[state->bank[control]]);
     if(slot>=0)return snprintf(buffer,(size_t)length,"%s",hb_ar_name(state->knobs[slot]));

@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.249"
+#define HB_VERSION "0.2.250"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -257,7 +257,7 @@ int follower_input_seen; /* Direct MIDI takes ownership from monitor fallback. *
 char harmony_display[4][48]; int harmony_display_valid;
 unsigned long long next_touch_mask; double next_touch_started,next_touch_until; hb_harmony_t next_touch_observed;
 uint8_t physical_velocity[16][128];unsigned short physical_target,target_attack_owner;int adopt_held,advance_pending,advance_phase,synthetic_advance;unsigned short advance_owner;
-int pressure_full_velocity;uint16_t pad_sounding[128];double pad_flash_seconds[128];unsigned long long preview_single_low,preview_single_high;unsigned preview_gap_mask;int approach_layout;int preview_count,preview_notes[32],preview_targets[32],preview_rows[32]; signed char movy_pad_shift[128]; int movy_pad_pending, movy_pad_pending_shift; uint8_t movy_input_degree[128],movy_input_target[128]; uint8_t follower_origin[128], follower_queue_origin[64]; int used,role,mode,content_map,travel_map,chromatic_map,touch_lanes[9],follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_quant_beat[64]; double follower_queue_harmony_beat[64]; hb_harmony_t render_harmony; int render_harmony_active; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],recorded_source_pitch[16][128],passthrough_held[128]; } Inst;
+int pressure_full_velocity;uint16_t pad_sounding[128];double pad_flash_seconds[128];unsigned long long preview_single_low,preview_single_high;unsigned preview_gap_mask;int approach_layout,move_approach_layout,surface_approach_layout,surface_enabled;int surface_count[2],surface_notes[2][32],surface_targets[2][32],surface_rows[2][32];int preview_count,preview_notes[32],preview_targets[32],preview_rows[32]; signed char movy_pad_shift[128]; int movy_pad_pending, movy_pad_pending_shift; uint8_t movy_input_degree[128],movy_input_target[128]; uint8_t follower_origin[128], follower_queue_origin[64]; int used,role,mode,content_map,travel_map,chromatic_map,touch_lanes[9],follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_quant_beat[64]; double follower_queue_harmony_beat[64]; hb_harmony_t render_harmony; int render_harmony_active; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],recorded_source_pitch[16][128],passthrough_held[128]; } Inst;
 #include "../../../src/role_policy_runtime.h"
 static hb_harmony_t hb_mapping_target(hb_harmony_t harmony,int map_target);
 /* Shared controls; voice ownership and recorded events remain local. */
@@ -5193,10 +5193,29 @@ static void hb_set_scale_exceptions(int dominant,int borrowed){
     for(int role=0;role<2;role++){hb_role_store(role,HB_P_DOMINANT,dominant);hb_role_store(role,HB_P_BORROWED,borrowed);}
     g_scale_exceptions_restored=1;
 }
+/* Both surfaces share the selected input mode, including its gesture reset. */
+static void hb_surface_layout(Inst *instance){
+    int layout=instance->surface_enabled&&instance->surface_count[0]?
+        instance->surface_approach_layout:instance->move_approach_layout;
+    if(layout!=instance->approach_layout){
+        /* Layout changes invalidate the old gesture mode, but keep saved
+           row assignments. Entering spatial mode clears permanent motif latches. */
+        instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;
+        instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.motif_latch=instance->approach_rows.selected=0;
+        instance->approach_rows.turned=0;instance->approach_rows.bank_armed=-1;
+        if(layout)instance->approach_rows.latch_slots=0;
+    }
+    instance->approach_layout=layout;
+}
 static void set_param_base(void *value,const char *key,const char *parameter){Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
 if(!strcmp(key,"trail_enable")){instance->trail_enabled=!strcmp(parameter,"1");return;}
 if(!strcmp(key,"trail_clear")){memset(instance->trail_valid,0,sizeof(instance->trail_valid));memset(instance->trail_previous_valid,0,sizeof(instance->trail_previous_valid));return;}
-if(!strcmp(key,"pad_preview_inputs")){
+if(!strcmp(key,"surface_enabled")){
+    instance->surface_enabled=!strcmp(parameter,"1");
+    hb_surface_layout(instance);return;
+}
+int surface_bank=!strcmp(key,"surface_preview0")?0:!strcmp(key,"surface_preview1")?1:-1;
+if(!strcmp(key,"pad_preview_inputs")||surface_bank>=0){
     size_t size=strlen(parameter);int notes[32],targets[32],rows[32],layout=0;
     if(size>=2&&parameter[size-2]==';'&&(parameter[size-1]=='0'||parameter[size-1]=='1')){layout=parameter[size-1]-'0';size-=2;}
     if(size!=64&&size!=129&&size!=162)return;if(size>=129&&parameter[64]!=':')return;if(size==162&&parameter[129]!=':')return;
@@ -5207,16 +5226,16 @@ if(!strcmp(key,"pad_preview_inputs")){
         rows[slot]=size==162?parameter[130+slot]-'0':0;if(rows[slot]<0||rows[slot]>3)return;
         notes[slot]=note==255?-1:(int)note;targets[slot]=target?(int)target-1:-1;
     }
-    memcpy(instance->preview_notes,notes,sizeof(notes));memcpy(instance->preview_targets,targets,sizeof(targets));memcpy(instance->preview_rows,rows,sizeof(rows));
-    if(layout!=instance->approach_layout){
-        /* Layout changes invalidate the old gesture mode, but keep saved
-           row assignments. Entering spatial mode clears permanent motif latches. */
-        instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;
-        instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.motif_latch=instance->approach_rows.selected=0;
-        instance->approach_rows.turned=0;instance->approach_rows.bank_armed=-1;
-        if(layout)instance->approach_rows.latch_slots=0;
+    if(surface_bank>=0){
+        memcpy(instance->surface_notes[surface_bank],notes,sizeof(notes));
+        memcpy(instance->surface_targets[surface_bank],targets,sizeof(targets));
+        memcpy(instance->surface_rows[surface_bank],rows,sizeof(rows));
+        instance->surface_count[surface_bank]=32;instance->surface_approach_layout=layout;
+        hb_surface_layout(instance);return;
     }
-    instance->preview_count=32;instance->approach_layout=layout;return;
+    instance->move_approach_layout=layout;
+    memcpy(instance->preview_notes,notes,sizeof(notes));memcpy(instance->preview_targets,targets,sizeof(targets));memcpy(instance->preview_rows,rows,sizeof(rows));
+    instance->preview_count=32;hb_surface_layout(instance);return;
 }
 
 if(!strcmp(key,"hb_tempo")){
@@ -6188,6 +6207,24 @@ static hb_harmony_t hb_opening_harmony(void){
 }
 #include "../../../src/shared_context_runtime.h"
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+/* External previews have their own geometry, but use the production pad renderer.
+   This callback runs serially on the owning audio thread; restore every transient
+   field before returning, including failures and recursive pad_view reads. */
+int surface_bank=!strcmp(key,"surface_view0")?0:!strcmp(key,"surface_view1")?1:-1;
+if(surface_bank>=0){
+    if(!instance->surface_enabled||instance->surface_count[surface_bank]!=32)return -1;
+    int count=instance->preview_count,notes[32],targets[32],rows[32];
+    memcpy(notes,instance->preview_notes,sizeof(notes));memcpy(targets,instance->preview_targets,sizeof(targets));memcpy(rows,instance->preview_rows,sizeof(rows));
+    instance->preview_count=32;
+    memcpy(instance->preview_notes,instance->surface_notes[surface_bank],sizeof(notes));
+    memcpy(instance->preview_targets,instance->surface_targets[surface_bank],sizeof(targets));
+    memcpy(instance->preview_rows,instance->surface_rows[surface_bank],sizeof(rows));
+    int result=get_param(instance,"pad_view",buffer,length);
+    instance->preview_count=count;
+    memcpy(instance->preview_notes,notes,sizeof(notes));memcpy(instance->preview_targets,targets,sizeof(targets));memcpy(instance->preview_rows,rows,sizeof(rows));
+    return result;
+}
+
 if(!strcmp(key,"harm_play_release_control"))return snprintf(buffer,(size_t)length,"%s",instance->player.release_latched?"Latch":instance->player.release_held?"Hold":instance->player.release_armed?"Armed":"Off");
 if(!strcmp(key,"harm_play_release_harmony"))return snprintf(buffer,(size_t)length,"%s",instance->player.release_follow_harmony?"Follow Harmony":"Freeze at Release");
 if(!strcmp(key,"harm_play_release")){int setting=instance->player.release_ms;return setting<0?snprintf(buffer,(size_t)length,"%s",(setting<=-10?HB_CP_RELEASE_ARP[-setting-10]:BUFFER_DIVISIONS[-setting-1])):snprintf(buffer,(size_t)length,"%d ms",setting);}
