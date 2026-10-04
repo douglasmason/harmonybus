@@ -6,14 +6,17 @@ static void choose(Inst *instance,const char *operation,const char *mode){
 }
 static void degrees(void){
     const char *names[]={"Secondary II","Secondary III","Secondary IV","Secondary VI","Secondary VII"};
-    const int parent_roots[]={64,65,67,59,60},simple_roots[]={64,65,67,58,60};
+    const int parent_roots[]={64,65,67,59,60},simple_roots[]={64,65,67,58,61};
     const unsigned parent_masks[]={ (1<<4)|(1<<7)|(1<<11)|(1<<2), (1<<5)|(1<<9)|(1<<0)|(1<<4), (1<<7)|(1<<11)|(1<<2)|(1<<5), (1<<11)|(1<<2)|(1<<5)|(1<<9), (1<<0)|(1<<4)|(1<<7)|(1<<11)};
-    const unsigned simple_masks[]={ (1<<4)|(1<<7)|(1<<10)|(1<<2), (1<<5)|(1<<9)|(1<<0)|(1<<4), (1<<7)|(1<<10)|(1<<2)|(1<<5), (1<<10)|(1<<2)|(1<<5)|(1<<9), (1<<0)|(1<<4)|(1<<7)|(1<<10)};
+    const unsigned simple_masks[]={ (1<<4)|(1<<7)|(1<<10)|(1<<2), (1<<5)|(1<<9)|(1<<0)|(1<<4), (1<<7)|(1<<10)|(1<<2)|(1<<5), (1<<10)|(1<<2)|(1<<5)|(1<<9), (1<<1)|(1<<4)|(1<<7)|(1<<11)};
     for(int index=0;index<5;index++)for(int simple=0;simple<3;simple++)for(int chord=0;chord<3;chord++)for(int held=0;held<2;held++){
         Inst *instance=setup();instance->player.config.mode=chord;
         choose(instance,names[index],simple==2?"Simple Scale":simple==1?"Simple Chord":"Parent Scale");
         if(held)API.set_param(instance,"motion_gesture_1","Touch");else tap(instance,1);
-        unsigned expected=chord?(simple?simple_masks[index]:parent_masks[index]):1u<<mod12(simple?simple_roots[index]:parent_roots[index]);
+        /* Simple Scale now defaults to D harmonic minor: F augmented maj7,
+           Gm7, Bbmaj7 and C#dim7. Simple Chord retains its triad-based palette. */
+        const unsigned harmonic_masks[]={0x494,0x232,0x4a4,0x624,0x492};
+        unsigned expected=chord?(simple==2?harmonic_masks[index]:simple?simple_masks[index]:parent_masks[index]):1u<<mod12(simple?simple_roots[index]:parent_roots[index]);
         unsigned actual=played(instance,62);
         if(actual!=expected)fprintf(stderr,"degree %s simple%d chord%d held%d: %x expected %x\n",names[index],simple,chord,held,actual,expected);
         assert(actual==expected);release(instance,62);

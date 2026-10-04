@@ -75,7 +75,7 @@ static unsigned hb_local_output_scale(Inst *instance,hb_harmony_t harmony){
     int relative=mod12(harmony.root_pc-destination);
     unsigned chord=hb_harmony_chord_mask(harmony);
     int leading=relative==11&&(chord&(1u<<mod12(harmony.root_pc+3)))&&(chord&(1u<<mod12(harmony.root_pc+6)));
-    if((relative==7&&hb_chord_dominant(harmony))||leading||relative==2)
+    if((relative==7&&hb_chord_dominant(harmony))||leading||(relative==2&&harmony.intent_kind==1))
         collection=hb_function_family(instance,destination,collection,minor,relative==7?1:leading?2:0);
     else {unsigned borrowed=hb_borrowed_scale_mask(instance,harmony,destination,collection);if(borrowed)collection=borrowed;}
     return hb_accommodate_chord(collection,harmony,destination);

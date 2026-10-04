@@ -25,6 +25,24 @@ int main(void){
     for(int index=0;index<4;index++){assert(g_bus.next_model[index].phase==index);assert(g_bus.next_model[index].harmony.root_pc==roots[index]);}
     int first=g_timeline_owners[0].entry,second=g_timeline_owners[1].entry;
     assert(g_timelines[first-1].ready&&g_timelines[second-1].ready);
+    /* Persist both tracks, then simulate a new process and the first Play. */
+    char savedA[32768]={0},savedB[32768]={0};
+    assert(hb_timeline_save(&g_pool[0],savedA,sizeof(savedA),0)>0);
+    assert(hb_timeline_save(&g_pool[1],savedB,sizeof(savedB),0)>0);
+    begin();
+    /* Runtime edit counters deliberately differ after restoring settings. */
+    g_pool[0].motion.revision[0]+=25;
+    hb_timeline_restore(savedA);hb_timeline_restore(savedB);
+    for(int lane=0;lane<2;lane++)g_movy_clips[lane].running=0;
+    timeline_tick(0);assert(g_bus.next_model_locked&&g_bus.next_model_count==4);
+    for(int lane=0;lane<2;lane++)g_movy_clips[lane].running=1;
+    timeline_tick(0);assert(g_bus.next_model_locked&&g_bus.next_model_count==4);
+    hear(0,0);timeline_tick(96);hear(1,7);timeline_tick(192);hear(0,5);timeline_tick(288);hear(1,2);
+    assert(g_bus.next_model_locked);
+    first=g_timeline_owners[0].entry;second=g_timeline_owners[1].entry;
+    /* A truncated cache document never replaces a known valid timeline. */
+    hb_timeline_restore(";tl1,0,0,100,384,1,0,2:0,0,0,145,0,0,100,0,0,0,0");
+    assert(g_timelines[first-1].ready&&g_timelines[first-1].count==2);
     /* Change only A. B's independent timeline survives the unknown combination. */
     g_movy_clips[0].slot=1;g_movy_clips[0].revision=200;timeline_tick(384);hear(0,9);
     assert(!g_bus.next_model_locked&&g_timelines[second-1].ready);

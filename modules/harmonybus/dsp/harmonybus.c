@@ -126,7 +126,7 @@ static unsigned g_infer_revision=0,g_infer_cached_revision=0;
 static int g_infer_cached_root=-1,g_infer_cached_transpose=0,g_infer_cached_count=-1;
 static unsigned g_infer_cached_observed=0;
 static int g_infer_scale=1,g_infer_ambiguous=1,g_infer_has_evidence=0;
-static int g_scale_exceptions[2]={0,0},g_scale_exceptions_restored=0;
+static int g_scale_exceptions[2]={6,0},g_scale_exceptions_restored=0;
 static int g_pad_play_color=3;
 static int g_pad_both_color=2;
 static int g_pad_tonic_color=9;
@@ -919,6 +919,7 @@ static hb_key_context hb_key_for(Inst *instance){
     return context;
 }
 static int hb_key_pitch(Inst *instance,int pitch){return hb_key_map(hb_key_for(instance),pitch);}
+static unsigned hb_simplified_target_scale(Inst *instance,int target,unsigned parent);
 static unsigned hb_function_family(Inst *instance,int target,unsigned parent,int minor,int kind);
 static int hb_target_minor(unsigned parent,int target);
 static hb_harmony_t hb_key_harmony(Inst *instance,hb_harmony_t harmony){
@@ -2086,13 +2087,23 @@ static int hb_target_minor(unsigned parent,int target){
 static unsigned hb_function_family(Inst *instance,int target,unsigned parent,int minor,int kind){
     int choice=hb_policy_value(instance,minor?HB_P_DOMINANT_MINOR:HB_P_DOMINANT);
     if(!choice)return parent;
-    if(choice==3){
-        if(kind==1)return hb_explicit_scale_mask(mod12(target+8),9);
-        if(kind==0)return parent;
-        return hb_explicit_scale_mask(mod12(target),8);
+    unsigned collection;
+    if(choice==6)collection=hb_simplified_target_scale(instance,target,parent);
+    else if(choice==3){
+        if(kind==1)collection=hb_explicit_scale_mask(mod12(target+8),9);
+        else if(kind==0)collection=hb_simplified_target_scale(instance,target,parent);
+        else collection=hb_explicit_scale_mask(mod12(target),8);
+    }else{
+        static const int scales[]={0,8,9,0,1,19};
+        collection=hb_explicit_scale_mask(mod12(target),scales[choice]);
     }
-    static const int scales[]={0,8,9,0,1,19};
-    return hb_explicit_scale_mask(mod12(target),scales[choice]);
+    /* Every enabled family retains V's root, major third and minor seventh.
+       Altered V may omit its natural fifth; the actual voiced chord wins later. */
+    unsigned major_third=1u<<mod12(target+11);
+    if(!(collection&major_third))collection&=~(1u<<mod12(target+10));
+    collection|=major_third|(1u<<mod12(target+7))|(1u<<mod12(target+5));
+    if(choice!=3||kind!=1)collection|=1u<<mod12(target+2);
+    return collection;
 }
 static unsigned hb_effective_parent(Inst *instance,int tonic){
     hb_key_context context=hb_key_for(instance);
@@ -2156,7 +2167,7 @@ static uint16_t hb_parent_chord_scale(Inst *instance,hb_harmony_t harmony,int so
     hb_key_context context=hb_key_for(instance);
     if(instance->role==1&&context.active){tonic=mod12(context.target_root+transpose-g_bus.global_transpose);parent=hb_transpose_mask(context.target_mask,transpose-g_bus.global_transpose);}
     uint16_t shifted=hb_dominant_scale_mask(instance,harmony,tonic);
-    if(shifted)return shifted; /* Keep override degree roles; mapper preserves actual chord tones. */
+    if(shifted)return shifted; /* Final follower target includes actual chord tones without deleting altered tensions. */
     uint16_t borrowed=hb_borrowed_scale_mask(instance,harmony,tonic,parent);
     return hb_accommodate_chord(borrowed?borrowed:parent,harmony,tonic);
 }
@@ -2584,7 +2595,7 @@ static unsigned hb_simplified_target_scale(Inst *instance,int target,unsigned pa
 }
 static unsigned hb_relative_target_scale(Inst *instance,int target,unsigned parent,int dominant){
     int source=instance->target_scale_policy[0];
-    if(source==2||(source==0&&(dominant||(instance->motion.render_flags&HB_MO_SIMPLE))))
+    if(source==2||(source==0&&((dominant&&hb_policy_value(instance,hb_target_minor(parent,target)?HB_P_DOMINANT_MINOR:HB_P_DOMINANT)!=0)||(instance->motion.render_flags&HB_MO_SIMPLE))))
         return hb_simplified_target_scale(instance,target,parent);
     if(parent&(1u<<mod12(target)))return parent;
     int tonic=0;hb_resolve_follower_reference_root(instance,&tonic);tonic=mod12(tonic+g_bus.global_transpose);
@@ -3777,7 +3788,7 @@ static int infer_reference_root(Inst *instance){static const int major[7]={0,2,4
 static int reference_root(Inst *instance){if(g_bus.global_root_policy==0)return mod12(g_bus.global_explicit_root);if(g_bus.global_root_policy==1)return mod12(g_bus.global_input_root);instance->resolved_root=infer_reference_root(instance);return mod12(instance->resolved_root);}
 static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int max_output);
 static int hb_mt_tick(Inst *instance,uint8_t output[][3],int lengths[],int capacity);
-static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];g_conductor_block_ready=0;memset(&g_movy_clips[index],0,sizeof(g_movy_clips[index]));memset(instance,0,sizeof(*instance));hb_mt_init(&instance->motif);hb_ar_init(&instance->approach_rows);instance->chord_edit_lane=-1;instance->used=1;instance->render_velocity_gain=10000;instance->next_predict=1;instance->next_anti_buffer_ms=25;instance->boundary_buffer_ms=-3;hb_cp_defaults(&instance->player.config);instance->player.config.order=5;instance->player.config.chromatic_quality=3;hb_mo_defaults(&instance->motion);if(g_motion_settings_ready)hb_motion_copy_settings(&instance->motion,&g_motion_settings);hb_mo_route_init(&instance->motion_local);hb_mo_route_init(&instance->motion_render);instance->player.render_channel=-1;instance->movy_track=-1;instance->role=2;instance->mode=0;instance->content_map=1;instance->travel_map=0;instance->chromatic_map=1;memcpy(instance->touch_lanes,g_touch_lanes,sizeof(g_touch_lanes));instance->follower_split_map=0;instance->quant_timing=0;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=1;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}hb_role_sync(instance);return instance;}return 0;}
+static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];g_conductor_block_ready=0;memset(&g_movy_clips[index],0,sizeof(g_movy_clips[index]));memset(instance,0,sizeof(*instance));hb_mt_init(&instance->motif);hb_ar_init(&instance->approach_rows);instance->target_scale_policy[2]=2;instance->chord_edit_lane=-1;instance->used=1;instance->render_velocity_gain=10000;instance->next_predict=1;instance->next_anti_buffer_ms=25;instance->boundary_buffer_ms=-3;hb_cp_defaults(&instance->player.config);instance->player.config.order=5;instance->player.config.chromatic_quality=3;hb_mo_defaults(&instance->motion);if(g_motion_settings_ready)hb_motion_copy_settings(&instance->motion,&g_motion_settings);hb_mo_route_init(&instance->motion_local);hb_mo_route_init(&instance->motion_render);instance->player.render_channel=-1;instance->movy_track=-1;instance->role=2;instance->mode=0;instance->content_map=1;instance->travel_map=0;instance->chromatic_map=1;memcpy(instance->touch_lanes,g_touch_lanes,sizeof(g_touch_lanes));instance->follower_split_map=0;instance->quant_timing=0;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=1;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}hb_role_sync(instance);return instance;}return 0;}
 static void destroy_inst(void *value){Inst *instance=(Inst*)value;
 if(instance){
     hb_override_clear(instance);
@@ -4956,7 +4967,7 @@ static int hb_context_to_legacy_stability(int context){
     return 2;
 }
 static const char *BORROWED_SCALE_OPTS[]={"Minimal","Aeolian","Dorian","Mixolydian b6"};
-static const char *DOMINANT_SCALE_OPTS[]={"Parent / Minimal","Harmonic Minor","Melodic Minor","Altered V","Major","Harmonic Major"};
+static const char *DOMINANT_SCALE_OPTS[]={"None","Harmonic Minor","Melodic Minor","Altered V","Major","Harmonic Major","Simplified Target"};
 static const char *CP_CHORD_MODE[]={"Off","Rendered Note Root","Conductor Chord"};
 static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth","Played Top Note"};
 static const char *CP_CHORD_VOICING[]={"Close","Root + Fifth Low","Alternate Up","Shell"};
@@ -5161,12 +5172,12 @@ if(!strcmp(key,"borrowed_scale")){
     return;
 }
 if(!strcmp(key,"dominant_minor_scale")){
-    int selected=enum_index(!strcmp(parameter,"Off")?"Parent / Minimal":parameter,DOMINANT_SCALE_OPTS,6,hb_role_default(0,HB_P_DOMINANT_MINOR));
+    int selected=enum_index((!strcmp(parameter,"Off")||!strcmp(parameter,"Parent / Minimal"))?"None":parameter,DOMINANT_SCALE_OPTS,7,hb_role_default(0,HB_P_DOMINANT_MINOR));
     for(int role=0;role<2;role++)hb_role_store(role,HB_P_DOMINANT_MINOR,selected);
     g_role_restored=1;return;
 }
 if(!strcmp(key,"dominant_scale")){
-    int selected=enum_index(!strcmp(parameter,"Off")?"Parent / Minimal":parameter,DOMINANT_SCALE_OPTS,6,hb_shared_dominant_scale());
+    int selected=enum_index((!strcmp(parameter,"Off")||!strcmp(parameter,"Parent / Minimal"))?"None":parameter,DOMINANT_SCALE_OPTS,7,hb_shared_dominant_scale());
     hb_set_scale_exceptions(selected,hb_shared_borrowed_scale());
     return;
 }
@@ -5652,13 +5663,18 @@ static void hb_restore_state(Inst *instance,const char *state){
         int dominant=0,borrowed=0;
         const char *shared_suffix=strstr(state,";ss1,");
         if(shared_suffix){
-            if(sscanf(shared_suffix,";ss1,%d,%d",&dominant,&borrowed)==2&&dominant>=0&&dominant<6&&borrowed>=0&&borrowed<4)
-                hb_set_scale_exceptions(dominant,borrowed);
+            if(sscanf(shared_suffix,";ss1,%d,%d",&dominant,&borrowed)==2&&dominant>=0&&dominant<7&&borrowed>=0&&borrowed<4){
+                /* Modern role defaults are restored separately; the legacy
+                   suffix must not overwrite an already selected role family. */
+                if(strstr(state,";rp2,")||strstr(state,";rp1,")){
+                    hb_store_scale_exceptions(dominant,borrowed);g_scale_exceptions_restored=1;
+                }else hb_set_scale_exceptions(dominant,borrowed);
+            }
         }else{
             /* Legacy per-track presets: first non-default choice seeds the
                global setting. Defaults on earlier tracks cannot hide it. */
             const char *legacy=strstr(state,";ds1,");
-            if(legacy&&sscanf(legacy,";ds1,%d",&dominant)==1&&dominant>0&&dominant<6)
+            if(legacy&&sscanf(legacy,";ds1,%d",&dominant)==1&&dominant>0&&dominant<7)
                 hb_set_scale_exceptions(dominant,0);
         }
     }
@@ -6298,7 +6314,7 @@ if(!strcmp(key,"state")){
     used=hb_mo_save(&instance->motion,buffer,length,used);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";kc1,%d,%d,%d",g_key_scale_mode,g_key_conductor_travel,g_parallel_scale);
-    return hb_ar_save(instance,buffer,length,hb_mt_save(instance,buffer,length,used));
+    return hb_timeline_save(instance,buffer,length,hb_ar_save(instance,buffer,length,hb_mt_save(instance,buffer,length,used)));
 }
 if(!strcmp(key,"hb_record_action")){
     if(!instance->action_count)return snprintf(buffer,(size_t)length,"-");
@@ -6580,6 +6596,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             }
         }
         int used=snprintf(buffer,(size_t)length,"%u,%u,%u,%d,%u,%d,%d,%d,%d,%d|tonic1,%u|full1,%d,%u",current_inputs,effective_inputs,scale_inputs,ready,lookahead_inputs,g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4],tonic_inputs,full_lookahead.valid!=0,full_inputs);
+        if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|learn1,%u",g_timeline_generation);
         if(g_pad_next_pulse&&used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|nextpulse1,%u,%u",next_inputs,next_pads);
         if((secondary_mask||tertiary_mask)&&used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|nextranks1,%u,%u,%u,%u",secondary_inputs,secondary_pads,tertiary_inputs,tertiary_pads);
         if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|playpads1,%u|playflash1,%u",playing,flashing);
@@ -6788,7 +6805,7 @@ static void set_param(void *value,const char *key,const char *parameter){
     }
     for(int field=0;field<4;field++)if(!strcmp(key,HB_TARGET_KEYS[field])){
         instance->target_scale_policy[field]=enum_index(parameter,HB_TARGET_OPTIONS[field],HB_TARGET_COUNTS[field],instance->target_scale_policy[field]);
-        instance->opening_hash=0;instance->dirty=1;return;
+        memset(instance->key_cache,0,sizeof(instance->key_cache));instance->opening_hash=0;instance->dirty=1;return;
     }
     if(!strcmp(key,"conductor_key_travel")){g_key_conductor_travel=!strcmp(parameter,"Closest Chord Tone");return;}
     if(!strcmp(key,"key_center_scale")){static const char *options[]={"Simplified Major/Minor","Mode from Parent","Use Parallel Scale"};g_key_scale_mode=enum_index(parameter,options,3,g_key_scale_mode);return;}
@@ -6804,13 +6821,13 @@ static void set_param(void *value,const char *key,const char *parameter){
     if(!strcmp(key,"state")){
         if(!g_key_settings_restored){const char *suffix=strstr(parameter,";kc1,");int mode,travel,scale;
             if(suffix&&sscanf(suffix,";kc1,%d,%d,%d",&mode,&travel,&scale)==3&&mode>=0&&mode<=2&&travel>=0&&travel<=1&&scale>=1&&scale<HB_PARALLEL_COUNT){g_key_scale_mode=mode;g_key_conductor_travel=travel;g_parallel_scale=scale;g_key_settings_restored=1;}}
-        memset(instance->target_scale_policy,0,sizeof(instance->target_scale_policy));
+        memset(instance->target_scale_policy,0,sizeof(instance->target_scale_policy));instance->target_scale_policy[2]=2;
         const char *target_suffix=strstr(parameter,";ts1,");int target_policy[4];
         if(target_suffix&&sscanf(target_suffix,";ts1,%d,%d,%d,%d",&target_policy[0],&target_policy[1],&target_policy[2],&target_policy[3])==4){
             int valid=1;for(int field=0;field<4;field++)if(target_policy[field]<0||target_policy[field]>=HB_TARGET_COUNTS[field])valid=0;
             if(valid)memcpy(instance->target_scale_policy,target_policy,sizeof(target_policy));
         }
-        hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);hb_rr_restore(instance,parameter);hb_ar_restore(instance,parameter);}
+        hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);hb_rr_restore(instance,parameter);hb_ar_restore(instance,parameter);hb_timeline_forget_track(instance);hb_timeline_restore(parameter);}
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_role_sync(&g_pool[index]);
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
     if(!strcmp(key,"role")||!strcmp(key,"track_role")){g_sc_dirty=1;hb_sc_resolve(instance);}

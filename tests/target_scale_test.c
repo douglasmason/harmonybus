@@ -2,7 +2,7 @@
 #include "secondary_chord_test.c"
 
 static void source_and_quality(void){
-    Inst *instance=setup();
+    Inst *instance=setup();API.set_param(instance,"dominant_scale","Simplified Target");
     unsigned parent=hb_explicit_scale_mask(0,1);
     /* F is Lydian in C: Auto keeps it for ordinary secondary degrees, but
        tonicizes it for explicit dominant/leading-tone function. */
@@ -43,7 +43,7 @@ static void musical_output(void){
 }
 
 static void cadence_and_dominant_family(void){
-    Inst *instance=setup();
+    Inst *instance=setup();API.set_param(instance,"dominant_scale","Simplified Target");
     unsigned parent=hb_explicit_scale_mask(0,1);
     hb_cadence_step step={.kind=HB_CAD_DEGREE,.degree=6};
     API.set_param(instance,"target_scale_source","Simplified");
@@ -79,9 +79,9 @@ static void persistence_and_track_isolation(void){
     API.get_param(instance,"target_scale_minor",value,sizeof(value));assert(!strcmp(value,"Melodic Minor"));
     char *suffix=strstr(state,";ts1,");assert(suffix);*suffix=0;
     API.set_param(other,"state",state);
-    for(int field=0;field<4;field++)assert(other->target_scale_policy[field]==0);
+    for(int field=0;field<4;field++)assert(other->target_scale_policy[field]==(field==2?2:0));
     strcat(state,";ts1,2,1,99,1");API.set_param(other,"state",state);
-    for(int field=0;field<4;field++)assert(other->target_scale_policy[field]==0);
+    for(int field=0;field<4;field++)assert(other->target_scale_policy[field]==(field==2?2:0));
     API.destroy_instance(other);API.destroy_instance(instance);
 }
 
@@ -101,7 +101,7 @@ static void plain_and_dominant_degrees(void){
     API.set_param(instance,"motion_operation","Secondary VI (Dom)");
     tap(instance,1);assert(played(instance,62)==tones(58,4,7,11));release(instance,62);
     API.set_param(instance,"dominant_minor_scale","Altered V");
-    assert(hb_secondary_collection(instance,15,62,hb_explicit_scale_mask(0,1))==hb_explicit_scale_mask(2,2));
+    assert(hb_secondary_collection(instance,15,62,hb_explicit_scale_mask(0,1))==hb_explicit_scale_mask(2,8));
     for(int role=14;role<=17;role++){
         instance->motion.events[HB_MOTION_LANES]=hb_mo_role_word(role);
         assert(hb_mo_source_secondary(&instance->motion)==role);
@@ -111,7 +111,24 @@ static void plain_and_dominant_degrees(void){
     assert(hb_ar_intent(hb_ar_code(&instance->approach_rows,0))==hb_mo_role_word(16));
     API.destroy_instance(instance);
 }
-int main(void){plain_and_dominant_degrees();
+static void dominant_family_contract(void){
+    Inst *instance=setup();
+    unsigned parent=hb_explicit_scale_mask(0,1);
+    API.set_param(instance,"dominant_minor_scale","None");
+    assert(hb_secondary_collection(instance,15,62,parent)==parent);
+    const char *families[]={"Simplified Target","Harmonic Minor","Melodic Minor","Altered V","Major","Harmonic Major"};
+    for(int family=0;family<6;family++){
+        API.set_param(instance,"dominant_minor_scale",families[family]);
+        unsigned collection=hb_function_family(instance,2,parent,1,1);
+        assert((collection&((1u<<9)|(1u<<1)|(1u<<7)))==((1u<<9)|(1u<<1)|(1u<<7)));
+    }
+    API.set_param(instance,"dominant_minor_scale","Simplified Target");
+    assert(hb_function_family(instance,2,parent,1,1)==hb_explicit_scale_mask(2,8));
+    API.set_param(instance,"target_scale_minor","Natural Minor");
+    assert(hb_function_family(instance,2,parent,1,1)==hb_explicit_scale_mask(2,8)); /* preserve A7 even with a custom minor baseline */
+    API.destroy_instance(instance);
+}
+int main(void){dominant_family_contract();plain_and_dominant_degrees();
     source_and_quality();musical_output();cadence_and_dominant_family();persistence_and_track_isolation();
     puts("target scales: Auto/Parent/Simplified, quality families, MIDI, cadences, precedence and persistence pass");
 }
