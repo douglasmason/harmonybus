@@ -22,7 +22,7 @@ static unsigned long long g_timeline_age;
 static int g_timeline_dirty;
 static unsigned g_timeline_generation;
 static double hb_timeline_abs(double value){return value<0?-value:value;}
-static hb_tick_t hb_timeline_rendering(const Inst *instance){
+static hb_tick_t hb_timeline_rendering(Inst *instance){
     hb_tick_t hash=14695981039346656037ULL;
     int globals[]={hb_shared_follower_scale(),hb_shared_dominant_scale(),hb_shared_borrowed_scale(),
         hb_global_root_policy(),hb_global_explicit_root(),g_bus.global_input_root};
@@ -31,8 +31,15 @@ static hb_tick_t hb_timeline_rendering(const Inst *instance){
     const unsigned char *bytes=(const unsigned char *)&instance->player.config;
     for(unsigned index=0;index<sizeof(instance->player.config);index++)hash=hb_clip_hash(hash,bytes[index]);
     /* Revision counters restart with the process. Hash the saved settings. */
-    bytes=(const unsigned char *)instance->motion.lanes;
-    for(unsigned index=0;index<sizeof(instance->motion.lanes);index++)hash=hb_clip_hash(hash,bytes[index]);
+    hb_tick_t revisions=14695981039346656037ULL;
+    for(int index=0;index<HB_MOTION_LANES;index++)revisions=hb_clip_hash(revisions,instance->motion.revision[index]);
+    if(!instance->timeline_lane_cached||instance->timeline_lane_revision!=revisions){
+        hb_tick_t settings=14695981039346656037ULL;
+        bytes=(const unsigned char *)instance->motion.lanes;
+        for(unsigned index=0;index<sizeof(instance->motion.lanes);index++)settings=hb_clip_hash(settings,bytes[index]);
+        instance->timeline_lane_hash=settings;instance->timeline_lane_revision=revisions;instance->timeline_lane_cached=1;
+    }
+    hash=hb_clip_hash(hash,instance->timeline_lane_hash);
     bytes=(const unsigned char *)&instance->play;
     for(unsigned index=0;index<sizeof(instance->play);index++)hash=hb_clip_hash(hash,bytes[index]);
     for(int index=0;index<4;index++)hash=hb_clip_hash(hash,(unsigned)instance->target_scale_policy[index]);

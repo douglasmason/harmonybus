@@ -338,6 +338,7 @@ static void dominant_shift(void){
     char state[16384],restored[16384];API.get_param(instance,"state",state,sizeof(state));
     Inst *copy=API.create_instance("",NULL);API.set_param(copy,"state",state);API.get_param(copy,"state",restored,sizeof(restored));
     assert(!strcmp(state,restored)&&hb_policy_value(copy,HB_P_DOMINANT_MINOR)==3);
+    assert(hb_timeline_rendering(instance)==hb_timeline_rendering(copy));
     API.destroy_instance(copy);API.destroy_instance(instance);
 }
 static void release_harmony_and_state(void){
