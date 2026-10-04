@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.242'
+          assert module['version']=='0.2.243'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Next Pulse follows Pad Color Form, including added sevenths and extensions. Preserve detected power, shell and rootless forms separately from inferred harmonic identity. Recorded chord evidence remains independent of conductor form settings. Pair with Movy hbclean.143." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Configurable Auto/Parent/Simplified target-scale resolution, quality-specific simplification families, and shared live/motif/cadence behavior. Pair with Movy hbclean.159 for two full eight-assignment Harm Play panels and separate settings." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Next Pulse follows Pad Color Form, including added sevenths and extensions. Preserve detected power, shell and rootless forms separately from inferred harmonic identity. Recorded chord evidence remains independent of conductor form settings. Pair with Movy hbclean.143." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Configurable Auto/Parent/Simplified target-scale resolution, quality-specific simplification families, and shared live/motif/cadence behavior. Pair with Movy hbclean.159 for two full eight-assignment Harm Play panels and separate settings." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
