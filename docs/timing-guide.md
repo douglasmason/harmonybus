@@ -1,8 +1,8 @@
-HarmonyBus 0.2.248 / Movy hbclean.165 includes Dominant Color on Harm Play Settings knob 5. Touch applies the selected dominant family to the current track, release restores the underlying major/minor settings, clockwise turn latches, and counterclockwise turn switches it off. Shift-turn selects a family (Altered V initially). Hold is solid teal; latch pulses teal. Only the selected family is saved; active holds/latches reset on stop or reload. Altered V keeps secondary preparation chords on their simplified baseline.
+HarmonyBus 0.2.249 / Movy hbclean.166 includes Dominant Color on Harm Play Settings knob 5. Touch applies the selected dominant family to the current track, release restores the underlying major/minor settings, clockwise turn latches, and counterclockwise turn switches it off. Shift-turn selects a family (Altered V initially). Hold is solid teal; latch pulses teal. Only the selected family is saved; active holds/latches reset on stop or reload. Altered V keeps secondary preparation chords on their simplified baseline.
 
-In Movy hbclean.165, Harm Play Settings knob 7 advances an active motif on a held target without recording a new input press. Chord + Arp can adopt an existing physical hold independently of Retrigger Held. Releasing the adopted target ends a one-shot; explicit latch persists. Rapid release/repress preserves the attack even between audio ticks. Secondary V (Dom) uses a semitone-below leading-tone approach for diminished destinations. Harmony Setup in Steps offers Reset Track via Shift + touch, preserving clips and shared settings while restoring track-number HarmonyBus defaults.
+In Movy hbclean.166, Harm Play Settings knob 8 advances an active motif on a held target without recording a new input press. Chord + Arp can adopt an existing physical hold independently of Retrigger Held. Releasing the adopted target ends a one-shot; explicit latch persists. Rapid release/repress preserves the attack even between audio ticks. Secondary V (Dom) uses a semitone-below leading-tone approach for diminished destinations. Harmony Setup in Steps offers Reset Track via Shift + touch, preserving clips and shared settings while restoring track-number HarmonyBus defaults.
 
-Target Scale Source is now knob 6. The Simple Major, Minor and Dim families move to Harmony Setup in Steps mode. The control remains usable alongside the sixteen Harm Play step assignments. A conductor color suspends learned predictions while active and reuses its saved baseline timeline on release; it does not replace that timeline with a temporary performance.
+Target Scale Source and the Simple Major, Minor and Dim families are in Harmony Setup in Steps mode. The control remains usable alongside the sixteen Harm Play step assignments. A conductor color suspends learned predictions while active and reuses its saved baseline timeline on release; it does not replace that timeline with a temporary performance.
 
 Dominant to Major and Dominant to Minor now default to Simplified Target: major destinations use Major and minor destinations use Harmonic Minor. None disables dominant substitution and keeps the parent collection. Every enabled dominant family retains the dominant root, major third and flat seventh. Altered V affects V only; secondary preparation chords use the simplified target baseline. Existing saved family selections are preserved.
 
@@ -776,8 +776,16 @@ See [Transformation layers](transformation-layers.md) for examples, recording se
 ## Harm Play release tail
 
 Release Length sets the tail duration for the temporary Chord + Arp operation.
-It defaults to 0 ms. Its choices match Follower Buffer and Strum: milliseconds
-through 1000 ms, followed by note lengths from 1/64 through 4 Bars.
+It defaults to 0 ms. Choices are ordered as milliseconds, beats/bars, Arp Notes,
+and Arp Cycles. All millisecond timing lists now offer 0, 25, 50, 100, 200, 350,
+500, 750 and 1000 ms; older saved intermediate values remain valid. The existing
+beat/bar options run from 1/64 through 4 Bars.
+
+Arp Note choices are 1/2, 1, 2, 3, 4 and 8 times the interval between arp steps,
+independent of Gate. Arp Cycle choices are 1/4, 1/2, 1, 2 and 4 complete patterns,
+including octave range and the return steps of Up/Down. Rate and pattern length
+are captured when the pad is released, so later pattern edits do not move the
+tail deadline.
 Musical values follow elapsed beats, including tempo changes during a tail;
 millisecond values keep their wall-clock duration.
 

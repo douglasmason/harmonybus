@@ -366,6 +366,8 @@ static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,
     for(int index=0;index<count;index++)key->notes[index]=notes[index];
     return 1;
 }
+static const char *HB_CP_RELEASE_ARP[]={"Arp Note 1/2","Arp Note 1","Arp Note 2","Arp Note 3","Arp Note 4","Arp Note 8","Arp Cycle 1/4","Arp Cycle 1/2","Arp Cycle 1","Arp Cycle 2","Arp Cycle 4"};
+static double hb_cp_release_beats(hb_chord_player *player);
 static void hb_cp_off(hb_chord_player *player,int source,int channel){
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
@@ -376,7 +378,7 @@ static void hb_cp_off(hb_chord_player *player,int source,int channel){
             player->release_armed=0;player->release_used=1;
             key->release_synced=player->release_ms<0;key->release_follow=player->release_follow_harmony;
             key->release_start=key->release_synced?player->release_beats:player->seconds;
-            key->release_end=key->release_start+(key->release_synced?hb_cp_division(-player->release_ms-1):player->release_ms/1000.0);
+            key->release_end=key->release_start+(key->release_synced?hb_cp_release_beats(player):player->release_ms/1000.0);
             continue;
         }
         if(!hb_cp_settings(player)->latch){
@@ -460,6 +462,20 @@ static double hb_cp_step_beats(hb_chord_player *player){
         if(cycle>0)rate/=cycle;
     }
     return rate;
+}
+/* Capture the current arp pattern duration at release; tempo remains live. */
+static double hb_cp_release_beats(hb_chord_player *player){
+    if(player->release_ms>=-9)return hb_cp_division(-player->release_ms-1);
+    static const double factors[]={0.5,1,2,3,4,8,0.25,0.5,1,2,4};
+    int index=hb_cp_clamp(-player->release_ms-10,0,10);
+    double duration=hb_cp_step_beats(player)*factors[index];
+    if(index>=6){
+        hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
+        int count=hb_cp_entries(player,entries,0);
+        int cycle=hb_cp_settings(player)->order==2&&count>1?2*count-2:count;
+        duration*=cycle>0?cycle:1;
+    }
+    return duration;
 }
 static double hb_cp_release_clock(const hb_chord_player *player,const hb_cp_key *key){return key->release_synced?player->release_beats:player->seconds;}
 static int hb_cp_release_velocity(const hb_chord_player *player,const hb_cp_key *key){
