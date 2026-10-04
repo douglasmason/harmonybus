@@ -25,6 +25,11 @@ int main(void){
     for(int index=0;index<4;index++){assert(g_bus.next_model[index].phase==index);assert(g_bus.next_model[index].harmony.root_pc==roots[index]);}
     int first=g_timeline_owners[0].entry,second=g_timeline_owners[1].entry;
     assert(g_timelines[first-1].ready&&g_timelines[second-1].ready);
+    /* A temporary conductor color suspends predictions, not the saved model. */
+    API.set_param(&g_pool[0],"dominant_color","Down");hb_movy_refresh();
+    assert(g_movy_blocked==3&&g_timelines[first-1].ready);
+    API.set_param(&g_pool[0],"dominant_color","Up");hb_movy_refresh();
+    assert(!g_movy_blocked&&g_bus.next_model_locked&&g_timelines[first-1].ready);
     /* Persist both tracks, then simulate a new process and the first Play. */
     char savedA[32768]={0},savedB[32768]={0};
     assert(hb_timeline_save(&g_pool[0],savedA,sizeof(savedA),0)>0);
