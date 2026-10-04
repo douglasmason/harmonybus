@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.242"
+#define HB_VERSION "0.2.243"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -245,7 +245,7 @@ static int g_render_window=0,g_render_restored=0;
 #include "../../../src/key_context.h"
 #include "../../../src/shared_context.h"
 typedef struct { hb_key_context context; hb_harmony_t input,output; int valid,major_choice,minor_choice; } hb_key_harmony_cache;
-typedef struct { double trail_at[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; unsigned closest_source,closest_target; int closest_root,closest_valid,closest_pc[12]; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_scope,key_schedule_arm,key_pending; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[16][128]; int chord_pair_owner[16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
+typedef struct { int target_scale_policy[4]; double trail_at[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; unsigned closest_source,closest_target; int closest_root,closest_valid,closest_pc[12]; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_scope,key_schedule_arm,key_pending; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[16][128]; int chord_pair_owner[16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 unsigned long long motion_follower_events[64][HB_MOTION_LANES+1],motion_output_events[128][HB_MOTION_LANES+1];
 unsigned long long motion_player_events[HB_CP_KEYS][HB_MOTION_LANES+1],motion_held_events[128][HB_MOTION_LANES+1];
 uint8_t motion_output_valid[128]; uint8_t (*motion_output_base)[3];
@@ -2561,22 +2561,42 @@ static int hb_relative_approach_offset(int role,int target,unsigned scale){
 /* A chromatic pad is itself a destination. Borrow the scale of that local
    destination for its relative cadence, without changing its landing quality.
    In-scale destinations retain the complete effective parent collection. */
-static unsigned hb_relative_target_scale(Inst *instance,int target,unsigned parent){
-    if(instance->motion.render_flags&HB_MO_SIMPLE){
-        int minor=(parent&(1u<<mod12(target+3)))&&!(parent&(1u<<mod12(target+4)));
-        return hb_explicit_scale_mask(mod12(target),minor?2:1);
-    }
+static const char *HB_TARGET_KEYS[]={"target_scale_source","target_scale_major","target_scale_minor","target_scale_diminished"};
+static const char *HB_TARGET_SOURCE[]={"Auto","Parent","Simplified"};
+static const char *HB_TARGET_MAJOR[]={"Major","Lydian","Harmonic Major"};
+static const char *HB_TARGET_MINOR[]={"Natural Minor","Dorian","Harmonic Minor","Melodic Minor"};
+static const char *HB_TARGET_DIMINISHED[]={"Locrian","Locrian #2"};
+static const char *const *HB_TARGET_OPTIONS[]={HB_TARGET_SOURCE,HB_TARGET_MAJOR,HB_TARGET_MINOR,HB_TARGET_DIMINISHED};
+static const int HB_TARGET_COUNTS[]={3,3,4,2};
+/* A target's third and fifth determine its quality before any dominant-family
+   treatment. The selected family is rooted at the destination, not the approach. */
+static unsigned hb_simplified_target_scale(Inst *instance,int target,unsigned parent){
+    static const int major[]={1,5,19},minor[]={2,3,8,9},diminished[]={7,14};
+    int is_minor=hb_target_minor(parent,target);
+    int is_diminished=is_minor&&(parent&(1u<<mod12(target+6)))&&!(parent&(1u<<mod12(target+7)));
+    int scale=is_diminished?diminished[instance->target_scale_policy[3]]:
+        is_minor?minor[instance->target_scale_policy[2]]:major[instance->target_scale_policy[1]];
+    return hb_explicit_scale_mask(mod12(target),scale);
+}
+static unsigned hb_relative_target_scale(Inst *instance,int target,unsigned parent,int dominant){
+    int source=instance->target_scale_policy[0];
+    if(source==2||(source==0&&(dominant||(instance->motion.render_flags&HB_MO_SIMPLE))))
+        return hb_simplified_target_scale(instance,target,parent);
     if(parent&(1u<<mod12(target)))return parent;
     int tonic=0;hb_resolve_follower_reference_root(instance,&tonic);tonic=mod12(tonic+g_bus.global_transpose);
     int relative=mod12(target-tonic);
     if((parent&(1u<<mod12(tonic+4)))&&(relative==3||relative==8||relative==10)){
-        /* Borrowed bIII/bVI/bVII destinations use the chosen parallel family.
-           Minimal uses Aeolian here to establish the missing destination. */
+        /* Missing chromatic destinations keep the established borrowed family. */
         static const int borrowed[]={2,2,3,13};
         return hb_explicit_scale_mask(tonic,borrowed[hb_policy_value(instance,HB_P_BORROWED)]);
     }
-    /* No diatonic/borrowed interpretation: tonicize the explicit chromatic root. */
     return hb_explicit_scale_mask(mod12(target),1);
+}
+/* Legacy Simple Chord edits only the chord core; explicit new source choices
+   operate on the whole target collection and take precedence over that mode. */
+static int hb_target_simple_chord(Inst *instance){
+    return instance->target_scale_policy[0]==0&&(instance->motion.render_flags&HB_MO_SIMPLE)&&
+        !(instance->motion.render_flags&HB_MO_SIMPLE_SCALE);
 }
 static unsigned hb_relative_dominant_scale(Inst *instance,int root,int destination,int leading,unsigned parent){
     (void)root;
@@ -2585,13 +2605,15 @@ static unsigned hb_relative_dominant_scale(Inst *instance,int root,int destinati
 /* Resolve a recorded cadence step against its current destination. */
 typedef struct {int root,quality,destination;unsigned scale;int minor;} hb_cadence_result;
 static hb_cadence_result hb_resolve_cadence(Inst *instance,const hb_cadence_step *step,int target,unsigned parent){
-    unsigned collection=hb_relative_target_scale(instance,target,parent);
+    unsigned collection=hb_relative_target_scale(instance,target,parent,0);
     for(int depth=0;depth<3&&step->path[depth];depth++){
         int term=step->path[depth];
         static const int major[]={0,0,2,4,5,7,9,11};
         target+=term<0?major[-term]:hb_nth_scale_interval_from_root(collection,mod12(target),term-1);
-        collection=hb_relative_target_scale(instance,target,parent);
+        collection=hb_relative_target_scale(instance,target,parent,0);
     }
+    int dominant=step->kind==HB_CAD_DOMINANT||step->kind==HB_CAD_MINOR_DOMINANT||step->kind==HB_CAD_LEADING;
+    collection=hb_relative_target_scale(instance,target,collection,dominant);
     hb_cadence_result result={target,0,target,collection,hb_target_minor(collection,target)};
     if(step->kind==HB_CAD_MINOR_DEGREE||step->kind==HB_CAD_MINOR_DOMINANT||step->kind==HB_CAD_MINOR_TARGET)result.minor=1;
     if(step->kind==HB_CAD_BORROWED||step->kind==HB_CAD_MINOR_DEGREE||step->kind==HB_CAD_MINOR_DOMINANT||step->kind==HB_CAD_MINOR_TARGET)
@@ -2607,7 +2629,7 @@ static hb_cadence_result hb_resolve_cadence(Inst *instance,const hb_cadence_step
             result.scale=hb_function_family(instance,target,result.scale,hb_target_minor(result.scale,target),0);
         result.root+=hb_nth_scale_interval_from_root(result.scale,mod12(target),step->degree-1)-(step->degree>=6?12:0);
         if(step->kind==HB_CAD_MINOR_DEGREE)result.quality=8;
-        else if(step->kind==HB_CAD_DEGREE&&(instance->motion.render_flags&HB_MO_SIMPLE)&&!(instance->motion.render_flags&HB_MO_SIMPLE_SCALE)){
+        else if(step->kind==HB_CAD_DEGREE&&hb_target_simple_chord(instance)){
             int third=hb_nth_scale_interval_from_root(result.scale,mod12(result.root),2);
             int fifth=hb_nth_scale_interval_from_root(result.scale,mod12(result.root),4);
             int seventh=hb_nth_scale_interval_from_root(result.scale,mod12(result.root),6);
@@ -2628,7 +2650,7 @@ static int hb_map_follower_note_now(Inst *instance,int source_note){
         unsigned parent=hb_parent_chord_scale(instance,harmony,parent_root,hb_follower_input_scale(instance,parent_root),g_bus.global_transpose);
         const hb_cadence_step *cadence=hb_mo_current_cadence(&instance->motion);
         if(cadence)rendered=hb_resolve_cadence(instance,cadence,rendered,parent).root;
-        else rendered+=hb_relative_approach_offset(secondary,rendered,hb_relative_target_scale(instance,rendered,parent));
+        else rendered+=hb_relative_approach_offset(secondary,rendered,hb_relative_target_scale(instance,rendered,parent,secondary==2||secondary==12));
         while(rendered<0)rendered+=12;while(rendered>127)rendered-=12;
     }
     return rendered;
@@ -2734,10 +2756,15 @@ static hb_approach_result hb_resolve_chord_approach(Inst *instance,int target_no
         }else if(secondary==12||secondary==13){
             root_note=target_note+(secondary==12?-1:1);config.quality=9;
             intent_kind=secondary==12?3:5;
+            if(secondary==12){
+                intent_minor=hb_target_minor(target_scale,target_note);
+                target_scale=hb_relative_target_scale(instance,target_note,target_scale,1);
+                target_scale=hb_relative_dominant_scale(instance,root_note,target_note,1,target_scale);
+            }
         }else if(secondary){
             unsigned parent_collection=target_scale;
             int parent_root=target_note+hb_relative_approach_offset(secondary,target_note,parent_collection);
-            target_scale=hb_relative_target_scale(instance,target_note,target_scale);
+            target_scale=hb_relative_target_scale(instance,target_note,target_scale,secondary==2);
             intent_minor=hb_target_minor(target_scale,target_note);
             if(secondary==1)target_scale=hb_function_family(instance,target_note,target_scale,hb_target_minor(target_scale,target_note),0);
             root_note+=hb_relative_approach_offset(secondary,target_note,target_scale);
@@ -2751,7 +2778,7 @@ static hb_approach_result hb_resolve_chord_approach(Inst *instance,int target_no
                dominant function while taking extensions from that collection. */
             if(secondary==7)target_scale=hb_explicit_scale_mask(mod12(root_note),3); /* substitute ii: Dorian */
             config.quality=secondary==2||secondary==6?6:secondary==5||secondary==7?7:0;
-            if((instance->motion.render_flags&HB_MO_SIMPLE)&&!(instance->motion.render_flags&HB_MO_SIMPLE_SCALE)&&secondary!=2&&secondary!=3){
+            if(hb_target_simple_chord(instance)&&secondary!=2&&secondary!=3){
                 int third=hb_nth_scale_interval_from_root((uint16_t)target_scale,mod12(root_note),2);
                 int fifth=hb_nth_scale_interval_from_root((uint16_t)target_scale,mod12(root_note),4);
                 int seventh=hb_nth_scale_interval_from_root((uint16_t)target_scale,mod12(root_note),6);
@@ -3063,7 +3090,7 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
         unsigned parent=hb_parent_chord_scale(instance,harmony,parent_root,hb_follower_input_scale(instance,parent_root),g_bus.global_transpose);
         const hb_cadence_step *cadence=hb_mo_current_cadence(&instance->motion);
         if(cadence)*pitch=hb_resolve_cadence(instance,cadence,*pitch,parent).root;
-        else *pitch+=hb_relative_approach_offset(secondary,*pitch,hb_relative_target_scale(instance,*pitch,parent));
+        else *pitch+=hb_relative_approach_offset(secondary,*pitch,hb_relative_target_scale(instance,*pitch,parent,secondary==2||secondary==12));
         while(*pitch<0)*pitch+=12;while(*pitch>127)*pitch-=12;
     }
     for(int index=0;index<HB_MOTION_LANES;index++){
@@ -6014,6 +6041,8 @@ if(!strcmp(key,"parallel_mode")){int owner=(int)(instance-g_pool);int active=g_s
 if(!strcmp(key,"conductor_key_travel"))return snprintf(buffer,(size_t)length,"%s",g_key_conductor_travel?"Closest Chord Tone":"Relative");
 if(!strcmp(key,"key_center_scale"))return snprintf(buffer,(size_t)length,"%s",g_key_scale_mode==2?"Use Parallel Scale":g_key_scale_mode==0?"Simplified Major/Minor":"Mode from Parent");
 if(!strcmp(key,"parallel_scale"))return snprintf(buffer,(size_t)length,"%s",HB_PARALLEL_NAMES[g_parallel_scale]);
+for(int field=0;field<4;field++)if(!strcmp(key,HB_TARGET_KEYS[field]))
+    return snprintf(buffer,(size_t)length,"%s",HB_TARGET_OPTIONS[field][instance->target_scale_policy[field]]);
 int approach_result=hb_ar_get(instance,key,buffer,length);if(approach_result>=0)return approach_result;
 int motif_result=hb_mt_get(instance,key,buffer,length);if(motif_result>=0)return motif_result;
 hb_role_sync(instance);int policy_result=hb_policy_get(instance,key,buffer,length);if(policy_result>=0)return policy_result;
@@ -6227,6 +6256,8 @@ if(!strcmp(key,"state")){
     int used=get_param(value,"pad_state_base",buffer,length);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";pd1,%d,%d,%d,%d,%d",g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4]);
+    if(used<0||used>=length)return used;
+    used+=snprintf(buffer+used,(size_t)(length-used),";ts1,%d,%d,%d,%d",instance->target_scale_policy[0],instance->target_scale_policy[1],instance->target_scale_policy[2],instance->target_scale_policy[3]);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";pas1,%d",g_pad_adjacent_shading);
     if(used<0||used>=length)return used;
@@ -6729,6 +6760,10 @@ static void set_param(void *value,const char *key,const char *parameter){
         else if(!strncmp(parameter,"Down",4)||!strcmp(parameter,"On")||!strcmp(parameter,"LatchOn")){g_key_armed=1;g_sc_arm_owner=(int)(instance-g_pool);g_key_preview[0]=0;}
         return;
     }
+    for(int field=0;field<4;field++)if(!strcmp(key,HB_TARGET_KEYS[field])){
+        instance->target_scale_policy[field]=enum_index(parameter,HB_TARGET_OPTIONS[field],HB_TARGET_COUNTS[field],instance->target_scale_policy[field]);
+        instance->opening_hash=0;instance->dirty=1;return;
+    }
     if(!strcmp(key,"conductor_key_travel")){g_key_conductor_travel=!strcmp(parameter,"Closest Chord Tone");return;}
     if(!strcmp(key,"key_center_scale")){static const char *options[]={"Simplified Major/Minor","Mode from Parent","Use Parallel Scale"};g_key_scale_mode=enum_index(parameter,options,3,g_key_scale_mode);return;}
     if(!strcmp(key,"parallel_scale")){g_parallel_scale=enum_index(parameter,HB_PARALLEL_NAMES,HB_PARALLEL_COUNT,g_parallel_scale);if(g_parallel_scale<1)g_parallel_scale=1;if(g_sc_live[instance-g_pool][HB_SC_PARALLEL].on)hb_key_parallel(instance,1);return;}
@@ -6743,6 +6778,12 @@ static void set_param(void *value,const char *key,const char *parameter){
     if(!strcmp(key,"state")){
         if(!g_key_settings_restored){const char *suffix=strstr(parameter,";kc1,");int mode,travel,scale;
             if(suffix&&sscanf(suffix,";kc1,%d,%d,%d",&mode,&travel,&scale)==3&&mode>=0&&mode<=2&&travel>=0&&travel<=1&&scale>=1&&scale<HB_PARALLEL_COUNT){g_key_scale_mode=mode;g_key_conductor_travel=travel;g_parallel_scale=scale;g_key_settings_restored=1;}}
+        memset(instance->target_scale_policy,0,sizeof(instance->target_scale_policy));
+        const char *target_suffix=strstr(parameter,";ts1,");int target_policy[4];
+        if(target_suffix&&sscanf(target_suffix,";ts1,%d,%d,%d,%d",&target_policy[0],&target_policy[1],&target_policy[2],&target_policy[3])==4){
+            int valid=1;for(int field=0;field<4;field++)if(target_policy[field]<0||target_policy[field]>=HB_TARGET_COUNTS[field])valid=0;
+            if(valid)memcpy(instance->target_scale_policy,target_policy,sizeof(target_policy));
+        }
         hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);hb_rr_restore(instance,parameter);hb_ar_restore(instance,parameter);}
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_role_sync(&g_pool[index]);
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
