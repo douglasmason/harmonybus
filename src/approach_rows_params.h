@@ -131,6 +131,7 @@ static int hb_ar_sequence_view(Inst *instance,char *buffer,int length){
 static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"approach_sequence_view"))return hb_ar_sequence_view(instance,buffer,length);
     hb_ar_state *state=&instance->approach_rows;int slot=hb_ar_slot(key,"approach_knob_",8);
+    if(!strcmp(key,"approach_latch_slots"))return snprintf(buffer,(size_t)length,"%u",state->latch_slots);
     int control=hb_ar_slot(key,"approach_control_",16);
     if(control>=0)return snprintf(buffer,(size_t)length,"%s",state->bank[control]<0?hb_ar_name(-state->bank[control]-1):MO_MOTIFS[state->bank[control]]);
     if(slot>=0)return snprintf(buffer,(size_t)length,"%s",hb_ar_name(state->knobs[slot]));

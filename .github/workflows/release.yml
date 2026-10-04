@@ -40,7 +40,7 @@ jobs:
         run: |
           node --check modules/harmonybus/canvas.js
           node tests/pad_pulse_widget_test.mjs
-          for test in harmony_core input_pad knob_latch connector_harmony pad_feedback; do
+          for test in harmony_core input_pad knob_latch connector_harmony pad_feedback external_surface; do
             cc -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all "tests/${test}_test.c" src/harmony_core.c -lm -o "/tmp/${test}_test"
             "/tmp/${test}_test"
           done
@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.249'
+          assert module['version']=='0.2.250'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add arp-note and arp-cycle release lengths, including octave range and Up/Down patterns. Shorten all millisecond timing option lists while preserving saved values and beat/bar choices. Pair with Movy hbclean.166." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add independent external-surface pad previews and permanent approach-bank latch readout. Pair with Movy hbclean.167 for original Launchpad and Launchpad X input, operation buttons and LED feedback." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add arp-note and arp-cycle release lengths, including octave range and Up/Down patterns. Shorten all millisecond timing option lists while preserving saved values and beat/bar choices. Pair with Movy hbclean.166." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add independent external-surface pad previews and permanent approach-bank latch readout. Pair with Movy hbclean.167 for original Launchpad and Launchpad X input, operation buttons and LED feedback." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
