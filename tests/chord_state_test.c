@@ -25,6 +25,7 @@ int main(void){
     assert(!instance->player.state_override);
     assert(!memcmp(&baseline,&instance->player.config,sizeof(baseline)));
     assert(!instance->player.sounding_count);
+    midi(instance,0,60); /* Release the physical hold before testing a new pair. */
     API.set_param(instance,"chord_input","Root/Bass + Top");
     API.set_param(instance,"motion_hold_1","On");
     midi(instance,1,48);assert(!hb_cp_held(&instance->player));

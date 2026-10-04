@@ -356,7 +356,19 @@ static void hb_cp_off(hb_chord_player *player,int source,int channel){
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
         if(!key->used||key->source!=source||key->channel!=channel)continue;
-        key->held=0;if(!hb_cp_settings(player)->latch)key->used=0;
+        key->held=0;if(!hb_cp_settings(player)->latch){
+            key->used=0;
+            for(int voice=0;voice<key->count;voice++){
+                int pitch=key->notes[voice],shared=0;
+                for(int other=0;other<HB_CP_KEYS;other++)if(player->keys[other].used&&player->keys[other].channel==channel)
+                    for(int tone=0;tone<player->keys[other].count;tone++)if(player->keys[other].notes[tone]==pitch)shared=1;
+                if(!shared&&player->sounding[channel][pitch])player->retrigger[channel][pitch]=1;
+            }
+        }
+    }
+    if(!hb_cp_settings(player)->latch){
+        int any=0;for(int index=0;index<HB_CP_KEYS;index++)any|=player->keys[index].used;
+        if(!any){player->running=0;player->step=0;}
     }
 }
 /* Emit a desired-state difference, OFFs first. Capacity exhaustion leaves the

@@ -3,7 +3,7 @@
 /* Slots reference the existing motif library/presets; no phrase copy is saved. */
 #define HB_AR_SHIFT 43
 #define HB_AR_MASK (2047ULL<<HB_AR_SHIFT)
-static const char *HB_AR_NAMES[]={"Connector Below","Connector Above","Scale Above","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Tritone II","Tritone Sub","Secondary III","Secondary IV","Secondary VII","Motif 1","Motif 2","Motif 3","Motif 4","Motif 5","Motif 6","Motif 7","Motif 8","Motif 9","Motif 10","Motif 11","Motif 12","Motif 13","Motif 14","Motif 15","Motif 16","Leading Tone","Upper Dim","Secondary Fifth","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)"};
+static const char *HB_AR_NAMES[]={"Connector Below","Connector Above","Scale Above","Secondary II","Secondary V (Dom)","Secondary VI","Backdoor II","Backdoor V","Tritone II","Tritone Sub","Secondary III","Secondary IV","Secondary VII","Motif 1","Motif 2","Motif 3","Motif 4","Motif 5","Motif 6","Motif 7","Motif 8","Motif 9","Motif 10","Motif 11","Motif 12","Motif 13","Motif 14","Motif 15","Motif 16","Leading Tone","Upper Dim","Secondary Fifth","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)"};
 /* Index 2 remains a legacy Scale Above assignment; new choices use Secondary II. */
 static const char *hb_ar_name(int choice){return HB_AR_NAMES[choice==2?3:choice];}
 typedef struct {

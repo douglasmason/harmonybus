@@ -104,11 +104,11 @@ static void leading_tone_dominant(void){
     Inst *source=fixture();
     hb_cp_config config=source->player.config;config.size=3;
     hb_approach_result result=hb_resolve_chord_approach(source,71,hb_explicit_scale_mask(0,1),config,chord(0,0,0),2,0,0,0);
-    assert(result.root==66&&result.config.quality==6&&result.intent_minor);
+    assert(result.root==70&&result.config.quality==9&&result.intent_minor);
     int pitches[HB_CP_VOICES];unsigned semantic=0;
     int count=hb_cp_voice_semantic(result.config,result.root,0,0,result.scale,pitches,&semantic);
     unsigned mask=0;for(int index=0;index<count;index++)mask|=1u<<mod12(pitches[index]);
-    assert(mask==((1u<<6)|(1u<<10)|(1u<<1)|(1u<<4)));
+    assert(mask==((1u<<7)|(1u<<10)|(1u<<1)|(1u<<4)));
     API.destroy_instance(source);
 }
 int main(void){

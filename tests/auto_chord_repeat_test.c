@@ -154,4 +154,74 @@ static void six_resolution_modes(void){
         API.destroy_instance(instance);
     }
 }
-int main(void){six_resolution_modes();selectable_modes();target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}
+static void activate_existing_hold(void){
+    for(int retrigger=0;retrigger<2;retrigger++){
+        Inst *instance=fixture();instance->retrigger_held=retrigger;
+        midi(instance,1,60);advance(instance,1,64);unsigned captured=instance->action_count;
+        API.set_param(instance,"motion_gesture_32","Knob,1000");
+        assert(instance->player.repeat_override&&hb_cp_held(&instance->player)==1);
+        assert(instance->motion.gesture_target_owner[31]==61);
+        assert(instance->action_count==captured);
+        API.set_param(instance,"motion_gesture_32","Up,40,1040");
+        assert(instance->motion.gesture_target_owner[31]==61);
+        advance(instance,1,64);midi(instance,0,60);
+        assert(!instance->player.repeat_override);
+        advance(instance,1,64);assert(!instance->player.sounding_count);
+        API.destroy_instance(instance);
+    }
+}
+static void rapid_same_pad(void){
+    for(int arp=0;arp<2;arp++){
+        Inst *instance=fixture();API.set_param(instance,"chord_mode","Scale Degree");
+        API.set_param(instance,"arp_playback",arp?"Repeat Arp":"Off");
+        instance->player.config.latch=0;instance->player.config.phase=2;
+        midi(instance,1,60);advance(instance,1,64);
+        for(int repeat=0;repeat<12;repeat++){
+            midi(instance,0,60);midi(instance,1,60);int count=advance(instance,1,64),attacks=0;
+            for(int event=0;event<count;event++)attacks+=(output[event][0]&0xf0)==0x90&&output[event][2];
+            assert(attacks>0);
+        }
+        midi(instance,0,60);advance(instance,1,64);assert(!instance->player.sounding_count);
+        API.destroy_instance(instance);
+    }
+}
+static void reset_track_and_advance(void){
+    Inst *instance=fixture(),*other=API.create_instance("",0);
+    API.set_param(other,"role","Follower");API.set_param(other,"render_channel","8");
+    API.set_param(instance,"approach_mode_active","1");
+    API.set_param(instance,"approach_bank_1","Stock: ii-V-Target");
+    API.set_param(instance,"approach_control_1","LatchOn");
+    midi(instance,1,60);advance(instance,1,64);
+    unsigned captured=instance->action_count;
+    unsigned event=instance->approach_rows.event;
+    API.set_param(instance,"harm_play_advance","Next");
+    assert(instance->advance_pending==1);
+    for(int frame=0;frame<3;frame++)advance(instance,1,64);
+    assert(instance->advance_pending==0&&instance->physical_velocity[0][60]);
+    assert(instance->action_count==captured);
+    assert(instance->approach_rows.event!=event);
+    midi(instance,0,60);API.set_param(instance,"harm_play_advance","Next");assert(!instance->advance_pending);
+    API.set_param(instance,"approach_control_1","LatchOn");
+    midi(instance,1,60);advance(instance,1,64);event=instance->approach_rows.event;
+    API.set_param(instance,"motion_gesture_32","Knob,1000");
+    assert(instance->approach_rows.performance&&instance->approach_rows.event==event);
+    API.set_param(instance,"motion_gesture_32","Up,40,1040");
+    midi(instance,0,60);advance(instance,1,64);assert(!instance->player.repeat_override&&!instance->player.sounding_count);
+    int shared_scale=hb_shared_follower_scale();
+    for(int track=0;track<16;track++){
+        instance->movy_track=track;API.set_param(instance,"render_channel","12");
+        API.set_param(instance,"dominant_color","LatchOn");
+        char number[16];snprintf(number,sizeof(number),"%d",track);
+        API.set_param(instance,"track_defaults_reset",number);
+        assert(instance->movy_track==track);
+        assert(instance->role==(track>=12?3:track%4==0?0:1));
+        assert(instance->render_channel==(track%4==0?2:track%4));assert(instance->source_channel==-1);
+        assert(!instance->dominant_color_latched&&!instance->policy_overrides);
+        assert(instance->player.config.mode==(instance->role==0?1:0));
+        assert(other->render_channel==7&&other->role==1&&hb_shared_follower_scale()==shared_scale);
+        for(int lane=0;lane<16;lane++)assert(instance->motion.lanes[lane].operation==HB_MO_OFF);
+    }
+    API.set_param(instance,"track_defaults_reset","2");assert(instance->movy_track==15&&instance->role==3);
+    API.destroy_instance(other);API.destroy_instance(instance);
+}
+int main(void){reset_track_and_advance();activate_existing_hold();rapid_same_pad();six_resolution_modes();selectable_modes();target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}
