@@ -26,7 +26,7 @@ static void preview_target(void){
     char pads[65];for(int i=0;i<32;i++){pads[i*2]='3';pads[i*2+1]='c';}pads[64]=0;
     API.set_param(instance,"pad_preview_inputs",pads);
     char snapshot[8192];API.get_param(instance,"pad_view",snapshot,sizeof(snapshot));
-    assert(strstr(snapshot,"|targets1,62,62"));assert(strstr(snapshot,"|th1,"));
+    assert(strstr(snapshot,"|targets1,62,62"));assert(strstr(snapshot,"|th2,"));assert(strstr(snapshot,"|footer1,"));
     API.set_param(instance,"role","Conductor");API.get_param(instance,"pad_view",snapshot,sizeof(snapshot));
     assert(strstr(snapshot,"|targets1,62,62"));
     API.destroy_instance(instance);
@@ -38,7 +38,7 @@ static void arp_once(void){
     play(instance,60);assert(instance->trail_valid[60]);double onset=instance->trail_at[60];
     uint8_t out[128][3];int lens[128];
     for(int i=0;i<100;i++){position+=.05;API.tick(instance,1200,48000,out,lens,128);}
-    assert(instance->trail_at[60]==onset);
+    assert(instance->trail_at[60]==onset);assert(!instance->trail_previous_valid[60]);
     assert(!instance->trail_valid[64]&&!instance->trail_valid[67]);
     API.destroy_instance(instance);
 }
@@ -50,4 +50,16 @@ static void delayed_tag(void){
     route->rhythm_now=1;assert(hb_mo_pop(route,message));assert(route->trail_out==63);
     assert(!hb_mo_pop(route,message));assert(!route->trail_out);free(route);
 }
-int main(void){mapped_target();preview_target();arp_once();delayed_tag();puts("pad trails: resolved target, stable history, arp once, delayed onset pass");}
+static void repeat_history(void){
+    Inst *instance=fixture();hb_effective_write(chord(0,0,0));
+    instance->motion_beat=1;hb_trail_heard(instance,61);
+    instance->motion_beat=1.01;hb_trail_heard(instance,61);
+    assert(instance->trail_previous_valid[60]);assert(instance->trail_previous_at[60]==1);
+    char snapshot[16384];API.get_param(instance,"trail_history",snapshot,sizeof(snapshot));
+    assert(strstr(snapshot,"th2,"));assert(strstr(snapshot,";60,1.010000,"));
+    API.set_param(instance,"trail_clear","1");
+    assert(!instance->trail_valid[60]&&!instance->trail_previous_valid[60]);
+    hb_trail_heard(instance,61);assert(!instance->trail_previous_valid[60]);
+    API.destroy_instance(instance);
+}
+int main(void){repeat_history();mapped_target();preview_target();arp_once();delayed_tag();puts("pad trails: resolved target, stable history, arp once, delayed onset pass");}

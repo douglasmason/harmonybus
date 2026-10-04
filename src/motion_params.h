@@ -3,7 +3,7 @@ _Static_assert(sizeof(hb_cp_config)==16*sizeof(int),"Chord state wire format req
 #define HB_MOTION_PARAMS_H
 #include "motion_metadata.h"
 /* The selected lane is an editor cursor. Holds are runtime-only, never state. */
-static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim","Key Center","Parallel Scale","Live Harmony Override","Override Harmony (Live + Recorded)"};
+static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim","Key Center","Parallel Scale","Live Harmony Override","Override Harmony (Live + Recorded)","Secondary Fifth","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)"};
 static const char *hb_mo_operation_name(int operation){return MO_OPERATIONS[operation==HB_MO_ABOVE?HB_MO_SECONDARY_II:operation];}
 static const char *MO_CHORD_ARP[]={"Chord Only / Release","Both / Release","Arp Only / Release","Chord Only / Press","Both / Press","Arp Only / Press"};
 static const char *MO_STATE_PRESETS[]={"Custom","Scale Degree Burst","Current Harmony Burst"};
@@ -26,7 +26,7 @@ static const char *MO_RANDOM[]={"Repeat","Evolve"};
 typedef struct { const char *key; size_t offset; int low,high; const char *const *options; } hb_motion_parameter;
 #define MO_FIELD(name,low,high,options) {"motion_" #name,__builtin_offsetof(hb_motion_lane,name),low,high,options}
 static const hb_motion_parameter MO_PARAMETERS[]={
-    MO_FIELD(operation,0,56,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
+    MO_FIELD(operation,0,60,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
     MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM)
@@ -206,7 +206,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
-        for(int operation=0;operation<=HB_MO_HARMONY_OVERRIDE;operation++){
+        for(int operation=0;operation<=HB_MO_SECONDARY_VI_DOM;operation++){
             if(operation==HB_MO_ABOVE)continue; /* Legacy serialized ID, consolidated picker. */
             if(hb_mo_mixed(operation)||operation==HB_MO_CADENCE_II_V||operation==HB_MO_CADENCE_BACKDOOR||operation==HB_MO_CADENCE_TRITONE)continue;
             if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&!config->host_capabilities&&operation!=selected)continue;

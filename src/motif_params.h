@@ -88,7 +88,7 @@ static void hb_mt_restore(Inst *instance,const char *state){
             unsigned fields[10];const int digits[]={1,3,1,1,1,2,2,1,3,4};
             for(int field=0;field<10;field++)if(!hb_mt_read_hex(&cursor,&fields[field],digits[field])){valid=0;break;}
             if(!valid)break;
-            if(fields[0]>2||!fields[1]||fields[1]>1536||fields[2]>8||fields[3]>2||fields[4]>3||fields[5]>15||fields[6]>HB_CADENCE_COUNT*HB_CADENCE_STEPS||fields[7]>3||(!fields[0]&&!fields[2])||(fields[0]&&fields[2])){valid=0;break;}
+            if(fields[0]>2||!fields[1]||fields[1]>1536||fields[2]>8||fields[3]>2||fields[4]>3||fields[5]>17||fields[6]>HB_CADENCE_COUNT*HB_CADENCE_STEPS||fields[7]>3||(!fields[0]&&!fields[2])||(fields[0]&&fields[2])){valid=0;break;}
             hb_mt_event *event=&bank[slot].events[step];
             event->kind=fields[0];event->duration=fields[1];event->count=fields[2];event->relation=fields[3];event->modifier=(int)fields[4]-1;event->secondary=fields[5];event->cadence=fields[6];event->chord_mode=fields[7];event->scale=fields[8];event->flags=fields[9];
             if(event->kind==2&&(!step||bank[slot].events[step-1].kind==1)){valid=0;break;}

@@ -2,7 +2,7 @@
 #define HB_CLIP_TIMELINE_CACHE_H
 /* Individual learned conductor timelines. Composition uses the same ordered
    last-commit-wins rule as the conductor batch; no combination cache required. */
-#define HB_TIMELINE_SLOTS 32
+#define HB_TIMELINE_SLOTS 128 /* All 16 tracks x 8 clip slots. */
 typedef struct {
     int used,ready,count,track,slot;
     unsigned configuration;
@@ -20,8 +20,9 @@ static hb_clip_timeline g_timelines[HB_TIMELINE_SLOTS];
 static hb_clip_timeline_owner g_timeline_owners[HB_MAX_INSTANCES];
 static unsigned long long g_timeline_age;
 static int g_timeline_dirty;
+static unsigned g_timeline_generation;
 static double hb_timeline_abs(double value){return value<0?-value:value;}
-static hb_tick_t hb_timeline_rendering(const Inst *instance){
+static hb_tick_t hb_timeline_rendering(Inst *instance){
     hb_tick_t hash=14695981039346656037ULL;
     int globals[]={hb_shared_follower_scale(),hb_shared_dominant_scale(),hb_shared_borrowed_scale(),
         hb_global_root_policy(),hb_global_explicit_root(),g_bus.global_input_root};
@@ -29,7 +30,19 @@ static hb_tick_t hb_timeline_rendering(const Inst *instance){
     for(int field=0;field<HB_POLICY_FIELDS;field++)hash=hb_clip_hash(hash,(unsigned)hb_policy_value((Inst*)instance,field));
     const unsigned char *bytes=(const unsigned char *)&instance->player.config;
     for(unsigned index=0;index<sizeof(instance->player.config);index++)hash=hb_clip_hash(hash,bytes[index]);
-    for(int index=0;index<HB_MOTION_LANES;index++)hash=hb_clip_hash(hash,instance->motion.revision[index]);
+    /* Revision counters restart with the process. Hash the saved settings. */
+    hb_tick_t revisions=14695981039346656037ULL;
+    for(int index=0;index<HB_MOTION_LANES;index++)revisions=hb_clip_hash(revisions,instance->motion.revision[index]);
+    if(!instance->timeline_lane_cached||instance->timeline_lane_revision!=revisions){
+        hb_tick_t settings=14695981039346656037ULL;
+        bytes=(const unsigned char *)instance->motion.lanes;
+        for(unsigned index=0;index<sizeof(instance->motion.lanes);index++)settings=hb_clip_hash(settings,bytes[index]);
+        instance->timeline_lane_hash=settings;instance->timeline_lane_revision=revisions;instance->timeline_lane_cached=1;
+    }
+    hash=hb_clip_hash(hash,instance->timeline_lane_hash);
+    bytes=(const unsigned char *)&instance->play;
+    for(unsigned index=0;index<sizeof(instance->play);index++)hash=hb_clip_hash(hash,bytes[index]);
+    for(int index=0;index<4;index++)hash=hb_clip_hash(hash,(unsigned)instance->target_scale_policy[index]);
     hash=hb_clip_hash(hash,instance->motion.held);hash=hb_clip_hash(hash,instance->motion.bypass);
     return hash;
 }
@@ -49,7 +62,7 @@ static void hb_timeline_invalidate(int index){
     hb_clip_timeline_owner *owner=&g_timeline_owners[index];
     if(!owner->entry)return;
     hb_clip_timeline *entry=&g_timelines[owner->entry-1];
-    entry->ready=entry->count=0;owner->progress=0;
+    entry->ready=entry->count=0;owner->progress=0;g_timeline_generation++;
     owner->activated=hb_next_transport_beat();
     hb_clip_cache_evict_active();hb_next_reset_knowledge();g_timeline_dirty=0;
 }
@@ -101,7 +114,9 @@ static void hb_timeline_refresh(int configuration_changed,int restart){
                 rendering=hb_clip_hash(rendering,clip->origin%period);
         for(int slot=0;slot<HB_TIMELINE_SLOTS;slot++){
             hb_clip_timeline *entry=&g_timelines[slot];
-            if(entry->used&&entry->track==track&&entry->slot==clip->slot&&entry->revision!=clip->revision)entry->used=0;
+            if(entry->used&&entry->track==track&&entry->slot==clip->slot&&
+               (entry->revision!=clip->revision||entry->period!=period||entry->rendering!=rendering||
+                entry->configuration!=hb_next_configuration()))entry->used=0;
             if(entry->used&&entry->track==track&&entry->slot==clip->slot&&entry->revision==clip->revision&&entry->period==period&&
                entry->rendering==rendering&&entry->configuration==hb_next_configuration())target=slot;
         }
@@ -150,7 +165,7 @@ static void hb_timeline_finalize(void){
         hb_clip_timeline *entry=&g_timelines[owner->entry-1];
         if(!entry->ready&&entry->count&&owner->progress>=entry->period){entry->ready=1;changed=1;}
     }
-    if(changed){g_timeline_dirty=0;hb_timeline_compose();}
+    if(changed){g_timeline_generation++;g_timeline_dirty=0;hb_timeline_compose();}
 }
 static void hb_timeline_observe(Inst *instance,hb_harmony_t harmony){
     int index=(int)(instance-g_pool);if(index<0||index>=HB_MAX_INSTANCES||!hb_next_is_harmony(harmony))return;
@@ -178,5 +193,73 @@ static void hb_timeline_observe(Inst *instance,hb_harmony_t harmony){
     if(entry->count>=HB_MAX_LOOP_HARMONIES){entry->used=0;owner->entry=0;return;}
     for(int move=entry->count;move>at;move--)entry->events[move]=entry->events[move-1];
     entry->events[at]=(hb_loop_harmony_event_t){.phase=phase,.harmony=harmony};entry->count++;
+}
+/* Persist only the latest proven rendering of each slot, on its own track.
+   Text is versioned and never depends on struct layout or memory addresses. */
+static int hb_timeline_save(Inst *instance,char *buffer,int length,int used){
+    if(instance->movy_track<0)return used;
+    for(int index=0;index<HB_TIMELINE_SLOTS;index++){
+        const hb_clip_timeline *entry=&g_timelines[index];
+        if(!entry->used||!entry->ready||entry->track!=instance->movy_track)continue;
+        int newer=0;
+        for(int other=0;other<HB_TIMELINE_SLOTS;other++)if(g_timelines[other].used&&
+            g_timelines[other].ready&&g_timelines[other].track==entry->track&&
+            g_timelines[other].slot==entry->slot&&g_timelines[other].age>entry->age)newer=1;
+        if(newer)continue;
+        if(used<0||used>=length)return -1;
+        used+=snprintf(buffer+used,(size_t)(length-used),";tl1,%d,%d,%llu,%llu,%llu,%u,%d",
+            entry->track,entry->slot,entry->revision,entry->period,entry->rendering,entry->configuration,entry->count);
+        for(int event=0;event<entry->count;event++){
+            if(used<0||used>=length)return -1;
+            const hb_loop_harmony_event_t *value=&entry->events[event];const hb_harmony_t *h=&value->harmony;
+            used+=snprintf(buffer+used,(size_t)(length-used),":%.9g,%d,%d,%u,%u,%d,%d,%d,%d,%d,%u",
+                value->phase,h->root_pc,h->bass_pc,h->pitch_mask,h->detected_mask,h->chord_index,
+                h->confidence,h->intent_kind,h->intent_target,h->intent_minor,h->intent_scale);
+        }
+    }
+    return used<length?used:-1;
+}
+static void hb_timeline_forget_track(const Inst *instance){
+    if(instance->movy_track<0)return;
+    for(int index=0;index<HB_TIMELINE_SLOTS;index++)if(g_timelines[index].used&&g_timelines[index].track==instance->movy_track){
+        g_timelines[index].used=0;
+        for(int owner=0;owner<HB_MAX_INSTANCES;owner++)if(g_timeline_owners[owner].entry==index+1)g_timeline_owners[owner].entry=0;
+    }
+    g_timeline_dirty=1;
+}
+static void hb_timeline_restore(const char *state){
+    const char *cursor=state;
+    while((cursor=strstr(cursor,";tl1,"))){
+        hb_clip_timeline entry;memset(&entry,0,sizeof(entry));int consumed=0;
+        int fields=sscanf(cursor,";tl1,%d,%d,%llu,%llu,%llu,%u,%d%n",&entry.track,&entry.slot,
+            &entry.revision,&entry.period,&entry.rendering,&entry.configuration,&entry.count,&consumed);
+        cursor+=5;
+        if(fields!=7||entry.track<0||entry.track>=16||entry.slot<0||entry.slot>=8||!entry.period||
+           entry.count<1||entry.count>HB_MAX_LOOP_HARMONIES)continue;
+        const char *record=cursor-5+consumed;int valid=1;
+        for(int index=0;index<entry.count;index++){
+            hb_loop_harmony_event_t *event=&entry.events[index];hb_harmony_t *h=&event->harmony;
+            unsigned pitch=0,detected=0,scale=0;consumed=0;
+            fields=sscanf(record,":%lf,%d,%d,%u,%u,%d,%d,%d,%d,%d,%u%n",&event->phase,
+                &h->root_pc,&h->bass_pc,&pitch,&detected,&h->chord_index,&h->confidence,
+                &h->intent_kind,&h->intent_target,&h->intent_minor,&scale,&consumed);
+            if(fields!=11||!(event->phase>=0&&event->phase<(double)entry.period)||
+               (index&&event->phase<=entry.events[index-1].phase)||h->root_pc<0||h->root_pc>11||
+               h->bass_pc<0||h->bass_pc>11||!pitch||pitch>4095||detected>4095||scale>4095||
+               h->chord_index<0||h->chord_index>511||h->intent_kind<0||h->intent_kind>7||
+               h->intent_target<0||h->intent_target>11||h->intent_minor<0||h->intent_minor>1){valid=0;break;}
+            h->valid=1;h->pitch_mask=(uint16_t)pitch;h->detected_mask=(uint16_t)detected;h->intent_scale=(uint16_t)scale;
+            *h=hb_transpose_harmony(*h,12); /* Rebuild the display name. */
+            record+=consumed;
+        }
+        if(!valid||(*record&&*record!=';'))continue;
+        int target=0;
+        for(int index=0;index<HB_TIMELINE_SLOTS;index++){
+            if(!g_timelines[index].used||(g_timelines[index].track==entry.track&&g_timelines[index].slot==entry.slot)){target=index;break;}
+            if(g_timelines[index].age<g_timelines[target].age)target=index;
+        }
+        entry.used=entry.ready=1;entry.age=++g_timeline_age;g_timelines[target]=entry;
+        g_timeline_dirty=1;cursor=record;
+    }
 }
 #endif

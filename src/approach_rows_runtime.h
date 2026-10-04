@@ -56,7 +56,7 @@ static int hb_ar_input(Inst *instance,const uint8_t *input,int length){
             token=hb_ar_live_peek(state,state->pending_row<0?3:state->pending_row);shift=instance->movy_pad_pending_shift;
         }else if(state->bank_armed>=0){token=15+state->bank[state->bank_armed];whole=1;}else token=hb_ar_live_peek(state,-1);
     }
-    if(((token&63)<16&&(token&63)!=15)||(token&63)==60)return 0;
+    if(((token&63)<16&&(token&63)!=15)||(token&63)>=59)return 0;
     hb_ar_schedule(instance,source,shift,token,input[2],channel,whole);
     if(state->swallow[channel][source]<255)state->swallow[channel][source]++;
     if(!instance->movy_playback){

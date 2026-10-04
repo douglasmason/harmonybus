@@ -53,7 +53,7 @@ static int hb_policy_set(Inst *instance,const char *key,const char *parameter){
     if(role<0&&!strcmp(parameter,"Role Default")){
         instance->policy_overrides&=~(1u<<field);instance->policy_initialized=0;hb_role_sync(instance);return 1;
     }
-    if(!strcmp(parameter,"Off")&&(field==HB_P_DOMINANT||field==HB_P_DOMINANT_MINOR))parameter="Parent / Minimal";
+    if((!strcmp(parameter,"Off")||!strcmp(parameter,"Parent / Minimal"))&&(field==HB_P_DOMINANT||field==HB_P_DOMINANT_MINOR))parameter="None";
     int previous=role<0?hb_policy_value(instance,field):hb_role_default(role,field);
     int selected=HB_POLICY_OPTIONS[field]?enum_index(parameter,HB_POLICY_OPTIONS[field],HB_POLICY_MAX[field]+1,previous):parse_i(parameter,previous);
     if(field==HB_P_SPREAD)for(int division=0;division<9;division++)if(!strcmp(parameter,BUFFER_DIVISIONS[division]))selected=-division-1;
