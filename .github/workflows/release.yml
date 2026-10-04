@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.248'
+          assert module['version']=='0.2.249'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -75,7 +75,7 @@ jobs:
           for level in levels.values():
               level['params']=[{**item,**canonical[item['key']]} if 'key' in item else item for item in level['params']]
           buffer=next(p for p in levels['root']['params'] if p.get('key')=='boundary_buffer_ms')
-          assert buffer['options']==[f'{ms} ms' for ms in [0,25,*range(50,1001,50)]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars','4 Bars']
+          assert buffer['options']==[f'{ms} ms' for ms in [0,25,50,100,200,350,500,750,1000]]+['1/64','1/32','1/16','1/8','1/4','1/2','1 Bar','2 Bars','4 Bars']
           assert buffer['default']=='1/16'
           assert levels['root']['name']=='Harmony Bus'
           master=next(p for p in levels['global_transpose']['params'] if p.get('key')=='master_transpose')
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Use the current destination scale for diminished-target approaches after key changes. Keep modal bVII diatonic and apply active dominant collections to rendered conductor notes. Pair with Movy hbclean.165." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Add arp-note and arp-cycle release lengths, including octave range and Up/Down patterns. Shorten all millisecond timing option lists while preserving saved values and beat/bar choices. Pair with Movy hbclean.166." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Use the current destination scale for diminished-target approaches after key changes. Keep modal bVII diatonic and apply active dominant collections to rendered conductor notes. Pair with Movy hbclean.165." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Add arp-note and arp-cycle release lengths, including octave range and Up/Down patterns. Shorten all millisecond timing option lists while preserving saved values and beat/bar choices. Pair with Movy hbclean.166." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

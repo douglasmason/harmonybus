@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.248"
+#define HB_VERSION "0.2.249"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -5836,7 +5836,7 @@ static void hb_restore_state(Inst *instance,const char *state){
     instance->player.release_ms=instance->player.release_follow_harmony=0;
     instance->player.release_held=instance->player.release_armed=instance->player.release_latched=instance->player.release_used=instance->player.release_turned=0;
     const char *release_suffix=strstr(state,";hr1,");int release_ms,release_follow=0;
-    if(release_suffix&&sscanf(release_suffix,";hr1,%d,%d",&release_ms,&release_follow)>=1){instance->player.release_ms=hb_cp_clamp(release_ms,-9,1000);instance->player.release_follow_harmony=release_follow==1;}
+    if(release_suffix&&sscanf(release_suffix,";hr1,%d,%d",&release_ms,&release_follow)>=1){instance->player.release_ms=hb_cp_clamp(release_ms,-20,1000);instance->player.release_follow_harmony=release_follow==1;}
     instance->render_velocity_gain=10000;
     const char *velocity_suffix=strstr(state,";rv1,");int render_gain=10000;
     if(velocity_suffix&&sscanf(velocity_suffix,";rv1,%d",&render_gain)==1&&render_gain>=0&&render_gain<=40000)
@@ -6190,7 +6190,7 @@ static hb_harmony_t hb_opening_harmony(void){
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
 if(!strcmp(key,"harm_play_release_control"))return snprintf(buffer,(size_t)length,"%s",instance->player.release_latched?"Latch":instance->player.release_held?"Hold":instance->player.release_armed?"Armed":"Off");
 if(!strcmp(key,"harm_play_release_harmony"))return snprintf(buffer,(size_t)length,"%s",instance->player.release_follow_harmony?"Follow Harmony":"Freeze at Release");
-if(!strcmp(key,"harm_play_release")){int setting=instance->player.release_ms;return setting<0?snprintf(buffer,(size_t)length,"%s",BUFFER_DIVISIONS[-setting-1]):snprintf(buffer,(size_t)length,"%d ms",setting);}
+if(!strcmp(key,"harm_play_release")){int setting=instance->player.release_ms;return setting<0?snprintf(buffer,(size_t)length,"%s",(setting<=-10?HB_CP_RELEASE_ARP[-setting-10]:BUFFER_DIVISIONS[-setting-1])):snprintf(buffer,(size_t)length,"%d ms",setting);}
 int shared_result=hb_sc_get(instance,key,buffer,length);if(shared_result>=0)return shared_result;
 int display_result=hb_display_snapshot(instance,key,buffer,length);if(display_result>=0)return display_result;
 int rhythm_result=hb_rr_get(instance,key,buffer,length);if(rhythm_result>=0)return rhythm_result;
@@ -6982,6 +6982,7 @@ static void set_param(void *value,const char *key,const char *parameter){
     if(!strcmp(key,"harm_play_release")){
         int setting=hb_cp_clamp(parse_i(parameter,0),0,1000);
         for(int index=0;index<9;index++)if(!strcmp(parameter,BUFFER_DIVISIONS[index]))setting=-index-1;
+        for(int index=0;index<11;index++)if(!strcmp(parameter,HB_CP_RELEASE_ARP[index]))setting=-index-10;
         instance->player.release_ms=setting;return;
     }
     if(!strcmp(key,"track_defaults_reset")){hb_reset_track_defaults(instance,parse_i(parameter,-1));return;}

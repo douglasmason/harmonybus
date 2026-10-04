@@ -367,4 +367,36 @@ static void release_envelope(void){
     midi(instance,0,96);uint8_t stop=0xfc;API.process_midi(instance,&stop,1,output,lengths,64);advance(instance,1,64);
     assert(!instance->player.sounding_count);API.destroy_instance(instance);
 }
-int main(void){release_operation();release_envelope();target_after_approach_attack();spatial_release_cycles();reset_track_and_advance();activate_existing_hold();rapid_same_pad();six_resolution_modes();selectable_modes();target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}
+static void arp_relative_release(void){
+    const char *labels[]={"Arp Note 1/2","Arp Note 1","Arp Note 2","Arp Note 3","Arp Note 4","Arp Note 8","Arp Cycle 1/4","Arp Cycle 1/2","Arp Cycle 1","Arp Cycle 2","Arp Cycle 4"};
+    const double factors[]={0.5,1,2,3,4,8,0.25,0.5,1,2,4};
+    for(int option=0;option<11;option++){
+        Inst *instance=fixture();char label[32],state[16384];
+        API.set_param(instance,"harm_play_release",labels[option]);
+        API.get_param(instance,"state",state,sizeof(state));
+        API.set_param(instance,"harm_play_release","0 ms");API.set_param(instance,"state",state);
+        API.get_param(instance,"harm_play_release",label,sizeof(label));assert(!strcmp(label,labels[option]));
+        assert(instance->player.release_ms==-10-option);API.destroy_instance(instance);
+        for(int order=0;order<=2;order+=2)for(int range=1;range<=2;range++)for(int cycle_rate=0;cycle_rate<=1;cycle_rate++)for(int gate=0;gate<3;gate++){
+            hb_chord_player player={0};hb_cp_defaults(&player.config);
+            player.config.rate=cycle_rate?11:2;player.config.order=order;player.config.gate=gate;
+            player.repeat_override=1;player.release_latched=1;player.release_ms=-10-option;player.release_beats=3;
+            const int notes[]={60,64,67};assert(hb_cp_on(&player,60,0,100,notes,3));player.keys[0].range=range;
+            hb_cp_off(&player,60,0);
+            double steps=order==2?2*(3*range)-2:3*range;
+            double expected=0.25*factors[option]*(option>=6?steps:1)/(cycle_rate?steps:1);
+            hb_cp_key *key=&player.keys[0];assert(key->release_synced);
+            assert(fabs(key->release_end-key->release_start-expected)<1e-9);
+            double deadline=key->release_end;
+            player.config.rate=8;player.config.order=0;key->range=4;
+            hb_cp_off(&player,60,0);assert(key->release_end==deadline); /* Settings edits and duplicate OFF leave duration captured. */
+            player.release_beats=deadline-0.0001;hb_cp_tick(&player,output,lengths,64);assert(key->used);
+            player.release_beats=deadline;hb_cp_tick(&player,output,lengths,64);assert(!key->used);
+        }
+    }
+    /* Existing saved values omitted from the shorter menu still round-trip. */
+    Inst *instance=fixture();char state[16384],label[32];API.set_param(instance,"harm_play_release","300 ms");
+    API.get_param(instance,"state",state,sizeof(state));API.set_param(instance,"harm_play_release","0 ms");API.set_param(instance,"state",state);
+    API.get_param(instance,"harm_play_release",label,sizeof(label));assert(!strcmp(label,"300 ms"));API.destroy_instance(instance);
+}
+int main(void){arp_relative_release();release_operation();release_envelope();target_after_approach_attack();spatial_release_cycles();reset_track_and_advance();activate_existing_hold();rapid_same_pad();six_resolution_modes();selectable_modes();target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}
