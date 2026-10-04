@@ -775,7 +775,7 @@ See [Transformation layers](transformation-layers.md) for examples, recording se
 
 ### Harm Play release tail
 
-Harm Play Settings knob 8 sets Release for the temporary Chord + Arp operation.
+Release Length sets the tail duration for the temporary Chord + Arp operation.
 It defaults to 0 ms. Its choices match Follower Buffer and Strum: milliseconds
 through 1000 ms, followed by note lengths from 1/64 through 4 Bars.
 Musical values follow elapsed beats, including tempo changes during a tail;
