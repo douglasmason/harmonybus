@@ -2958,13 +2958,6 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         local=hb_transpose_harmony(local,g_bus.global_transpose);
         scale=hb_transpose_mask(hb_local_output_scale(instance,local),-g_bus.global_transpose);
     }
-    if(instance->role==0&&scale_mode&&!approach_chord&&!hb_key_for(instance).active){
-        unsigned active=hb_dominant_scale_mask(instance,harmony,mod12(scale_root+g_bus.global_transpose));
-        if(active){
-            scale=hb_transpose_mask(active,-g_bus.global_transpose);
-            modified_note=hb_key_conductor_pitch(instance,source_note+g_bus.global_transpose)-g_bus.global_transpose;
-        }
-    }
     if(hb_key_for(instance).blues&&config.mode){
         voice_config.quality=6;
         scale=hb_explicit_scale_mask(scale_mode?mod12(modified_note):harmony.root_pc,6);
@@ -3024,6 +3017,17 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
     }
     int reference_pitches[HB_CP_VOICES];memcpy(reference_pitches,pitches,sizeof(reference_pitches));
     hb_key_context voice_context=hb_key_for(instance);
+    if(instance->role==0&&!voice_context.active&&!approach_chord){
+        unsigned active=hb_dominant_scale_mask(instance,harmony,mod12(scale_root+g_bus.global_transpose));
+        if(active){
+            /* Render after capturing source semantics, just like a key change.
+               Dominant colors must not become new classifier evidence. */
+            voice_context.active=1;
+            voice_context.source_root=voice_context.target_root=mod12(scale_root+g_bus.global_transpose);
+            voice_context.source_mask=hb_transpose_mask(hb_follower_input_scale(instance,scale_root),g_bus.global_transpose);
+            voice_context.target_mask=active;
+        }
+    }
     if(instance->role==0&&voice_context.active&&
        (voice_context.blues||g_key_conductor_travel||!hb_key_pitch_identity(voice_context))){
         /* Reinterpret the input, then voice it in the destination collection.

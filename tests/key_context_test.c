@@ -77,10 +77,10 @@ static void functional_key_change(void){
 }
 
 static void live_dominant_without_key_change(void){
-    for(int role=0;role<2;role++){
+    for(int recorded=0;recorded<2;recorded++)for(int role=0;role<2;role++){
         Inst *instance=fixture();single_setup(instance);
         API.set_param(instance,"role",role?"Follower":"Conductor");
-        instance->travel_map=5;
+        instance->travel_map=5;API.set_param(instance,"hb_movy_playback",recorded?"1":"0");
         API.set_param(instance,"follower_explicit_root","A");API.set_param(instance,"follower_scale","Natural Minor");
         API.set_param(instance,"dominant_minor_scale","Simplified Target");
         hb_harmony_t dominant=infer4(64,68,71,74);
