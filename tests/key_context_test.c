@@ -76,6 +76,53 @@ static void functional_key_change(void){
     API.destroy_instance(instance);
 }
 
+static void live_dominant_without_key_change(void){
+    for(int recorded=0;recorded<2;recorded++)for(int role=0;role<2;role++){
+        Inst *instance=fixture();single_setup(instance);
+        API.set_param(instance,"role",role?"Follower":"Conductor");
+        instance->travel_map=5;API.set_param(instance,"hb_movy_playback",recorded?"1":"0");
+        API.set_param(instance,"follower_explicit_root","A");API.set_param(instance,"follower_scale","Natural Minor");
+        API.set_param(instance,"dominant_minor_scale","Simplified Target");
+        hb_harmony_t dominant=infer4(64,68,71,74);
+        hb_commit_observed_harmony(dominant);instance->render_harmony=dominant;instance->render_harmony_active=1;
+        assert(!hb_key_for(instance).active);
+        int rendered=role?hb_map_follower_note_unoperated(instance,67):hb_key_conductor_pitch(instance,67);
+        if(mod12(rendered)!=8)fprintf(stderr,"live role%d rendered%d policy%d scale%x\n",role,rendered,hb_policy_value(instance,HB_P_DOMINANT_MINOR),hb_dominant_scale_mask(instance,dominant,9));assert(mod12(rendered)==8); /* Live seventh: G sharp during E7. */
+        assert(press_mask(instance,67)==(1u<<8));release(instance,67);
+        instance->player.config.mode=1;API.set_param(instance,"chord_form","Seventh");
+        assert(press_mask(instance,67)==tones(8,3,6,9));release(instance,67);
+        instance->player.config.mode=0;
+        API.set_param(instance,"dominant_minor_scale","Off");
+        assert(press_mask(instance,67)==(1u<<7));release(instance,67);
+        API.destroy_instance(instance);
+    }
+}
+
+static void modal_leading_and_active_family(void){
+    Inst *instance=fixture();single_setup(instance);
+    g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=7,.source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(0,1)};
+    hb_harmony_t source=infer4(59,62,65,69);
+    hb_harmony_t mapped=hb_key_harmony(instance,source);
+    assert(mapped.root_pc==5); /* C major vii becomes G Mixolydian bVII, not F#dim. */
+    assert((hb_harmony_chord_mask(mapped)&(1u<<5))&&!(hb_harmony_chord_mask(mapped)&(1u<<6)));
+    instance->role=0;
+    hb_approach_result approach=hb_resolve_chord_approach(instance,71,g_key_context.source_mask,instance->player.config,source,2,0,0,0);
+    assert(approach.intent_kind==2&&approach.root==66); /* V/F, not LT/F merely because source B was diminished. */
+    assert(hb_context_approach_offset(instance,2,71,g_key_context.source_mask)==-5);
+    hb_cadence_step step={.kind=HB_CAD_DOMINANT};
+    assert(hb_resolve_cadence(instance,&step,71,g_key_context.source_mask).quality==6);
+    g_key_context.target_root=9;g_key_context.target_mask=hb_explicit_scale_mask(9,2);
+    source=infer4(55,59,62,65);mapped=hb_key_harmony(instance,source);
+    assert(mapped.root_pc==4&&hb_harmony_chord_mask(mapped)==tones(4,4,7,10));
+    unsigned active=hb_dominant_scale_mask(instance,mapped,9);
+    assert((active&(1u<<8))&&!(active&(1u<<7)));
+    hb_commit_observed_harmony(source);instance->render_harmony=source;instance->render_harmony_active=1;
+    assert(mod12(hb_key_conductor_pitch(instance,71))==8); /* E7 third, not G natural. */
+    source=infer4(60,64,67,71);instance->render_harmony=source;
+    assert(mod12(hb_key_conductor_pitch(instance,71))==7); /* Tonic restores baseline A minor. */
+    API.destroy_instance(instance);
+}
+
 static void unchanged_key_voicings(void){
     /* Arming or landing on the same key must preserve complete voicings,
        including octave placement, rather than running another harmonization. */
@@ -102,7 +149,7 @@ static void unchanged_key_voicings(void){
         }
     }
 }
-int main(void){unchanged_key_voicings();functional_key_change();blues_mode();
+int main(void){live_dominant_without_key_change();modal_leading_and_active_family();unchanged_key_voicings();functional_key_change();blues_mode();
     Inst *instance=fixture();single_setup(instance);
     new_key_major(instance,62);
     assert(g_key_context.target_root==2&&!g_key_armed);
