@@ -799,3 +799,5 @@ Release has two controls on Harm Play Settings: knob 6 is the Release operation;
 Diminished-target approach substitutions use the destination parent scale after a key change. A source vii chord does not automatically raise the modal seventh of the destination: C major to G Mixolydian retains F for its ordinary seventh degree. Explicit leading-tone approaches retain their leading-tone function.
 
 While a dominant harmony is rendering, the selected dominant collection also supplies conductor note mapping and chord voicing. For example, mapping G7 from C major into A minor retains E7 and uses G sharp during that dominant context. The unchanged parent collection returns when the dominant context ends. Off leaves the mapped parent harmony unforced.
+
+The active dominant collection applies to live conductor notes and Direct follower play even without a Key Center operation, including the seventh scale degree and its chord expansion. Travel None remains the explicit harmonic-travel bypass.

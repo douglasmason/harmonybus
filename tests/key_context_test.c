@@ -76,6 +76,28 @@ static void functional_key_change(void){
     API.destroy_instance(instance);
 }
 
+static void live_dominant_without_key_change(void){
+    for(int role=0;role<2;role++){
+        Inst *instance=fixture();single_setup(instance);
+        API.set_param(instance,"role",role?"Follower":"Conductor");
+        instance->travel_map=5;
+        API.set_param(instance,"follower_explicit_root","A");API.set_param(instance,"follower_scale","Natural Minor");
+        API.set_param(instance,"dominant_minor_scale","Simplified Target");
+        hb_harmony_t dominant=infer4(64,68,71,74);
+        hb_commit_observed_harmony(dominant);instance->render_harmony=dominant;instance->render_harmony_active=1;
+        assert(!hb_key_for(instance).active);
+        int rendered=role?hb_map_follower_note_unoperated(instance,67):hb_key_conductor_pitch(instance,67);
+        if(mod12(rendered)!=8)fprintf(stderr,"live role%d rendered%d policy%d scale%x\n",role,rendered,hb_policy_value(instance,HB_P_DOMINANT_MINOR),hb_dominant_scale_mask(instance,dominant,9));assert(mod12(rendered)==8); /* Live seventh: G sharp during E7. */
+        assert(press_mask(instance,67)==(1u<<8));release(instance,67);
+        instance->player.config.mode=1;API.set_param(instance,"chord_form","Seventh");
+        assert(press_mask(instance,67)==tones(8,3,6,9));release(instance,67);
+        instance->player.config.mode=0;
+        API.set_param(instance,"dominant_minor_scale","Off");
+        assert(press_mask(instance,67)==(1u<<7));release(instance,67);
+        API.destroy_instance(instance);
+    }
+}
+
 static void modal_leading_and_active_family(void){
     Inst *instance=fixture();single_setup(instance);
     g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=7,.source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(0,1)};
@@ -127,7 +149,7 @@ static void unchanged_key_voicings(void){
         }
     }
 }
-int main(void){modal_leading_and_active_family();unchanged_key_voicings();functional_key_change();blues_mode();
+int main(void){live_dominant_without_key_change();modal_leading_and_active_family();unchanged_key_voicings();functional_key_change();blues_mode();
     Inst *instance=fixture();single_setup(instance);
     new_key_major(instance,62);
     assert(g_key_context.target_root==2&&!g_key_armed);

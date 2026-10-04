@@ -924,6 +924,7 @@ static unsigned hb_simplified_target_scale(Inst *instance,int target,unsigned pa
 static unsigned hb_function_family(Inst *instance,int target,unsigned parent,int minor,int kind);
 static int hb_target_minor(unsigned parent,int target);
 static uint16_t hb_dominant_scale_mask(Inst *instance,hb_harmony_t harmony,int tonic);
+static uint16_t hb_follower_input_scale(Inst *instance,int root);
 static hb_harmony_t hb_key_harmony(Inst *instance,hb_harmony_t harmony){
     hb_harmony_t override;
     if(hb_override_read(instance,&override)&&!memcmp(&override,&harmony,sizeof(harmony)))return harmony;
@@ -1830,16 +1831,22 @@ static int hb_closest_diverse(Inst *instance,int pitch,int source_root,unsigned 
     }
     return hb_cs_nearest(pitch,1u<<instance->closest_pc[mod12(pitch)]);
 }
-static int hb_key_conductor_pitch(Inst *instance,int pitch){
+static int hb_key_active_pitch(Inst *instance,int pitch,hb_harmony_t harmony){
     hb_key_context context=hb_key_for(instance);
-    if(!context.active)return hb_key_pitch(instance,pitch);
-    hb_harmony_t target=hb_key_harmony(instance,hb_render_harmony(instance));
-    if(!target.valid)return hb_key_pitch(instance,pitch);
-    if(!g_key_conductor_travel){
-        unsigned active=context.blues?0:hb_dominant_scale_mask(instance,target,context.target_root);
-        if(active)context.target_mask=active;
-        return hb_key_map(context,pitch);
+    if(!context.active){
+        int root=0;hb_resolve_follower_reference_root(instance,&root);
+        context.active=1;context.source_root=context.target_root=mod12(root+g_bus.global_transpose);
+        context.source_mask=context.target_mask=hb_transpose_mask(hb_follower_input_scale(instance,root),g_bus.global_transpose);
     }
+    unsigned active=context.blues?0:hb_dominant_scale_mask(instance,harmony,context.target_root);
+    if(active)context.target_mask=active;
+    return hb_key_map(context,pitch);
+}
+static int hb_key_conductor_pitch(Inst *instance,int pitch){
+    hb_harmony_t target=hb_key_harmony(instance,hb_render_harmony(instance));
+    hb_key_context context=hb_key_for(instance);
+    if(!target.valid)return hb_key_pitch(instance,pitch);
+    if(!g_key_conductor_travel||!context.active)return hb_key_active_pitch(instance,pitch,target);
     target.pitch_mask=hb_harmony_chord_mask(target);
     return hb_closest_diverse(instance,pitch,context.source_root,context.source_mask,target.pitch_mask);
 }
@@ -2491,7 +2498,7 @@ static int hb_map_follower_base_note(Inst *instance,int source_note,hb_harmony_t
     int travel=instance->travel_map;
     if(travel==7)return hb_play_note(instance,hb_key_pitch(instance,source_note+g_bus.global_transpose)-g_bus.global_transpose,detected,target.pitch_mask); /* None bypasses harmonic travel. */
     if(travel==5){
-        int direct=hb_key_pitch(instance,source_note+g_bus.global_transpose)-g_bus.global_transpose;
+        int direct=hb_key_active_pitch(instance,source_note+g_bus.global_transpose,hb_transpose_harmony(detected,g_bus.global_transpose))-g_bus.global_transpose;
         if(direct<0)direct=0;
         if(direct>127)direct=127;
         return hb_play_note(instance,direct,detected,target.pitch_mask);
@@ -2950,6 +2957,13 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         local.chord_index=HB_HARMONY_EXPLICIT_TONES;local.pitch_mask=(uint16_t)core_mask;
         local=hb_transpose_harmony(local,g_bus.global_transpose);
         scale=hb_transpose_mask(hb_local_output_scale(instance,local),-g_bus.global_transpose);
+    }
+    if(instance->role==0&&scale_mode&&!approach_chord&&!hb_key_for(instance).active){
+        unsigned active=hb_dominant_scale_mask(instance,harmony,mod12(scale_root+g_bus.global_transpose));
+        if(active){
+            scale=hb_transpose_mask(active,-g_bus.global_transpose);
+            modified_note=hb_key_conductor_pitch(instance,source_note+g_bus.global_transpose)-g_bus.global_transpose;
+        }
     }
     if(hb_key_for(instance).blues&&config.mode){
         voice_config.quality=6;
