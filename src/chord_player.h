@@ -27,6 +27,7 @@ typedef struct {
     hb_cp_config config;
     int state_override;hb_cp_config state_config;
     int release_ms,release_follow_harmony;
+    int release_held,release_armed,release_latched,release_used,release_turned;
     int repeat_override; /* Runtime overlay: 0 off, 1 both, 2 chord only, 3 arp only. */
     hb_cp_key keys[HB_CP_KEYS];
     uint8_t sounding[16][128], retrigger[16][128];
@@ -370,8 +371,9 @@ static void hb_cp_off(hb_chord_player *player,int source,int channel){
         hb_cp_key *key=&player->keys[index];
         if(!key->used||key->source!=source||key->channel!=channel)continue;
         if(key->release_end>0)continue; /* Duplicate OFF cannot extend a tail. */
-        key->held=0;
-        if(player->repeat_override&&player->release_ms!=0){
+        int was_held=key->held;key->held=0;
+        if(was_held&&player->repeat_override&&player->release_ms!=0&&(player->release_held||player->release_armed||player->release_latched)){
+            player->release_armed=0;player->release_used=1;
             key->release_synced=player->release_ms<0;key->release_follow=player->release_follow_harmony;
             key->release_start=key->release_synced?player->release_beats:player->seconds;
             key->release_end=key->release_start+(key->release_synced?hb_cp_division(-player->release_ms-1):player->release_ms/1000.0);

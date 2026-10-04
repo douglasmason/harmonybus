@@ -282,8 +282,33 @@ static void reset_track_and_advance(void){
     API.set_param(instance,"track_defaults_reset","2");assert(instance->movy_track==15&&instance->role==3);
     API.destroy_instance(other);API.destroy_instance(instance);
 }
+static void release_operation(void){
+    for(int mode=0;mode<5;mode++){
+        Inst *instance=fixture();API.set_param(instance,"harm_play_release","500 ms");
+        arm_target_once(instance);
+        if(mode){
+            API.set_param(instance,"harm_play_release_control","Down");
+            if(mode==1||mode==4)API.set_param(instance,"harm_play_release_control","Up,40");
+            if(mode==3){API.set_param(instance,"harm_play_release_control","LatchOn");API.set_param(instance,"harm_play_release_control","Up,40");}
+            if(mode==4){API.set_param(instance,"harm_play_release_control","Down");API.set_param(instance,"harm_play_release_control","Up,40");}
+        }
+        midi(instance,1,60);advance(instance,1,64);
+        assert(!instance->player.release_used);
+        midi(instance,0,61);assert(!instance->player.release_used); /* Unrelated OFF cannot spend it. */
+        midi(instance,0,60);advance(instance,1,64);
+        int tails=0;for(int k=0;k<HB_CP_KEYS;k++)tails+=instance->player.keys[k].used&&instance->player.keys[k].release_end>0;
+        assert(!!tails==(mode>0&&mode<4));assert(!instance->player.release_armed);
+        if(mode==2){API.set_param(instance,"harm_play_release_control","Up,40");assert(!instance->player.release_held&&!instance->player.release_armed);}
+        assert(instance->player.release_latched==(mode==3));
+        API.destroy_instance(instance);
+    }
+    Inst *instance=fixture();
+    API.set_param(instance,"harm_play_release_control","Down");API.set_param(instance,"harm_play_release_control","Up,1000");assert(!instance->player.release_armed);
+    API.set_param(instance,"harm_play_release_control","Down");API.set_param(instance,"harm_play_release_control","Cancel");assert(!instance->player.release_held&&!instance->player.release_armed);
+    API.destroy_instance(instance);
+}
 static void release_envelope(void){
-    Inst *synced=fixture();API.set_param(synced,"harm_play_release","1/4");
+    Inst *synced=fixture();API.set_param(synced,"harm_play_release","1/4");API.set_param(synced,"harm_play_release_control","LatchOn");
     arm_target_once(synced);midi(synced,1,60);advance(synced,1,64);midi(synced,0,60);advance(synced,1,64);
     advance(synced,100,64);tempo=60;advance(synced,600,64);assert(synced->player.repeat_override);
     advance(synced,210,64);advance(synced,1,64);assert(!synced->player.repeat_override&&!synced->player.sounding_count);
@@ -293,7 +318,7 @@ static void release_envelope(void){
     API.destroy_instance(synced);
 
     for(int follow=0;follow<2;follow++)for(int chord_only=0;chord_only<2;chord_only++){
-        Inst *instance=fixture();API.set_param(instance,"harm_play_release","500 ms");
+        Inst *instance=fixture();API.set_param(instance,"harm_play_release","500 ms");API.set_param(instance,"harm_play_release_control","LatchOn");
         API.set_param(instance,"harm_play_release_harmony",follow?"Follow Harmony":"Freeze at Release");
         API.set_param(instance,"motion_control_32",chord_only?"Chord Only / Release":"Both / Release");
         arm_target_once(instance);midi(instance,1,60);advance(instance,1,64);
@@ -329,7 +354,7 @@ static void release_envelope(void){
     /* A spatial re-strike interrupts its own tail, keeps the alias, and attacks
        at the new velocity instead of inheriting the fade. */
     Inst *instance=fixture();instance->approach_layout=1;instance->preview_count=32;
-    API.set_param(instance,"harm_play_release","500 ms");arm_target_once(instance);
+    API.set_param(instance,"harm_play_release","500 ms");API.set_param(instance,"harm_play_release_control","LatchOn");arm_target_once(instance);
     for(int repeat=0;repeat<4;repeat++){
         API.set_param(instance,"hb_movy_input_approach","96,-36,3");midi(instance,1,96);
         int count=advance(instance,1,64),full=0;
@@ -342,4 +367,4 @@ static void release_envelope(void){
     midi(instance,0,96);uint8_t stop=0xfc;API.process_midi(instance,&stop,1,output,lengths,64);advance(instance,1,64);
     assert(!instance->player.sounding_count);API.destroy_instance(instance);
 }
-int main(void){release_envelope();target_after_approach_attack();spatial_release_cycles();reset_track_and_advance();activate_existing_hold();rapid_same_pad();six_resolution_modes();selectable_modes();target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}
+int main(void){release_operation();release_envelope();target_after_approach_attack();spatial_release_cycles();reset_track_and_advance();activate_existing_hold();rapid_same_pad();six_resolution_modes();selectable_modes();target_release_once();automatic_gate();release_and_restore();latch_settings_and_overlap();puts("Auto Chord Repeat: repeated MIDI, hold/release, latch, overlap, base settings, persistence and no stuck notes pass");}

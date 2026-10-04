@@ -791,3 +791,5 @@ Held notes can follow conductor harmony changes. Shift-turn Release chooses Free
 Frozen tails retain their release-time pitches. Following tails revoice with
 conductor changes without restarting their fade. The choice applies to newly
 released tails and is saved per track.
+
+Release has two controls on Harm Play Settings: knob 6 is the Release operation; knob 8 is Release Length. Hold Release for momentary use, tap to arm the next eligible Chord + Arp note release (tap again to disarm), and turn right/left to latch/unlatch it. A note-on or unrelated note-off does not consume the arm. Releasing a note while holding the control counts as using it, so lifting the control does not re-arm it. Shift-turn Release chooses Freeze at Release (default) or Follow Harmony. Length remains directly adjustable with the established millisecond and beat options. Stop clears the operation and tails; saved settings retain length and harmony policy, not transient arms/latches. Target Scale remains in the advanced harmony settings.

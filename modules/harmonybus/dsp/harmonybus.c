@@ -1448,7 +1448,7 @@ static void hb_commit_observed_harmony(hb_harmony_t harmony){
         for(int owner=0;owner<HB_MAX_INSTANCES;owner++)if(g_pool[owner].used){
             hb_chord_player *player=&g_pool[owner].player;
             if(!hb_cp_settings(player)->clear_harmony||!hb_cp_settings(player)->latch)continue;
-            for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&!player->keys[key].held)
+            for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&!player->keys[key].held&&!player->keys[key].release_end)
                 memset(&player->keys[key],0,sizeof(player->keys[key]));
         }
     }
@@ -3973,6 +3973,7 @@ static void hb_clear_instance_note_state(Inst *instance){
     instance->frames_since_change=0;
 }
 static void hb_stop_instance_note_state(Inst *instance){
+    instance->player.release_held=instance->player.release_armed=instance->player.release_latched=0;
     instance->dominant_color_held=instance->dominant_color_latched=0;
     memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=instance->target_attack_owner=0;instance->advance_pending=instance->advance_phase=0;
     hb_override_clear(instance);
@@ -5791,6 +5792,7 @@ static void hb_restore_state(Inst *instance,const char *state){
            parsed_config.gate>=0&&parsed_config.gate<4&&parsed_config.spread>=-9&&parsed_config.spread<=1000)config=parsed_config;
     }
     instance->player.release_ms=instance->player.release_follow_harmony=0;
+    instance->player.release_held=instance->player.release_armed=instance->player.release_latched=instance->player.release_used=instance->player.release_turned=0;
     const char *release_suffix=strstr(state,";hr1,");int release_ms,release_follow=0;
     if(release_suffix&&sscanf(release_suffix,";hr1,%d,%d",&release_ms,&release_follow)>=1){instance->player.release_ms=hb_cp_clamp(release_ms,-9,1000);instance->player.release_follow_harmony=release_follow==1;}
     instance->render_velocity_gain=10000;
@@ -6144,6 +6146,7 @@ static hb_harmony_t hb_opening_harmony(void){
 }
 #include "../../../src/shared_context_runtime.h"
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+if(!strcmp(key,"harm_play_release_control"))return snprintf(buffer,(size_t)length,"%s",instance->player.release_latched?"Latch":instance->player.release_held?"Hold":instance->player.release_armed?"Armed":"Off");
 if(!strcmp(key,"harm_play_release_harmony"))return snprintf(buffer,(size_t)length,"%s",instance->player.release_follow_harmony?"Follow Harmony":"Freeze at Release");
 if(!strcmp(key,"harm_play_release")){int setting=instance->player.release_ms;return setting<0?snprintf(buffer,(size_t)length,"%s",BUFFER_DIVISIONS[-setting-1]):snprintf(buffer,(size_t)length,"%d ms",setting);}
 int shared_result=hb_sc_get(instance,key,buffer,length);if(shared_result>=0)return shared_result;
@@ -6921,6 +6924,18 @@ static void hb_reset_track_defaults(Inst *instance,int track){
 }
 static void set_param(void *value,const char *key,const char *parameter){
     Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
+    if(!strcmp(key,"harm_play_release_control")){
+        hb_chord_player *p=&instance->player;
+        if(!strcmp(parameter,"Down")){p->release_held=1;p->release_used=p->release_turned=0;}
+        else if(!strcmp(parameter,"LatchOn")||!strcmp(parameter,"LatchOff")){
+            p->release_latched=!strcmp(parameter,"LatchOn");p->release_armed=p->release_held=0;p->release_turned=1;
+        }else if(!strncmp(parameter,"Up,",3)){
+            if(p->release_held&&!p->release_used&&!p->release_turned&&!p->release_latched&&parse_i(parameter+3,1000)<g_hb_hold_ms)p->release_armed=!p->release_armed;
+            p->release_held=0;
+        }else if(!strcmp(parameter,"Cancel"))p->release_held=0;
+        else if(!strcmp(parameter,"Off"))p->release_held=p->release_armed=p->release_latched=0;
+        return;
+    }
     if(!strcmp(key,"harm_play_release_harmony")){instance->player.release_follow_harmony=!strcmp(parameter,"Follow Harmony");return;}
     if(!strcmp(key,"harm_play_release")){
         int setting=hb_cp_clamp(parse_i(parameter,0),0,1000);
