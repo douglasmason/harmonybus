@@ -249,6 +249,17 @@ static void harmony_off_view(void){
 }
 
 int main(void){active_key_colors();harmony_off_view();
+    {
+        Inst *instance=fixture();char view[4096];
+        hb_commit_observed_harmony(chord(0,0,0));
+        API.set_param(instance,"pad_next_pulse","None");
+        for(int mode=0;mode<7;mode++){
+            g_pad_settings[0]=mode;
+            API.get_param(instance,"pad_view",view,sizeof(view));
+            assert(strstr(view,"|nextpulse1,0,0"));
+        }
+        API.destroy_instance(instance);
+    }
     separate_color_forms();
     all_pulse_options();next_tone_pulse();independent_pad_form();
     movy_input_and_spatial_sequence();

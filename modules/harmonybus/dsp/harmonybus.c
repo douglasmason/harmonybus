@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.255"
+#define HB_VERSION "0.2.256"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -6846,6 +6846,9 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             if(pitch<64)sounding_low|=1ULL<<pitch;else sounding_high|=1ULL<<(pitch-64);
         }
         for(int sample=0;sample<12+pad_count;sample++){
+            /* Only actual pad slots consume trail targets. Pitch-class color
+               probes and alternative harmony previews need colors alone. */
+            preview.trail_enabled=instance->trail_enabled&&sample>=12;
             int source_note=sample<12?60+sample:pad_notes[sample-12];
             int gap_target=sample>=12?pad_targets[sample-12]:-1;
             int gap=gap_target>=0&&hb_approach_pad_enabled(instance);
@@ -6863,6 +6866,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             }
             if(sample>=12){
                 int slot=sample-12,effective_target=preview.preview_target;output_group[slot]=-1;
+                preview.trail_enabled=0;
                 if((sounding_low&preview.preview_single_low)||(sounding_high&preview.preview_single_high))playing|=1u<<slot;
                 if((flash_low&preview.preview_single_low)||(flash_high&preview.preview_single_high))flashing|=1u<<slot;
                 if(output_low[slot]||output_high[slot]){
@@ -6907,6 +6911,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         }
         /* Batch each harmony so Closest Split can reuse its assignment cache.
            Identical effective/lookahead targets need no extra rendering. */
+        preview.trail_enabled=0;
         if(current_mask)current_inputs=hb_harmony_equal_effective(current,effective)?effective_inputs:
             hb_pad_target_inputs(&preview,instance,current,current_mask);
         if(lookahead_mask)lookahead_inputs=lookahead_mask==effective_mask&&hb_harmony_equal_effective(lookahead,effective)?effective_inputs:
@@ -6926,7 +6931,9 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         }
         int used=snprintf(buffer,(size_t)length,"%u,%u,%u,%d,%u,%d,%d,%d,%d,%d|tonic1,%u|full1,%d,%u",current_inputs,effective_inputs,scale_inputs,ready,lookahead_inputs,g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4],tonic_inputs,full_lookahead.valid!=0,full_inputs);
         if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|learn1,%u",g_timeline_generation);
-        if(g_pad_next_pulse&&used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|nextpulse1,%u,%u",next_inputs,next_pads);
+        /* Zero is an explicit Off state. Omitting this field selects the
+           legacy whole-harmony animation in compatible Movy versions. */
+        if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|nextpulse1,%u,%u",next_inputs,next_pads);
         if((secondary_mask||tertiary_mask)&&used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|nextranks1,%u,%u,%u,%u",secondary_inputs,secondary_pads,tertiary_inputs,tertiary_pads);
         if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|playpads1,%u|playflash1,%u",playing,flashing);
         if(instance->trail_enabled&&pad_count&&used>=0&&used<length){
