@@ -6365,7 +6365,24 @@ if(!strcmp(key,"key_center_view")){
     hb_key_context current=hb_key_baseline(instance);
     char local[32];get_param(instance,"key_center",local,sizeof(local));
     const char *state=!strcmp(local,"Armed")?"Armed":!strcmp(local,"Off")?"Off":"On";
-    return snprintf(buffer,(size_t)length,"%s|%s%s|%s|%s|%s",state,PC_OPTS[current.target_root],hb_key_quality(current),g_key_preview,instance->dominant_color_latched?"Latch":instance->dominant_color_held?"Hold":"Off",DOMINANT_SCALE_OPTS[instance->dominant_color_family]);
+    char preview_label[48]="";
+    if(!strcmp(state,"Armed")){
+        if(g_key_preview[0])snprintf(preview_label,sizeof(preview_label),"Arm %s",g_key_preview);
+        else snprintf(preview_label,sizeof(preview_label),"Armed");
+        unsigned owner=instance->physical_target;
+        int held=owner&&instance->physical_velocity[(owner-1)/128][(owner-1)%128];
+        if(instance->key_pending||held){
+            hb_key_context destination=instance->key_pending_context;
+            if(!instance->key_pending){
+                /* A held target previews the next LIVE hit, even while clip
+                   events are arriving. Never consume a gesture or emit MIDI. */
+                Inst preview=*instance;preview.movy_playback=preview.key_scope=0;
+                destination=hb_key_destination(&preview,(owner-1)%128);
+            }
+            snprintf(preview_label,sizeof(preview_label),"Arm>%s%s",PC_OPTS[destination.target_root],hb_key_quality(destination));
+        }
+    }
+    return snprintf(buffer,(size_t)length,"%s|%s%s|%s|%s|%s",state,PC_OPTS[current.target_root],hb_key_quality(current),preview_label,instance->dominant_color_latched?"Latch":instance->dominant_color_held?"Hold":"Off",DOMINANT_SCALE_OPTS[instance->dominant_color_family]);
 }
 if(!strcmp(key,"key_center")){int owner=(int)(instance-g_pool);int active=g_sc_live[owner][HB_SC_KEY].on||(instance->movy_track>=0&&instance->role==0&&g_sc_replay[instance->movy_track][HB_SC_KEY].on);return snprintf(buffer,(size_t)length,"%s",g_key_armed&&(g_sc_arm_owner<0||g_sc_arm_owner==owner)?"Armed":active?PC_OPTS[g_key_context.target_root]:"Off");}
 if(!strcmp(key,"follower_scale")&&instance->movy_track==g_sc_record_track&&g_sc_record_track>=0&&g_sc_live[instance-g_pool][HB_SC_PARENT].on)return snprintf(buffer,(size_t)length,"%s",FOLLOWER_SCALE_OPTS[g_sc_live[instance-g_pool][HB_SC_PARENT].a]);

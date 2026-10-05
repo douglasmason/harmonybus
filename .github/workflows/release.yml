@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Resolve active Key Center pad colors, pulse roles, and root highlighting from the playback harmony. Fix dominant-to-minor colors such as E7 versus Em7. Compatible with Movy hbclean.172. The reported Key Center audio crackling remains under investigation." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Resolve active Key Center pad colors, pulse roles, and root highlighting from the playback harmony. Fix dominant-to-minor colors such as E7 versus Em7. Show Armed or the known target before Key Center commitment. Compatible with Movy hbclean.172. The reported Key Center audio crackling remains under investigation." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Resolve active Key Center pad colors, pulse roles, and root highlighting from the playback harmony. Fix dominant-to-minor colors such as E7 versus Em7. Compatible with Movy hbclean.172. The reported Key Center audio crackling remains under investigation." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Resolve active Key Center pad colors, pulse roles, and root highlighting from the playback harmony. Fix dominant-to-minor colors such as E7 versus Em7. Show Armed or the known target before Key Center commitment. Compatible with Movy hbclean.172. The reported Key Center audio crackling remains under investigation." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
