@@ -1,0 +1,50 @@
+/* Key changes act on parent-key coordinates before approach construction.
+   All three playback contexts share one mapper; no policy is baked into notes. */
+static int hb_key_follower_travel(const Inst *instance){
+    int policy=instance->movy_playback?g_key_follower_recorded_travel:g_key_follower_live_travel;
+    return policy<0?g_key_conductor_travel:policy;
+}
+static int hb_key_split_pitch(Inst *instance,int pitch,hb_key_context context,hb_harmony_t harmony){
+    int nominal[12],mapped[12],source_degree=-1,count=0,target_count=0,target_pc[12];
+    unsigned allowed[12],chord=hb_harmony_chord_mask(harmony),active=0;
+    for(int interval=0;interval<12;interval++)if(context.target_mask&(1u<<mod12(context.target_root+interval)))
+        target_pc[target_count++]=mod12(context.target_root+interval);
+    if(!target_count)return pitch;
+    if(instance->follower_split_map==3){
+        uint8_t notes[64];int voices=hb_observed_notes(0,notes,64);
+        for(int index=0;index<voices;index++)active|=1u<<mod12(hb_key_map(context,notes[index]));
+    }
+    unsigned degree_group=instance->follower_split_map==2?0x55u:0x15u;
+    unsigned target_group=0;
+    for(int degree=0;degree<target_count;degree++)if(degree_group&(1u<<degree))target_group|=1u<<target_pc[degree];
+    for(int interval=0;interval<12;interval++)if(context.source_mask&(1u<<mod12(context.source_root+interval))){
+        int pc=mod12(context.source_root+interval),on=(degree_group&(1u<<count))!=0;
+        unsigned pool=instance->follower_split_map==1||instance->follower_split_map==2?target_group:chord;
+        if(instance->follower_split_map==3){pool=active;on=(active&(1u<<target_pc[count%target_count]))!=0;}
+        allowed[count]=on?pool:(context.target_mask&~pool);
+        if(!allowed[count])allowed[count]=context.target_mask;
+        nominal[count]=48+context.source_root+interval;
+        if(pc==mod12(pitch))source_degree=count;
+        count++;
+    }
+    if(source_degree<0)return hb_cs_nearest(pitch,context.target_mask);
+    int cached=instance->key_split_count==count;
+    for(int index=0;index<count&&cached;index++)
+        cached=instance->key_split_nominal[index]==nominal[index]&&instance->key_split_allowed[index]==allowed[index];
+    if(!cached){
+        if(!hb_build_closest_assignment(count,nominal,allowed,mapped))return hb_cs_nearest(pitch,allowed[source_degree]);
+        memcpy(instance->key_split_nominal,nominal,count*sizeof(int));
+        memcpy(instance->key_split_allowed,allowed,count*sizeof(unsigned));
+        memcpy(instance->key_split_output,mapped,count*sizeof(int));instance->key_split_count=count;
+    }
+    return hb_cs_nearest(pitch,1u<<mod12(instance->key_split_output[source_degree]));
+}
+static int hb_key_travel_pitch(Inst *instance,int pitch,hb_harmony_t harmony,int policy,int active_family){
+    hb_key_context context=hb_key_for(instance);
+    if(!context.active||policy==0)
+        return active_family?hb_key_active_pitch(instance,pitch,harmony):hb_key_map(context,pitch);
+    if(policy==3&&harmony.valid)return hb_key_split_pitch(instance,pitch,context,harmony);
+    unsigned target=policy==1&&harmony.valid?hb_harmony_chord_mask(harmony):context.target_mask;
+    if(!target)return hb_key_map(context,pitch);
+    return hb_closest_diverse(instance,pitch,context.source_root,context.source_mask,target);
+}

@@ -433,5 +433,12 @@
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -fsanitize=undefined -fno-sanitize-recover=all tests/external_surface_test.c src/harmony_core.c -lm -o /tmp/external_surface_test",
       "/tmp/external_surface_test"
     ]
+  },
+  {
+    "name": "key_travel_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/key_travel_test.c src/harmony_core.c -lm -o /tmp/key_travel_test",
+      "/tmp/key_travel_test"
+    ]
   }
 ]
