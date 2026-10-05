@@ -104,7 +104,7 @@ jobs:
           chord_mode=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='chord_mode')
           assert chord_mode['default']=='Off'
           dominant=next(parameter for parameter in levels['track_scales']['params'] if parameter.get('key')=='track_dominant_scale')
-          assert dominant['options']==['None','Harmonic Minor','Melodic Minor','Altered V','Major','Harmonic Major','Simplified Target','Follow Role'] and dominant['default']=='Follow Role'
+          assert dominant['options']==['None','Harmonic Minor','Melodic Minor','Altered V','Major','Harmonic Major','Simplified Target','Minimal','Follow Role'] and dominant['default']=='Follow Role'
           assert next(p for p in module['capabilities']['chain_params'] if p['key']=='track_dominant_minor_scale')['options']==dominant['options']
           assert next(p for p in module['capabilities']['chain_params'] if p['key']=='conductor_default_dominant_minor_scale')['default']=='Simplified Target'
           assert 'track_dominant_minor_scale' in levels['track_scales']['knobs']
