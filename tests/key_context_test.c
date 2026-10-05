@@ -149,7 +149,88 @@ static void unchanged_key_voicings(void){
         }
     }
 }
-int main(void){live_dominant_without_key_change();modal_leading_and_active_family();unchanged_key_voicings();functional_key_change();blues_mode();
+
+static void anticipated_destination_scale(void){
+    const char *scales[]={"Major","Lydian","Natural Minor","Dorian"};
+    const int scale_ids[]={1,5,2,3};
+    for(int role=0;role<2;role++)for(int prior=0;prior<2;prior++)for(int choice=0;choice<4;choice++){
+        Inst *instance=setup();instance->player.config.mode=0;
+        API.set_param(instance,"role",role?"Follower":"Conductor");API.set_param(instance,"source_channel","1");
+        API.set_param(instance,"key_center_scale","Use Parallel Scale");
+        if(prior){
+            API.set_param(instance,"parallel_scale","Natural Minor");API.set_param(instance,"key_center","On");
+            played(instance,62);release(instance,62);
+        }
+        API.set_param(instance,"parallel_scale",scales[choice]);
+        API.set_param(instance,"dominant_scale","Major");API.set_param(instance,"dominant_minor_scale","Harmonic Minor");
+        instance->player.config.mode=1;API.set_param(instance,"chord_form","Ninth");
+        API.set_param(instance,"approach_mode_active","1");API.set_param(instance,"approach_bank_1","Stock: ii-V-Target");
+        API.set_param(instance,"approach_touch_1","Down");API.set_param(instance,"approach_touch_1","Up,50");
+        API.set_param(instance,"key_center","LatchOn");
+        hb_key_context destination=hb_key_destination(instance,69),before=g_key_context;
+        int target=destination.target_root;
+        unsigned parent=hb_explicit_scale_mask(target,scale_ids[choice]);
+        for(int step=0;step<3;step++){
+            hb_cp_config config=instance->player.config;config.quality=step==1?6:0;
+            unsigned collection=step!=1?parent:hb_function_family(instance,target,parent,choice>=2,1);
+            int pitches[HB_CP_VOICES],root=60+mod12(target+(step==0?2:step==1?7:0));unsigned expected=0,semantic=0;
+            int count=hb_cp_voice_semantic(config,root,0,0,collection,pitches,&semantic);
+            for(int index=0;index<count;index++)expected|=1u<<mod12(pitches[index]);
+            unsigned actual=played(instance,69);
+            if(actual!=expected)fprintf(stderr,"anticipated role%d prior%d %s step%d: %x != %x\n",role,prior,scales[choice],step,actual,expected);
+            assert(actual==expected);
+            if(step<2){assert(g_key_armed);assert(g_key_context.target_root==before.target_root);}
+            else {assert(!g_key_armed);assert(g_key_context.target_root==target&&g_key_context.target_mask==parent);}
+            release(instance,69);advance(instance,1000,64);
+        }
+        API.destroy_instance(instance);
+    }
+}
+static void key_center_waits_for_touch_target(void){
+    Inst *instance=setup();API.set_param(instance,"role","Conductor");API.set_param(instance,"source_channel","1");
+    instance->player.config.mode=1;API.set_param(instance,"chord_form","Ninth");
+    API.set_param(instance,"key_center_scale","Use Parallel Scale");API.set_param(instance,"parallel_scale","Major");
+    API.set_param(instance,"dominant_scale","Major");API.set_param(instance,"dominant_minor_scale","Harmonic Minor");
+    tap(instance,2);API.set_param(instance,"key_center","LatchOn");
+    /* V/vi of the prospective A-major target resolves to F# minor. */
+    hb_cadence_step nested={.kind=HB_CAD_DOMINANT,.path={6}};
+    hb_cadence_result result=hb_resolve_cadence(instance,&nested,69,hb_explicit_scale_mask(0,1));
+    assert(mod12(result.destination)==6&&result.minor&&result.scale==hb_explicit_scale_mask(6,8));
+    assert(played(instance,69)==((1u<<4)|(1u<<8)|(1u<<11)|(1u<<2)|(1u<<6)));
+    char saved[4096];API.get_param(instance,"hb_record_action",saved,sizeof(saved));assert(!strncmp(saved,"ra4,69,",7));
+    assert(g_key_armed&&!g_key_context.active);release(instance,69);
+    assert(played(instance,69)==((1u<<9)|(1u<<1)|(1u<<4)|(1u<<8)|(1u<<11)));
+    assert(!g_key_armed&&g_key_context.target_root==9);release(instance,69);
+    API.set_param(instance,"key_center","Off");API.set_param(instance,"parallel_scale","Natural Minor");
+    API.set_param(instance,"hb_movy_actions",strchr(saved,',')+1);assert(instance->recorded_action_valid[69]);
+    API.set_param(instance,"hb_movy_playback","1");
+    assert(played(instance,69)==((1u<<4)|(1u<<8)|(1u<<11)|(1u<<2)|(1u<<6)));
+    assert(!g_key_armed&&!g_key_context.active);release(instance,69);API.destroy_instance(instance);
+}
+static void immediate_key_feedback(void){
+    for(int role=0;role<2;role++)for(int target=60;target<72;target++){
+        Inst *instance=fixture();single_setup(instance);
+        API.set_param(instance,"role",role?"Follower":"Conductor");API.set_param(instance,"source_channel","1");
+        API.set_param(instance,"key_center_scale","Use Parallel Scale");API.set_param(instance,"parallel_scale","Major");
+        API.set_param(instance,"key_center","LatchOn");
+        char view[4096],expected[64];API.get_param(instance,"key_center",view,sizeof(view));assert(!strcmp(view,"Armed"));
+        midi(instance,1,target); /* Read immediately: no tick, release or extra note. */
+        API.get_param(instance,"key_center_view",view,sizeof(view));
+        snprintf(expected,sizeof(expected),"On|%s||",PC_OPTS[mod12(target)]);assert(strstr(view,expected)==view);
+        API.get_param(instance,"pad_view",view,sizeof(view));
+        snprintf(expected,sizeof(expected),"|footer1,%d,1,",mod12(target));assert(strstr(view,expected));
+        assert(g_key_context.target_mask==hb_explicit_scale_mask(mod12(target),1));
+        release(instance,target);
+        API.set_param(instance,"key_center","Off");API.get_param(instance,"key_center_view",view,sizeof(view));assert(strstr(view,"Off|C||")==view);
+        API.destroy_instance(instance);
+    }
+    Inst *instance=fixture();single_setup(instance);char view[128];
+    midi(instance,1,69);API.set_param(instance,"key_center","LatchOn");
+    API.get_param(instance,"key_center",view,sizeof(view));assert(!strcmp(view,"Armed"));assert(!g_key_context.active);
+    release(instance,69);API.destroy_instance(instance);
+}
+
+int main(void){key_center_waits_for_touch_target();anticipated_destination_scale();immediate_key_feedback();live_dominant_without_key_change();modal_leading_and_active_family();unchanged_key_voicings();functional_key_change();blues_mode();
     Inst *instance=fixture();single_setup(instance);
     new_key_major(instance,62);
     assert(g_key_context.target_root==2&&!g_key_armed);
@@ -271,7 +352,7 @@ int main(void){live_dominant_without_key_change();modal_leading_and_active_famil
     API.set_param(instance,"parallel_mode","Up");API.destroy_instance(instance);
     instance=fixture();single_setup(instance);
     API.set_param(instance,"key_center","On");press_mask(instance,62);release(instance,62);
-    API.get_param(instance,"key_center_view",view,sizeof(view));assert(strstr(view,"C>Dm"));
+    API.get_param(instance,"key_center_view",view,sizeof(view));assert(strstr(view,"On|Dm||")==view);
     API.destroy_instance(instance);
     puts("key context: progression degrees, shared live/recorded/conductor output, parallel restore, delayed landing and motif anchor pass");
 }
