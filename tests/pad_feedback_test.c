@@ -18,8 +18,8 @@ static void active_key_colors(void){
     assert(hb_pad_next_mask(instance,dominant)==((1u<<8)|(1u<<2)));
     hb_commit_observed_harmony(dominant);
     char view[4096];
-    for(int travel=0;travel<8;travel++){
-        instance->travel_map=travel;instance->content_map=0;
+    for(int chromatic=0;chromatic<2;chromatic++)for(int travel=0;travel<8;travel++){
+        instance->chromatic_map=chromatic;instance->travel_map=travel;instance->content_map=0;
         API.get_param(instance,"pad_render",view,sizeof(view));
         unsigned current,effective,scale,expected=0,tonic=0;
         assert(sscanf(view,"%u,%u,%u",&current,&effective,&scale)==3);
