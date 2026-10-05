@@ -119,11 +119,11 @@ static void functional_families(void){
         pre=hb_resolve_cadence(instance,&ii,60+target,minor);
         five=hb_resolve_cadence(instance,&dominant,60+target,minor);
         assert(pre.scale==hb_explicit_scale_mask(target,8)&&five.scale==pre.scale&&five.minor);
-        /* Altered belongs to V. Its preceding ii retains the destination parent. */
+        /* Dominant preparation and V share the selected Altered collection. */
         API.set_param(instance,"dominant_scale","Altered V");
         pre=hb_resolve_cadence(instance,&ii,60+target,major);
         five=hb_resolve_cadence(instance,&dominant,60+target,major);
-        assert(pre.scale==major&&five.scale==hb_explicit_scale_mask(mod12(target+7),15));
+        assert(pre.scale==five.scale&&five.scale==hb_explicit_scale_mask(mod12(target+7),15));
         API.set_param(instance,"dominant_scale","Harmonic Major");
     }
     /* The override must not change the identity of the major resolution target. */

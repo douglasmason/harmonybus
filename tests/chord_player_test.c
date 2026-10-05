@@ -331,7 +331,7 @@ static void dominant_shift(void){
     assert(hb_map_follower_note_now(instance,62)%12==8);
     assert(hb_map_follower_note_now(instance,63)%12==11); /* source minor third -> chord major third, not #9 */
     assert(hb_map_follower_note_now(instance,67)%12==2); /* preserve recognized perfect fifth */
-    assert(hb_dominant_scale_mask(instance,leading,0)==hb_explicit_scale_mask(0,8));
+    assert(hb_dominant_scale_mask(instance,leading,0)==altered);
     API.set_param(instance,"chord_mode","Conductor Chord");API.set_param(instance,"chord_form","Ninth");
     midi(instance,1,55);assert(advance(instance,0,64)==5);
     int saw_flat9=0;for(int index=0;index<5;index++)if(output[index][1]%12==8)saw_flat9=1;assert(saw_flat9);

@@ -91,6 +91,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
         for(int voice=0;voice<event->count;voice++){
             int pitch=hb_mt_relative(event,event->notes[voice].pitch,anchor,target,scale);
             unsigned collection=scale;
+            int intent_kind=0,intent_target=mod12(pitch),intent_minor=0;
             const unsigned long long *old_actions=instance->motion.event_override;unsigned long long old_flags=instance->motion.render_flags;
             hb_harmony_t old_harmony=instance->render_harmony;int old_active=instance->render_harmony_active;
             instance->motion.event_override=event->actions;instance->motion.render_flags=event->flags;
@@ -100,6 +101,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
             if(config.mode&&(event->secondary||cadence||event->modifier)){
                 hb_approach_result approach=hb_resolve_chord_approach(instance,pitch,collection,config,harmony,event->secondary,cadence,event->modifier,0);
                 pitch=approach.root;collection=approach.scale;config=approach.config;
+                intent_kind=approach.intent_kind;intent_target=approach.intent_target;intent_minor=approach.intent_minor;
             }else{
                 if(cadence){hb_cadence_result result=hb_resolve_cadence(instance,cadence,pitch,collection);pitch=result.root;collection=result.scale;}
                 else if(event->secondary)pitch+=hb_relative_approach_offset(event->secondary,pitch,hb_secondary_collection(instance,event->secondary,pitch,collection));
@@ -112,14 +114,40 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
             int pitches[HB_CP_VOICES],voices=1;pitches[0]=pitch;
             unsigned semantic=0;
             if(config.mode){config.playback=0;config.spread=0;voices=hb_cp_voice_semantic(config,pitch,harmony.valid?harmony.root_pc:mod12(target),hb_harmony_chord_mask(harmony),collection,pitches,&semantic);}
+            if(intent_kind==2)semantic|=(1u<<mod12(pitch))|(1u<<mod12(pitch+4))|(1u<<mod12(pitch+10));
+            if(intent_kind==3)semantic|=(1u<<mod12(pitch))|(1u<<mod12(pitch+3))|(1u<<mod12(pitch+6))|(1u<<mod12(pitch+9));
+            if(intent_kind>=8&&intent_kind<=10){
+                hb_cp_config identity=config;identity.mode=1;identity.size=3;
+                int identity_notes[HB_CP_VOICES];unsigned identity_mask=0;
+                hb_cp_voice_semantic(identity,pitch,mod12(pitch),0,collection,identity_notes,&identity_mask);semantic|=identity_mask;
+            }
             override_mask|=semantic;
             override_root=config.mode==2&&harmony.valid?harmony.root_pc:mod12(pitch);
             override_semantic|=semantic!=0;
+            int rendered_pitches[HB_CP_VOICES];
+            for(int generated=0;generated<voices;generated++)rendered_pitches[generated]=instance->role==0?hb_key_map(phrase_key,pitches[generated]):pitches[generated];
+            if(instance->role==0&&phrase_key.active&&!phrase_key.blues&&config.mode&&
+               (intent_kind==2||intent_kind==3||(intent_kind>=8&&intent_kind<=10))){
+                int destination=mod12(hb_key_map(phrase_key,60+intent_target));
+                unsigned mapped_collection=hb_function_family(instance,destination,phrase_key.target_mask,hb_target_minor(phrase_key.target_mask,destination),0);
+                int root=mod12(destination+(intent_kind==2?7:intent_kind==3?11:hb_nth_scale_interval_from_root(mapped_collection,destination,1+2*(intent_kind-8))));
+                int mapped_pitch=hb_cp_nearest(hb_key_map(phrase_key,pitch),1u<<root);
+                hb_cp_config mapped_config=config;mapped_config.mode=1;
+                mapped_config.quality=intent_kind==2?6:intent_kind==3?9:0;
+                int mapped_count=hb_cp_voice_semantic(mapped_config,mapped_pitch,mod12(pitch),semantic,mapped_collection,rendered_pitches,0);
+                /* Forms retain voice cardinality under seven-note family changes. */
+                if(mapped_count<voices)voices=mapped_count;
+            }
             for(int generated=0;generated<voices;generated++){
                 if(pitches[generated]<0||pitches[generated]>127)continue;
                 if(count>=HB_MT_SCHEDULE){editor->error=8;return 0;}
                 int gain=(int)event->notes[voice].velocity*velocity/100;
-                staged[count++]=(hb_mt_scheduled){onset,end,instance->role==0?hb_key_map(phrase_key,pitches[generated]):pitches[generated],hb_cp_clamp(gain,1,127),channel,instance->render_channel,0,1};
+                staged[count++]=(hb_mt_scheduled){onset,end,rendered_pitches[generated],hb_cp_clamp(gain,1,127),channel,instance->render_channel,0,1};
+                staged[count-1].reference_pitch=pitches[generated];
+                staged[count-1].semantic_mask=semantic;
+                staged[count-1].root_pc=override_root;
+                staged[count-1].intent_kind=intent_kind;staged[count-1].intent_target=intent_target;staged[count-1].intent_minor=intent_minor;
+                staged[count-1].intent_scale=phrase_key.approach_scale?scale:0;
                 if(generated==0)staged[count-1].trail_target=(unsigned short)((instance->role==0?hb_key_map(phrase_key,pitch):pitch)+1);
                 override_mask|=1u<<mod12(pitches[generated]);
             }

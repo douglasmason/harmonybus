@@ -101,7 +101,7 @@ static void plain_and_dominant_degrees(void){
     API.set_param(instance,"motion_operation","Secondary VI (Dom)");
     tap(instance,1);assert(played(instance,62)==tones(58,4,7,11));release(instance,62);
     API.set_param(instance,"dominant_minor_scale","Altered V");
-    assert(hb_secondary_collection(instance,15,62,hb_explicit_scale_mask(0,1))==hb_explicit_scale_mask(2,8));
+    assert(hb_secondary_collection(instance,15,62,hb_explicit_scale_mask(0,1))==hb_explicit_scale_mask(10,9));
     for(int role=14;role<=17;role++){
         instance->motion.events[HB_MOTION_LANES]=hb_mo_role_word(role);
         assert(hb_mo_source_secondary(&instance->motion)==role);
@@ -137,7 +137,7 @@ static void dominant_color_performance(void){
     assert(hb_policy_value(instance,HB_P_DOMINANT)==3&&hb_policy_value(instance,HB_P_DOMINANT_MINOR)==3);
     assert(hb_policy_value(other,HB_P_DOMINANT)==6);
     assert(hb_function_family(instance,2,parent,1,1)==hb_explicit_scale_mask(10,9));
-    assert(hb_function_family(instance,2,parent,1,0)==hb_explicit_scale_mask(2,8));
+    assert(hb_function_family(instance,2,parent,1,0)==hb_explicit_scale_mask(10,9));
     API.set_param(instance,"dominant_minor_scale","Melodic Minor");
     API.set_param(instance,"dominant_color","Up");
     assert(hb_policy_value(instance,HB_P_DOMINANT)==6&&hb_policy_value(instance,HB_P_DOMINANT_MINOR)==2);
@@ -170,7 +170,81 @@ static void diminished_destination(void){
     for(int target=60;target<=62;target+=2){result=hb_resolve_cadence(instance,&step,target,parent);assert(result.root==target-5&&result.quality==6);}
     API.destroy_instance(instance);
 }
-int main(void){diminished_destination();dominant_color_performance();dominant_family_contract();plain_and_dominant_degrees();
+static void dominant_intent_consistency(void){
+    Inst *instance=setup();instance->player.config.mode=1;
+    API.set_param(instance,"target_scale_source","Parent");
+    const char *families[]={"Minimal","Harmonic Minor","Melodic Minor","Altered V","Major","Harmonic Major","Simplified Target"};
+    for(int tonic=0;tonic<12;tonic++)for(int minor=0;minor<2;minor++)for(int family=0;family<7;family++){
+        unsigned parent=hb_explicit_scale_mask(tonic,minor?2:1);
+        API.set_param(instance,minor?"dominant_minor_scale":"dominant_scale",families[family]);
+        unsigned collection=hb_function_family(instance,tonic,parent,minor,1);
+        assert(collection==hb_function_family(instance,tonic,parent,minor,0));
+        assert(collection==hb_function_family(instance,tonic,parent,minor,2));
+        if(!family)assert(collection==hb_explicit_scale_mask(tonic,minor?8:1));
+        for(int secondary=15;secondary<=17;secondary++){
+            hb_approach_result result=hb_resolve_chord_approach(instance,60+tonic,parent,instance->player.config,(hb_harmony_t){0},secondary,0,0,0);
+            assert(result.intent_kind==secondary-7&&result.intent_target==tonic&&result.intent_minor==minor);
+            assert(result.scale==collection);
+            assert(mod12(result.root)==mod12(tonic+hb_nth_scale_interval_from_root(collection,tonic,1+2*(secondary-15))));
+            hb_harmony_t intent={.valid=1,.root_pc=mod12(result.root),.intent_kind=result.intent_kind,.intent_target=tonic,.intent_minor=minor,.intent_scale=parent};
+            intent.pitch_mask=intent.detected_mask=1u<<intent.root_pc;intent.chord_index=HB_HARMONY_EXPLICIT_TONES;
+            assert(hb_dominant_scale_mask(instance,intent,tonic)==collection);
+        }
+        assert(hb_secondary_collection(instance,1,60+tonic,parent)==parent);
+    }
+    /* A Root Only V still carries V7 intent; its sounding form remains one note. */
+    API.set_param(instance,"role","Conductor");
+    API.set_param(instance,"dominant_minor_scale","Minimal");
+    instance->player.config.size=18;
+    tap(instance,2);unsigned heard=played(instance,69);
+    assert(heard==(1u<<4));
+    hb_cp_key *key=0;for(int index=0;index<HB_CP_KEYS;index++)if(instance->player.keys[index].used)key=&instance->player.keys[index];
+    assert(key&&key->intent_kind==2&&key->intent_minor);
+    assert((key->semantic_mask&tones(4,4,7,10))==tones(4,4,7,10));
+    advance(instance,100,64);
+    hb_harmony_t harmony=hb_observed_read();
+    assert(harmony.intent_kind==2&&harmony.intent_target==9);
+    assert(hb_harmony_detected_mask(harmony)==(1u<<4));
+    unsigned collection=hb_dominant_scale_mask(instance,harmony,0);
+    assert(collection==hb_explicit_scale_mask(9,8));
+    hb_key_context mapping={.active=1,.source_root=9,.target_root=9,.source_mask=hb_explicit_scale_mask(9,2),.target_mask=collection};
+    assert(hb_key_map(mapping,67)==68);
+    release(instance,69);API.destroy_instance(instance);
+}
+static void dominant_preparation_key_change(void){
+    Inst *instance=setup();API.set_param(instance,"dominant_scale","Harmonic Major");
+    API.set_param(instance,"dominant_minor_scale","Melodic Minor");
+    g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=2,.source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(2,1)};
+    for(int kind=8;kind<=10;kind++){
+        unsigned source=hb_function_family(instance,9,hb_explicit_scale_mask(0,1),1,0);
+        int root=mod12(9+hb_nth_scale_interval_from_root(source,9,1+2*(kind-8)));
+        hb_harmony_t harmony={.valid=1,.root_pc=root,.bass_pc=root,.chord_index=HB_HARMONY_EXPLICIT_TONES,.pitch_mask=1u<<root,.detected_mask=1u<<root,.intent_kind=kind,.intent_target=9,.intent_minor=1};
+        hb_harmony_t mapped=hb_key_harmony(instance,harmony);
+        int target=mod12(hb_key_map(g_key_context,69));
+        unsigned collection=hb_function_family(instance,target,g_key_context.target_mask,hb_target_minor(g_key_context.target_mask,target),0);
+        int expected=mod12(target+hb_nth_scale_interval_from_root(collection,target,1+2*(kind-8)));
+        assert(mapped.root_pc==expected&&mapped.intent_target==target&&mapped.intent_kind==kind);
+        assert(hb_harmony_detected_mask(mapped)==(1u<<expected));
+        assert(hb_dominant_scale_mask(instance,mapped,2)==collection);
+    }
+    g_key_context=(hb_key_context){0};API.destroy_instance(instance);
+}
+static void motif_functional_evidence(void){
+    Inst *instance=setup();API.set_param(instance,"role","Conductor");
+    instance->player.config.mode=1;instance->player.config.size=18;
+    API.set_param(instance,"dominant_minor_scale","Minimal");
+    hb_mt_phrase phrase={.count=1,.anchor=0};
+    phrase.events[0].count=1;phrase.events[0].duration=24;phrase.events[0].secondary=2;phrase.events[0].chord_mode=1;
+    phrase.events[0].notes[0]=(hb_mt_note){69,100};
+    assert(hb_mt_schedule(instance,&phrase,69,100,0,0,1,hb_motion_position(instance),hb_motion_position(instance),0));
+    advance(instance,100,64);
+    hb_harmony_t harmony=hb_observed_read();
+    assert(harmony.valid&&harmony.root_pc==4&&harmony.intent_kind==2&&harmony.intent_target==9&&harmony.intent_minor);
+    assert(hb_harmony_detected_mask(harmony)==(1u<<4));
+    assert((hb_harmony_chord_mask(harmony)&tones(4,4,7,10))==tones(4,4,7,10));
+    API.destroy_instance(instance);
+}
+int main(void){dominant_intent_consistency();dominant_preparation_key_change();motif_functional_evidence();diminished_destination();dominant_color_performance();dominant_family_contract();plain_and_dominant_degrees();
     source_and_quality();musical_output();cadence_and_dominant_family();persistence_and_track_isolation();
     puts("target scales: Auto/Parent/Simplified, quality families, MIDI, cadences, precedence and persistence pass");
 }

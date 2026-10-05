@@ -29,6 +29,8 @@ typedef struct {double on,off;int pitch,velocity,channel,render,started,used;int
     unsigned override_mask;int override_root,override_semantic;
     unsigned long long override_generation;
     unsigned short trail_target;
+    unsigned short semantic_mask,intent_scale;
+    int reference_pitch,root_pc,intent_kind,intent_target,intent_minor;
 } hb_mt_scheduled;
 typedef struct {
     hb_mt_recorder editor;
