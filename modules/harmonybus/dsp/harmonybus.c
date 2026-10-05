@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.253"
+#define HB_VERSION "0.2.254"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -313,11 +313,7 @@ static char *hb_read_text_file(const char *path,long *size_out);
 /* Target history follows emitted input gestures, not generated voices. The
    monotonic DSP beat keeps decay continuous over transport loops and seeks. */
 static hb_harmony_t hb_render_harmony(Inst *instance);
-static void hb_trail_boundary(Inst *instance){
-    hb_harmony_t harmony=hb_render_harmony(instance);
-    unsigned signature=hb_harmony_chord_mask(harmony)|((unsigned)(harmony.root_pc+1)<<12);
-    if(signature!=instance->trail_signature){instance->trail_signature=signature;instance->trail_chord++;}
-}
+static void hb_trail_boundary(Inst *instance);
 static void hb_trail_heard(Inst *instance,unsigned tag){
     if(!tag||tag>128)return;
     hb_trail_boundary(instance);int pitch=(int)tag-1;
@@ -1762,6 +1758,18 @@ static hb_harmony_t hb_render_harmony(Inst *instance){
         }
     }
     return harmony;
+}
+
+static void hb_trail_boundary(Inst *instance){
+    hb_harmony_t harmony=hb_render_harmony(instance);
+    /* A render anticipation remaps visible history but does not end its
+       current-chord window. The unshifted timeline owns the clear boundary. */
+    if(hb_harmony_knowledge_ready_for(instance)){
+        int event=hb_next_model_event_for_phase_for(instance,hb_next_phase(hb_clip_playhead()),0);
+        if(event>=0)harmony=g_bus.next_model[event].harmony;
+    }
+    unsigned signature=hb_harmony_chord_mask(harmony)|((unsigned)(harmony.root_pc+1)<<12);
+    if(signature!=instance->trail_signature){instance->trail_signature=signature;instance->trail_chord++;}
 }
 
 /* Internal subscribers augment the existing stock-track MIDI broadcast.
@@ -6865,14 +6873,10 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
                     preview.movy_pad_shift[source_note]=0;
                 }
                 if(instance->trail_enabled){
-                    hb_harmony_t display=g_pad_settings[0]==1?current:pulse_harmony.valid?pulse_harmony:effective;
-                    if(hb_harmony_equal_effective(display,effective))trail_targets[slot]=effective_target;
-                    else {
-                    if(gap)preview.movy_pad_shift[source_note]=gap_target-source_note;
-                    hb_pad_render_mask(&preview,instance,display,source_note,1,0,0);
-                    if(gap)preview.movy_pad_shift[source_note]=0;
-                    trail_targets[slot]=preview.preview_target;
-                    }
+                    /* History is heard pitch, projected through what each pad
+                       plays now. Full-next background colors never relocate
+                       trails; actual render lookahead already changes effective. */
+                    trail_targets[slot]=effective_target;
                 }
                 continue;
             }
