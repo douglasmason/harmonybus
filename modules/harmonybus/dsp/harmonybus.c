@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.254"
+#define HB_VERSION "0.2.255"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -6206,7 +6206,7 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
 }
 
 /* Color membership can use a different form from the sounding voicing.
-   Reuse the chord-form engine against the original harmony and parent scale. */
+   Reuse the chord-form engine against the rendered harmony and parent scale. */
 static unsigned hb_pad_chord_mask_base_form(Inst *instance,hb_harmony_t harmony,int form){
     if(!harmony.valid)return 0;
     unsigned chord=hb_harmony_chord_mask(harmony);
@@ -6221,12 +6221,15 @@ static unsigned hb_pad_chord_mask_base_form(Inst *instance,hb_harmony_t harmony,
     return mask;
 }
 
-static unsigned hb_pad_chord_mask_form(Inst *instance,hb_harmony_t harmony,int form){return hb_key_mask(hb_key_for(instance),hb_pad_chord_mask_base_form(instance,harmony,form));}
+static unsigned hb_pad_chord_mask_form(Inst *instance,hb_harmony_t harmony,int form){
+    return hb_pad_chord_mask_base_form(instance,hb_key_harmony(instance,harmony),form);
+}
 static unsigned hb_pad_chord_mask(Inst *instance,hb_harmony_t harmony){return hb_pad_chord_mask_form(instance,harmony,g_pad_chord_form);}
 
 /* Pulse the same form used for color membership, including added tensions. */
 static unsigned hb_pad_next_mask_roles(Inst *instance,hb_harmony_t harmony,unsigned roles){
     if(!harmony.valid||!g_pad_next_pulse)return 0;
+    harmony=hb_key_harmony(instance,harmony);
     int form=(g_pad_settings[0]==0||g_pad_settings[0]==2)?g_pad_chord_form:g_pad_next_chord_form;
     unsigned chord=hb_pad_chord_mask_base_form(instance,harmony,form),relative=0,mask=0;
     /* Retain detected quality context when the display omits root/fifth. */
@@ -6234,7 +6237,7 @@ static unsigned hb_pad_next_mask_roles(Inst *instance,hb_harmony_t harmony,unsig
     for(int interval=0;interval<12;interval++)if(context&(1u<<mod12(harmony.root_pc+interval)))relative|=1u<<interval;
     for(int interval=0;interval<12;interval++)if((chord&(1u<<mod12(harmony.root_pc+interval)))&&
         (roles&(1u<<hb_cp_interval_role(interval,relative))))mask|=1u<<mod12(harmony.root_pc+interval);
-    return hb_key_mask(hb_key_for(instance),mask);
+    return mask;
 }
 
 static unsigned hb_pad_next_mask(Inst *instance,hb_harmony_t harmony){return hb_pad_next_mask_roles(instance,harmony,PAD_NEXT_ROLES[g_pad_next_pulse]);}
@@ -6362,7 +6365,24 @@ if(!strcmp(key,"key_center_view")){
     hb_key_context current=hb_key_baseline(instance);
     char local[32];get_param(instance,"key_center",local,sizeof(local));
     const char *state=!strcmp(local,"Armed")?"Armed":!strcmp(local,"Off")?"Off":"On";
-    return snprintf(buffer,(size_t)length,"%s|%s%s|%s|%s|%s",state,PC_OPTS[current.target_root],hb_key_quality(current),g_key_preview,instance->dominant_color_latched?"Latch":instance->dominant_color_held?"Hold":"Off",DOMINANT_SCALE_OPTS[instance->dominant_color_family]);
+    char preview_label[48]="";
+    if(!strcmp(state,"Armed")){
+        if(g_key_preview[0])snprintf(preview_label,sizeof(preview_label),"Arm %s",g_key_preview);
+        else snprintf(preview_label,sizeof(preview_label),"Armed");
+        unsigned owner=instance->physical_target;
+        int held=owner&&instance->physical_velocity[(owner-1)/128][(owner-1)%128];
+        if(instance->key_pending||held){
+            hb_key_context destination=instance->key_pending_context;
+            if(!instance->key_pending){
+                /* A held target previews the next LIVE hit, even while clip
+                   events are arriving. Never consume a gesture or emit MIDI. */
+                Inst preview=*instance;preview.movy_playback=preview.key_scope=0;
+                destination=hb_key_destination(&preview,(owner-1)%128);
+            }
+            snprintf(preview_label,sizeof(preview_label),"Arm>%s%s",PC_OPTS[destination.target_root],hb_key_quality(destination));
+        }
+    }
+    return snprintf(buffer,(size_t)length,"%s|%s%s|%s|%s|%s",state,PC_OPTS[current.target_root],hb_key_quality(current),preview_label,instance->dominant_color_latched?"Latch":instance->dominant_color_held?"Hold":"Off",DOMINANT_SCALE_OPTS[instance->dominant_color_family]);
 }
 if(!strcmp(key,"key_center")){int owner=(int)(instance-g_pool);int active=g_sc_live[owner][HB_SC_KEY].on||(instance->movy_track>=0&&instance->role==0&&g_sc_replay[instance->movy_track][HB_SC_KEY].on);return snprintf(buffer,(size_t)length,"%s",g_key_armed&&(g_sc_arm_owner<0||g_sc_arm_owner==owner)?"Armed":active?PC_OPTS[g_key_context.target_root]:"Off");}
 if(!strcmp(key,"follower_scale")&&instance->movy_track==g_sc_record_track&&g_sc_record_track>=0&&g_sc_live[instance-g_pool][HB_SC_PARENT].on)return snprintf(buffer,(size_t)length,"%s",FOLLOWER_SCALE_OPTS[g_sc_live[instance-g_pool][HB_SC_PARENT].a]);
@@ -6794,7 +6814,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         }
     }
     ready=ready||opening.valid;
-    hb_harmony_t scale=hb_follower_scale_target(instance,effective);
+    hb_harmony_t scale=hb_follower_scale_target(instance,hb_key_harmony(instance,effective));
     if(!strcmp(key,"pad_render")){
         /* Render on a private instance: real mapping/voicing, no emitted MIDI,
            no live owner changes and no consumption of one-shot modifiers. */

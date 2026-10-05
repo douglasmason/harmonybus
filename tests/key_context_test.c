@@ -239,7 +239,23 @@ static void immediate_key_feedback(void){
     Inst *instance=fixture();single_setup(instance);char view[128];
     midi(instance,1,69);API.set_param(instance,"key_center","LatchOn");
     API.get_param(instance,"key_center",view,sizeof(view));assert(!strcmp(view,"Armed"));assert(!g_key_context.active);
+    API.get_param(instance,"key_center_view",view,sizeof(view));assert(strstr(view,"Armed|C|Arm>Am|")==view);
     release(instance,69);API.destroy_instance(instance);
+    for(int travel=0;travel<8;travel++){
+        instance=fixture();single_setup(instance);instance->travel_map=travel;
+        API.set_param(instance,"key_center","On");
+        API.get_param(instance,"key_center_view",view,sizeof(view));assert(strstr(view,"Armed|C|Armed|")==view);
+        API.set_param(instance,"key_center","Off");
+        midi(instance,1,64);API.set_param(instance,"key_center","On");
+        hb_key_context expected=hb_key_destination(instance,64),before=g_key_context;
+        int emitted=render_count;unsigned serial=instance->trail_serial;
+        instance->movy_playback=1;
+        char target[48];snprintf(target,sizeof(target),"|Arm>%s%s|",PC_OPTS[expected.target_root],hb_key_quality(expected));
+        API.get_param(instance,"key_center_view",view,sizeof(view));assert(strstr(view,target));
+        assert(render_count==emitted&&instance->trail_serial==serial&&instance->movy_playback==1);
+        assert(!memcmp(&before,&g_key_context,sizeof(before))&&g_key_armed);
+        instance->movy_playback=0;release(instance,64);API.destroy_instance(instance);
+    }
 }
 
 int main(void){key_center_waits_for_touch_target();anticipated_destination_scale();immediate_key_feedback();live_dominant_without_key_change();modal_leading_and_active_family();unchanged_key_voicings();functional_key_change();blues_mode();
