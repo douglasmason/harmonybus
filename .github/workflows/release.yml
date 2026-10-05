@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.251'
+          assert module['version']=='0.2.252'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -104,7 +104,7 @@ jobs:
           chord_mode=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='chord_mode')
           assert chord_mode['default']=='Off'
           dominant=next(parameter for parameter in levels['track_scales']['params'] if parameter.get('key')=='track_dominant_scale')
-          assert dominant['options']==['None','Harmonic Minor','Melodic Minor','Altered V','Major','Harmonic Major','Simplified Target','Follow Role'] and dominant['default']=='Follow Role'
+          assert dominant['options']==['None','Harmonic Minor','Melodic Minor','Altered V','Major','Harmonic Major','Simplified Target','Minimal','Follow Role'] and dominant['default']=='Follow Role'
           assert next(p for p in module['capabilities']['chain_params'] if p['key']=='track_dominant_minor_scale')['options']==dominant['options']
           assert next(p for p in module['capabilities']['chain_params'] if p['key']=='conductor_default_dominant_minor_scale')['default']=='Simplified Target'
           assert 'track_dominant_minor_scale' in levels['track_scales']['knobs']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Anticipate the selected Key Center destination scale when choosing dominant-to-major/minor approaches. Commit touch sequences at their target, preserve recorded destination choices, and show same-tonic changes as active. Pair with Movy hbclean.168 for immediate key-center feedback." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Unify dominant preparations, V and leading-tone collections. Add Minimal parent-scale alteration, preserve functional intent through sparse forms and motif playback, and apply dominant colors to scale-tone mapping. Pair with Movy hbclean.169." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Anticipate the selected Key Center destination scale when choosing dominant-to-major/minor approaches. Commit touch sequences at their target, preserve recorded destination choices, and show same-tonic changes as active. Pair with Movy hbclean.168 for immediate key-center feedback." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Unify dominant preparations, V and leading-tone collections. Add Minimal parent-scale alteration, preserve functional intent through sparse forms and motif playback, and apply dominant colors to scale-tone mapping. Pair with Movy hbclean.169." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

@@ -246,7 +246,7 @@ static void hb_timeline_restore(const char *state){
             if(fields!=11||!(event->phase>=0&&event->phase<(double)entry.period)||
                (index&&event->phase<=entry.events[index-1].phase)||h->root_pc<0||h->root_pc>11||
                h->bass_pc<0||h->bass_pc>11||!pitch||pitch>4095||detected>4095||scale>4095||
-               h->chord_index<0||h->chord_index>511||h->intent_kind<0||h->intent_kind>7||
+               h->chord_index<0||h->chord_index>511||h->intent_kind<0||h->intent_kind>10||
                h->intent_target<0||h->intent_target>11||h->intent_minor<0||h->intent_minor>1){valid=0;break;}
             h->valid=1;h->pitch_mask=(uint16_t)pitch;h->detected_mask=(uint16_t)detected;h->intent_scale=(uint16_t)scale;
             *h=hb_transpose_harmony(*h,12); /* Rebuild the display name. */

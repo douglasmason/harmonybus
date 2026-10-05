@@ -22,7 +22,7 @@ static unsigned hb_local_recipe(Inst *instance,hb_harmony_t harmony){
 /* Match every occurrence of a chord; disagreeing repeated contexts stay local.
    This is independent of the track's playback lookahead setting. */
 static int hb_context_destination(Inst *instance,hb_harmony_t harmony,int *minor_out){
-    if(harmony.intent_kind&&harmony.intent_kind<6){*minor_out=harmony.intent_minor;return harmony.intent_target;}
+    if((harmony.intent_kind&&harmony.intent_kind<6)||(harmony.intent_kind>=8&&harmony.intent_kind<=10)){*minor_out=harmony.intent_minor;return harmony.intent_target;}
     int scope=hb_policy_value(instance,HB_P_CONTEXT);
     if(scope==0)return -1; /* Current harmony only; explicit intent above still applies. */
     if(!g_bus.next_model_locked||g_bus.next_model_count<2)return -1;
@@ -55,6 +55,10 @@ static int hb_context_destination(Inst *instance,hb_harmony_t harmony,int *minor
     *minor_out=minor;return destination;
 }
 static unsigned hb_local_output_scale(Inst *instance,hb_harmony_t harmony){
+    if(harmony.intent_kind>=8&&harmony.intent_kind<=10){
+        unsigned dominant=hb_dominant_scale_mask(instance,harmony,harmony.intent_target);
+        if(dominant)return hb_accommodate_chord(dominant,harmony,harmony.intent_target);
+    }
     if(harmony.intent_kind==7&&harmony.intent_scale)return hb_accommodate_chord(harmony.intent_scale,harmony,harmony.intent_target);
     unsigned local=hb_local_recipe(instance,harmony);
     if(hb_policy_value(instance,HB_P_GAP)==2&&harmony.intent_kind==6&&harmony.intent_scale&&!(hb_harmony_chord_mask(harmony)&~harmony.intent_scale))
