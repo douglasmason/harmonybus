@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.253'
+          assert module['version']=='0.2.254'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Unify dominant preparations, V and leading-tone collections. Add Minimal parent-scale alteration, preserve functional intent through sparse forms and motif playback, and apply dominant colors to scale-tone mapping. Pair with Movy hbclean.169." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Keep played-target trails on effective harmony in every pad-color mode. Partial lookahead remaps history before the unshifted chord boundary clears it. Compatible with Movy hbclean.172." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Unify dominant preparations, V and leading-tone collections. Add Minimal parent-scale alteration, preserve functional intent through sparse forms and motif playback, and apply dominant colors to scale-tone mapping. Pair with Movy hbclean.169." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Keep played-target trails on effective harmony in every pad-color mode. Partial lookahead remaps history before the unshifted chord boundary clears it. Compatible with Movy hbclean.172." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
