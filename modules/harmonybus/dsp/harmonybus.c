@@ -2673,7 +2673,8 @@ static unsigned hb_simplified_target_scale(Inst *instance,int target,unsigned pa
 }
 static unsigned hb_relative_target_scale(Inst *instance,int target,unsigned parent,int dominant){
     int source=instance->target_scale_policy[0];
-    if(source==2||(source==0&&((dominant&&hb_policy_value(instance,hb_target_minor(parent,target)?HB_P_DOMINANT_MINOR:HB_P_DOMINANT)!=0)||(instance->motion.render_flags&HB_MO_SIMPLE))))
+    int family=hb_policy_value(instance,hb_target_minor(parent,target)?HB_P_DOMINANT_MINOR:HB_P_DOMINANT);
+    if(source==2||(source==0&&((dominant&&family&&family!=7)||(instance->motion.render_flags&HB_MO_SIMPLE))))
         return hb_simplified_target_scale(instance,target,parent);
     if(parent&(1u<<mod12(target)))return parent;
     int tonic=0;hb_resolve_follower_reference_root(instance,&tonic);tonic=mod12(tonic+g_bus.global_transpose);

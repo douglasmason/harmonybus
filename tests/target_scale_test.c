@@ -192,6 +192,12 @@ static void dominant_intent_consistency(void){
         }
         assert(hb_secondary_collection(instance,1,60+tonic,parent)==parent);
     }
+    /* Auto + Minimal retains Dorian's sixth: C parent -> D melodic minor,
+       never D harmonic minor through an implicit simplified baseline. */
+    API.set_param(instance,"target_scale_source","Auto");
+    API.set_param(instance,"dominant_minor_scale","Minimal");
+    unsigned dorian=hb_explicit_scale_mask(0,1);
+    for(int role=15;role<=17;role++)assert(hb_secondary_collection(instance,role,62,dorian)==hb_explicit_scale_mask(2,9));
     /* A Root Only V still carries V7 intent; its sounding form remains one note. */
     API.set_param(instance,"role","Conductor");
     API.set_param(instance,"dominant_minor_scale","Minimal");
@@ -209,6 +215,7 @@ static void dominant_intent_consistency(void){
     assert(collection==hb_explicit_scale_mask(9,8));
     hb_key_context mapping={.active=1,.source_root=9,.target_root=9,.source_mask=hb_explicit_scale_mask(9,2),.target_mask=collection};
     assert(hb_key_map(mapping,67)==68);
+    assert(hb_key_conductor_pitch(instance,67)==68);
     release(instance,69);API.destroy_instance(instance);
 }
 static void dominant_preparation_key_change(void){
