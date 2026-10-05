@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.250"
+#define HB_VERSION "0.2.251"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -245,7 +245,7 @@ static int g_render_window=0,g_render_restored=0;
 #include "../../../src/key_context.h"
 #include "../../../src/shared_context.h"
 typedef struct { hb_key_context context; hb_harmony_t input,output; int valid,major_choice,minor_choice; } hb_key_harmony_cache;
-typedef struct { int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; unsigned closest_source,closest_target; int closest_root,closest_valid,closest_pc[12]; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_scope,key_schedule_arm,key_pending; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[16][128]; int chord_pair_owner[16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
+typedef struct { int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; unsigned closest_source,closest_target; int closest_root,closest_valid,closest_pc[12]; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[16][128]; int chord_pair_owner[16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 unsigned long long motion_follower_events[64][HB_MOTION_LANES+1],motion_output_events[128][HB_MOTION_LANES+1];
 unsigned long long motion_player_events[HB_CP_KEYS][HB_MOTION_LANES+1],motion_held_events[128][HB_MOTION_LANES+1];
 uint8_t motion_output_valid[128]; uint8_t (*motion_output_base)[3];
@@ -912,6 +912,11 @@ static int hb_resolve_follower_reference_root(Inst *instance,int *root_out){
 static int hb_map_follower_note_unoperated(Inst *instance,int source_note);
 static hb_key_context hb_key_for(Inst *instance){
     hb_key_context context=instance->key_scope?instance->key_onset:g_key_context;
+    /* Freeze the destination choice with delayed onsets; previews retain their
+       real owner through the private Inst copy. Never borrow a live arm for replay. */
+    if(!instance->key_scope&&!instance->movy_playback&&g_key_armed&&g_key_scale_mode==2&&
+       (g_sc_arm_owner<0||g_sc_arm_owner==instance->key_owner))
+        context.approach_scale=g_parallel_scale==18?-1:HB_PARALLEL_SCALE_IDS[g_parallel_scale];
     if(!context.active&&HB_SCALE_DOMINANT[hb_shared_follower_scale()]){
         int root=0;hb_resolve_follower_reference_root(instance,&root);
         context.active=context.blues=1;context.source_root=context.target_root=mod12(root+g_bus.global_transpose);
@@ -925,10 +930,24 @@ static unsigned hb_function_family(Inst *instance,int target,unsigned parent,int
 static int hb_target_minor(unsigned parent,int target);
 static uint16_t hb_dominant_scale_mask(Inst *instance,hb_harmony_t harmony,int tonic);
 static uint16_t hb_follower_input_scale(Inst *instance,int root);
+static uint16_t hb_transpose_mask(uint16_t mask,int semitones);
+/* A prescribed destination collection keeps its intervals while the target
+   itself follows the current key map. Do not flatten its major third through
+   the old minor key's degree map. */
+static hb_key_context hb_key_collection_context(hb_key_context context,int target,unsigned collection){
+    int destination=mod12(hb_key_map(context,60+mod12(target)));
+    context.source_root=mod12(target);context.target_root=destination;
+    context.source_mask=collection;
+    context.target_mask=hb_transpose_mask(collection,destination-context.source_root);
+    return context;
+}
 static hb_harmony_t hb_key_harmony(Inst *instance,hb_harmony_t harmony){
     hb_harmony_t override;
     if(hb_override_read(instance,&override)&&!memcmp(&override,&harmony,sizeof(harmony)))return harmony;
-    hb_key_context context=hb_key_for(instance);if(!context.active||!harmony.valid||
+    hb_key_context context=hb_key_for(instance);
+    if(harmony.intent_kind>0&&harmony.intent_kind<4&&harmony.intent_scale)
+        context=hb_key_collection_context(context,harmony.intent_target,harmony.intent_scale);
+    if(!context.active||!harmony.valid||
         (!context.blues&&context.source_root==context.target_root&&context.source_mask==context.target_mask))return harmony;
     for(int slot=0;slot<4;slot++){
         hb_key_harmony_cache *cached=&instance->key_cache[slot];
@@ -994,7 +1013,6 @@ static void hb_key_relative(hb_key_context *context){
     context->target_root=mod12(context->target_root+(minor?3:9));
     context->target_mask=hb_explicit_scale_mask(context->target_root,minor?1:2);
 }
-static uint16_t hb_transpose_mask(uint16_t mask,int semitones);
 static void hb_sc_set_live(Inst *instance,int kind,int on,int a,int b,int c);
 static void hb_sc_resolve(Inst *instance);
 static void hb_key_parallel(Inst *instance,int on){
@@ -1023,8 +1041,16 @@ static hb_key_context hb_key_destination(Inst *instance,int source){
     }
     (void)inherited_mask;return context;
 }
+/* Only an armed destination supplies a prospective scale. Ordinary secondary
+   targets and explicit nested cadence paths retain their own local thirds. */
+static unsigned hb_key_approach_scale(Inst *instance,int target,unsigned parent){
+    int scale=hb_key_for(instance).approach_scale;
+    if(!scale)return parent;
+    if(scale<0)scale=hb_target_minor(parent,target)?2:1;
+    return hb_explicit_scale_mask(mod12(target),scale);
+}
 static void hb_key_commit(Inst *instance,hb_key_context context){
-    g_key_armed=0;g_sc_arm_owner=-1;
+    g_key_armed=0;g_sc_arm_owner=-1;g_key_preview[0]=0;
     int mask=hb_transpose_mask(context.target_mask,-g_bus.global_transpose),detail=context.blues&1;
     if(instance->sc_landing_pitch){
         /* Only an explicit landing captures its preceding key context. This
@@ -2133,7 +2159,7 @@ static uint16_t hb_dominant_scale_mask(Inst *instance,hb_harmony_t harmony,int t
     unsigned chord=hb_harmony_chord_mask(harmony);
     int explicit_context=harmony.intent_kind>0&&harmony.intent_kind<4;
     int target=explicit_context?harmony.intent_target:tonic;
-    unsigned parent=hb_effective_parent(instance,tonic);
+    unsigned parent=explicit_context&&harmony.intent_scale?harmony.intent_scale:hb_effective_parent(instance,tonic);
     int minor=explicit_context?harmony.intent_minor:hb_target_minor(parent,target);
     int root=mod12(harmony.root_pc),relative=mod12(root-target);
     int dominant=relative==7&&(chord&(1u<<mod12(root+4)))&&!(chord&(1u<<mod12(root+11)));
@@ -2589,6 +2615,7 @@ static int hb_target_diminished(unsigned scale,int target){
     return (scale&(1u<<mod12(target+3)))&&(scale&(1u<<mod12(target+6)))&&!(scale&(1u<<mod12(target+7)));
 }
 static int hb_current_target_diminished(Inst *instance,unsigned scale,int target){
+    if(hb_key_for(instance).approach_scale)return hb_target_diminished(scale,target);
     hb_key_context context=hb_key_for(instance);
     if(instance->role==0&&context.active&&!context.blues){
         target=hb_key_map(context,target);scale=context.target_mask;
@@ -2651,12 +2678,13 @@ static unsigned hb_relative_dominant_scale(Inst *instance,int root,int destinati
     return hb_function_family(instance,destination,parent,hb_target_minor(parent,destination),leading?2:1);
 }
 static unsigned hb_secondary_collection(Inst *instance,int role,int target,unsigned parent){
-    unsigned collection=hb_relative_target_scale(instance,target,parent,role==2||role==12||role>=15);
+    unsigned collection=hb_relative_target_scale(instance,target,hb_key_approach_scale(instance,target,parent),role==2||role==12||role>=15);
     return role>=15?hb_function_family(instance,target,collection,hb_target_minor(collection,target),0):collection;
 }
 /* Resolve a recorded cadence step against its current destination. */
 typedef struct {int root,quality,destination;unsigned scale;int minor;} hb_cadence_result;
 static hb_cadence_result hb_resolve_cadence(Inst *instance,const hb_cadence_step *step,int target,unsigned parent){
+    parent=hb_key_approach_scale(instance,target,parent);
     unsigned collection=hb_relative_target_scale(instance,target,parent,0);
     for(int depth=0;depth<3&&step->path[depth];depth++){
         int term=step->path[depth];
@@ -2798,6 +2826,7 @@ typedef struct {int root,intent_kind,intent_target,intent_minor;unsigned scale;h
 /* Shared by live chord construction and anchor-relative motif replay. */
 static hb_approach_result hb_resolve_chord_approach(Inst *instance,int target_note,unsigned target_scale,
     hb_cp_config config,hb_harmony_t harmony,int secondary,const hb_cadence_step *cadence,int chord_modifier,int pad_approach){
+    target_scale=hb_key_approach_scale(instance,target_note,target_scale);
     int intent_kind=0,intent_target=mod12(target_note),intent_minor=0;
     if(secondary==2&&hb_current_target_diminished(instance,target_scale,target_note))secondary=12;
         int root_note=target_note;
@@ -2914,9 +2943,12 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         unsigned harmonic_parent=hb_parent_chord_scale(instance,harmony,scale_root,hb_follower_input_scale(instance,scale_root),g_bus.global_transpose);
         if(harmonic_parent)target_scale=harmonic_parent;
     }
+    target_scale=hb_key_approach_scale(instance,target_note,target_scale);
     int intent_kind=0,intent_target=mod12(target_note),intent_minor=0;
     if(secondary==2&&hb_current_target_diminished(instance,target_scale,target_note))secondary=12;
     int approach_chord=pad_approach||chord_modifier||((secondary||cadence)&&chord_active);
+    unsigned anticipated_parent=approach_chord&&hb_key_for(instance).approach_scale?
+        hb_key_approach_scale(instance,target_note,target_scale):0;
     if(approach_chord){
         hb_approach_result approach=hb_resolve_chord_approach(instance,target_note,target_scale,config,harmony,secondary,cadence,chord_modifier,pad_approach);
         int root_note=approach.root;target_scale=approach.scale;config=approach.config;
@@ -3017,6 +3049,7 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
     }
     int reference_pitches[HB_CP_VOICES];memcpy(reference_pitches,pitches,sizeof(reference_pitches));
     hb_key_context voice_context=hb_key_for(instance);
+    if(anticipated_parent)voice_context=hb_key_collection_context(voice_context,target_note,anticipated_parent);
     if(instance->role==0&&!voice_context.active&&!approach_chord){
         unsigned active=hb_dominant_scale_mask(instance,harmony,mod12(scale_root+g_bus.global_transpose));
         if(active){
@@ -3033,7 +3066,7 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         /* Reinterpret the input, then voice it in the destination collection.
            Snapping each generated voice independently collapses chord forms. */
         hb_key_context context=voice_context;
-        int mapped_input=hb_key_conductor_pitch(instance,modified_note+g_bus.global_transpose);
+        int mapped_input=anticipated_parent?hb_key_map(context,modified_note+g_bus.global_transpose):hb_key_conductor_pitch(instance,modified_note+g_bus.global_transpose);
         hb_harmony_t destination=hb_key_harmony(instance,harmony);
         unsigned mapped_scale=scale_mode&&!approach_chord?context.target_mask:
             hb_key_mask(context,hb_transpose_mask(scale,scale_mode?g_bus.global_transpose:0));
@@ -3046,9 +3079,9 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
             int functional=intent_kind!=7&&mod12(original_root-source_target)==7&&(original_mask&(1u<<mod12(original_root+4)))&&!(original_mask&(1u<<mod12(original_root+11)));
             int leading=approach_chord&&intent_kind==3;
             int preceding=approach_chord&&intent_kind==1&&mod12(original_root-source_target)==2;
-            int family=hb_policy_value(instance,hb_target_minor(context.target_mask,context.target_root)?HB_P_DOMINANT_MINOR:HB_P_DOMINANT);
+            int target=approach_chord?mod12(hb_key_map(context,60+source_target)):context.target_root;
+            int family=hb_policy_value(instance,hb_target_minor(context.target_mask,target)?HB_P_DOMINANT_MINOR:HB_P_DOMINANT);
             if(family&&(functional||leading||preceding)){
-                int target=approach_chord?mod12(hb_key_map(context,60+source_target)):context.target_root;
                 int new_root=mod12(target+(functional?7:leading?11:2));
                 int delta=new_root-mod12(mapped_input);while(delta>6)delta-=12;while(delta< -6)delta+=12;mapped_input+=delta;
                 mapped_scale=hb_function_family(instance,target,context.target_mask,hb_target_minor(context.target_mask,target),functional?1:leading?2:0);
@@ -3089,7 +3122,7 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
             memcpy(instance->key_reference[index],reference_pitches,sizeof(reference_pitches));
             key->root_pc=config.mode==0?mod12(reference_pitches[0]):(config.mode==2?harmony.root_pc:mod12(modified_note+g_bus.global_transpose));
             key->played_pitch=config.mode?(instance->role==0?hb_key_pitch(instance,melody):melody):pitches[0];
-            key->intent_scale=0;
+            key->intent_scale=intent_kind>0&&intent_kind<4?anticipated_parent:0;
             if(!intent_kind&&instance->role==0&&config.mode==1&&config.quality==0){
                 const unsigned long long *events=instance->motion.event_override?instance->motion.event_override:instance->motion.events;
                 unsigned long long provenance=events[HB_MOTION_LANES];
@@ -3848,7 +3881,7 @@ static int infer_reference_root(Inst *instance){static const int major[7]={0,2,4
 static int reference_root(Inst *instance){if(g_bus.global_root_policy==0)return mod12(g_bus.global_explicit_root);if(g_bus.global_root_policy==1)return mod12(g_bus.global_input_root);instance->resolved_root=infer_reference_root(instance);return mod12(instance->resolved_root);}
 static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int max_output);
 static int hb_mt_tick(Inst *instance,uint8_t output[][3],int lengths[],int capacity);
-static void hb_init_instance(Inst *instance){memset(instance,0,sizeof(*instance));hb_mt_init(&instance->motif);hb_ar_init(&instance->approach_rows);instance->dominant_color_family=3;instance->target_scale_policy[2]=2;instance->chord_edit_lane=-1;instance->used=1;instance->render_velocity_gain=10000;instance->next_predict=1;instance->next_anti_buffer_ms=25;instance->boundary_buffer_ms=-3;hb_cp_defaults(&instance->player.config);instance->player.config.order=5;instance->player.config.chromatic_quality=3;hb_mo_defaults(&instance->motion);if(g_motion_settings_ready)hb_motion_copy_settings(&instance->motion,&g_motion_settings);hb_mo_route_init(&instance->motion_local);hb_mo_route_init(&instance->motion_render);instance->player.render_channel=-1;instance->movy_track=-1;instance->role=2;instance->mode=0;instance->content_map=1;instance->travel_map=0;instance->chromatic_map=1;memcpy(instance->touch_lanes,g_touch_lanes,sizeof(g_touch_lanes));instance->follower_split_map=0;instance->quant_timing=0;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=1;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}hb_role_sync(instance);}
+static void hb_init_instance(Inst *instance){memset(instance,0,sizeof(*instance));instance->key_owner=hb_override_index(instance);hb_mt_init(&instance->motif);hb_ar_init(&instance->approach_rows);instance->dominant_color_family=3;instance->target_scale_policy[2]=2;instance->chord_edit_lane=-1;instance->used=1;instance->render_velocity_gain=10000;instance->next_predict=1;instance->next_anti_buffer_ms=25;instance->boundary_buffer_ms=-3;hb_cp_defaults(&instance->player.config);instance->player.config.order=5;instance->player.config.chromatic_quality=3;hb_mo_defaults(&instance->motion);if(g_motion_settings_ready)hb_motion_copy_settings(&instance->motion,&g_motion_settings);hb_mo_route_init(&instance->motion_local);hb_mo_route_init(&instance->motion_render);instance->player.render_channel=-1;instance->movy_track=-1;instance->role=2;instance->mode=0;instance->content_map=1;instance->travel_map=0;instance->chromatic_map=1;memcpy(instance->touch_lanes,g_touch_lanes,sizeof(g_touch_lanes));instance->follower_split_map=0;instance->quant_timing=0;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=1;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}hb_role_sync(instance);}
 static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];g_conductor_block_ready=0;memset(&g_movy_clips[index],0,sizeof(g_movy_clips[index]));hb_init_instance(instance);return instance;}return 0;}
 static void destroy_inst(void *value){Inst *instance=(Inst*)value;
 if(instance){
@@ -4166,6 +4199,14 @@ static void hb_capture_input_intent(Inst *instance,int note,unsigned long long *
         hb_cp_config captured=hb_chord_config_at(instance,note,hb_motion_position(instance),hb_motion_condition_position());
         int root=0;hb_resolve_follower_reference_root(instance,&root);
         actions[HB_MOTION_LANES]|=(1ULL<<20)|((unsigned long long)captured.mode<<21)|((unsigned long long)captured.quality<<23)|((unsigned long long)captured.size<<27)|((unsigned long long)root<<32)|((unsigned long long)hb_follower_input_scale_index(instance,root)<<36)|((unsigned long long)hb_policy_value(instance,HB_P_GAP)<<41);
+    }
+    /* Construction mode 3 is reserved for a prospective destination scale.
+       This metadata affects only this recorded approach, never the live arm. */
+    int destination_scale=hb_key_for(instance).approach_scale;
+    if(destination_scale&&(actions[HB_MOTION_LANES]&(0x173ULL|HB_MO_CADENCE_MASK|HB_AR_MASK))){
+        unsigned long long *intent=&actions[HB_MOTION_LANES];
+        *intent=(*intent&~HB_MO_INTENT_MASK)|(1ULL<<20)|(3ULL<<21)|
+            ((unsigned long long)(destination_scale<0?31:destination_scale)<<36);
     }
 }
 static int process_core(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;hb_auto_chord_repeat_sync(instance);hb_movy_refresh();hb_next_touch_clear_expired(instance);g_bus.global_process_count++;g_bus.global_last_status=input[0];g_bus.global_last_instance=hb_instance_index(instance);
@@ -4936,7 +4977,7 @@ static int process(void *value,const uint8_t *input,int length,uint8_t output[][
     if(on){int owner=(input[1]&127)+(instance->movy_playback?128:0);instance->trail_input[owner]=++instance->trail_serial;}
     int land=on&&g_key_armed&&(g_sc_arm_owner<0||g_sc_arm_owner==instance-g_pool)&&!instance->movy_playback&&instance->role<2&&instance->motif.editor.recording<0&&
         hb_source_channel_matches(instance,input[0]&15)&&instance->movy_pad_pending!=(input[1]&127)+1;
-    if(on&&!instance->movy_playback&&instance->role<2&&hb_source_channel_matches(instance,input[0]&15)){
+    if(on&&g_key_armed&&(g_sc_arm_owner<0||g_sc_arm_owner==instance-g_pool)&&!instance->movy_playback&&instance->role<2&&hb_source_channel_matches(instance,input[0]&15)){
         hb_key_context current=hb_key_baseline(instance),destination=hb_key_destination(instance,input[1]&127);
         snprintf(g_key_preview,sizeof(g_key_preview),"%s%s>%s%s",HB_KEY_NAMES[current.target_root],hb_key_quality(current),HB_KEY_NAMES[destination.target_root],hb_key_quality(destination));
     }
@@ -4950,8 +4991,25 @@ static int process(void *value,const uint8_t *input,int length,uint8_t output[][
         land=phrase&&((token>>6)&31)==phrase->anchor;
     }
     if(land&&instance->motif.tap_active)land=instance->motif.tap_step==instance->motif.tap_phrase.anchor;
-    instance->key_onset=g_key_context;
+    if(land&&!instance->approach_rows.performance&&!instance->motif.tap_active){
+        /* Peek at the exact touch-sequence step without advancing the live
+           cursor. A V/ii/connector is an approach, never the key landing. */
+        hb_motion_config pending=instance->motion;pending.event_override=0;
+        hb_mo_input(&pending,input[1]&127,hb_motion_position(instance),hb_ms_to_beats(25));
+        int secondary=hb_mo_held_secondary(&pending);
+        if(!secondary)secondary=hb_mo_source_secondary(&pending);
+        const hb_cadence_step *cadence=hb_mo_current_cadence(&pending);
+        if((secondary&&secondary!=3)||hb_mo_source_modifier(&pending)||hb_mo_held_modifier(&pending)||
+           (cadence&&cadence->kind!=HB_CAD_TARGET&&cadence->kind!=HB_CAD_MINOR_TARGET))land=0;
+    }
+    instance->key_onset=hb_key_for(instance);
     if(on&&instance->movy_playback&&instance->sc_anchor_valid&&instance->sc_anchor_pitch==(input[1]&127)){instance->key_onset=instance->sc_anchor_context;instance->sc_anchor_valid=0;}
+    if(on&&instance->movy_playback&&instance->recorded_action_valid[input[1]&127]){
+        unsigned long long intent=instance->recorded_actions[input[1]&127][HB_MOTION_LANES];
+        if((intent&(1ULL<<20))&&((intent>>21)&3)==3){
+            int scale=(intent>>36)&31;instance->key_onset.approach_scale=scale==31?-1:scale;
+        }
+    }
     instance->key_scope=1;
     int count=process_key_base(value,input,length,output,lengths,capacity);
     if(land&&!instance->key_pending)hb_key_land(instance,input[1]&127);
@@ -5471,7 +5529,9 @@ if(!strcmp(key,"hb_movy_actions")){
         }
         if(lane==source_lanes&&(words[lane]&HB_MO_INTENT_MASK)){
             unsigned long long intent=words[lane];
-            if(!(intent&(1ULL<<20))||((intent>>21)&3)>2||((intent>>23)&15)>12||((intent>>27)&31)>16||((intent>>32)&15)>11||((intent>>36)&31)>17||((intent>>41)&3)>2)return;
+            int mode=(intent>>21)&3,scale=(intent>>36)&31;
+            int valid_scale=mode==3?((scale>0&&scale<HB_SCALE_COUNT)||scale==31):scale<=17;
+            if(!(intent&(1ULL<<20))||((intent>>23)&15)>12||((intent>>27)&31)>16||((intent>>32)&15)>11||!valid_scale||((intent>>41)&3)>2)return;
         }
         if(lane==source_lanes&&(words[lane]&HB_MO_CADENCE_MASK)&&!hb_cadence_decode((unsigned)((words[lane]&HB_MO_CADENCE_MASK)>>13)))return;
         if(lane<source_lanes&&!(words[lane]&HB_MO_RECORDED)&&words[lane]>0xffffffffULL)return;
@@ -6239,7 +6299,7 @@ if(!strcmp(key,"key_center_view")){
     const char *state=!strcmp(local,"Armed")?"Armed":!strcmp(local,"Off")?"Off":"On";
     return snprintf(buffer,(size_t)length,"%s|%s%s|%s|%s|%s",state,PC_OPTS[current.target_root],hb_key_quality(current),g_key_preview,instance->dominant_color_latched?"Latch":instance->dominant_color_held?"Hold":"Off",DOMINANT_SCALE_OPTS[instance->dominant_color_family]);
 }
-if(!strcmp(key,"key_center")){int owner=(int)(instance-g_pool);int active=g_sc_live[owner][HB_SC_KEY].on||(instance->movy_track>=0&&instance->role==0&&g_sc_replay[instance->movy_track][HB_SC_KEY].on);return snprintf(buffer,(size_t)length,"%s",g_key_armed&&(g_sc_arm_owner<0||g_sc_arm_owner==owner)?"Armed":active&&g_key_context.target_root!=g_key_context.source_root?PC_OPTS[g_key_context.target_root]:"Off");}
+if(!strcmp(key,"key_center")){int owner=(int)(instance-g_pool);int active=g_sc_live[owner][HB_SC_KEY].on||(instance->movy_track>=0&&instance->role==0&&g_sc_replay[instance->movy_track][HB_SC_KEY].on);return snprintf(buffer,(size_t)length,"%s",g_key_armed&&(g_sc_arm_owner<0||g_sc_arm_owner==owner)?"Armed":active?PC_OPTS[g_key_context.target_root]:"Off");}
 if(!strcmp(key,"follower_scale")&&instance->movy_track==g_sc_record_track&&g_sc_record_track>=0&&g_sc_live[instance-g_pool][HB_SC_PARENT].on)return snprintf(buffer,(size_t)length,"%s",FOLLOWER_SCALE_OPTS[g_sc_live[instance-g_pool][HB_SC_PARENT].a]);
 if(!strcmp(key,"parallel_mode")){int owner=(int)(instance-g_pool);int active=g_sc_live[owner][HB_SC_PARALLEL].on||(instance->movy_track>=0&&instance->role==0&&g_sc_replay[instance->movy_track][HB_SC_PARALLEL].on);return snprintf(buffer,(size_t)length,"%s",active?((g_sc_latch[owner]||(instance->movy_track>=0&&instance->role==0&&g_sc_replay[instance->movy_track][HB_SC_PARALLEL].c==2))?"Latch":"Hold"):"Off");}
 if(!strcmp(key,"conductor_key_travel"))return snprintf(buffer,(size_t)length,"%s",g_key_conductor_travel?"Closest Chord Tone":"Relative");
@@ -7054,7 +7114,7 @@ static void set_param(void *value,const char *key,const char *parameter){
     }
     hb_role_sync(instance);
     if(!strcmp(key,"key_center")){
-        if(!strcmp(parameter,"Off")||!strcmp(parameter,"LatchOff")){for(int index=0;index<HB_MAX_INSTANCES;index++)g_pool[index].key_pending=0;g_key_armed=0;g_sc_arm_owner=-1;hb_sc_set_live(instance,HB_SC_KEY,0,0,0,0);}
+        if(!strcmp(parameter,"Off")||!strcmp(parameter,"LatchOff")){for(int index=0;index<HB_MAX_INSTANCES;index++)g_pool[index].key_pending=0;g_key_armed=0;g_sc_arm_owner=-1;g_key_preview[0]=0;hb_sc_set_live(instance,HB_SC_KEY,0,0,0,0);}
         else if(!strncmp(parameter,"Down",4)||!strcmp(parameter,"On")||!strcmp(parameter,"LatchOn")){g_key_armed=1;g_sc_arm_owner=(int)(instance-g_pool);g_key_preview[0]=0;}
         return;
     }

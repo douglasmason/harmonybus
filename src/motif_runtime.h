@@ -68,6 +68,9 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
     if(target<0){editor->error=7;return 0;}
     unsigned scale=harmony.valid?hb_follower_scale_target(instance,harmony).pitch_mask:hb_follower_input_scale(instance,reference_root(instance));
     if(!scale)scale=0xFFF;
+    scale=hb_key_approach_scale(instance,target,scale);
+    hb_key_context phrase_key=hb_key_for(instance);
+    if(phrase_key.approach_scale)phrase_key=hb_key_collection_context(phrase_key,target,scale);
     int anchor=phrase->events[phrase->anchor].notes[0].pitch;
     hb_mt_scheduled staged[HB_MT_SCHEDULE];int count=0;double key_anchor=-1;
     double offset=-before;
@@ -116,8 +119,8 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
                 if(pitches[generated]<0||pitches[generated]>127)continue;
                 if(count>=HB_MT_SCHEDULE){editor->error=8;return 0;}
                 int gain=(int)event->notes[voice].velocity*velocity/100;
-                staged[count++]=(hb_mt_scheduled){onset,end,instance->role==0?hb_key_pitch(instance,pitches[generated]):pitches[generated],hb_cp_clamp(gain,1,127),channel,instance->render_channel,0,1};
-                if(generated==0)staged[count-1].trail_target=(unsigned short)((instance->role==0?hb_key_pitch(instance,pitch):pitch)+1);
+                staged[count++]=(hb_mt_scheduled){onset,end,instance->role==0?hb_key_map(phrase_key,pitches[generated]):pitches[generated],hb_cp_clamp(gain,1,127),channel,instance->render_channel,0,1};
+                if(generated==0)staged[count-1].trail_target=(unsigned short)((instance->role==0?hb_key_map(phrase_key,pitch):pitch)+1);
                 override_mask|=1u<<mod12(pitches[generated]);
             }
         }
