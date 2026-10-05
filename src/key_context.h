@@ -5,6 +5,9 @@
 typedef struct { int active,source_root,target_root,blues; unsigned source_mask,target_mask; int approach_scale; } hb_key_context;
 static hb_key_context g_key_context;
 static int g_key_scale_mode=1,g_key_conductor_travel,g_key_settings_restored,g_parallel_manual,g_key_lane_parallel;
+/* -1 inherits the conductor policy; recording identity is independent of it. */
+static int g_key_follower_recorded_travel=-1,g_key_follower_live_travel=-1;
+static const char *HB_KEY_TRAVEL[]={"Relative","Closest Chord Tone","Closest Scale Tone","Closest Split"};
 static int g_key_armed,g_parallel_scale=2,g_parallel_on,g_parallel_latch;
 static hb_key_context g_parallel_previous;
 static char g_key_preview[32];
@@ -29,7 +32,10 @@ static int hb_key_map(hb_key_context context,int pitch){
         if(absolute<distance){degree=index;distance=absolute;alteration=delta;}
     }
     int mapped=context.target_root+octave*12+target[degree%target_count]+alteration;
-    while(mapped-pitch>6)mapped-=12;while(mapped-pitch< -6)mapped+=12;
+    /* Choose the octave once from the tonic displacement, not separately for
+       every degree. Independent folding can invert an ascending melody. */
+    int root_delta=context.target_root-context.source_root;
+    if(root_delta>6)mapped-=12;else if(root_delta< -6)mapped+=12;
     while(mapped<0)mapped+=12;while(mapped>127)mapped-=12;return mapped;
 }
 static unsigned hb_key_mask(hb_key_context context,unsigned mask){
