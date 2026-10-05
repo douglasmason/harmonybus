@@ -6206,7 +6206,7 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
 }
 
 /* Color membership can use a different form from the sounding voicing.
-   Reuse the chord-form engine against the original harmony and parent scale. */
+   Reuse the chord-form engine against the rendered harmony and parent scale. */
 static unsigned hb_pad_chord_mask_base_form(Inst *instance,hb_harmony_t harmony,int form){
     if(!harmony.valid)return 0;
     unsigned chord=hb_harmony_chord_mask(harmony);
@@ -6221,12 +6221,15 @@ static unsigned hb_pad_chord_mask_base_form(Inst *instance,hb_harmony_t harmony,
     return mask;
 }
 
-static unsigned hb_pad_chord_mask_form(Inst *instance,hb_harmony_t harmony,int form){return hb_key_mask(hb_key_for(instance),hb_pad_chord_mask_base_form(instance,harmony,form));}
+static unsigned hb_pad_chord_mask_form(Inst *instance,hb_harmony_t harmony,int form){
+    return hb_pad_chord_mask_base_form(instance,hb_key_harmony(instance,harmony),form);
+}
 static unsigned hb_pad_chord_mask(Inst *instance,hb_harmony_t harmony){return hb_pad_chord_mask_form(instance,harmony,g_pad_chord_form);}
 
 /* Pulse the same form used for color membership, including added tensions. */
 static unsigned hb_pad_next_mask_roles(Inst *instance,hb_harmony_t harmony,unsigned roles){
     if(!harmony.valid||!g_pad_next_pulse)return 0;
+    harmony=hb_key_harmony(instance,harmony);
     int form=(g_pad_settings[0]==0||g_pad_settings[0]==2)?g_pad_chord_form:g_pad_next_chord_form;
     unsigned chord=hb_pad_chord_mask_base_form(instance,harmony,form),relative=0,mask=0;
     /* Retain detected quality context when the display omits root/fifth. */
@@ -6234,7 +6237,7 @@ static unsigned hb_pad_next_mask_roles(Inst *instance,hb_harmony_t harmony,unsig
     for(int interval=0;interval<12;interval++)if(context&(1u<<mod12(harmony.root_pc+interval)))relative|=1u<<interval;
     for(int interval=0;interval<12;interval++)if((chord&(1u<<mod12(harmony.root_pc+interval)))&&
         (roles&(1u<<hb_cp_interval_role(interval,relative))))mask|=1u<<mod12(harmony.root_pc+interval);
-    return hb_key_mask(hb_key_for(instance),mask);
+    return mask;
 }
 
 static unsigned hb_pad_next_mask(Inst *instance,hb_harmony_t harmony){return hb_pad_next_mask_roles(instance,harmony,PAD_NEXT_ROLES[g_pad_next_pulse]);}
@@ -6794,7 +6797,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         }
     }
     ready=ready||opening.valid;
-    hb_harmony_t scale=hb_follower_scale_target(instance,effective);
+    hb_harmony_t scale=hb_follower_scale_target(instance,hb_key_harmony(instance,effective));
     if(!strcmp(key,"pad_render")){
         /* Render on a private instance: real mapping/voicing, no emitted MIDI,
            no live owner changes and no consumption of one-shot modifiers. */

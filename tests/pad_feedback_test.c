@@ -3,6 +3,38 @@
 #define main reference_fixture_main
 #include "follower_reference_test.c"
 #undef main
+static void active_key_colors(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"dominant_minor_scale","Harmonic Minor");
+    g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=9,
+        .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(9,2)};
+    hb_harmony_t dominant=chord(7,0,1);
+    unsigned e7=(1u<<4)|(1u<<8)|(1u<<11)|(1u<<2);
+    /* G7 becomes E7 in A minor, never Em7. Color and pulse membership must
+       preserve the same functional third as the sounding harmony. */
+    assert(hb_pad_chord_mask_form(instance,dominant,0)==e7);
+    g_pad_settings[0]=0;g_pad_chord_form=0;
+    API.set_param(instance,"pad_next_pulse","3+7");
+    assert(hb_pad_next_mask(instance,dominant)==((1u<<8)|(1u<<2)));
+    hb_commit_observed_harmony(dominant);
+    char view[4096];
+    for(int travel=0;travel<8;travel++){
+        instance->travel_map=travel;instance->content_map=0;
+        API.get_param(instance,"pad_render",view,sizeof(view));
+        unsigned current,effective,scale,expected=0,tonic=0;
+        assert(sscanf(view,"%u,%u,%u",&current,&effective,&scale)==3);
+        for(int pitch=0;pitch<12;pitch++){
+            int rendered=mod12(hb_map_follower_note_unoperated(instance,60+pitch));
+            if(e7&(1u<<rendered))expected|=1u<<pitch;
+            if(rendered==4)tonic|=1u<<pitch;
+        }
+        assert(effective==expected);
+        const char *field=strstr(view,"|tonic1,");unsigned actual_tonic;
+        assert(field&&sscanf(field+8,"%u",&actual_tonic)==1);
+        assert(actual_tonic==tonic);
+    }
+    API.destroy_instance(instance);
+}
 static unsigned section(const char *view,const char *key){
     const char *start=strstr(view,key);unsigned mask=0;assert(start);
     assert(sscanf(start+strlen(key),"%u",&mask)==1);return mask;
@@ -216,7 +248,7 @@ static void harmony_off_view(void){
     assert(strcmp(first,second));API.destroy_instance(instance);
 }
 
-int main(void){harmony_off_view();
+int main(void){active_key_colors();harmony_off_view();
     separate_color_forms();
     all_pulse_options();next_tone_pulse();independent_pad_form();
     movy_input_and_spatial_sequence();
