@@ -4205,7 +4205,7 @@ static void hb_capture_input_intent(Inst *instance,int note,unsigned long long *
     int destination_scale=hb_key_for(instance).approach_scale;
     if(destination_scale&&(actions[HB_MOTION_LANES]&(0x173ULL|HB_MO_CADENCE_MASK|HB_AR_MASK))){
         unsigned long long *intent=&actions[HB_MOTION_LANES];
-        *intent=(*intent&~((3ULL<<21)|(31ULL<<36)))|(1ULL<<20)|(3ULL<<21)|
+        *intent=(*intent&~HB_MO_INTENT_MASK)|(1ULL<<20)|(3ULL<<21)|
             ((unsigned long long)(destination_scale<0?31:destination_scale)<<36);
     }
 }

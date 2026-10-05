@@ -198,6 +198,18 @@ static void key_center_waits_for_touch_target(void){
     assert(mod12(result.destination)==6&&result.minor&&result.scale==hb_explicit_scale_mask(6,8));
     assert(played(instance,69)==((1u<<4)|(1u<<8)|(1u<<11)|(1u<<2)|(1u<<6)));
     char saved[4096];API.get_param(instance,"hb_record_action",saved,sizeof(saved));assert(!strncmp(saved,"ra4,69,",7));
+    /* Destination metadata does not inherit unrelated construction fields;
+       every form, including Root Only/Third/Seventh, must survive the parser. */
+    for(int form=0;form<HB_CP_FORMS;form++){
+        int previous=instance->player.config.size;instance->player.config.size=form;
+        unsigned long long actions[HB_MOTION_LANES+1];hb_capture_input_intent(instance,69,actions);
+        unsigned long long expected=(1ULL<<20)|(3ULL<<21)|(1ULL<<36);
+        assert((actions[HB_MOTION_LANES]&HB_MO_INTENT_MASK)==expected);
+        char payload[4096];int used=snprintf(payload,sizeof(payload),"69");
+        for(int lane=0;lane<=HB_MOTION_LANES;lane++)used+=snprintf(payload+used,sizeof(payload)-(size_t)used,",%llu",actions[lane]);
+        instance->recorded_action_valid[69]=0;API.set_param(instance,"hb_movy_actions",payload);assert(instance->recorded_action_valid[69]);
+        instance->player.config.size=previous;
+    }
     assert(g_key_armed&&!g_key_context.active);release(instance,69);
     assert(played(instance,69)==((1u<<9)|(1u<<1)|(1u<<4)|(1u<<8)|(1u<<11)));
     assert(!g_key_armed&&g_key_context.target_root==9);release(instance,69);
