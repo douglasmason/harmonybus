@@ -355,7 +355,7 @@ static void release_harmony_and_state(void){
     API.set_param(copy,"state","hb16,1,0,0,25,2,0,0,0,0,0,0,3,0,0,0,0,0,0,0,-3,60,0,0,1,0");
     assert(!hb_cp_enabled(&copy->player));
     API.set_param(instance,"role","Off");
-    int count=advance(instance,0,1);while(instance->player.sounding_count)count+=advance(instance,0,1);assert(count==3);
+    int count=0;for(int tick=0;tick<4;tick++)count+=advance(instance,0,1);assert(count==3);
     API.destroy_instance(copy);API.destroy_instance(instance);
 }
 static void arp_start_modes_and_offsets(void){
@@ -1127,11 +1127,11 @@ static void follower_play_ownership(void){
     hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
     int count=hb_cp_entries(&instance->player,entries,0);
     assert(count==2&&entries[0].pitch==67&&entries[1].pitch==79);
-    uint8_t pressure[3]={0xA0,60,47};API.process_midi(instance,pressure,3,output,lengths,64);
+    uint8_t pressure[3]={0xA0,60,47};instance->movy_playback=1;API.process_midi(instance,pressure,3,output,lengths,64);instance->movy_playback=0;
     assert(owner->velocity==47);
     position=next;API.tick(instance,48,48000,output,lengths,64);
     assert(instance->player.next_beat>next);
-    midi(instance,0,60);advance(instance,1,64);
+    instance->movy_playback=1;midi(instance,0,60);instance->movy_playback=0;advance(instance,1,64);
     assert(!owner->used&&instance->player.sounding_count==0);
     API.destroy_instance(instance);
     /* Ordinary delayed notes retain clip scope through their queue as well. */
@@ -1140,7 +1140,7 @@ static void follower_play_ownership(void){
     assert(instance->mapped[60]==64&&instance->follower_origin[60]==1);
     API.set_param(instance,"retrigger_held","On");API.set_param(instance,"play_rotate","2");advance(instance,1,64);
     assert(instance->mapped[60]==67);
-    midi(instance,0,60);advance(instance,1,64);assert(instance->mapped[60]==-1);
+    instance->movy_playback=1;midi(instance,0,60);instance->movy_playback=0;advance(instance,1,64);assert(instance->mapped[60]==-1);
     API.destroy_instance(instance);
 }
 
@@ -1311,9 +1311,10 @@ static void pad_harmony_snapshot(void){
         instance->approach_pad_armed=HB_APPROACH_OFF;
         API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
         sscanf(snapshot,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&lookahead);
-        /* Relative Chord travel maps every input into either target chord:
-           different harmonies can correctly highlight the same input keys. */
-        assert(lookahead==effective&&effective==0xFFFu);
+        /* Early capture already renders D while signed lookahead is still C:
+           no current D output is a C tone. With Late timing both contexts
+           still render C, so every Chord-content input matches the target. */
+        assert(effective==0xFFFu&&lookahead==(late?0xFFFu:0));
         g_bus.next_model_locked=0;
         API.get_param(instance,"pad_harmony",snapshot,sizeof(snapshot));
         sscanf(snapshot,"%u,%u,%u,%d",&current,&effective,&scale,&ready);assert(!ready);

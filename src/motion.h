@@ -34,7 +34,7 @@ typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host
     unsigned gesture_serial[HB_MOTION_GESTURES]; int gesture_operation[HB_MOTION_GESTURES],gesture_mode[HB_MOTION_GESTURES],gesture_threshold[HB_MOTION_GESTURES];
     unsigned tap_mask,tap_serial[19]; int tap_owner[19],tap_policy[19],enclosure_auto_off; int tap_first,tap_started,enclosure_step,cadence_program;
 } hb_motion_config;
-typedef struct { int used,channel,source,pitch,sounding; double off_beat; unsigned long long serial; double repeat_off; int generated,lane,manual; unsigned revision,held_serial; } hb_motion_owner;
+typedef struct { int used,channel,source,pitch,sounding,input_owner; double off_beat; unsigned long long serial; double repeat_off; int generated,lane,manual; unsigned revision,held_serial; } hb_motion_owner;
 typedef struct {
     int used,lane,channel,pitch,velocity,remaining,manual,decay;
     unsigned revision,held_serial;
@@ -47,7 +47,7 @@ typedef struct {
     unsigned short refs[16][128];
     uint8_t queue[HB_MOTION_QUEUE][3];
     unsigned short trail_in,trail_out,trail_queue[HB_MOTION_QUEUE];
-    int head,count,owned,repeat_pending,pan_dirty[16],base_pan[16];
+    int head,count,owned,repeat_pending,strict_ownership,pan_dirty[16],base_pan[16];
     unsigned long long next_serial;
     unsigned enclosure_revision;
     int enclosure_step,performance_valid,performance_modifier;
@@ -611,16 +611,17 @@ static void hb_mo_capture(hb_motion_config *config,double beat,double condition,
 static int hb_mo_value(const hb_motion_config *config,int index,double beat,int voice,double *value){
     return hb_mo_value_at(config,index,beat,beat,voice,value);
 }
-static int hb_mo_push(hb_motion_route *route,int status,int pitch,int velocity){
+static int hb_mo_push_owned(hb_motion_route *route,int status,int pitch,int velocity,int input_owner){
     if(route->rhythm_enabled||hb_rr_active(&route->rhythm)){
         uint8_t message[3]={(uint8_t)status,(uint8_t)pitch,(uint8_t)velocity};
-        route->rhythm.trail_in=route->trail_in;hb_rr_push(&route->rhythm,message,route->rhythm_now,route->rhythm_delay);return 1;
+        route->rhythm.trail_in=route->trail_in;hb_rr_push_owned(&route->rhythm,message,route->rhythm_now,route->rhythm_delay,input_owner);return 1;
     }
     if(route->count>=HB_MOTION_QUEUE)return 0;
     int index=(route->head+route->count)%HB_MOTION_QUEUE;
     route->trail_queue[index]=((status&240)==0x90&&velocity)?route->trail_in:0;
     route->queue[index][0]=(uint8_t)status;route->queue[index][1]=(uint8_t)pitch;route->queue[index][2]=(uint8_t)velocity;route->count++;return 1;
 }
+static int hb_mo_push(hb_motion_route *route,int status,int pitch,int velocity){return hb_mo_push_owned(route,status,pitch,velocity,0);}
 static int hb_mo_pop(hb_motion_route *route,uint8_t message[3]){
     route->trail_out=0;
     if(!route->count){int result=hb_rr_pop(&route->rhythm,route->rhythm_now,message);route->trail_out=route->rhythm.trail_out;return result;}
@@ -631,7 +632,7 @@ static int hb_mo_pop(hb_motion_route *route,uint8_t message[3]){
 static int hb_mo_release(hb_motion_route *route,hb_motion_owner *owner){
     if(!owner->sounding)return 1;
     unsigned short *refs=&route->refs[owner->channel][owner->pitch];
-    if((*refs==1||route->rhythm_enabled||hb_rr_active(&route->rhythm))&&!hb_mo_push(route,0x80|owner->channel,owner->pitch,0))return 0;
+    if((*refs==1||route->rhythm_enabled||hb_rr_active(&route->rhythm))&&!hb_mo_push_owned(route,0x80|owner->channel,owner->pitch,0,owner->input_owner))return 0;
     if(*refs)(*refs)--;owner->sounding=0;return 1;
 }
 static void hb_mo_due(hb_motion_route *route,double beat){
@@ -652,7 +653,7 @@ static void hb_mo_panic(hb_motion_route *route){
 }
 /* The adapter supplies the finished output pitch/velocity, optional pan, and
    gate deadline. Skipped notes still get an owner to swallow their matching OFF. */
-static int hb_mo_event(hb_motion_route *route,const uint8_t message[3],int pitch,int velocity,int pan,double off_beat,int skip){
+static int hb_mo_event_owned(hb_motion_route *route,const uint8_t message[3],int pitch,int velocity,int pan,double off_beat,int skip,int input_owner){
     int status=message[0]&0xf0,channel=message[0]&15,source=message[1]&127;
     if(status==0xb0&&source==10)route->base_pan[channel]=message[2]&127;
     if(status!=0x90&&status!=0x80)return hb_mo_push(route,message[0],message[1],message[2]);
@@ -661,28 +662,50 @@ static int hb_mo_event(hb_motion_route *route,const uint8_t message[3],int pitch
         hb_motion_owner *oldest=0;
         for(int index=0;index<HB_MOTION_OWNERS;index++){
             hb_motion_owner *owner=&route->owners[index];
-            if(owner->used&&!owner->generated&&owner->channel==channel&&owner->source==source&&(!oldest||owner->serial<oldest->serial))oldest=owner;
+            if(owner->used&&!owner->generated&&owner->channel==channel&&
+               (input_owner?owner->input_owner==input_owner:!owner->input_owner&&owner->source==source)&&
+               (!oldest||owner->serial<oldest->serial))oldest=owner;
         }
         if(oldest){
             if(!hb_mo_release(route,oldest))return 0;
             oldest->used=0;route->owned--;return 1;
         }
         /* Notes that were already held when lanes were enabled are unowned. */
-        if(route->refs[channel][source])return 1;
+        if(input_owner||route->strict_ownership||route->refs[channel][source])return 1;
         return hb_mo_push(route,0x80|channel,source,0);
+    }
+    /* A repeated strike replaces only this input owner, never a clip/live peer. */
+    if(input_owner)for(int index=0;index<HB_MOTION_OWNERS;index++){
+        hb_motion_owner *owner=&route->owners[index];
+        if(owner->used&&!owner->generated&&owner->channel==channel&&owner->input_owner==input_owner){
+            if(!hb_mo_release(route,owner))return 0;
+            owner->used=0;route->owned--;
+        }
     }
     int slot=-1;
     for(int index=0;index<HB_MOTION_OWNERS;index++)if(!route->owners[index].used){slot=index;break;}
     if(slot<0||route->count>HB_MOTION_QUEUE-2)return 0;
     hb_motion_owner *owner=&route->owners[slot];
-    *owner=(hb_motion_owner){.used=1,.channel=channel,.source=source,.pitch=pitch,.sounding=!skip,.off_beat=off_beat,.serial=route->next_serial++};route->owned++;
+    *owner=(hb_motion_owner){.used=1,.channel=channel,.source=source,.pitch=pitch,.sounding=!skip,.input_owner=input_owner,.off_beat=off_beat,.serial=route->next_serial++};route->owned++;
     if(skip)return 1;
     if(pan<0&&route->pan_dirty[channel]){
         hb_mo_push(route,0xb0|channel,10,route->base_pan[channel]);route->pan_dirty[channel]=0;
     }
     if(pan>=0){hb_mo_push(route,0xb0|channel,10,pan);route->pan_dirty[channel]=1;}
     route->refs[channel][pitch]++;
-    return hb_mo_push(route,0x90|channel,pitch,velocity);
+    /* One physical MIDI gate may be owned by several independent inputs. */
+    if(route->refs[channel][pitch]>1&&!route->rhythm_enabled&&!hb_rr_active(&route->rhythm)){
+        int shared=input_owner!=0;
+        for(int index=0;index<HB_MOTION_OWNERS&&!shared;index++){
+            const hb_motion_owner *peer=&route->owners[index];
+            if(peer->used&&peer->sounding&&peer->channel==channel&&peer->pitch==pitch&&peer->input_owner)shared=1;
+        }
+        if(shared)return 1;
+    }
+    return hb_mo_push_owned(route,0x90|channel,pitch,velocity,input_owner);
+}
+static int hb_mo_event(hb_motion_route *route,const uint8_t message[3],int pitch,int velocity,int pan,double off_beat,int skip){
+    return hb_mo_event_owned(route,message,pitch,velocity,pan,off_beat,skip,0);
 }
 /* Generated notes use the monotonic DSP beat, independent of transport seeks.
    Repeats from different lanes add; they never pass through input processing. */

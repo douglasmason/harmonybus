@@ -834,3 +834,10 @@ The active dominant collection applies to live conductor notes and Direct follow
 ## External Launchpad surface
 
 Movy can request two independent 32-pad previews through `surface_preview0/1` and `surface_view0/1`. These use the canonical pad renderer and preserve Move’s preview geometry. `surface_enabled` controls the external approach layout. The `approach_latch_slots` readout exposes permanent bank preferences for external latch toggles. See the Movy Launchpad guide for controller setup and routing requirements.
+
+
+## Live playing over a clip
+
+Live input adds to clip playback. Source pitch, MIDI channel and live/clip origin identify the held note before mapping; shared rendered pitches stay sounding until their final owner releases. Latch replacement and toggle affect only their own live or clip input pool. Captured approach and motion settings remain with the note that introduced them. Recording continues to append notes to the clip.
+
+Retrigger Held keeps its existing meaning for both streams. Off preserves each held note’s onset pitch through a chord change. On re-renders each owner through the current harmony with its original input intent; one stream cannot replace the other’s held note. Release tails retain their separately selected follow-harmony policy.
