@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.256"
+#define HB_VERSION "0.2.257"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -6131,7 +6131,8 @@ static int hb_timing_events(hb_loop_harmony_event_t *events){
     return used;
 }
 /* Reuse the note renderer on a private preview under the requested harmony.
-   Future pad membership must use future travel, not today's rendered pitch. */
+   Display membership compares the current rendered pitch with each target
+   chord; a future color target must not change this rendering context. */
 static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
                                   hb_harmony_t harmony,int source_note,int root_only,
                                   unsigned long long *output_low,unsigned long long *output_high){
@@ -6249,15 +6250,6 @@ static unsigned hb_pad_next_mask(Inst *instance,hb_harmony_t harmony){return hb_
 static unsigned hb_pad_next_rank(Inst *instance,hb_harmony_t harmony,int rank){
     unsigned roles=g_pad_next_pulse==3?(rank==2?64:0):g_pad_next_pulse==6?(rank==2?16:0):g_pad_next_pulse==10?(rank==2?8:32):0;
     return roles?hb_pad_next_mask_roles(instance,harmony,roles):0;
-}
-
-static unsigned hb_pad_target_inputs(Inst *preview,const Inst *instance,hb_harmony_t harmony,unsigned chord_mask){
-    unsigned inputs=0;
-    for(int pitch_class=0;pitch_class<12;pitch_class++){
-        unsigned rendered=hb_pad_render_mask(preview,instance,harmony,60+pitch_class,1,0,0);
-        if(rendered&&!(rendered&~chord_mask))inputs|=1u<<pitch_class;
-    }
-    return inputs;
 }
 
 #include "../../../src/render_rhythm_params.h"
@@ -6826,7 +6818,10 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         /* Render on a private instance: real mapping/voicing, no emitted MIDI,
            no live owner changes and no consumption of one-shot modifiers. */
         Inst preview=*instance;
-        preview.render_harmony=effective;preview.render_harmony_active=1;
+        /* Opening notes describe a stopped clip's color target only. They
+           never replace the harmony used by an actual live note-on. */
+        hb_harmony_t rendering=opening.valid?hb_render_harmony(instance):effective;
+        preview.render_harmony=rendering;preview.render_harmony_active=1;
         preview.movy_playback=0;
         /* Real live note-ons clear replay-only source coordinates. A pad
            preview must do the same on its private copy: clip notes can carry
@@ -6868,7 +6863,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             int pitch_class=mod12(source_note);
             unsigned rendered_mask=0;
             if(instance->role==0||instance->role==1){
-                rendered_mask=hb_pad_render_mask(&preview,instance,effective,source_note,1,
+                rendered_mask=hb_pad_render_mask(&preview,instance,rendering,source_note,1,
                     sample>=12?&output_low[sample-12]:0,sample>=12?&output_high[sample-12]:0);
             }
             if(sample>=12){
@@ -6883,24 +6878,16 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
                 }
                 if(gap){
                     unsigned effective_gap=preview.preview_gap_mask;
-                    unsigned current_render=hb_harmony_equal_effective(current,effective)?rendered_mask:
-                        hb_pad_render_mask(&preview,instance,current,source_note,1,0,0);
-                    unsigned look_render=hb_harmony_equal_effective(lookahead,effective)?rendered_mask:
-                        hb_pad_render_mask(&preview,instance,lookahead,source_note,1,0,0);
-                    unsigned full_render=hb_harmony_equal_effective(full_lookahead,effective)?rendered_mask:
-                        hb_pad_render_mask(&preview,instance,full_lookahead,source_note,1,0,0);
-                    unsigned pulse_render=g_pad_settings[0]>=5?full_render:
-                        g_pad_settings[0]==0||g_pad_settings[0]==2?rendered_mask:look_render;
-                    if(pulse_render&&next_mask&&!(pulse_render&~next_mask)){
+                    if(rendered_mask&&next_mask&&!(rendered_mask&~next_mask)){
                         next_pads|=1u<<slot;
-                        if(!(pulse_render&~secondary_mask))secondary_pads|=1u<<slot;
-                        if(!(pulse_render&~tertiary_mask))tertiary_pads|=1u<<slot;
+                        if(!(rendered_mask&~secondary_mask))secondary_pads|=1u<<slot;
+                        if(!(rendered_mask&~tertiary_mask))tertiary_pads|=1u<<slot;
                     }
-                    gap_colors[slot]=(current_render&&current_mask&&!(current_render&~current_mask)?1:0)
+                    gap_colors[slot]=(rendered_mask&&current_mask&&!(rendered_mask&~current_mask)?1:0)
                         |(rendered_mask&&effective_mask&&!(rendered_mask&~effective_mask)?2:0)
                         |(rendered_mask&&effective_gap&&!(rendered_mask&~effective_gap)?4:0)
-                        |(look_render&&lookahead_mask&&!(look_render&~lookahead_mask)?8:0)
-                        |(full_render&&full_mask&&!(full_render&~full_mask)?16:0);
+                        |(rendered_mask&&lookahead_mask&&!(rendered_mask&~lookahead_mask)?8:0)
+                        |(rendered_mask&&full_mask&&!(rendered_mask&~full_mask)?16:0);
                     preview.movy_pad_shift[source_note]=0;
                 }
                 if(instance->trail_enabled){
@@ -6912,29 +6899,19 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
                 continue;
             }
             unsigned input_bit=1u<<pitch_class;
+            /* One current output serves every color, pulse and play overlay.
+               Only the chord-tone set changes between current/next views. */
+            if(rendered_mask&&!(rendered_mask&~current_mask))current_inputs|=input_bit;
             if(rendered_mask&&!(rendered_mask&~effective_mask))effective_inputs|=input_bit;
+            if(rendered_mask&&!(rendered_mask&~lookahead_mask))lookahead_inputs|=input_bit;
+            if(rendered_mask&&!(rendered_mask&~full_mask))full_inputs|=input_bit;
+            if(rendered_mask&&!(rendered_mask&~next_mask)){
+                next_inputs|=input_bit;
+                if(!(rendered_mask&~secondary_mask))secondary_inputs|=input_bit;
+                if(!(rendered_mask&~tertiary_mask))tertiary_inputs|=input_bit;
+            }
             if(rendered_mask&&preview.preview_gap_mask&&!(rendered_mask&~preview.preview_gap_mask))scale_inputs|=input_bit;
             if(rendered_mask&&scale.valid&&rendered_mask==(1u<<mod12(scale.root_pc)))tonic_inputs|=input_bit;
-        }
-        /* Batch each harmony so Closest Split can reuse its assignment cache.
-           Identical effective/lookahead targets need no extra rendering. */
-        preview.trail_enabled=0;
-        if(current_mask)current_inputs=hb_harmony_equal_effective(current,effective)?effective_inputs:
-            hb_pad_target_inputs(&preview,instance,current,current_mask);
-        if(lookahead_mask)lookahead_inputs=lookahead_mask==effective_mask&&hb_harmony_equal_effective(lookahead,effective)?effective_inputs:
-            lookahead_mask==current_mask&&hb_harmony_equal_effective(lookahead,current)?current_inputs:
-            hb_pad_target_inputs(&preview,instance,lookahead,lookahead_mask);
-        if(full_mask)full_inputs=full_mask==effective_mask&&hb_harmony_equal_effective(full_lookahead,effective)?effective_inputs:
-            full_mask==lookahead_mask&&hb_harmony_equal_effective(full_lookahead,lookahead)?lookahead_inputs:
-            full_mask==current_mask&&hb_harmony_equal_effective(full_lookahead,current)?current_inputs:
-            hb_pad_target_inputs(&preview,instance,full_lookahead,full_mask);
-        if(next_mask)for(int pitch_class=0;pitch_class<12;pitch_class++){
-            unsigned rendered=hb_pad_render_mask(&preview,instance,pulse_harmony,60+pitch_class,1,0,0);
-            if(rendered&&!(rendered&~next_mask)){
-                next_inputs|=1u<<pitch_class;
-                if(!(rendered&~secondary_mask))secondary_inputs|=1u<<pitch_class;
-                if(!(rendered&~tertiary_mask))tertiary_inputs|=1u<<pitch_class;
-            }
         }
         int used=snprintf(buffer,(size_t)length,"%u,%u,%u,%d,%u,%d,%d,%d,%d,%d|tonic1,%u|full1,%d,%u",current_inputs,effective_inputs,scale_inputs,ready,lookahead_inputs,g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4],tonic_inputs,full_lookahead.valid!=0,full_inputs);
         if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|learn1,%u",g_timeline_generation);

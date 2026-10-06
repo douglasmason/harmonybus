@@ -71,6 +71,32 @@ static unsigned section(const char *view,const char *key){
     const char *start=strstr(view,key);unsigned mask=0;assert(start);
     assert(sscanf(start+strlen(key),"%u",&mask)==1);return mask;
 }
+static void future_membership_uses_current_output(void){
+    Inst *instance=fixture();char view[8192];
+    instance->travel_map=0;instance->content_map=1;instance->next_lookahead=0;
+    hb_set_shared_follower_scale(1);
+    g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    g_bus.next_model[0]=(hb_loop_harmony_event_t){.phase=0,.harmony=chord(0,0,0)};
+    g_bus.next_model[1]=(hb_loop_harmony_event_t){.phase=2,.harmony=chord(2,1,0)};
+    position=1;hb_commit_observed_harmony(g_bus.next_model[0].harmony);
+    API.set_param(instance,"pad_display","Both Full Lookahead");
+    API.set_param(instance,"pad_next_pulse","1");
+    API.get_param(instance,"pad_view",view,sizeof(view));
+    /* C is sounding and Dm is next: highlight the D/F/A inputs available
+       now, not the C/E/G inputs that would become D/F/A after the change. */
+    unsigned full=section(view,"|full1,1,");
+    assert(hb_map_follower_note_now(instance,60)==60);
+    assert(hb_map_follower_note_now(instance,62)==62);
+    unsigned expected=0,root_inputs=0;
+    for(int source=0;source<12;source++){
+        int output_pc=mod12(hb_map_follower_note_now(instance,60+source));
+        if(0x224&(1u<<output_pc))expected|=1u<<source;
+        if(output_pc==2)root_inputs|=1u<<source;
+    }
+    assert(full==expected&&(full&0xab5)==0x224);
+    assert(section(view,"|nextpulse1,")==root_inputs&&(root_inputs&0xab5)==(1u<<2));
+    API.destroy_instance(instance);
+}
 static void all_pulse_options(void){
     Inst *i=fixture();
     const int forms[]={1,2,3,4,8,9,15,16};
@@ -174,9 +200,6 @@ static void independent_pad_form(void){
         API.set_param(instance,"pad_chord_form","Rootless 7");
     }
     hb_harmony_t harmony=chord(0,0,1);hb_effective_write(harmony);g_bus.observed_harmony=harmony;
-    Inst preview=*instance;
-    assert(hb_pad_target_inputs(&preview,instance,harmony,hb_pad_chord_mask(instance,harmony))==((1u<<4)|(1u<<10)));
-    assert(instance->player.config.size==4);
     char snapshot[4096];unsigned current=0,effective=0,scale=0;
     API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
     assert(sscanf(snapshot,"%u,%u,%u",&current,&effective,&scale)==3);
@@ -282,7 +305,7 @@ static void harmony_off_view(void){
     assert(strcmp(first,second));API.destroy_instance(instance);
 }
 
-int main(void){resolved_footer();active_key_colors();harmony_off_view();
+int main(void){future_membership_uses_current_output();resolved_footer();active_key_colors();harmony_off_view();
     {
         Inst *instance=fixture();char view[4096];
         hb_commit_observed_harmony(chord(0,0,0));

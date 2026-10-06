@@ -65,12 +65,12 @@ static void run(const char *name,const int roots[4],const int qualities[4],int t
                 assert(sscanf(view,"%u,%u,%u",&cur,&eff,&scale)==3);
                 unsigned full;const char *full_field=strstr(view,"|full1,1,");
                 assert(full_field&&sscanf(full_field,"|full1,1,%u",&full)==1);
-                Inst preview=*i;preview.render_harmony_active=1;
-                preview.render_harmony=harmonies[(event+(edge==2?2:1))%4];
+                hb_harmony_t future=harmonies[(event+(edge==2?2:1))%4];
                 for(int pc=0;pc<12;pc++){
-                    int next_output=hb_map_follower_note_now(&preview,60+pc);
-                    assert(!!(full&(1u<<pc))==!!(hb_harmony_chord_mask(preview.render_harmony)&(1u<<mod12(next_output))));
                     int output=hb_map_follower_note_now(i,60+pc);
+                    assert(!!(full&(1u<<pc))==!!(hb_harmony_chord_mask(future)&(1u<<mod12(output))));
+                    hb_harmony_t current=harmonies[(event+(edge==2))%4];
+                    assert(!!(cur&(1u<<pc))==!!(hb_harmony_chord_mask(current)&(1u<<mod12(output))));
                     assert(!!(eff&(1u<<pc))==!!(hb_harmony_chord_mask(render)&(1u<<mod12(output))));
                     assert(!!(scale&(1u<<pc))==!!(masks[expected]&(1u<<mod12(output))));
                 }

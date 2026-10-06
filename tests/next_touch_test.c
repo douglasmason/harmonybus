@@ -168,10 +168,11 @@ static void after_lookahead(void){
         i->next_anti_buffer_ms=guard?1000:0;position=2;
         assert(hb_render_harmony(i).root_pc==2&&hb_effective_follower_buffer_for(i)==0&&!hb_next_allows_precapture_for(i));
     }
-    // Current/full-next pad targets stay fixed within a chord while the effective
-    // renderer moves from current to next. Compare every follower travel mode.
+    // The chord targets stay fixed, but both memberships use what a pad plays
+    // now as lookahead changes its mapping. Compare every follower travel mode.
+    i->next_anti_buffer_ms=0;i->boundary_buffer_ms=0;
     for(int travel=0;travel<7;travel++){
-        i->travel_map=travel;unsigned baseline_current=0,baseline_full=0;
+        i->travel_map=travel;
         const char *choices[]={"Off","After 1/4","After 1/4","Immediate","Before 1/4","Late 1/4"};
         for(int choice=0;choice<6;choice++){
             position=choice==2?2:0.5;API.set_param(i,"next_lookahead",choices[choice]);
@@ -179,8 +180,13 @@ static void after_lookahead(void){
             unsigned current,effective,scale,full;int enabled;
             assert(sscanf(view,"%u,%u,%u",&current,&effective,&scale)==3);
             char *section=strstr(view,"|full1,");assert(section&&sscanf(section,"|full1,%d,%u",&enabled,&full)==2);
-            if(choice==0){baseline_current=current;baseline_full=full;}
-            else assert(current==baseline_current&&full==baseline_full);
+            unsigned expected_current=0,expected_next=0;
+            for(int pitch=60;pitch<72;pitch++){
+                int output=hb_map_follower_note_now(i,pitch);
+                if(hb_harmony_chord_mask(g_bus.next_model[0].harmony)&(1u<<mod12(output)))expected_current|=1u<<mod12(pitch);
+                if(hb_harmony_chord_mask(g_bus.next_model[1].harmony)&(1u<<mod12(output)))expected_next|=1u<<mod12(pitch);
+            }
+            assert(enabled&&current==expected_current&&full==expected_next);
         }
     }
     for(int option=0;option<HB_LOOKAHEAD_COUNT;option++){

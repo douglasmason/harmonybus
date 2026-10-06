@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.256'
+          assert module['version']=='0.2.257'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Preserve conductor chord function through key changes and share closest assignment with followers, retaining destination chord voices and chord/non-chord class boundaries. Correct current/next footer harmony, reuse preview assignments, skip inactive work, and make Next Pulse Off explicit. Compatible with Movy hbclean.172; only HarmonyBus needs updating. Device crackling still requires physical Move testing." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Fix paused follower playing highlights by retaining the live rendering context. Current and next colors, approach rows, and tone pulses now compare the same currently rendered pad notes against their chord targets. Remove repeated future-context rendering. Compatible with Movy hbclean.172; only HarmonyBus needs updating. Device crackling still requires physical Move testing." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Preserve conductor chord function through key changes and share closest assignment with followers, retaining destination chord voices and chord/non-chord class boundaries. Correct current/next footer harmony, reuse preview assignments, skip inactive work, and make Next Pulse Off explicit. Compatible with Movy hbclean.172; only HarmonyBus needs updating. Device crackling still requires physical Move testing." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Fix paused follower playing highlights by retaining the live rendering context. Current and next colors, approach rows, and tone pulses now compare the same currently rendered pad notes against their chord targets. Remove repeated future-context rendering. Compatible with Movy hbclean.172; only HarmonyBus needs updating. Device crackling still requires physical Move testing." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

@@ -1,4 +1,4 @@
-/* Lookahead LEDs predict the input keys that work when the chord arrives. */
+/* Lookahead LEDs identify currently rendered tones in the upcoming chord. */
 #define main reference_suite_main
 #include "follower_reference_test.c"
 #undef main
@@ -29,6 +29,15 @@ static void default_and_saved_colors(void){
     API.destroy_instance(instance);
 }
 
+static unsigned current_inputs_for(Inst *instance,hb_harmony_t target){
+    Inst preview=*instance;unsigned expected=0,mask=hb_pad_chord_mask(instance,target);
+    hb_harmony_t rendering=hb_render_harmony(instance);
+    for(int pitch=60;pitch<72;pitch++){
+        unsigned output=hb_pad_render_mask(&preview,instance,rendering,pitch,1,0,0);
+        if(output&&!(output&~mask))expected|=1u<<mod12(pitch);
+    }
+    return expected;
+}
 static void arrival_membership(void){
     Inst *instance=fixture();
     hb_set_shared_follower_scale(1);
@@ -61,35 +70,32 @@ static void arrival_membership(void){
             const char *full=strstr(before,"|full1,");assert(full);
             int known;unsigned predicted;
             assert(sscanf(full,"|full1,%d,%u",&known,&predicted)==2&&known);
+            assert(predicted==current_inputs_for(instance,g_bus.next_model[destination].harmony));
 
-            /* Advance the real bus and transport, then ask what inputs work
-               now. This uses the production player, including auto chords. */
+            /* Once the real mapping changes, the membership must be recomputed
+               from those new outputs, not frozen to the pre-change input set. */
             position=wrap?4.0:2.0;
             g_bus.observed_harmony=g_bus.next_model[destination].harmony;
             hb_effective_write(g_bus.observed_harmony);
             API.get_param(instance,"pad_view",after,sizeof(after));
             unsigned current,actual;
             assert(sscanf(after,"%u,%u",&current,&actual)==2);
-            if(predicted!=actual){
-                fprintf(stderr,"arrival mismatch travel=%d split=%d content=%d mode=%d approach=%d transition=%d wrap=%d: %u != %u\n",
-                    travel,split,content,mode,approach,transition,wrap,predicted,actual);
-                assert(predicted==actual);
-            }
+            assert(actual==current_inputs_for(instance,g_bus.observed_harmony));
             if(!mode&&approach==HB_APPROACH_OFF){
                 unsigned chord_mask=hb_harmony_chord_mask(g_bus.observed_harmony);
                 for(int pitch=60;pitch<72;pitch++){
                     int rendered=hb_map_follower_note_now(instance,pitch);
-                    assert(!!(predicted&(1u<<mod12(pitch)))==!!(chord_mask&(1u<<mod12(rendered))));
+                    assert(!!(actual&(1u<<mod12(pitch)))==!!(chord_mask&(1u<<mod12(rendered))));
                 }
             }
-            /* Configured lookahead uses the same target-specific mapping. */
+            /* Actual early rendering changes the output used by all colors. */
             position=wrap?3.5:1.5;instance->next_lookahead=4;
             g_bus.observed_harmony=g_bus.next_model[wrap?1:0].harmony;
             hb_effective_write(g_bus.observed_harmony);
             API.get_param(instance,"pad_view",before,sizeof(before));
             unsigned scale,lookahead;int ready;
             assert(sscanf(before,"%u,%u,%u,%d,%u",&current,&actual,&scale,&ready,&lookahead)==5);
-            assert(ready&&lookahead==predicted);
+            assert(ready&&lookahead==current_inputs_for(instance,g_bus.next_model[destination].harmony));
             instance->next_lookahead=0;
         }
     }
@@ -101,6 +107,7 @@ static void arrival_membership(void){
 static void boundary_frames(void){
     Inst *instance=fixture();hb_set_shared_follower_scale(1);
     instance->next_predict=1;instance->next_anti_buffer_ms=0;
+    instance->boundary_buffer_ms=0;
     g_bus.clip_loop_end=4;g_bus.next_model_locked=1;g_bus.next_model_count=2;
     hb_harmony_t harmonies[2]={chord(0,0,0),chord(2,1,0)};
     for(int event=0;event<2;event++)g_bus.next_model[event]=(hb_loop_harmony_event_t){.phase=event*2,.harmony=harmonies[event]};
@@ -111,18 +118,15 @@ static void boundary_frames(void){
         for(int tick=0;tick<7;tick++){
             position=(wrap?4:2)+offsets[tick];
             int current_index=offsets[tick]<0?(wrap?1:0):(wrap?0:1);
-            unsigned masks[2]={0,0};
-            for(int target=0;target<2;target++){
-                Inst oracle=*instance;oracle.next_lookahead=0;
-                oracle.render_harmony_active=1;oracle.render_harmony=harmonies[target];
-                for(int pitch=60;pitch<72;pitch++){
-                    int rendered=hb_map_follower_note_now(&oracle,pitch);
-                    if(hb_harmony_chord_mask(harmonies[target])&(1u<<mod12(rendered)))masks[target]|=1u<<mod12(pitch);
-                }
-            }
             for(int detector=0;detector<3;detector++){
                 g_bus.observed_harmony=detector==2?harmonies[wrap?0:1]:detector==0?harmonies[wrap?1:0]:chord(7,0,1);
                 hb_effective_write(g_bus.observed_harmony);
+                unsigned masks[2]={0,0};
+                for(int pitch=60;pitch<72;pitch++){
+                    int rendered=hb_map_follower_note_now(instance,pitch);
+                    for(int target=0;target<2;target++)
+                        if(hb_harmony_chord_mask(harmonies[target])&(1u<<mod12(rendered)))masks[target]|=1u<<mod12(pitch);
+                }
                 API.get_param(instance,"pad_render",view,sizeof(view));
                 unsigned current,effective,scale,future;int ready;
                 assert(sscanf(view,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&future)==5);
