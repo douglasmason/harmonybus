@@ -56,6 +56,34 @@ int main(void){
     API.set_param(instance,"approach_control_1","LatchOn");
     API.set_param(instance,"approach_mode_active","1");
     assert(instance->approach_rows.latch&&instance->approach_rows.performance);
+    /* Combined frames are byte-identical to independent canonical previews,
+       including approach intent, octave duplicates, trails and voice travel. */
+    char frame[32768],reference[3][8192];
+    const char *keys[]={"pad_view","surface_view0","surface_view1"};
+    for(int role=0;role<2;role++)for(int travel=0;travel<8;travel++)for(int root=0;root<12;root++){
+        instance->role=role;instance->travel_map=travel;instance->trail_enabled=root%2;
+        instance->content_map=root%9;hb_effective_write(chord(root,root%2,root%3==0));
+        for(int index=0;index<32;index++){
+            instance->preview_notes[index]=48+index;instance->preview_targets[index]=-1;instance->preview_rows[index]=0;
+            for(int bank=0;bank<2;bank++){
+                instance->surface_notes[bank][index]=36+bank*32+index;
+                instance->surface_targets[bank][index]=-1;instance->surface_rows[bank][index]=0;
+                if(index%8==3&&root%2){instance->surface_notes[bank][index]=-1;instance->surface_targets[bank][index]=48+index;instance->surface_rows[bank][index]=1+bank;}
+            }
+        }
+        instance->preview_count=32;
+        for(int index=0;index<3;index++)assert(API.get_param(instance,keys[index],reference[index],sizeof(reference[index]))>0);
+        assert(API.get_param(instance,"surface_frame",frame,sizeof(frame))>0);
+        char *part=frame;assert(!strncmp(part,"sf1\n",4));part+=4;
+        for(int index=0;index<3;index++){
+            char *end=strchr(part,'\n');if(end)*end=0;
+            if(strcmp(part,reference[index])){fprintf(stderr,"frame mismatch role=%d travel=%d root=%d part=%d\n",role,travel,root,index);assert(0);}
+            if(index<2){assert(end);part=end+1;}else assert(!end);
+        }
+        assert(!instance->surface_frame_cache);
+        char tiny[12];assert(API.get_param(instance,"surface_frame",tiny,sizeof(tiny))<0);
+        assert(!instance->surface_frame_cache&&instance->preview_notes[0]==48);
+    }
     API.destroy_instance(instance);
     puts("external surfaces: canonical parity, independent banks, bounded errors, Move restoration pass");
 }

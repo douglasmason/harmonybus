@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.261"
+#define HB_VERSION "0.2.262"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -247,6 +247,13 @@ static int g_render_window=0,g_render_restored=0;
 #include "../../../src/shared_context.h"
 #include "../../../src/follower_ownership.h"
 typedef struct { hb_key_context context; hb_harmony_t input,output; int valid,major_choice,minor_choice; } hb_key_harmony_cache;
+/* Scratch reuse exists only during one serial, read-only surface frame. */
+typedef struct {
+    int source,shift,row,target;
+    unsigned mask,gap;
+    unsigned long long low,high,single_low,single_high;
+} hb_surface_sample;
+typedef struct { int count; hb_surface_sample samples[108]; } hb_surface_frame_cache;
 typedef struct { int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[2][16][128]; int chord_pair_owner[2][16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; int motif_load[6],motif_load_last; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 hb_follower_voice follower_voices[HB_FOLLOWER_VOICES];
 hb_input_intent follower_queue_input[64];
@@ -263,6 +270,7 @@ int follower_input_seen; /* Direct MIDI takes ownership from monitor fallback. *
 char harmony_display[4][48]; int harmony_display_valid;
 unsigned long long next_touch_mask; double next_touch_started,next_touch_until; hb_harmony_t next_touch_observed;
 uint8_t physical_velocity[16][128];unsigned short physical_target,target_attack_owner;int adopt_held,advance_pending,advance_phase,synthetic_advance;unsigned short advance_owner;
+hb_surface_frame_cache *surface_frame_cache;
 int pressure_full_velocity;uint16_t pad_sounding[128];double pad_flash_seconds[128];unsigned long long preview_single_low,preview_single_high;unsigned preview_gap_mask;int approach_layout,move_approach_layout,surface_approach_layout,surface_enabled;int surface_count[2],surface_notes[2][32],surface_targets[2][32],surface_rows[2][32];int preview_count,preview_notes[32],preview_targets[32],preview_rows[32]; signed char movy_pad_shift[128]; int movy_pad_pending, movy_pad_pending_shift; uint8_t movy_input_degree[128],movy_input_target[128]; uint8_t follower_origin[128], follower_queue_origin[64]; int used,role,mode,content_map,travel_map,chromatic_map,touch_lanes[9],follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_quant_beat[64]; double follower_queue_harmony_beat[64]; hb_harmony_t render_harmony; int render_harmony_active; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],recorded_source_pitch[16][128],passthrough_held[128]; } Inst;
 static hb_input_intent hb_input_get(const Inst *instance,int source){
     return (hb_input_intent){instance->movy_input_degree[source],instance->movy_input_target[source],instance->movy_pad_shift[source],instance->approach_rows.tokens[source]};
@@ -6426,6 +6434,33 @@ static hb_harmony_t hb_opening_harmony(void){
 }
 #include "../../../src/shared_context_runtime.h"
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+/* One response freezes all three geometries in the same audio-thread callback.
+   The temporary cache shares identical rendered inputs across Move and both banks;
+   it is never retained across reads, harmony changes, or parameter writes. */
+if(!strcmp(key,"surface_frame")){
+    if(!instance->surface_enabled||instance->surface_count[0]!=32||instance->surface_count[1]!=32)return -1;
+    hb_surface_frame_cache cache={0};
+    hb_surface_frame_cache *previous=instance->surface_frame_cache;
+    instance->surface_frame_cache=&cache;
+    /* Sample the large surface first so Move can reuse overlapping inputs. */
+    char banks[2][8192];int counts[2],result=-1;
+    counts[0]=get_param(instance,"surface_view0",banks[0],sizeof(banks[0]));
+    counts[1]=get_param(instance,"surface_view1",banks[1],sizeof(banks[1]));
+    if(counts[0]<0||counts[0]>=(int)sizeof(banks[0])||counts[1]<0||counts[1]>=(int)sizeof(banks[1]))goto surface_frame_done;
+    int used=snprintf(buffer,(size_t)length,"sf1\n");
+    if(used<0||used>=length)goto surface_frame_done;
+    int count=get_param(instance,"pad_view",buffer+used,length-used);
+    if(count<0||count>=length-used)goto surface_frame_done;
+    used+=count;
+    for(int index=0;index<2;index++){
+        if(counts[index]+1>=length-used)goto surface_frame_done;
+        buffer[used++]='\n';memcpy(buffer+used,banks[index],counts[index]);used+=counts[index];buffer[used]=0;
+    }
+    result=used;
+surface_frame_done:
+    instance->surface_frame_cache=previous;
+    return result;
+}
 /* External previews have their own geometry, but use the production pad renderer.
    This callback runs serially on the owning audio thread; restore every transient
    field before returning, including failures and recursive pad_view reads. */
@@ -6911,20 +6946,10 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
     ready=ready||opening.valid;
     hb_harmony_t scale=hb_follower_scale_target(instance,hb_key_harmony(instance,effective));
     if(!strcmp(key,"pad_render")){
-        /* Render on a private instance: real mapping/voicing, no emitted MIDI,
-           no live owner changes and no consumption of one-shot modifiers. */
-        Inst preview=*instance;
-        /* Opening notes describe a stopped clip's color target only. They
-           never replace the harmony used by an actual live note-on. */
+        /* Copy the private render state only when a shared input is missing. */
+        Inst preview;int preview_ready=0;
+        preview.preview_gap_mask=0;preview.preview_target=-1;preview.preview_single_low=preview.preview_single_high=0;
         hb_harmony_t rendering=opening.valid?hb_render_harmony(instance):effective;
-        preview.render_harmony=rendering;preview.render_harmony_active=1;
-        preview.movy_playback=0;
-        /* Real live note-ons clear replay-only source coordinates. A pad
-           preview must do the same on its private copy: clip notes can carry
-           different roles as the conductor changes, even at the same pitch. */
-        memset(preview.movy_input_degree,0,sizeof(preview.movy_input_degree));
-        memset(preview.movy_input_target,0,sizeof(preview.movy_input_target));
-        memset(preview.movy_pad_shift,0,sizeof(preview.movy_pad_shift));
         unsigned current_inputs=0,effective_inputs=0,lookahead_inputs=0,scale_inputs=0,tonic_inputs=0,full_inputs=0;
         hb_harmony_t pulse_harmony=g_pad_settings[0]>=5?full_lookahead:
             g_pad_settings[0]==0||g_pad_settings[0]==2?effective:
@@ -6953,19 +6978,19 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             int sample=hb_pad_preview_reuse?(pass<pad_count?pass+12:pass-pad_count):pass;
             /* Only actual pad slots consume trail targets. Pitch-class color
                probes and alternative harmony previews need colors alone. */
-            preview.trail_enabled=instance->trail_enabled&&sample>=12;
+
             int source_note=sample<12?60+sample:pad_notes[sample-12];
             int gap_target=sample>=12?pad_targets[sample-12]:-1;
             int gap=gap_target>=0&&hb_approach_pad_enabled(instance);
             if(sample>=12)gap_colors[sample-12]=-1;
+            int approach_row=-1;
             if(gap){
-                int row=instance->preview_rows[sample-12];source_note=row?(gap_target+32*row)%128:gap_target<64?gap_target+36:gap_target-36;preview.approach_rows.preview_row=row?row-1:3;
-                preview.movy_pad_shift[source_note]=gap_target-source_note;
+                int row=instance->preview_rows[sample-12];source_note=row?(gap_target+32*row)%128:gap_target<64?gap_target+36:gap_target-36;approach_row=row?row-1:3;
             }
             if(source_note<0){output_group[sample-12]=-1;continue;}
             int pitch_class=mod12(source_note);
             unsigned rendered_mask=0;
-            int row=gap?preview.approach_rows.preview_row:-1,shift=gap?gap_target-source_note:0,cached=-1;
+            int row=approach_row,shift=gap?gap_target-source_note:0,cached=-1;
             for(int previous=0;hb_pad_preview_reuse&&previous<(sample>=12?sample-12:pad_count);previous++)
                 if(pad_preview[previous].valid&&pad_preview[previous].source==source_note&&
                    pad_preview[previous].shift==shift&&pad_preview[previous].row==row){cached=previous;break;}
@@ -6976,8 +7001,41 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
                 preview.preview_single_high=pad_preview[cached].single_high;
                 if(sample>=12){output_low[sample-12]=output_low[cached];output_high[sample-12]=output_high[cached];}
             }else if(instance->role==0||instance->role==1){
+                hb_surface_frame_cache *frame=instance->surface_frame_cache;
+                int shared=-1;
+                for(int index=0;frame&&index<frame->count;index++){
+                    const hb_surface_sample *entry=&frame->samples[index];
+                    if(entry->source==source_note&&entry->shift==shift&&entry->row==row){shared=index;break;}
+                }
+                if(shared>=0){
+                    const hb_surface_sample *entry=&frame->samples[shared];
+                    rendered_mask=entry->mask;preview.preview_gap_mask=entry->gap;
+                    preview.preview_target=entry->target;
+                    preview.preview_single_low=entry->single_low;preview.preview_single_high=entry->single_high;
+                    if(sample>=12){output_low[sample-12]=entry->low;output_high[sample-12]=entry->high;}
+                }else {
+                if(!preview_ready){
+                    preview=*instance;preview_ready=1;
+                    preview.render_harmony=rendering;preview.render_harmony_active=1;preview.movy_playback=0;
+                    memset(preview.movy_input_degree,0,sizeof(preview.movy_input_degree));
+                    memset(preview.movy_input_target,0,sizeof(preview.movy_input_target));
+                    memset(preview.movy_pad_shift,0,sizeof(preview.movy_pad_shift));
+                }
+                preview.trail_enabled=instance->trail_enabled&&sample>=12;
+                if(gap){preview.approach_rows.preview_row=row;preview.movy_pad_shift[source_note]=shift;}
+                unsigned long long frame_low=0,frame_high=0;
                 rendered_mask=hb_pad_render_mask(&preview,instance,rendering,source_note,1,
-                    sample>=12?&output_low[sample-12]:0,sample>=12?&output_high[sample-12]:0);
+                    sample>=12?&output_low[sample-12]:frame?&frame_low:0,
+                    sample>=12?&output_high[sample-12]:frame?&frame_high:0);
+                /* Pitch-class probes omit trail work. Cache only real pad
+                   samples, which contain the complete output and target. */
+                if(frame&&sample>=12&&frame->count<108){
+                    hb_surface_sample *entry=&frame->samples[frame->count++];
+                    *entry=(hb_surface_sample){source_note,shift,row,preview.preview_target,
+                        rendered_mask,preview.preview_gap_mask,output_low[sample-12],output_high[sample-12],
+                        preview.preview_single_low,preview.preview_single_high};
+                }
+                }
             }
             if(sample>=12){
                 int slot=sample-12;
@@ -7055,7 +7113,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         }
         /* Retain only pure assignment results from the private simulation.
            Repeated UI reads need no new solve until their musical inputs change. */
-        instance->closest_assignments=preview.closest_assignments;
+        if(preview_ready)instance->closest_assignments=preview.closest_assignments;
         return used;
     }
     return snprintf(buffer,(size_t)length,"%u,%u,%u,%d",

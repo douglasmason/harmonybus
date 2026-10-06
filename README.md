@@ -1,3 +1,5 @@
+HarmonyBus 0.2.262 / Movy hbclean.179: Coherent Move and Launchpad pad snapshots for Movy hbclean.179, reusing identical rendered inputs within each read. The paired Movy update batches external note input, makes Launchpad pulses steady, paces LED traffic and widens footer arrows. No Schwung host changes. Physical Move latency and crackle testing remain necessary.
+
 HarmonyBus 0.2.261 / Movy hbclean.178: Motif to Clip writes editable input intent with preview, Replace/Append/Overdub and Undo. Motif bodies exclude all boundary targets; shared target placement and padding also control live playback. See [Motif loader](docs/motif-loader.md).
 
 HarmonyBus 0.2.259: Reuse identical pad renders within each display snapshot. Preserve current/next colors, output groups, approach intent and trails while avoiding duplicate pitch-class probes. Live and recorded playback rules are unchanged. Compatible with Movy hbclean.176. Desktop profiling improves preview cost; physical Move crackling still needs verification.
