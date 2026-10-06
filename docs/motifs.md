@@ -104,3 +104,40 @@ This version exposes Beat and Bar windows. Learned, variable-length chord-span
 windows need a versioned timeline bridge and are not exposed yet. Motif arrival
 at a known next chord and motif anchors continue to work. Custom rhythm capture
 and physical-device latency/LED validation remain outstanding.
+
+## Motif-to-clip construction (in development)
+
+Stock motifs now have one canonical definition: a body, a transposition
+reference, separate opening/closing target specifications, and default target
+placement. `I–VI7–ii–V–I` has body `VI7–ii–V` and placement Both. `ii–V–LT`
+has a three-event body and no sounded target. Target quality and operation
+intent remain attached to the separate target specifications.
+
+The existing player/editor currently consumes a transient materialized view
+of this definition. Stable preset/cadence IDs and existing playback behavior
+are retained. This view is generated, not separately stored.
+
+The clip planner supports End, Start, Both, and Omit, a duration unit, existing
+rhythm weights, and optional even-unit padding. Padding extends the ending
+target (or opening target for Start), without a second attack. Omit pads with
+a rest. Body event input coordinates and operation words are copied intact;
+voicing is not baked into the plan. Planning is atomic on validation failure.
+
+User libraries migrate from mf1 to normalized mf2 storage atomically. A compact
+index/duration map preserves existing recorded step tokens, including motifs
+with tied boundary targets; it does not duplicate notes or operation words.
+
+Target Placement in Motif Timing offers Saved, End, Start, Both, and Omit.
+Timed Omit approaches a silent destination. Approach-pad sequences omit boundary
+targets by default, preserve interior targets and leading tones, and use the
+same explicit placement choices. Newly played steps retain stable tokens when
+recorded, so changing placement does not reinterpret old individual steps.
+Whole-motif triggers follow the current placement setting.
+
+As Entered scales captured durations against the selected unit (24 stored
+ticks is one unit). Even-length padding reaches the next multiple of two units,
+including phrases whose captured durations contain fractional units.
+
+Still required before release: target capture controls, preview, and an
+undoable Movy clip-write transaction. The planned panel ends with an explicit
+Write to Clip action. There is no working installer feature yet.

@@ -93,6 +93,7 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
 }
 /* Use the same preset dictionary and event boundaries as the player. */
 static void hb_ar_step_label(int code,int step,const hb_mt_phrase *phrase,char *label,int length){
+    if(code==15){snprintf(label,(size_t)length,"T");return;}
     int preset=hb_mt_reference_preset(code-15);
     if(preset){
         const char *start=HB_MT_PRESETS[preset];
@@ -109,16 +110,17 @@ static int hb_ar_sequence_view(Inst *instance,char *buffer,int length){
     int spatial=hb_ar_spatial_layout(instance),single=hb_ar_single_layout(instance);
     int entries=spatial?(single?(state->sequence_count?state->sequence_count:1):3):state->performance?state->count:0;
     if(!entries)return snprintf(buffer,(size_t)length,"0,0,0");
-    char labels[HB_MT_STEPS*8+1][24];int count=0,selected=0;
+    char labels[(HB_MT_STEPS+2)*8+1][24];int count=0,selected=0;
     for(int entry=0;entry<entries;entry++){
         int code=spatial?hb_ar_code(state,single?(state->sequence_count?state->sequence_slots[entry]:state->row_preset):state->row_slots[2-entry]):state->order[entry];
-        hb_mt_phrase builtin;const hb_mt_phrase *phrase=hb_ar_phrase(code,&builtin);
-        int end=phrase?phrase->count:1;
-        if(spatial&&phrase)end=single?(phrase->anchor>0?phrase->anchor:phrase->count):1;
+        unsigned tokens[HB_MT_STEPS+2];
+        int end=hb_ar_live_steps(code,state->target_placement,spatial,tokens);
+        if(spatial&&!single&&end>1)end=1;
         for(int event=0;event<end;event++){
-            if(phrase&&phrase->events[event].kind==2)continue;
             if(entry==(spatial?state->sequence_cursor:state->cursor)&&event==(spatial?state->sequence_event:state->event))selected=count;
-            hb_ar_step_label(code,event,phrase,labels[count++],24);
+            int token_code=tokens[event]&63,step=(tokens[event]>>6)&31;
+            hb_mt_phrase builtin;const hb_mt_phrase *phrase=hb_ar_phrase(token_code,&builtin);
+            hb_ar_step_label(token_code,step,phrase,labels[count++],24);
         }
     }
     if(spatial&&!single)selected=-1; /* Three rows are spatial choices, not a tap cursor. */

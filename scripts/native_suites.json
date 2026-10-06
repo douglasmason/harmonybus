@@ -442,6 +442,13 @@
     ]
   },
   {
+    "name": "motif_clip_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motif_clip_test.c -lm -o /tmp/motif_clip_test",
+      "/tmp/motif_clip_test"
+    ]
+  },
+  {
     "name": "live_overdub_test",
     "commands": [
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/live_overdub_test.c src/harmony_core.c -lm -o /tmp/live_overdub_test",
@@ -460,6 +467,27 @@
     "commands": [
       "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all -I tests tests/pad_snapshot_probe.c src/harmony_core.c -lm -o /tmp/pad_snapshot_probe",
       "/tmp/pad_snapshot_probe > /tmp/pad_snapshot_probe-output.txt"
+    ]
+  },
+  {
+    "name": "motif_storage_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motif_storage_test.c src/harmony_core.c -lm -o /tmp/motif_storage_test",
+      "/tmp/motif_storage_test"
+    ]
+  },
+  {
+    "name": "motif_placement_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motif_placement_test.c src/harmony_core.c -lm -o /tmp/motif_placement_test",
+      "/tmp/motif_placement_test"
+    ]
+  },
+  {
+    "name": "motif_loader_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motif_loader_test.c src/harmony_core.c -lm -o /tmp/motif_loader_test",
+      "/tmp/motif_loader_test"
     ]
   }
 ]

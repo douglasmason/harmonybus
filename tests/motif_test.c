@@ -1,6 +1,7 @@
 #define main existing_chord_tests
 #include "chord_player_test.c"
 #undef main
+static const hb_mt_phrase *test_motif_view(int slot){static hb_mt_phrase views[HB_MT_SLOTS];hb_mt_library_view(slot,&views[slot]);return &views[slot];}
 static void record_note(Inst *instance,int pitch){midi(instance,1,pitch);midi(instance,0,pitch);}
 static void recording(void){
     Inst *instance=fixture();API.set_param(instance,"motif_record","Edit");
@@ -12,9 +13,9 @@ static void recording(void){
     assert(instance->motif.editor.draft.events[1].kind==1);
     assert(instance->motif.editor.draft.events[4].kind==2);
     API.set_param(instance,"motif_record","Done");
-    assert(g_motifs[0].count==5&&g_motifs[0].anchor==3);
-    assert(g_motifs[0].events[0].duration==6);
-    API.set_param(instance,"motif_record","Edit");API.set_param(instance,"motif_record","Done");assert(g_motifs[0].count==5);
+    assert(test_motif_view(0)->count==5&&test_motif_view(0)->anchor==3);
+    assert(test_motif_view(0)->events[0].duration==6);
+    API.set_param(instance,"motif_record","Edit");API.set_param(instance,"motif_record","Done");assert(test_motif_view(0)->count==5);
     advance(instance,500,64);API.set_param(instance,"motif_arrival","Next Beat");position=0;render_count=0;
     API.set_param(instance,"motif_arm","1");record_note(instance,67);
     assert(instance->motif.editor.armed==-1);
@@ -28,10 +29,10 @@ static void recording(void){
     int before=render_count;position=1.25;API.tick(instance,1,48000,output,lengths,64);assert(render_count==before);
     position=1.5;API.tick(instance,1,48000,output,lengths,64);assert((rendered[render_count-1][1]&0xF0)==0x80);
     char state[131072];int length=API.get_param(instance,"state",state,sizeof(state));assert(length>0&&length<(int)sizeof(state));
-    API.destroy_instance(instance);assert(!g_motifs[0].count);
-    instance=API.create_instance("",NULL);API.set_param(instance,"state",state);assert(g_motifs[0].count==5&&g_motifs[0].anchor==3);
+    API.destroy_instance(instance);assert(!test_motif_view(0)->count);
+    instance=API.create_instance("",NULL);API.set_param(instance,"state",state);assert(test_motif_view(0)->count==5&&test_motif_view(0)->anchor==3);
     char truncated[131072];strcpy(truncated,state);truncated[strlen(truncated)-2]=0;g_motifs_restored=0;
-    API.set_param(instance,"state",truncated);assert(g_motifs[0].count==5);
+    API.set_param(instance,"state",truncated);assert(test_motif_view(0)->count==5);
     API.destroy_instance(instance);
 }
 static void explicit_intent(void){
@@ -39,7 +40,7 @@ static void explicit_intent(void){
     API.set_param(instance,"mod_scale_above","On");record_note(instance,64);API.set_param(instance,"mod_scale_above","Off");
     API.set_param(instance,"mod_chrom_below","On");record_note(instance,64);API.set_param(instance,"mod_chrom_below","Off");
     record_note(instance,64);API.set_param(instance,"motif_record","Done");
-    assert(g_motifs[0].events[0].modifier==1&&g_motifs[0].events[1].modifier==-1);
+    assert(test_motif_view(0)->events[0].modifier==1&&test_motif_view(0)->events[1].modifier==-1);
     advance(instance,500,64);position=0;API.set_param(instance,"motif_arrival","Next Beat");API.set_param(instance,"motif_trigger","67");
     render_count=0;position=0.5;API.tick(instance,1,48000,output,lengths,64);assert(rendered[render_count-1][2]==69);
     position=0.75;API.tick(instance,1,48000,output,lengths,64);assert(rendered[render_count-1][2]==66);
@@ -50,7 +51,7 @@ static void explicit_intent(void){
 }
 static void anchor_and_late(void){
     Inst *instance=fixture();API.set_param(instance,"motif_record","Edit");record_note(instance,60);
-    API.set_param(instance,"motif_anchor","On");record_note(instance,64);record_note(instance,67);API.set_param(instance,"motif_record","Done");assert(g_motifs[0].anchor==1);
+    API.set_param(instance,"motif_anchor","On");record_note(instance,64);record_note(instance,67);API.set_param(instance,"motif_record","Done");assert(test_motif_view(0)->anchor==1);
     advance(instance,500,64);API.set_param(instance,"motif_arrival","Next Beat");API.set_param(instance,"motif_late","Trim");position=.9;API.set_param(instance,"motif_trigger","64");
     int attacks=0;for(int index=0;index<HB_MT_SCHEDULE;index++)if(instance->motif.events[index].used){assert(instance->motif.events[index].on>=1.0-1e-6);attacks++;}assert(attacks==2);
     position=1;API.tick(instance,1,48000,output,lengths,1);assert(rendered[render_count-1][2]==64);
@@ -73,22 +74,23 @@ static void fit_defer_and_cancel(void){
 }
 static void bank_capacity_and_snapshots(void){
     Inst *instance=fixture();API.set_param(instance,"motif_record","Edit");record_note(instance,64);API.set_param(instance,"motif_record","Done");
-    hb_mt_event event=g_motifs[0].events[0];
+    hb_mt_event event=test_motif_view(0)->events[0];
     /* Exercise the final provenance word as well as the highest operation lanes. */
     event.actions[HB_MOTION_LANES]=0xdeadbeef12345678ULL;
     event.actions[HB_MOTION_LANES-1]=0xabcdef0987654321ULL;
     for(int slot=0;slot<4;slot++){
-        g_motifs[slot].count=32;g_motifs[slot].anchor=31;
-        for(int step=0;step<32;step++)g_motifs[slot].events[step]=event;
+        hb_mt_phrase full={.count=32,.anchor=31};
+        for(int step=0;step<32;step++)full.events[step]=event;
+        assert(hb_mt_normalize(&full,&g_motifs[slot]));
     }
     char state[8192];int size=API.get_param(instance,"state",state,sizeof(state));assert(size>0&&size<(int)sizeof(state));
     char short_buffer[16];assert(hb_mt_save(instance,short_buffer,sizeof(short_buffer),0)<0);
     API.destroy_instance(instance);instance=API.create_instance("",NULL);API.set_param(instance,"state",state);
-    assert(g_motifs[3].count==32&&!memcmp(g_motifs[3].events[31].actions,event.actions,sizeof(event.actions)));
+    assert(test_motif_view(3)->count==32&&!memcmp(test_motif_view(3)->events[31].actions,event.actions,sizeof(event.actions)));
     API.set_param(instance,"motif_slot","5");API.set_param(instance,"motif_record","Edit");
     record_note(instance,67);API.set_param(instance,"motif_record","Done");
     assert(instance->motif.editor.recording==4&&instance->motif.editor.error==9);
-    assert(!g_motifs[4].count&&g_motifs[3].count==32);
+    assert(!test_motif_view(4)->count&&test_motif_view(3)->count==32);
     API.set_param(instance,"motif_cancel","Cancel");API.destroy_instance(instance);
 }
 
@@ -130,14 +132,14 @@ static void preset_copy_and_state(void){
         for(int step=0;step<phrase.count;step++)assert(phrase.events[step].count==1&&phrase.events[step].duration==24);
     }
     API.set_param(instance,"motif_preset","V/V-V-I");API.set_param(instance,"motif_copy","Copy to Slot");
-    assert(instance->motif.editor.recording==0&&instance->motif.editor.draft.count==3&&!g_motifs[0].count);
-    API.set_param(instance,"motif_record","Done");assert(g_motifs[0].count==3&&g_motifs[0].anchor==2);
+    assert(instance->motif.editor.recording==0&&instance->motif.editor.draft.count==3&&!test_motif_view(0)->count);
+    API.set_param(instance,"motif_record","Done");assert(test_motif_view(0)->count==3&&test_motif_view(0)->anchor==2);
     API.set_param(instance,"motif_playback","Tap Grid");API.set_param(instance,"motif_completion","Auto Finish");
     API.set_param(instance,"motif_preset","ii-V-Target");API.set_param(instance,"motif_grid","1/8");
     char state[8192];assert(API.get_param(instance,"state",state,sizeof(state))<(int)sizeof(state));
     API.destroy_instance(instance);instance=API.create_instance("",NULL);API.set_param(instance,"state",state);
     assert(instance->motif.editor.playback==3&&instance->motif.editor.preset==2&&instance->motif.editor.tap_grid==2&&instance->motif.editor.completion==1);
-    assert(g_motifs[0].count==3&&g_motifs[0].events[0].chord_mode==3&&!instance->motif.tap_active);
+    assert(test_motif_view(0)->count==3&&test_motif_view(0)->events[0].chord_mode==3&&!instance->motif.tap_active);
     API.destroy_instance(instance);
 }
 
@@ -202,18 +204,18 @@ static void lane_library_ownership(void){
     assert(first->motif.editor.lane==0&&first->motif.editor.recording==-1);
     API.set_param(first,"motif_record","Edit");record_note(first,60);
     API.set_param(first,"motif_record","Done");
-    assert(first->motion.lanes[0].amount==20&&g_motifs[0].count==1);
+    assert(first->motion.lanes[0].amount==20&&test_motif_view(0)->count==1);
     API.set_param(first,"motif_close","Close");
     API.set_param(first,"motion_lane","2");API.set_param(first,"motion_operation","Play Motif");
     API.set_param(first,"motion_amount","User 1");
     API.set_param(first,"motif_edit","Open");API.set_param(first,"motif_record","Edit");
     record_note(first,67);API.set_param(first,"motif_record","Done");
-    assert(g_motifs[0].events[0].notes[0].pitch==67);
+    assert(test_motif_view(0)->events[0].notes[0].pitch==67);
     assert(first->motion.lanes[0].amount==20&&first->motion.lanes[1].amount==20);
     API.set_param(first,"motif_duplicate","Duplicate");
     assert(first->motif.editor.recording==1);
     API.set_param(first,"motif_cancel","Cancel");
-    assert(!g_motifs[1].count&&first->motion.lanes[1].amount==20);
+    assert(!test_motif_view(1)->count&&first->motion.lanes[1].amount==20);
     API.set_param(first,"motif_duplicate","Duplicate");API.set_param(first,"motif_record","Done");
     assert(first->motion.lanes[0].amount==20&&first->motion.lanes[1].amount==21);
     API.set_param(first,"motif_arrival","Now");API.set_param(first,"motif_playback","Tap Free");
@@ -230,7 +232,7 @@ static void lane_library_ownership(void){
     API.destroy_instance(first);
     first=API.create_instance("",NULL);API.set_param(first,"state",saved);
     assert(first->motion.lanes[0].operation==HB_MO_MOTIF&&first->motion.lanes[0].amount==20);
-    assert(first->motion.lanes[1].amount==21&&g_motifs[0].events[0].notes[0].pitch==67);
+    assert(first->motion.lanes[1].amount==21&&test_motif_view(0)->events[0].notes[0].pitch==67);
     API.destroy_instance(first);
 }
 
