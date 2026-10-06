@@ -49,6 +49,10 @@ static int hb_key_travel_pitch(Inst *instance,int pitch,hb_harmony_t harmony,int
         int mapped=active_family?hb_key_active_pitch(instance,pitch,harmony):hb_key_map(context,pitch);
         return hb_travel_register(pitch,mapped,policy);
     }
+    if(active_family&&!context.blues){
+        unsigned active=hb_dominant_scale_mask(instance,harmony,context.target_root);
+        if(active)context.target_mask=active;
+    }
     /* Key-center Closest Chord Tone is inversion-like travel within input
        classes, not a chord-only quantizer for every degree. */
     if((policy==1||policy==3)&&harmony.valid)

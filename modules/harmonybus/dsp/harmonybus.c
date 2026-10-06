@@ -1009,6 +1009,18 @@ static hb_harmony_t hb_key_harmony(Inst *instance,hb_harmony_t harmony){
         if(leading){int mapped_old=mod12(hb_key_map(context,60+harmony.root_pc));if(mapped_old!=root)mask&=~(1u<<mapped_old);}
     }
     unsigned detected=hb_key_mask(context,hb_harmony_detected_mask(harmony));
+    if(!context.blues&&family&&(functional||leading)){
+        /* Detected-form colors and Follow Detected voicings must retain the
+           same functional core as the corrected destination harmony. Keep
+           sparse input sparse: only move core tones that were actually heard. */
+        unsigned heard=hb_harmony_detected_mask(harmony);detected=0;
+        for(int pc=0;pc<12;pc++)if(heard&(1u<<pc)){
+            int interval=mod12(pc-harmony.root_pc),mapped=mod12(hb_key_map(context,60+pc));
+            if(interval==0||interval==(functional?4:3)||interval==(functional?7:6)||interval==(functional?10:9))
+                mapped=mod12(root+interval);
+            detected|=1u<<mapped;
+        }
+    }
     if(!context.blues&&harmony.intent_kind>=8&&harmony.intent_kind<=10){
         unsigned collection=hb_function_family(instance,target,context.target_mask,hb_target_minor(context.target_mask,target),0);
         root=mod12(target+hb_nth_scale_interval_from_root(collection,target,1+2*(harmony.intent_kind-8)));
@@ -2581,7 +2593,7 @@ static int hb_map_follower_base_note(Inst *instance,int source_note,hb_harmony_t
 
 
     int travel=instance->travel_map;
-    if(travel==7)return hb_play_note(instance,hb_key_travel_pitch(instance,source_note+g_bus.global_transpose,hb_transpose_harmony(detected,g_bus.global_transpose),hb_key_follower_travel(instance),0)-g_bus.global_transpose,detected,target.pitch_mask); /* None bypasses harmonic travel. */
+    if(travel==7)return hb_play_note(instance,hb_key_travel_pitch(instance,source_note+g_bus.global_transpose,hb_transpose_harmony(detected,g_bus.global_transpose),hb_key_follower_travel(instance),1)-g_bus.global_transpose,detected,target.pitch_mask); /* None bypasses chord-root travel, not active dominant collections. */
     if(travel==5){
         int direct=hb_key_travel_pitch(instance,source_note+g_bus.global_transpose,hb_transpose_harmony(detected,g_bus.global_transpose),hb_key_follower_travel(instance),1)-g_bus.global_transpose;
         if(direct<0)direct=0;

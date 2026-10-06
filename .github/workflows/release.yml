@@ -153,7 +153,7 @@ jobs:
           assert 'int content_map=instance->content_map;' in source
           assert 'int travel=instance->travel_map;' in source
           assert 'int selected=hb_shared_follower_scale();' in source
-          assert 'int split=instance->follower_split_map;' in source
+          assert 'instance->follower_split_map);' in source
           assert 'hb_quant_grid_beats_for(instance)' in source
           assert 'int setting=hb_effective_follower_buffer_for(instance);' in source
           assert 'double capture=hb_follower_capture_beats_for(instance);' in source
@@ -168,7 +168,7 @@ jobs:
           assert '#include "../../../src/closest_split.h"' in source
           assert 'learned_boundary=hb_next_effective_boundary' in source
           assert 'Compare against the UNSHIFTED learned schedule' in source
-          closest=source[source.index('static int hb_map_follower_note_closest_split'):source.index('static int hb_map_follower_note_now')]
+          closest=source[source.index('static int hb_map_follower_note_classified'):source.index('static int hb_map_follower_note_now')]
           assert 'hb_cached_closest_assignment(' in closest
           queue=source[source.index('static int hb_queue_follower_event'):source.index('static int hb_source_interval_to_default_degree')]
           assert 'hb_follower_capture_target(' in queue

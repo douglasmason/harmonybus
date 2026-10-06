@@ -240,4 +240,49 @@ static void common_algorithms(void){
     assert(hb_travel_register(65,72,4)==60);
     API.destroy_instance(instance);
 }
-int main(void){common_algorithms();key_center_preserves_input_classes();conductor_progression();conductor_inversions();relative_register();contexts_and_chromatic();paired_release();defaults_and_persistence();puts("key travel: conductor progression/inversions, register, shared follower policy, chromatic targets, paired releases and persistence pass");}
+static void none_follows_dominant_collection(void){
+    Inst *instance=fixture();instance->travel_map=7;instance->content_map=1;
+    instance->player.config.mode=0;instance->boundary_buffer_ms=0;
+    instance->next_anti_buffer_ms=0;instance->next_lookahead=0;instance->chromatic_map=1;
+    g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=2,
+        .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(2,3)};
+    API.set_param(instance,"follower_key_travel","Relative");
+    API.set_param(instance,"dominant_minor_scale","Minimal");
+    uint8_t tonic_notes[]={60,64,67,71},dominant_notes[]={67,71,74,77};
+    hb_harmony_t tonic=hb_infer_harmony(tonic_notes,4),dominant=hb_infer_harmony(dominant_notes,4);
+    hb_harmony_t rendered=hb_key_harmony(instance,dominant);
+    assert(rendered.root_pc==9&&(hb_harmony_chord_mask(rendered)&(1u<<1)));
+    assert(hb_harmony_detected_mask(rendered)==((1u<<9)|(1u<<1)|(1u<<4)|(1u<<7)));
+    hb_effective_write(tonic);
+    assert(hb_map_follower_note_now(instance,71)==72); /* seventh: C in D Dorian */
+    hb_effective_write(dominant);
+    for(int origin=0;origin<2;origin++){
+        instance->movy_playback=origin;
+        assert(hb_map_follower_note_now(instance,71)==73); /* V raises C to C# */
+        instance->movy_pad_shift[35]=36;
+        assert(hb_map_follower_note_now(instance,35)==72); /* chromatic approach targets C# first */
+        instance->movy_pad_shift[35]=0;
+    }
+    instance->movy_playback=0;
+    assert(played(instance,71)==(1u<<1));release(instance,71);
+    /* Full-next color compares this pad's current output to the future chord;
+       it does not silently render the input under that future collection. */
+    hb_next_update_playhead(0,48000);
+    g_bus.next_model_locked=1;g_bus.next_model_count=2;g_bus.clip_loop_end=4;
+    g_bus.next_model[0].phase=0;g_bus.next_model[0].harmony=tonic;
+    g_bus.next_model[1].phase=2;g_bus.next_model[1].harmony=dominant;
+    for(int at_v=0;at_v<2;at_v++){
+        position=at_v?2.1:0.1;g_bus.observed_harmony=at_v?dominant:tonic;
+        hb_next_apply_effective(position);
+        char snapshot[32768];unsigned current,effective,scale,full;int ready;
+        API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
+        assert(sscanf(snapshot,"%u,%u,%u,%d",&current,&effective,&scale,&ready)==4);
+        const char *field=strstr(snapshot,"|full1,1,");assert(field&&sscanf(field,"|full1,1,%u",&full)==1);
+        assert(!(full&(1u<<11))); /* C is not in A7; C# is not in Dm7 */
+        assert(effective&(1u<<11)); /* actual C in Dm7 / C# in A7 */
+    }
+    API.set_param(instance,"dominant_minor_scale","None");
+    assert(hb_map_follower_note_now(instance,71)==72);
+    API.destroy_instance(instance);
+}
+int main(void){none_follows_dominant_collection();common_algorithms();key_center_preserves_input_classes();conductor_progression();conductor_inversions();relative_register();contexts_and_chromatic();paired_release();defaults_and_persistence();puts("key travel: conductor progression/inversions, register, shared follower policy, chromatic targets, paired releases and persistence pass");}
