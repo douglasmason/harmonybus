@@ -14,7 +14,7 @@ static int hb_ml_build(Inst *instance,hb_mc_plan *plan,int *root,int *scale){
     int choice=instance->motif_load[0];
     if(choice<27)hb_mt_preset_definition(choice+1,&definition);
     else {definition=g_motifs[choice-27];if(!hb_mt_occupied(&definition)){g_ml_error="Empty motif slot";return 0;}}
-    hb_resolve_follower_reference_root(instance,root);
+    *root=hb_global_explicit_root();hb_resolve_follower_reference_root(instance,root);
     *scale=hb_follower_input_scale_index(instance,*root);if(*scale<1)*scale=1;
     int placement=hb_mt_placement(instance->motif.editor.placement,definition.placement);
     int mode=placement==3?HB_MC_BOTH:placement==HB_MT_TARGET_START?HB_MC_START:placement==HB_MT_TARGET_END?HB_MC_END:HB_MC_OMIT;
@@ -33,6 +33,15 @@ static int hb_ml_build(Inst *instance,hb_mc_plan *plan,int *root,int *scale){
         /* Parallel borrowing is a recorded per-note destination operation,
            just like a live approach; it never changes the track's scale. */
         unsigned long long *intent=&event->actions[HB_MOTION_LANES];
+        if(event->modifier)*intent=(*intent&~3ULL)|(event->modifier<0?1:event->modifier==2?3:2);
+        if(event->secondary)*intent=(*intent&~((7ULL<<4)|(1ULL<<8)|(1ULL<<63)))|hb_mo_role_word(event->secondary);
+        if(event->cadence)*intent=(*intent&~HB_MO_CADENCE_MASK)|((unsigned long long)event->cadence<<13);
+        if((*intent&(1ULL<<20))&&((*intent>>21)&3)!=3){
+            /* Relocate captured construction context with the input notes.
+               Explicit quality/size/mode stay intact; the parent belongs to
+               this destination track, just as its input scale does. */
+            *intent=(*intent&~((15ULL<<32)|(31ULL<<36)))|((unsigned long long)*root<<32)|((unsigned long long)*scale<<36);
+        }
         if(instance->motif_load[2]&&(*intent&(0x173ULL|HB_MO_CADENCE_MASK|HB_AR_MASK))){
             int destination=g_parallel_scale==18?31:HB_PARALLEL_SCALE_IDS[g_parallel_scale];
             *intent=(*intent&~HB_MO_INTENT_MASK)|(1ULL<<20)|(3ULL<<21)|((unsigned long long)destination<<36);

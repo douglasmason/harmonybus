@@ -49,6 +49,15 @@ static void export_plan(void){
     char saved[256];int used=hb_ml_save(instance,saved,sizeof(saved),0);assert(used>0);
     instance->motif_load[1]=1;hb_ml_restore(instance,saved);assert(instance->motif_load[1]==62);
     hb_ml_restore(instance,";ml1,0,999,0,12,0,0");assert(instance->motif_load[1]==62);
+    hb_mt_preset_definition(1,&g_motifs[0]);
+    hb_mt_event *captured=&g_motifs[0].body.events[0];
+    captured->secondary=0;captured->modifier=-1;
+    captured->actions[HB_MOTION_LANES]=(1ULL<<20)|(1ULL<<21)|(3ULL<<27)|(7ULL<<32)|(5ULL<<36);
+    API.set_param(instance,"motif_load_choice","User 1");API.set_param(instance,"motif_load_collection","Parent");
+    API.set_param(instance,"motif_load_prepare","Preview");
+    unsigned long long intent=g_ml_plan.events[0].event.actions[HB_MOTION_LANES];
+    assert((intent&3)==1&&((intent>>32)&15)==0&&((intent>>36)&31)==1&&((intent>>27)&31)==3);
+    memset(g_motifs,0,sizeof(g_motifs));
     API.destroy_instance(instance);
 }
 static void scrub_all_edges(void){

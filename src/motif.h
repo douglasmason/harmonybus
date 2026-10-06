@@ -1,6 +1,5 @@
 #ifndef HB_MOTIF_H
 #define HB_MOTIF_H
-#include <math.h>
 /* Bounded, untimed motif recorder. Duration units are 1/24 beat (triplet-safe).
    No wall clock enters this layer. Drafts become visible only on commit. */
 #define HB_MT_SLOTS 16
@@ -247,8 +246,11 @@ static double hb_mt_duration(const hb_mt_phrase *phrase,int step,int rhythm,int 
 /* Padding is a held target/rest, not a fresh attack or a new rhythm pass. */
 static void hb_mt_pad_even(hb_mt_phrase *phrase,int rhythm,int placement){
     if(!phrase->count||phrase->timed)return;
-    double total=0;for(int i=0;i<phrase->count;i++){phrase->durations[i]=hb_mt_duration(phrase,i,rhythm,0);total+=phrase->durations[i];}
-    double padding=ceil(total/2.0)*2.0-total;if(padding<0.000001)return;
+    int units=0;double total=0;
+    for(int i=0;i<phrase->count;i++){units+=phrase->events[i].duration;phrase->durations[i]=hb_mt_duration(phrase,i,rhythm,0);total+=phrase->durations[i];}
+    /* Rhythm preserves duration. Round stored 1/24-beat units to an even
+       beat without a libc math dependency in the freestanding device build. */
+    double padding=((units+47)/48)*2.0-total;if(padding<0.000001)return;
     int target=placement&HB_MT_TARGET_END?phrase->count-1:placement&HB_MT_TARGET_START?0:-1;
     if(target<0){
         if(phrase->count>=HB_MT_STEPS+2)return;
