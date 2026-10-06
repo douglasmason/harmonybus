@@ -21,7 +21,7 @@ static void input_origin(Inst *i,int recorded,int on,int pitch){
 static void overlapping_input(int chord,int separate_outputs,int release_clip_first){
     Inst *i=fixture();memset(heard,0,sizeof(heard));
     API.set_param(i,"boundary_buffer_ms","0");API.set_param(i,"render_channel","Off");
-    if(chord)API.set_param(i,"chord_mode","Follow Chord");
+    if(chord){API.set_param(i,"chord_mode","Conductor Chord");assert(hb_cp_mode(&i->player)==2);}
     if(separate_outputs){API.set_param(i,"play_scope","Clip");API.set_param(i,"play_octave","1");}
     input_origin(i,1,1,60);
     uint8_t clip[128];memcpy(clip,heard,sizeof(clip));
@@ -39,7 +39,7 @@ static void held_chord_change(int chord,int retrigger){
     Inst *i=fixture();memset(heard,0,sizeof(heard));
     API.set_param(i,"boundary_buffer_ms","0");API.set_param(i,"render_channel","Off");
     API.set_param(i,"retrigger_held",retrigger?"On":"Off");
-    if(chord)API.set_param(i,"chord_mode","Follow Chord");
+    if(chord){API.set_param(i,"chord_mode","Conductor Chord");assert(hb_cp_mode(&i->player)==2);}
     API.set_param(i,"play_scope","Clip");API.set_param(i,"play_octave","1");
     input_origin(i,1,1,60);input_origin(i,0,1,60);
     uint8_t before[128];memcpy(before,heard,sizeof(before));
