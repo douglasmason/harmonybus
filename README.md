@@ -1,3 +1,5 @@
+HarmonyBus 0.2.262 / Movy hbclean.179: Live Key Center survives clip recording and Undo. Separate recordable absolute and recursive relative operations add signed shifts, Step Back, Return to Start and optional return after N modulations. See [Key center operations](docs/key-center-operations.md).
+
 HarmonyBus 0.2.261 / Movy hbclean.178: Motif to Clip writes editable input intent with preview, Replace/Append/Overdub and Undo. Motif bodies exclude all boundary targets; shared target placement and padding also control live playback. See [Motif loader](docs/motif-loader.md).
 
 HarmonyBus 0.2.259: Reuse identical pad renders within each display snapshot. Preserve current/next colors, output groups, approach intent and trails while avoiding duplicate pitch-class probes. Live and recorded playback rules are unchanged. Compatible with Movy hbclean.176. Desktop profiling improves preview cost; physical Move crackling still needs verification.
