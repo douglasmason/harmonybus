@@ -1,7 +1,8 @@
 /* Key changes act on parent-key coordinates before approach construction.
    All three playback contexts share one mapper; no policy is baked into notes. */
 static int hb_key_follower_travel(const Inst *instance){
-    int policy=instance->movy_playback?g_key_follower_recorded_travel:g_key_follower_live_travel;
+    (void)instance;
+    int policy=g_key_follower_travel;
     return policy<0?g_key_conductor_travel:policy;
 }
 static int hb_key_class_pitch(Inst *instance,int pitch,hb_key_context context,hb_harmony_t harmony,int split){

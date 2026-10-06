@@ -29,14 +29,15 @@ static Inst *travel_fixture(void){
 static void contexts_and_chromatic(void){
     Inst *instance=travel_fixture();
     API.set_param(instance,"conductor_key_travel","Closest Scale Tone");
-    API.set_param(instance,"follower_recorded_key_travel","Relative");
-    API.set_param(instance,"follower_live_key_travel","Closest Chord Tone");
+    API.set_param(instance,"follower_key_travel","Relative");
+    int live_outputs[4]={0};
     for(int origin=0;origin<2;origin++){
         instance->movy_playback=origin;
-        assert(hb_key_follower_travel(instance)==(origin?0:1));
+        assert(hb_key_follower_travel(instance)==(origin?3:0));
         for(int policy=0;policy<4;policy++){
-            API.set_param(instance,origin?"follower_recorded_key_travel":"follower_live_key_travel",HB_KEY_TRAVEL[policy]);
+            API.set_param(instance,"follower_key_travel",HB_KEY_TRAVEL[policy]);
             int target=hb_map_follower_note_unoperated(instance,65);
+            if(origin)assert(target==live_outputs[policy]);else live_outputs[policy]=target;
             if(policy==0)assert(target==72);
             else {
                 assert(abs(target-65)<=6);
@@ -55,12 +56,12 @@ static void contexts_and_chromatic(void){
             instance->chromatic_map=1;
         }
     }
-    API.set_param(instance,"follower_recorded_key_travel","Same as Conductor");
+    API.set_param(instance,"follower_key_travel","Same as Conductor");
     instance->movy_playback=1;assert(hb_key_follower_travel(instance)==2);
     /* Ordinary follower travel must not receive a second key-travel pass. */
     instance->travel_map=0;
     int baseline=hb_map_follower_note_unoperated(instance,65);
-    API.set_param(instance,"follower_recorded_key_travel","Closest Chord Tone");
+    API.set_param(instance,"follower_key_travel","Closest Chord Tone");
     assert(hb_map_follower_note_unoperated(instance,65)==baseline);
     API.destroy_instance(instance);
 }
@@ -71,7 +72,7 @@ static void key_center_preserves_input_classes(void){
         hb_commit_observed_harmony((hb_harmony_t){.valid=1,.root_pc=0,.chord_index=0,.pitch_mask=0x91});
         g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=root,
             .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(root,minor?2:1)};
-        g_key_conductor_travel=1;
+        g_key_follower_travel=1;
         hb_harmony_t destination=hb_key_harmony(instance,hb_render_harmony(instance));
         unsigned chord_mask=hb_harmony_chord_mask(destination),seen=0;
         for(int index=0;index<7;index++){
@@ -86,7 +87,7 @@ static void key_center_preserves_input_classes(void){
 static void paired_release(void){
     for(int origin=0;origin<2;origin++){
         Inst *instance=travel_fixture();instance->movy_playback=origin;
-        const char *setting=origin?"follower_recorded_key_travel":"follower_live_key_travel";
+        const char *setting="follower_key_travel";
         API.set_param(instance,setting,"Relative");
         render_count=0;midi(instance,1,65);advance(instance,2,64);
         assert(instance->mapped[65]==72);
@@ -97,18 +98,40 @@ static void paired_release(void){
         assert(paired==1);API.destroy_instance(instance);
     }
 }
-static void persistence(void){
+static void defaults_and_persistence(void){
     Inst *instance=travel_fixture();char state[32768],label[64];
-    API.set_param(instance,"conductor_key_travel","Closest Split");
-    API.set_param(instance,"follower_recorded_key_travel","Closest Scale Tone");
-    API.set_param(instance,"follower_live_key_travel","Relative");
-    API.get_param(instance,"state",state,sizeof(state));API.destroy_instance(instance);
-    instance=fixture();API.set_param(instance,"state",state);
-    assert(g_key_conductor_travel==3&&g_key_follower_recorded_travel==2&&g_key_follower_live_travel==0);
-    API.get_param(instance,"follower_recorded_key_travel",label,sizeof(label));assert(!strcmp(label,"Closest Scale Tone"));
+    assert(g_key_conductor_travel==3&&g_key_follower_travel==0);
+    API.get_param(instance,"conductor_key_travel",label,sizeof(label));assert(!strcmp(label,"Closest Split"));
+    API.get_param(instance,"follower_key_travel",label,sizeof(label));assert(!strcmp(label,"Relative"));
     API.destroy_instance(instance);
-    instance=fixture();API.set_param(instance,"state",";kc1,1,1,2");
-    assert(g_key_conductor_travel==1&&g_key_follower_recorded_travel==-1&&g_key_follower_live_travel==-1);
+    for(int policy=-1;policy<4;policy++){
+        instance=travel_fixture();
+        API.set_param(instance,"follower_key_travel",policy<0?"Same as Conductor":HB_KEY_TRAVEL[policy]);
+        API.get_param(instance,"state",state,sizeof(state));API.destroy_instance(instance);
+        instance=fixture();API.set_param(instance,"state",state);
+        assert(g_key_conductor_travel==3&&g_key_follower_travel==policy);
+        for(int origin=0;origin<2;origin++){
+            instance->movy_playback=origin;assert(hb_key_follower_travel(instance)==(policy<0?3:policy));
+        }
+        API.destroy_instance(instance);
+    }
+    /* Conflicting old settings preserve recorded playback; equal policies and
+       explicit inheritance round-trip without introducing two runtime knobs. */
+    const char *legacy[]={";kc1,1,1,2", ";kc1,1,1,2;kt2,2,2,0",
+        ";kc1,1,1,2;kt2,2,1,1", ";kc1,1,1,2;kt2,2,-1,-1",
+        ";kc1,1,1,2;kt2,2,2,0;kt3,3,1"};
+    const int conductors[]={1,2,2,2,3},followers[]={0,2,1,-1,1};
+    for(int index=0;index<5;index++){
+        instance=fixture();API.set_param(instance,"state",legacy[index]);
+        assert(g_key_conductor_travel==conductors[index]&&g_key_follower_travel==followers[index]);
+        API.destroy_instance(instance);
+    }
+    /* Old clients may address either alias, but both edit the shared value. */
+    instance=fixture();
+    API.set_param(instance,"follower_live_key_travel","Closest Chord Tone");
+    API.get_param(instance,"follower_recorded_key_travel",label,sizeof(label));assert(!strcmp(label,"Closest Chord Tone"));
+    API.set_param(instance,"follower_recorded_key_travel","Relative");
+    API.get_param(instance,"follower_key_travel",label,sizeof(label));assert(!strcmp(label,"Relative"));
     API.destroy_instance(instance);
 }
 static void conductor_progression(void){
@@ -174,4 +197,4 @@ static void conductor_inversions(void){
         assert(final_cost<=original_cost);assert(!memcmp(before,after,sizeof(before)));
     }
 }
-int main(void){key_center_preserves_input_classes();conductor_progression();conductor_inversions();relative_register();contexts_and_chromatic();paired_release();persistence();puts("key travel: conductor progression/inversions, register, separate origins, chromatic targets, paired releases and persistence pass");}
+int main(void){key_center_preserves_input_classes();conductor_progression();conductor_inversions();relative_register();contexts_and_chromatic();paired_release();defaults_and_persistence();puts("key travel: conductor progression/inversions, register, shared follower policy, chromatic targets, paired releases and persistence pass");}

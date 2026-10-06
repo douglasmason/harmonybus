@@ -4,9 +4,9 @@
    stay in the recorded key. Onset snapshots own their eventual note-offs. */
 typedef struct { int active,source_root,target_root,blues; unsigned source_mask,target_mask; int approach_scale; } hb_key_context;
 static hb_key_context g_key_context;
-static int g_key_scale_mode=1,g_key_conductor_travel,g_key_settings_restored,g_parallel_manual,g_key_lane_parallel;
-/* -1 inherits the conductor policy; recording identity is independent of it. */
-static int g_key_follower_recorded_travel=-1,g_key_follower_live_travel=-1;
+static int g_key_scale_mode=1,g_key_conductor_travel=3,g_key_settings_restored,g_parallel_manual,g_key_lane_parallel;
+/* One policy for live and recorded followers; -1 explicitly follows Conductor. */
+static int g_key_follower_travel=0;
 static const char *HB_KEY_TRAVEL[]={"Relative","Closest Chord Tone","Closest Scale Tone","Closest Split"};
 static int g_key_armed,g_parallel_scale=2,g_parallel_on,g_parallel_latch;
 static hb_key_context g_parallel_previous;
