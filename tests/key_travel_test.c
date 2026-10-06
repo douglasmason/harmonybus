@@ -41,7 +41,7 @@ static void contexts_and_chromatic(void){
             else {
                 assert(abs(target-65)<=6);
                 hb_harmony_t harmony=hb_key_harmony(instance,hb_render_harmony(instance));
-                unsigned legal=policy==1?hb_harmony_chord_mask(harmony):g_key_context.target_mask;
+                unsigned legal=policy==1?(g_key_context.target_mask&~hb_harmony_chord_mask(harmony)):g_key_context.target_mask;
                 assert(legal&(1u<<mod12(target)));
             }
             /* E-flat approaches the relocated E, not a separately snapped note. */
@@ -63,6 +63,25 @@ static void contexts_and_chromatic(void){
     API.set_param(instance,"follower_recorded_key_travel","Closest Chord Tone");
     assert(hb_map_follower_note_unoperated(instance,65)==baseline);
     API.destroy_instance(instance);
+}
+static void key_center_preserves_input_classes(void){
+    const int inputs[]={60,62,64,65,67,69,71};
+    for(int travel=5;travel<=7;travel+=2)for(int root=0;root<12;root++)for(int minor=0;minor<2;minor++){
+        Inst *instance=travel_fixture();instance->travel_map=travel;
+        hb_commit_observed_harmony((hb_harmony_t){.valid=1,.root_pc=0,.chord_index=0,.pitch_mask=0x91});
+        g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=root,
+            .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(root,minor?2:1)};
+        g_key_conductor_travel=1;
+        hb_harmony_t destination=hb_key_harmony(instance,hb_render_harmony(instance));
+        unsigned chord_mask=hb_harmony_chord_mask(destination),seen=0;
+        for(int index=0;index<7;index++){
+            int output=hb_map_follower_note_unoperated(instance,inputs[index]);
+            unsigned bit=1u<<mod12(output);
+            assert(!(seen&bit));seen|=bit;
+            assert(!!(chord_mask&bit)==(index==0||index==2||index==4));
+        }
+        API.destroy_instance(instance);
+    }
 }
 static void paired_release(void){
     for(int origin=0;origin<2;origin++){
@@ -155,4 +174,4 @@ static void conductor_inversions(void){
         assert(final_cost<=original_cost);assert(!memcmp(before,after,sizeof(before)));
     }
 }
-int main(void){conductor_progression();conductor_inversions();relative_register();contexts_and_chromatic();paired_release();persistence();puts("key travel: conductor progression/inversions, register, separate origins, chromatic targets, paired releases and persistence pass");}
+int main(void){key_center_preserves_input_classes();conductor_progression();conductor_inversions();relative_register();contexts_and_chromatic();paired_release();persistence();puts("key travel: conductor progression/inversions, register, separate origins, chromatic targets, paired releases and persistence pass");}

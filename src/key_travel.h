@@ -4,23 +4,23 @@ static int hb_key_follower_travel(const Inst *instance){
     int policy=instance->movy_playback?g_key_follower_recorded_travel:g_key_follower_live_travel;
     return policy<0?g_key_conductor_travel:policy;
 }
-static int hb_key_split_pitch(Inst *instance,int pitch,hb_key_context context,hb_harmony_t harmony){
+static int hb_key_class_pitch(Inst *instance,int pitch,hb_key_context context,hb_harmony_t harmony,int split){
     int nominal[12],mapped[12],source_degree=-1,count=0,target_count=0,target_pc[12];
     unsigned allowed[12],chord=hb_harmony_chord_mask(harmony),active=0;
     for(int interval=0;interval<12;interval++)if(context.target_mask&(1u<<mod12(context.target_root+interval)))
         target_pc[target_count++]=mod12(context.target_root+interval);
     if(!target_count)return pitch;
-    if(instance->follower_split_map==3){
+    if(split==3){
         uint8_t notes[64];int voices=hb_observed_notes(0,notes,64);
         for(int index=0;index<voices;index++)active|=1u<<mod12(hb_key_map(context,notes[index]));
     }
-    unsigned degree_group=instance->follower_split_map==2?0x55u:0x15u;
+    unsigned degree_group=split==2?0x55u:0x15u;
     unsigned target_group=0;
     for(int degree=0;degree<target_count;degree++)if(degree_group&(1u<<degree))target_group|=1u<<target_pc[degree];
     for(int interval=0;interval<12;interval++)if(context.source_mask&(1u<<mod12(context.source_root+interval))){
         int pc=mod12(context.source_root+interval),on=(degree_group&(1u<<count))!=0;
-        unsigned pool=instance->follower_split_map==1||instance->follower_split_map==2?target_group:chord;
-        if(instance->follower_split_map==3){pool=active;on=(active&(1u<<target_pc[count%target_count]))!=0;}
+        unsigned pool=split==1||split==2?target_group:chord;
+        if(split==3){pool=active;on=(active&(1u<<target_pc[count%target_count]))!=0;}
         allowed[count]=on?pool:(context.target_mask&~pool);
         if(!allowed[count])allowed[count]=context.target_mask;
         nominal[count]=48+context.source_root+interval;
@@ -35,7 +35,10 @@ static int hb_key_travel_pitch(Inst *instance,int pitch,hb_harmony_t harmony,int
     hb_key_context context=hb_key_for(instance);
     if(!context.active||policy==0)
         return active_family?hb_key_active_pitch(instance,pitch,harmony):hb_key_map(context,pitch);
-    if(policy==3&&harmony.valid)return hb_key_split_pitch(instance,pitch,context,harmony);
+    /* Key-center Closest Chord Tone is inversion-like travel within input
+       classes, not a chord-only quantizer for every degree. */
+    if((policy==1||policy==3)&&harmony.valid)
+        return hb_key_class_pitch(instance,pitch,context,harmony,policy==1?0:instance->follower_split_map);
     unsigned target=policy==1&&harmony.valid?hb_harmony_chord_mask(harmony):context.target_mask;
     if(!target)return hb_key_map(context,pitch);
     return hb_closest_diverse(instance,pitch,context.source_root,context.source_mask,target);
