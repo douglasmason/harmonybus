@@ -20,7 +20,7 @@ static void relative_register(void){
 static Inst *travel_fixture(void){
     Inst *instance=fixture();instance->travel_map=7;instance->content_map=1;
     instance->player.config.mode=0;instance->boundary_buffer_ms=0;
-    Inst *defaults=API.create_instance("",NULL);assert(defaults->chromatic_map==1);API.destroy_instance(defaults);
+    Inst *defaults=API.create_instance("",NULL);assert(defaults->chromatic_map==1&&defaults->travel_map==7);API.destroy_instance(defaults);
     instance->chromatic_map=1; /* The inherited fixture explicitly disables it. */
     g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=6,
         .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(6,5)};

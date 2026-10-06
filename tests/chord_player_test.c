@@ -30,6 +30,7 @@ static Inst *fixture(void){
     API.set_param(instance,"chord_form","Auto"); /* Legacy lifecycle expectations use mode-specific Auto. */
     API.set_param(instance,"chord_inversion","Auto");API.set_param(instance,"arp_order","Up"); /* Legacy fixtures choose their voicing/order explicitly. */
     instance->content_map=0; /* Legacy tests explicitly exercise Chord content. */
+    instance->travel_map=0; /* Explicit Relative fixture; fresh tracks now default to None. */
     instance->next_anti_buffer_ms=0; /* Legacy timing fixture: no onset guard. */
     instance->chromatic_map=0; /* Existing suites exercise unmodified travel. */
     API.set_param(instance,"role","Follower");API.set_param(instance,"source_channel","1");
