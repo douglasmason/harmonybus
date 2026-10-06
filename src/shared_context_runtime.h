@@ -25,6 +25,10 @@ static void hb_sc_resolve(Inst *instance){
             if(value.on&&value.order>=chosen[kind].order){chosen[kind]=value;g_sc_owner[kind]=track;g_sc_recorded[kind]=1;}
         }
         unsigned long long live_order=0;
+        if(kind==HB_SC_KEY)for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_sc_key_audition[index].on&&g_sc_key_audition[index].order>=live_order){
+            chosen[kind]=g_sc_key_audition[index];live_order=chosen[kind].order;g_sc_owner[kind]=g_pool[index].movy_track;g_sc_recorded[kind]=0;
+        }
+        live_order=0; /* Explicit live control always wins over audition/replay. */
         for(int index=0;index<HB_MAX_INSTANCES;index++){
             hb_sc_value value=g_sc_live[index][kind];
             if(g_pool[index].used&&g_pool[index].role<2&&value.on&&value.order>=live_order){
@@ -65,9 +69,20 @@ static void hb_sc_set_live(Inst *instance,int kind,int on,int a,int b,int c){
     if(value->on==on&&(!on||(value->a==a&&value->b==b&&value->c==c)))return;
     hb_sc_begin(instance);
     *value=(hb_sc_value){on,a,b,c,++g_sc_serial};
-    if(instance->role==0&&instance->movy_track>=0&&g_sc_count<64){
+    if(kind!=HB_SC_KEY&&instance->role==0&&instance->movy_track>=0&&g_sc_count<64){
         g_sc_events[(g_sc_head+g_sc_count++)%64]=(hb_sc_event){instance->movy_track,kind,*value};
     }
+    g_sc_dirty=1;hb_sc_resolve(instance);
+}
+/* Audition an explicit recordable action without taking ownership of the
+   live knob. Movy captures the request, then supplies its authoritative state. */
+static void hb_sc_key_action(Inst *instance,hb_sc_value event){
+    int index=(int)(instance-g_pool);if(index<0||index>=HB_MAX_INSTANCES)return;
+    hb_sc_begin(instance);event.order=++g_sc_serial;
+    g_sc_key_request[index]=event;
+    g_sc_key_audition[index]=hb_ks_apply(&g_sc_key_sequence[index],event);
+    if(instance->role==0&&instance->movy_track>=0&&instance->movy_track==g_sc_record_track&&g_sc_count<64)
+        g_sc_events[(g_sc_head+g_sc_count++)%64]=(hb_sc_event){instance->movy_track,HB_SC_KEY,event};
     g_sc_dirty=1;hb_sc_resolve(instance);
 }
 static int hb_sc_append_events(char *buffer,int length,int used){
@@ -80,10 +95,27 @@ static int hb_sc_append_events(char *buffer,int length,int used){
     return used;
 }
 static int hb_sc_set(Inst *instance,const char *key,const char *text){
+    if(!strcmp(key,"hb_key_sequence_state")){
+        int track,valid,count,depth;unsigned origin,current;int used=0;
+        if(sscanf(text,"%d,%d,%d,%d,%u,%u%n",&track,&valid,&count,&depth,&origin,&current,&used)!=6||track<0||track>=16||valid<0||valid>1||count<0||count>64||depth<0||depth>64)return 1;
+        hb_ks_state state={0};state.valid=valid;state.count=count;state.depth=depth;
+        state.origin=(hb_ks_key){origin&15,(origin>>4)&4095,(origin>>16)&1};
+        state.current=(hb_ks_key){current&15,(current>>4)&4095,(current>>16)&1};
+        const char *cursor=text+used;
+        for(int item=0;item<depth;item++){
+            unsigned packed;if(sscanf(cursor,",%u%n",&packed,&used)!=1)return 1;cursor+=used;
+            state.history[item]=(hb_ks_key){packed&15,(packed>>4)&4095,(packed>>16)&1};
+            if(state.history[item].root>11||!state.history[item].mask)return 1;
+        }
+        if(*cursor||state.origin.root>11||state.current.root>11||(valid&&(!state.origin.mask||!state.current.mask)))return 1;
+        for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_pool[index].movy_track==track){g_sc_key_sequence[index]=state;g_sc_key_audition[index].on=0;}
+        g_sc_dirty=1;return 1;
+    }
     if(!strcmp(key,"hb_shared_reset")){
         memset(g_sc_replay,0,sizeof(g_sc_replay));
         for(int index=0;index<HB_MAX_INSTANCES;index++)g_pool[index].sc_anchor_valid=0;
         if(!strcmp(text,"All")){
+            memset(g_sc_key_audition,0,sizeof(g_sc_key_audition));memset(g_sc_key_request,0,sizeof(g_sc_key_request));memset(g_sc_key_sequence,0,sizeof(g_sc_key_sequence));
             memset(g_sc_live,0,sizeof(g_sc_live));memset(g_sc_manual,0,sizeof(g_sc_manual));memset(g_sc_latch,0,sizeof(g_sc_latch));memset(g_sc_lane,0,sizeof(g_sc_lane));
             g_sc_count=g_sc_head=0;g_key_armed=0;g_sc_arm_owner=g_sc_record_track=-1;
         }
@@ -116,7 +148,7 @@ static int hb_sc_set(Inst *instance,const char *key,const char *text){
     if(!strcmp(key,"hb_shared_record")){
         int track=(int)strtol(text,0,10);g_sc_record_track=track>=0&&track<16?track:-1;
         if(g_sc_record_track>=0)for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_pool[index].role==0&&g_pool[index].movy_track==track)
-            for(int kind=0;kind<HB_SC_KINDS;kind++)if(g_sc_live[index][kind].on&&g_sc_count<64)
+            for(int kind=1;kind<HB_SC_KINDS;kind++)if(g_sc_live[index][kind].on&&g_sc_count<64)
                 g_sc_events[(g_sc_head+g_sc_count++)%64]=(hb_sc_event){track,kind,g_sc_live[index][kind]};
         return 1;
     }
@@ -124,7 +156,8 @@ static int hb_sc_set(Inst *instance,const char *key,const char *text){
         int track=(int)strtol(text,0,10);if(track<0||track>=16)return 1;
         memset(g_sc_replay[track],0,sizeof(g_sc_replay[track]));
         for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_pool[index].movy_track==track){
-            g_sc_live[index][HB_SC_KEY].on=g_sc_live[index][HB_SC_PARENT].on=0;
+            g_sc_key_audition[index].on=0;
+            g_sc_live[index][HB_SC_PARENT].on=0;
             if(!g_sc_manual[index]&&!g_sc_latch[index]&&!g_sc_lane[index])g_sc_live[index][HB_SC_PARALLEL].on=0;
         }
         g_sc_dirty=1;return 1;
@@ -148,6 +181,7 @@ static int hb_sc_get(Inst *instance,const char *key,char *buffer,int length){
     for(int kind=0;kind<3;kind++){
         int active=0;for(int index=0;index<HB_MAX_INSTANCES;index++)active+=g_sc_live[index][kind].on!=0;
         for(int track=0;track<16;track++)active+=g_sc_replay[track][kind].on!=0;
+        if(kind==HB_SC_KEY)for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)active+=g_sc_key_audition[index].on!=0;
         if(!active)snprintf(values[kind+2],80,"--");
         else if(g_sc_owner[kind]<0)snprintf(values[kind+2],80,"Live%s",active>1?" +":"");
         else snprintf(values[kind+2],80,"T%d %s%s",g_sc_owner[kind]+1,g_sc_recorded[kind]?"REC":"LIVE",active>1?" +":"");

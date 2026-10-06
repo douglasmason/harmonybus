@@ -1,3 +1,5 @@
+HarmonyBus 0.2.263 key-center operations distinguish persistent live control from clip-owned modulation events; see [Key center operations](key-center-operations.md).
+
 HarmonyBus 0.2.262 / Movy hbclean.179: Coherent Move and Launchpad pad snapshots for Movy hbclean.179, reusing identical rendered inputs within each read. The paired Movy update batches external note input, makes Launchpad pulses steady, paces LED traffic and widens footer arrows. No Schwung host changes. Physical Move latency and crackle testing remain necessary.
 
 HarmonyBus 0.2.261 / Movy hbclean.178 adds Motif to Clip: preview and write editable input notes with harmonic instructions, shared target placement, optional even-unit padding, and normal Undo. Boundary targets are stored separately; interior targets remain. See the [motif loader guide](motif-loader.md) for controls and write modes.
