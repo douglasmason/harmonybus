@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.263"
+#define HB_VERSION "0.2.264"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4890,7 +4890,11 @@ static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int m
 static int tick_core(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int max_output){
     Inst *instance=(Inst*)value;
     if(!instance)return 0;
-    hb_movy_refresh();
+    /* Movy's block barrier already refreshed the shared clip/timeline state
+       before any track renders. Rebuilding it per track is quadratic work.
+       MIDI entry still refreshes after input changes; standalone hosts that
+       do not send the barrier retain their ordinary per-tick refresh. */
+    if(!g_conductor_block_ready)hb_movy_refresh();
     hb_next_touch_clear_expired(instance);
     g_bus.global_tick_count++;
     /* set_param cannot return local MIDI, so role-change OFFs are drained on
