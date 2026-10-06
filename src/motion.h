@@ -374,6 +374,7 @@ static void hb_mo_latch_set(hb_motion_config *config,int id,int on){
 }
 /* Live gates do not consume pending source gestures. */
 static unsigned hb_mo_held_trigger(hb_motion_config *config){
+    if(!config->held&&!config->gesture_down&&!config->pitch_held)return 0;
     unsigned newest=0,selected=0;
     for(int lane=0;lane<HB_MOTION_LANES;lane++)if(config->held&(1ULL<<lane)){
         unsigned trigger=hb_mo_trigger_bit(config->lanes[lane].operation);

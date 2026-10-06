@@ -169,7 +169,7 @@ jobs:
           assert 'learned_boundary=hb_next_effective_boundary' in source
           assert 'Compare against the UNSHIFTED learned schedule' in source
           closest=source[source.index('static int hb_map_follower_note_closest_split'):source.index('static int hb_map_follower_note_now')]
-          assert 'hb_build_closest_split_assignment(' in closest
+          assert 'hb_cached_closest_assignment(' in closest
           queue=source[source.index('static int hb_queue_follower_event'):source.index('static int hb_source_interval_to_default_degree')]
           assert 'hb_follower_capture_target(' in queue
           assert 'hb_next_effective_boundary' in queue
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Make Next Pulse Off explicit and remove unused trail-target work from color-only previews. Compatible with Movy hbclean.172. Device crackling remains under investigation." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "Explicit Next Pulse Off, shared exact Closest assignment cache, reduced preview/motion work, and key-resolved Roman numeral footer. Compatible with Movy hbclean.172; hbclean.173 adds pulse-shape selection. Device crackling and non-Relative key-travel degree preservation remain under investigation." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Make Next Pulse Off explicit and remove unused trail-target work from color-only previews. Compatible with Movy hbclean.172. Device crackling remains under investigation." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "Explicit Next Pulse Off, shared exact Closest assignment cache, reduced preview/motion work, and key-resolved Roman numeral footer. Compatible with Movy hbclean.172; hbclean.173 adds pulse-shape selection. Device crackling and non-Relative key-travel degree preservation remain under investigation." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

@@ -54,6 +54,8 @@ static void arrival_membership(void){
             Inst unchanged=*instance;
             hb_harmony_t bus_before=bus_read();
             API.get_param(instance,"pad_view",before,sizeof(before));
+            /* Pure memoized assignments may warm; musical state must not change. */
+            unchanged.closest_assignments=instance->closest_assignments;
             assert(!memcmp(&unchanged,instance,sizeof(unchanged)));
             assert(hb_harmony_equal_effective(bus_before,bus_read()));
             const char *full=strstr(before,"|full1,");assert(full);

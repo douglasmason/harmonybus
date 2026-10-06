@@ -28,16 +28,8 @@ static int hb_key_split_pitch(Inst *instance,int pitch,hb_key_context context,hb
         count++;
     }
     if(source_degree<0)return hb_cs_nearest(pitch,context.target_mask);
-    int cached=instance->key_split_count==count;
-    for(int index=0;index<count&&cached;index++)
-        cached=instance->key_split_nominal[index]==nominal[index]&&instance->key_split_allowed[index]==allowed[index];
-    if(!cached){
-        if(!hb_build_closest_assignment(count,nominal,allowed,mapped))return hb_cs_nearest(pitch,allowed[source_degree]);
-        memcpy(instance->key_split_nominal,nominal,count*sizeof(int));
-        memcpy(instance->key_split_allowed,allowed,count*sizeof(unsigned));
-        memcpy(instance->key_split_output,mapped,count*sizeof(int));instance->key_split_count=count;
-    }
-    return hb_cs_nearest(pitch,1u<<mod12(instance->key_split_output[source_degree]));
+    if(!hb_cached_closest_assignment(&instance->closest_assignments,count,nominal,allowed,mapped))return hb_cs_nearest(pitch,allowed[source_degree]);
+    return hb_cs_nearest_pc(pitch,mod12(mapped[source_degree]));
 }
 static int hb_key_travel_pitch(Inst *instance,int pitch,hb_harmony_t harmony,int policy,int active_family){
     hb_key_context context=hb_key_for(instance);

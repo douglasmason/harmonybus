@@ -5,10 +5,19 @@
 #define HB_CLOSEST_MAX_INPUTS 12
 static inline int hb_cs_mod12(int value){value%=12;return value<0?value+12:value;}
 static inline int hb_cs_abs(int value){return value<0?-value:value;}
+/* Nearest legal octave of one pitch class, with the same lower-note tie as
+   the former exhaustive MIDI scan. Nominals may sit outside MIDI bounds. */
+static inline int hb_cs_nearest_pc(int nominal,int pc){
+    int below=nominal-hb_cs_mod12(nominal-pc),above=below+12;
+    if(below<0)return pc;
+    if(above>127)return pc+12*((127-pc)/12);
+    return nominal-below<=above-nominal?below:above;
+}
 static inline int hb_cs_nearest(int nominal,unsigned pitch_mask){
     int best=-1,distance=1000000;
-    for(int pitch=0;pitch<128;pitch++)if(pitch_mask&(1u<<hb_cs_mod12(pitch))){
-        int next=hb_cs_abs(pitch-nominal);if(next<distance){best=pitch;distance=next;}
+    for(int pc=0;pc<12;pc++)if(pitch_mask&(1u<<pc)){
+        int pitch=hb_cs_nearest_pc(nominal,pc),next=hb_cs_abs(pitch-nominal);
+        if(next<distance||(next==distance&&(best<0||pitch<best))){best=pitch;distance=next;}
     }
     return best;
 }
@@ -26,7 +35,7 @@ static inline int hb_build_closest_assignment(int count,const int *nominal,
     for(int row=0;row<count;row++){
         if(!(allowed[row]&4095u))return 0;
         for(int pc=0;pc<12;pc++){
-            int pitch=hb_cs_nearest(nominal[row],1u<<pc);
+            int pitch=hb_cs_nearest_pc(nominal[row],pc);
             candidate[row][pc]=pitch;
             int distance=hb_cs_abs(pitch-nominal[row]);
             int spill=pitch<low?low-pitch:pitch>high?pitch-high:0;
@@ -59,5 +68,29 @@ static inline int hb_build_closest_assignment(int count,const int *nominal,
 }
 static inline int hb_build_closest_split_assignment(const int nominal[7],const unsigned allowed[7],int outputs[7]){
     return hb_build_closest_assignment(7,nominal,allowed,outputs);
+}
+/* Alternate current/next harmony previews and octave rows must not evict one
+   another's assignments. Cache exact solver inputs; never approximate a pitch. */
+#define HB_CLOSEST_CACHE_SLOTS 16
+typedef struct {int count,nominal[12],output[12];unsigned allowed[12];} hb_closest_cache_entry;
+typedef struct {hb_closest_cache_entry entries[HB_CLOSEST_CACHE_SLOTS];unsigned cursor;} hb_closest_cache;
+static inline int hb_cached_closest_assignment(hb_closest_cache *cache,int count,
+        const int *nominal,const unsigned *allowed,int *outputs){
+    if(count<1||count>HB_CLOSEST_MAX_INPUTS)return 0;
+    for(int slot=0;slot<HB_CLOSEST_CACHE_SLOTS;slot++){
+        hb_closest_cache_entry *entry=&cache->entries[slot];
+        if(entry->count!=count)continue;
+        int matches=1;
+        for(int index=0;index<count&&matches;index++)
+            matches=entry->nominal[index]==nominal[index]&&entry->allowed[index]==allowed[index];
+        if(matches){for(int index=0;index<count;index++)outputs[index]=entry->output[index];return 1;}
+    }
+    if(!hb_build_closest_assignment(count,nominal,allowed,outputs))return 0;
+    hb_closest_cache_entry *entry=&cache->entries[cache->cursor++%HB_CLOSEST_CACHE_SLOTS];
+    entry->count=count;
+    for(int index=0;index<count;index++){
+        entry->nominal[index]=nominal[index];entry->allowed[index]=allowed[index];entry->output[index]=outputs[index];
+    }
+    return 1;
 }
 #endif

@@ -16,6 +16,33 @@ static void assert_distinct_notes(const int outputs[HB_CLOSEST_SPLIT_DEGREES]) {
 }
 
 int main(void) {
+    /* Independent exhaustive oracle: every collection, chromatic tie and
+       boundary register must retain the old pitch choice exactly. */
+    for(int nominal=-24;nominal<=151;nominal++)for(unsigned mask=0;mask<4096;mask++){
+        int expected=-1,distance=1000000;
+        for(int pitch=0;pitch<128;pitch++)if(mask&(1u<<(pitch%12))){
+            int next=hb_cs_abs(pitch-nominal);
+            if(next<distance){expected=pitch;distance=next;}
+        }
+        assert(hb_cs_nearest(nominal,mask)==expected);
+    }
+    /* Exact cached and fresh solves agree through context changes and eviction. */
+    hb_closest_cache cache={0};
+    for(int pass=0;pass<3;pass++)for(int context=0;context<40;context++){
+        int count=1+context%12,nominal[12],fresh[12],cached[12];unsigned allowed[12];
+        for(int row=0;row<count;row++){
+            nominal[row]=24+(context*7+row*2)%80;
+            allowed[row]=(context%3==0?0x91u:context%3==1?0xAB5u:0xFFFu);
+        }
+        int expected=hb_build_closest_assignment(count,nominal,allowed,fresh);
+        assert(hb_cached_closest_assignment(&cache,count,nominal,allowed,cached)==expected);
+        if(expected){
+            for(int row=0;row<count;row++)assert(cached[row]==fresh[row]);
+            unsigned cursor=cache.cursor;
+            assert(hb_cached_closest_assignment(&cache,count,nominal,allowed,cached));
+            assert(cache.cursor==cursor);
+        }
+    }
     const unsigned int c_major_degree_mask[HB_CLOSEST_SPLIT_DEGREES] = {
         1u << 0, 1u << 2, 1u << 4, 1u << 5, 1u << 7, 1u << 9, 1u << 11
     };

@@ -245,15 +245,12 @@ static int g_render_window=0,g_render_restored=0;
 #include "../../../src/key_context.h"
 #include "../../../src/shared_context.h"
 typedef struct { hb_key_context context; hb_harmony_t input,output; int valid,major_choice,minor_choice; } hb_key_harmony_cache;
-typedef struct { int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; unsigned closest_source,closest_target; int closest_root,closest_valid,closest_pc[12]; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[16][128]; int chord_pair_owner[16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
+typedef struct { int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[16][128]; int chord_pair_owner[16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 unsigned long long motion_follower_events[64][HB_MOTION_LANES+1],motion_output_events[128][HB_MOTION_LANES+1];
 unsigned long long motion_player_events[HB_CP_KEYS][HB_MOTION_LANES+1],motion_held_events[128][HB_MOTION_LANES+1];
 uint8_t motion_output_valid[128]; uint8_t (*motion_output_base)[3];
 hb_harmony_t follower_path_harmony[128];
-int key_split_count,key_split_nominal[12],key_split_output[12];
-unsigned key_split_allowed[12];
-int split_cache_valid,split_cache_nominal[7],split_cache_output[7];
-unsigned split_cache_allowed[7];
+hb_closest_cache closest_assignments;
 char follower_display[8][24]; int follower_display_valid;
 int follower_input_seen; /* Direct MIDI takes ownership from monitor fallback. */
 char harmony_display[4][48]; int harmony_display_valid;
@@ -1863,21 +1860,18 @@ static int hb_receiver_tick(Inst *r,uint8_t output[][3],int lengths[],int capaci
 }
 
 /* Stable source-scale assignment, shared by ordinary Closest and conductor
-   reinterpretation. Cache pitch classes; each note chooses its nearest octave. */
+   reinterpretation. Reuse exact assignments; each note chooses its nearest octave. */
 static int hb_closest_diverse(Inst *instance,int pitch,int source_root,unsigned source_mask,unsigned target_mask){
     source_mask&=4095u;target_mask&=4095u;
     if(!source_mask||!target_mask||!(source_mask&(1u<<mod12(pitch))))return hb_cs_nearest(pitch,target_mask);
     source_root=mod12(source_root);
-    if(!instance->closest_valid||instance->closest_source!=source_mask||instance->closest_target!=target_mask||instance->closest_root!=source_root){
-        int nominal[12],outputs[12],count=0;unsigned allowed[12];
-        for(int interval=0;interval<12;interval++)if(source_mask&(1u<<mod12(source_root+interval))){
-            nominal[count]=48+source_root+interval;allowed[count++]=target_mask;
-        }
-        if(!hb_build_closest_assignment(count,nominal,allowed,outputs))return hb_cs_nearest(pitch,target_mask);
-        for(int index=0;index<count;index++)instance->closest_pc[mod12(nominal[index])]=mod12(outputs[index]);
-        instance->closest_source=source_mask;instance->closest_target=target_mask;instance->closest_root=source_root;instance->closest_valid=1;
+    int nominal[12],outputs[12],count=0,source_index=0;unsigned allowed[12];
+    for(int interval=0;interval<12;interval++)if(source_mask&(1u<<mod12(source_root+interval))){
+        if(mod12(source_root+interval)==mod12(pitch))source_index=count;
+        nominal[count]=48+source_root+interval;allowed[count++]=target_mask;
     }
-    return hb_cs_nearest(pitch,1u<<instance->closest_pc[mod12(pitch)]);
+    if(!hb_cached_closest_assignment(&instance->closest_assignments,count,nominal,allowed,outputs))return hb_cs_nearest(pitch,target_mask);
+    return hb_cs_nearest_pc(pitch,mod12(outputs[source_index]));
 }
 static int hb_key_active_pitch(Inst *instance,int pitch,hb_harmony_t harmony){
     hb_key_context context=hb_key_for(instance);
@@ -2525,20 +2519,8 @@ static int hb_map_follower_note_closest_split(Inst *instance,int source_note,hb_
 
     /* Joint assignment balances proximity, register and pitch-class collisions
        without imposing Relative's degree ordering. */
-    int cache_matches=instance->split_cache_valid;
-    for(int degree=0;degree<HB_CLOSEST_SPLIT_DEGREES&&cache_matches;degree++)
-        if(instance->split_cache_nominal[degree]!=nominal_by_degree[degree]||
-           instance->split_cache_allowed[degree]!=allowed_by_degree[degree])cache_matches=0;
-    if(cache_matches){
-        memcpy(output_by_degree,instance->split_cache_output,sizeof(output_by_degree));
-    }else{
-        if(!hb_build_closest_split_assignment(nominal_by_degree,allowed_by_degree,output_by_degree))
-            return hb_map_note(source_note,reference_root(instance),content_target,HB_MAP_NEAREST);
-        memcpy(instance->split_cache_nominal,nominal_by_degree,sizeof(nominal_by_degree));
-        memcpy(instance->split_cache_allowed,allowed_by_degree,sizeof(allowed_by_degree));
-        memcpy(instance->split_cache_output,output_by_degree,sizeof(output_by_degree));
-        instance->split_cache_valid=1;
-    }
+    if(!hb_cached_closest_assignment(&instance->closest_assignments,HB_CLOSEST_SPLIT_DEGREES,nominal_by_degree,allowed_by_degree,output_by_degree))
+        return hb_map_note(source_note,reference_root(instance),content_target,HB_MAP_NEAREST);
     return hb_play_note(instance,output_by_degree[source_degree],detected,allowed_by_degree[source_degree]);
 }
 static int hb_map_follower_base_note(Inst *instance,int source_note,hb_harmony_t detected,hb_harmony_t target){
@@ -3227,7 +3209,7 @@ static double hb_motion_condition_position(void){
 }
 static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,int *velocity,int *pan,double *off_beat,int *skip){
     *pitch=message[1];*velocity=message[2];*pan=-1;*off_beat=-1;*skip=0;
-    double beat=hb_motion_position(instance);
+    double beat=hb_motion_position(instance),condition=hb_motion_condition_position();
     hb_harmony_t harmony=hb_render_harmony(instance);
     if(instance->role==0&&!hb_cp_mode(&instance->player)){
         int secondary=hb_secondary_at(instance,message[1]);
@@ -3240,7 +3222,7 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
     }
     for(int index=0;index<HB_MOTION_LANES;index++){
         double value;
-        if(!hb_mo_value_at(&instance->motion,index,beat,hb_motion_condition_position(),message[1],&value))continue;
+        if(!hb_mo_value_at(&instance->motion,index,beat,condition,message[1],&value))continue;
         hb_motion_lane resolved=hb_mo_settings(&instance->motion,index);const hb_motion_lane *lane=&resolved;
         if(lane->operation==HB_MO_VELOCITY)*velocity=hb_mo_clamp(hb_mo_round(*velocity*(1.0+value/100.0)),1,127);
         else if(lane->operation==HB_MO_PAN)*pan=hb_mo_clamp(hb_mo_round(64.0+value*0.63),0,127);
@@ -6701,9 +6683,12 @@ if(!strcmp(key,"pad_view")){
             if(distance<nearest){nearest=distance;footer_next=events[index].harmony;}
         }
     }
+    /* Analyze resolved chords against the resolved key, as playback does. */
+    hb_harmony_t footer_current=hb_key_harmony(instance,harmony);
+    footer_next=hb_key_harmony(instance,footer_next);
     if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"|footer1,%d,%d,%d,%u,%d,%u",
-        footer_key.target_root,footer_key.blues?-1:footer_scale,harmony.valid?harmony.root_pc:-1,
-        harmony.valid?hb_harmony_chord_mask(harmony):0,footer_next.valid?footer_next.root_pc:-1,
+        footer_key.target_root,footer_key.blues?-1:footer_scale,footer_current.valid?footer_current.root_pc:-1,
+        footer_current.valid?hb_harmony_chord_mask(footer_current):0,footer_next.valid?footer_next.root_pc:-1,
         footer_next.valid?hb_harmony_chord_mask(footer_next):0);
     if(instance->trail_enabled&&used>=0&&used<length){
         used+=snprintf(buffer+used,(size_t)(length-used),"|th2,%.6f,%u",instance->motion_beat,instance->trail_chord);
@@ -6948,6 +6933,9 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             used+=snprintf(buffer+used,(size_t)(length-used),"|gapcolors1");
             for(int slot=0;slot<pad_count&&used<length;slot++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",gap_colors[slot]);
         }
+        /* Retain only pure assignment results from the private simulation.
+           Repeated UI reads need no new solve until their musical inputs change. */
+        instance->closest_assignments=preview.closest_assignments;
         return used;
     }
     return snprintf(buffer,(size_t)length,"%u,%u,%u,%d",
