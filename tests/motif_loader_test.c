@@ -57,6 +57,12 @@ static void export_plan(void){
     API.set_param(instance,"motif_load_prepare","Preview");
     unsigned long long intent=g_ml_plan.events[0].event.actions[HB_MOTION_LANES];
     assert((intent&3)==1&&((intent>>32)&15)==0&&((intent>>36)&31)==1&&((intent>>27)&31)==3);
+    /* Dominant IV's role occupies only the high bit; it must borrow the
+       chosen parallel collection just like other secondary harmonies. */
+    captured->modifier=0;captured->secondary=16;captured->actions[HB_MOTION_LANES]=0;
+    API.set_param(instance,"motif_load_collection","Parallel");API.set_param(instance,"motif_load_prepare","Preview");
+    intent=g_ml_plan.events[0].event.actions[HB_MOTION_LANES];
+    assert((intent&(1ULL<<63))&&((intent>>21)&3)==3&&((intent>>36)&31)==2);
     memset(g_motifs,0,sizeof(g_motifs));
     API.destroy_instance(instance);
 }

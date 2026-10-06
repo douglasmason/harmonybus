@@ -42,7 +42,7 @@ static int hb_ml_build(Inst *instance,hb_mc_plan *plan,int *root,int *scale){
                this destination track, just as its input scale does. */
             *intent=(*intent&~((15ULL<<32)|(31ULL<<36)))|((unsigned long long)*root<<32)|((unsigned long long)*scale<<36);
         }
-        if(instance->motif_load[2]&&(*intent&(0x173ULL|HB_MO_CADENCE_MASK|HB_AR_MASK))){
+        if(instance->motif_load[2]&&(*intent&((1ULL<<63)|0x173ULL|HB_MO_CADENCE_MASK|HB_AR_MASK))){
             int destination=g_parallel_scale==18?31:HB_PARALLEL_SCALE_IDS[g_parallel_scale];
             *intent=(*intent&~HB_MO_INTENT_MASK)|(1ULL<<20)|(3ULL<<21)|((unsigned long long)destination<<36);
         }
