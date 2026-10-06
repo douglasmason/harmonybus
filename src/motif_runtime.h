@@ -169,7 +169,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
     for(int source=0,index=0;source<count&&index<HB_MT_SCHEDULE;index++)if(!runtime->events[index].used)runtime->events[index]=staged[source++];
     runtime->pending+=count;runtime->cancel=0;runtime->last_beat=now;runtime->have_beat=1;runtime->was_running=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;editor->error=0;runtime->flash_serial++;runtime->flash_pitch=input;runtime->flash_step=phrase->anchor;if(instance->key_schedule_arm&&g_key_armed&&key_anchor>=0){
         instance->key_pending=1;instance->key_pending_at=key_anchor;
-        instance->key_pending_context=hb_key_destination(instance,input);
+        instance->key_pending_context=hb_key_destination(instance,input);instance->key_pending_action=instance->key_action;
     }
     return 1;
 }
@@ -301,7 +301,7 @@ static int hb_mt_emit(Inst *instance,hb_mt_scheduled *event,int on,uint8_t outpu
     if(event->render>=0&&!render_shared){uint8_t packet[4]={(uint8_t)(on?0x29:0x28),(uint8_t)((on?0x90:0x80)|event->render),(uint8_t)event->pitch,(uint8_t)(on?event->velocity:0)};hb_send_render_raw(instance,packet,event->render==event->channel);}
     if(on&&!local_shared)hb_trail_heard(instance,event->trail_target);
     event->started=on;
-    if(on&&instance->key_pending&&event->on+1e-6>=instance->key_pending_at){hb_key_commit(instance,instance->key_pending_context);instance->key_pending=0;}
+    if(on&&instance->key_pending&&event->on+1e-6>=instance->key_pending_at){hb_key_commit_pending(instance);}
     if(instance->role==0){instance->conductor_note_on_pending|=on;instance->dirty|=on;instance->frames_since_change=0;hb_publish_instance_notes(instance);}
     return local_shared?0:1;
 }

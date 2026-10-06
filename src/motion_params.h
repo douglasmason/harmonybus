@@ -3,7 +3,7 @@ _Static_assert(sizeof(hb_cp_config)==16*sizeof(int),"Chord state wire format req
 #define HB_MOTION_PARAMS_H
 #include "motion_metadata.h"
 /* The selected lane is an editor cursor. Holds are runtime-only, never state. */
-static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V (Dom)","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim","Key Center","Parallel Scale","Live Harmony Override","Override Harmony (Live + Recorded)","Secondary Fifth","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)"};
+static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V (Dom)","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim","Live Key Center","Parallel Scale","Live Harmony Override","Override Harmony (Live + Recorded)","Secondary Fifth","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)","Recordable Key Center","Relative Key Center","Key Step Back","Key Return to Start"};
 static const char *hb_mo_operation_name(int operation){return MO_OPERATIONS[operation==HB_MO_ABOVE?HB_MO_SECONDARY_II:operation];}
 static const char *MO_CHORD_ARP[]={"Chord Only / Release","Both / Release","Arp Only / Release","Chord Only / Press","Both / Press","Arp Only / Press"};
 static const char *MO_STATE_PRESETS[]={"Custom","Scale Degree Burst","Current Harmony Burst"};
@@ -26,7 +26,7 @@ static const char *MO_RANDOM[]={"Repeat","Evolve"};
 typedef struct { const char *key; size_t offset; int low,high; const char *const *options; } hb_motion_parameter;
 #define MO_FIELD(name,low,high,options) {"motion_" #name,__builtin_offsetof(hb_motion_lane,name),low,high,options}
 static const hb_motion_parameter MO_PARAMETERS[]={
-    MO_FIELD(operation,0,60,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
+    MO_FIELD(operation,0,64,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
     MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM)
@@ -57,6 +57,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         config->lanes[control].amount=operation==HB_MO_AUTO_CHORD_REPEAT?(!strcmp(value,"Chord Only")?0:!strcmp(value,"Both")?1:!strcmp(value,"Arp Only")?2:enum_index(value,MO_CHORD_ARP,6,config->lanes[control].amount)):operation==HB_MO_HARMONY?(!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,config->lanes[control].amount),0,100)):operation==HB_MO_MOTIF?enum_index(value,MO_MOTIFS,44,config->lanes[control].amount):hb_mo_has_scale_mode(operation)?1+enum_index(value,MO_SCALE_MODES,3,hb_mo_clamp(config->lanes[control].amount-1,0,2)):operation==HB_MO_CHORD_FORM?
             enum_index(value,CP_CHORD_FORM,HB_CP_FORMS,config->lanes[control].amount):
             hb_mo_clamp(parse_i(value,config->lanes[control].amount),-400,400);
+        if(operation==HB_MO_RELATIVE_KEY)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,-12,12);
         config->revision[control]++;return 1;
     }
 
@@ -68,6 +69,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     if(!strcmp(key,"performance_gesture_below"))gesture=HB_MOTION_LANES+1;
     if(gesture>=0){
         if(!strcmp(value,"LatchOn")||!strcmp(value,"LatchOff")){
+            if(gesture<HB_MOTION_LANES&&config->lanes[gesture].operation>=HB_MO_RELATIVE_KEY)return 1;
             if(gesture<HB_MOTION_LANES)hb_mo_latch_set(config,gesture,!strcmp(value,"LatchOn"));return 1;
         }
         int knob_down=!strncmp(value,"Knob,",5);
@@ -162,7 +164,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         const hb_motion_parameter *spec=&MO_PARAMETERS[index];
         if(strcmp(key,spec->key))continue;
         int *field=hb_mo_field(&config->lanes[config->selected],index);
-        if(index==0){if(!strcmp(value,"Chrom Below")||!strcmp(value,"Chromatic Below")||!strcmp(value,"Secondary LT")||!strcmp(value,"CCB"))value="Connector Below";else if(!strcmp(value,"Chrom Above")||!strcmp(value,"Chromatic Above")||!strcmp(value,"CCA"))value="Connector Above";else if(!strcmp(value,"Tritone V")||!strcmp(value,"TTS"))value="Tritone Sub";else if(!strcmp(value,"LT"))value="Leading Tone";}
+        if(index==0){if(!strcmp(value,"Key Center"))value="Live Key Center";if(!strcmp(value,"Chrom Below")||!strcmp(value,"Chromatic Below")||!strcmp(value,"Secondary LT")||!strcmp(value,"CCB"))value="Connector Below";else if(!strcmp(value,"Chrom Above")||!strcmp(value,"Chromatic Above")||!strcmp(value,"CCA"))value="Connector Above";else if(!strcmp(value,"Tritone V")||!strcmp(value,"TTS"))value="Tritone Sub";else if(!strcmp(value,"LT"))value="Leading Tone";}
         int parsed;
         if(index==2&&config->lanes[config->selected].operation==HB_MO_HARMONY)parsed=!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,*field),0,100);
         else if(index==2&&config->lanes[config->selected].operation==HB_MO_MOTIF)parsed=enum_index(value,MO_MOTIFS,44,hb_mo_clamp(*field,0,43));
@@ -177,9 +179,13 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
             config->lanes[config->selected].offset=parsed==HB_MO_ECHO?25:0;
             if(parsed>=HB_MO_AUTO_CHORD_REPEAT||(parsed>=HB_MO_ENCLOSE_AB&&parsed<=HB_MO_SPEED))config->lanes[config->selected].enabled=0;
         }
-        if(index==4&&(hb_mo_enclosure_mask(config->lanes[config->selected].operation)||
+        if(index==4&&((config->lanes[config->selected].operation>=HB_MO_RECORD_KEY)||hb_mo_enclosure_mask(config->lanes[config->selected].operation)||
             (config->lanes[config->selected].operation>=HB_MO_REPEAT&&config->lanes[config->selected].operation<=HB_MO_SPEED&&config->host_capabilities<2)))parsed=0;
         if(index==3&&config->lanes[config->selected].operation==HB_MO_ECHO)parsed=hb_mo_clamp(parsed,0,100);
+        if(config->lanes[config->selected].operation==HB_MO_RELATIVE_KEY){
+            if(index==2)parsed=hb_mo_clamp(parsed,-12,12);
+            if(index==3)parsed=hb_mo_clamp(parsed,0,64);
+        }
         if(*field!=parsed)config->revision[config->selected]++;
         *field=parsed;return 1;
     }
@@ -206,7 +212,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
-        for(int operation=0;operation<=HB_MO_SECONDARY_VI_DOM;operation++){
+        for(int operation=0;operation<=HB_MO_KEY_RETURN;operation++){
             if(operation==HB_MO_ABOVE)continue; /* Legacy serialized ID, consolidated picker. */
             if(hb_mo_mixed(operation)||operation==HB_MO_CADENCE_II_V||operation==HB_MO_CADENCE_BACKDOOR||operation==HB_MO_CADENCE_TRITONE)continue;
             if(operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED&&!config->host_capabilities&&operation!=selected)continue;
@@ -214,7 +220,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
             used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",count++?",":"",MO_OPERATIONS[operation]);
         }
         if(used<0||used>=length)return -1;
-        used+=snprintf(buffer+used,(size_t)(length-used),"],\"readOnly\":%s},{\"key\":\"motion_enabled\",\"name\":\"Auto\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Off\",\"On\"],\"readOnly\":%s}]",config->selected>=16?"true":"false",(selected==HB_MO_HARMONY_OVERRIDE||selected==HB_MO_LIVE_HARMONY_OVERRIDE||hb_mo_enclosure_mask(selected)||(selected>=HB_MO_REPEAT&&selected<=HB_MO_SPEED&&config->host_capabilities<2))?"true":"false");
+        used+=snprintf(buffer+used,(size_t)(length-used),"],\"readOnly\":%s},{\"key\":\"motion_enabled\",\"name\":\"Auto\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Off\",\"On\"],\"readOnly\":%s}]",config->selected>=16?"true":"false",(selected>=HB_MO_RECORD_KEY||selected==HB_MO_HARMONY_OVERRIDE||selected==HB_MO_LIVE_HARMONY_OVERRIDE||hb_mo_enclosure_mask(selected)||(selected>=HB_MO_REPEAT&&selected<=HB_MO_SPEED&&config->host_capabilities<2))?"true":"false");
         if(used<0||used>=length)return -1;
         used--;
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_touch_mode\",\"name\":\"Touch Mode\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Hold\",\"%s\",\"Tap/Hold\"]}]",hb_mo_touch_options(config)[1]);
@@ -223,10 +229,12 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_auto_off\",\"name\":\"Auto Off\",\"short_name\":\"Auto Off\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Normal\",\"Chord Change\"],\"default\":\"Normal\",\"readOnly\":%s}]",selected!=HB_MO_OFF?"false":"true");
         if(used<0||used>=length)return -1;
         used--; /* Replace the closing array bracket with contextual metadata. */
-        used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":100,\"step\":1,\"default\":0}]",selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_ECHO?0:-100);
+        used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":%d,\"step\":1,\"default\":0}]",selected==HB_MO_RELATIVE_KEY?"Return After (0 = off)":selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_RELATIVE_KEY||selected==HB_MO_ECHO?0:-100,selected==HB_MO_RELATIVE_KEY?64:100);
         if(used<0||used>=length)return -1;
         used--;
-        if(selected==HB_MO_HARMONY){
+        if(selected==HB_MO_RELATIVE_KEY){
+            used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Shift (semitones)\",\"type\":\"int\",\"min\":-12,\"max\":12,\"default\":1}");
+        }else if(selected==HB_MO_HARMONY){
             used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Harmony Target\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Current\",\"Next\"]}");
         }else if(selected==HB_MO_CHORD_STATE){
             used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"State Preset\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Custom\",\"Scale Degree Burst\",\"Current Harmony Burst\"]}");
