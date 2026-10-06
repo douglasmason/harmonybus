@@ -24,6 +24,7 @@ static void approach_pad_membership(void){
     request[73]=':';
     for(int slot=0;slot<32;slot++)sprintf(request+74+slot*2,"%02x",slot<12?61+slot:0);
     API.set_param(instance,"pad_preview_inputs",request+9);
+    API.set_param(instance,"pad_next_pulse","1");
     int scales[]={1,4,15},travels[]={0,1,2,3,4,5,7};
     for(int scale=0;scale<3;scale++)for(int travel=0;travel<7;travel++){
         hb_set_shared_follower_scale(scales[scale]);instance->travel_map=travels[travel];
@@ -32,6 +33,8 @@ static void approach_pad_membership(void){
         before.closest_assignments=instance->closest_assignments; /* Memoization only. */
         assert(!memcmp(&before,instance,sizeof(before)));
         const char *cursor=strstr(view,"|gapcolors1");assert(cursor);cursor+=11;
+        unsigned pulse_inputs,pulse_pads;
+        assert(sscanf(strstr(view,"|nextpulse1,"),"|nextpulse1,%u,%u",&pulse_inputs,&pulse_pads)==2);
         for(int slot=0;slot<32;slot++){
             int flags;assert(sscanf(cursor,",%d",&flags)==1);cursor=strchr(cursor+1,',');
             if(slot>=12){assert(flags==-1);continue;}
@@ -40,14 +43,13 @@ static void approach_pad_membership(void){
             instance->render_harmony_active=1;instance->render_harmony=current;
             int current_pitch=hb_map_follower_note_now(instance,identity);
             hb_harmony_t scale_target=hb_follower_scale_target(instance,current);
-            instance->render_harmony=next;
-            int next_pitch=hb_map_follower_note_now(instance,identity);
             instance->render_harmony_active=0;instance->movy_pad_shift[identity]=0;
-            unsigned current_bit=1u<<mod12(current_pitch),next_bit=1u<<mod12(next_pitch);
+            unsigned current_bit=1u<<mod12(current_pitch);
             assert(!!(flags&1)==!!(current_bit&hb_harmony_chord_mask(current)));
             assert(!!(flags&2)==!!(current_bit&hb_harmony_chord_mask(current)));
             assert(!!(flags&4)==!!(current_bit&scale_target.pitch_mask));
-            assert(!!(flags&16)==!!(next_bit&hb_harmony_chord_mask(next)));
+            assert(!!(flags&16)==!!(current_bit&hb_harmony_chord_mask(next)));
+            assert(!!(pulse_pads&(1u<<slot))==(mod12(current_pitch)==next.root_pc));
         }
     }
     API.set_param(instance,"travel_map","Direct");

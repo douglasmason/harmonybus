@@ -1,3 +1,5 @@
+HarmonyBus 0.2.257 fixes displaced playing highlights while paused: opening-chord previews no longer replace the live mapping used to locate sounding notes. Current, next, full-next, approach-row and selected-tone pulse colors now compare the same currently rendered pad note against their respective chord tones. Next coloring answers what can be played into the next chord now, rather than predicting which input will work after its mapping changes. The shared pass also removes repeated future-context rendering. Compatible with Movy hbclean.172; only HarmonyBus needs updating.
+
 HarmonyBus 0.2.256 preserves the conductor's chord progression through Key Center changes, then uses the shared closest-assignment engine to choose an inversion near the recorded range. Follower Closest Split maximizes available pitch-class diversity within its chord-tone and non-chord-tone pools; it never crosses those classes for diversity. Complete generated conductor chords retain their destination tones and voice counts. The current/next footer follows the transformed harmony. Reused preview assignments, direct octave selection, and skipped inactive operations reduce repeated pad work. Next Pulse Off is explicit, and color-only previews skip unused trail targets. Compatible with Movy hbclean.172; device crackling still requires Move testing.
 
 HarmonyBus 0.2.255 derives active Key Center pad-color membership, next-harmony pulse roles, and root highlighting from the same functional harmony transformation used by playback. For example, G7 resolving into A minor is colored as E7 rather than Em7. Key Center now displays Armed before a target is known and Arm>destination for a held target or scheduled motif landing. The committed key is available immediately without another note. This is a visual correction; the reported Key Center crackling is not yet resolved. Compatible with Movy hbclean.172.
@@ -620,26 +622,26 @@ After and Immediate ignore Anti Buffer and bypass harmonic precapture so their s
 
 ## Both Full Lookahead: a stable view of the relationship
 
-Both Full Lookahead presents two simultaneous questions: which pads would render chord tones under the current harmony, and which would render chord tones under the next known harmony? Each side uses its own harmony's follower mapping, including travel and chromatic approach behavior. These targets come from the chord timeline, independently of when Lookahead chooses to switch actual rendering.
+Both Full Lookahead presents two simultaneous questions: which pads currently produce tones belonging to the current chord, and which currently produce tones belonging to the next known chord? Both sides use the same current follower mapping, including travel, key center and chromatic approaches. Only the comparison chord changes. These chord targets come from the timeline; actual Lookahead timing determines the mapping used to render the pads now.
 
 | Pad interpretation | What it tells the player |
 | --- | --- |
-| Current harmony | Which pads map to chord tones of the accompaniment's current chord. |
-| Full next harmony | Which pads will map to chord tones under the next known chord. This remains visible even with Lookahead Off. |
+| Current harmony | Which pads currently render tones of the accompaniment's current chord. |
+| Full next harmony | Which pads currently render tones of the next known chord. This remains visible even with Lookahead Off. |
 | Both | Which pads satisfy both interpretations; the configured Both Color identifies their overlap. |
 | Effective rendering | The harmony actually used for notes now. Off, Immediate, After, Before, Late and operation overrides determine it; it is distinct from the two comparison targets. |
 
-With C on beats 0–4 and D next, Both Full Lookahead keeps the C and D interpretations visible throughout that interval. Under After 1/4, actual rendering changes from C to D at beat 1; under Before 1/4 it changes at beat 3; under Immediate it uses D from beat 0. Those switches do not replace the C/D comparison on the pads.
+With C on beats 0–4 and D next, the comparison chords remain C and D throughout that interval. Under After 1/4, actual rendering changes from C to D at beat 1; under Before 1/4 it changes at beat 3; under Immediate it uses D from beat 0. Whenever that mapping changes, both color memberships are recomputed from the new current outputs. For example, with C-major Relative Scale travel and Dm next, the in-key D/F/A inputs get next coloring while C is still rendering. The C/E/G inputs that would become D/F/A after the change are not colored as next tones in advance.
 
-Once rendering is ahead on D, the still-visible C interpretation gives a useful look-back reference: the player can see how the same input relates to both the accompaniment and the anticipated harmony. This is a view of the current/next relationship, not a separate history buffer. At the actual transition to D, the pair becomes D and the following known chord.
+Once rendering is ahead on D, Current Color identifies pads whose current output still belongs to C, while Next Color identifies current outputs belonging to D. At the actual transition to D, the comparison pair becomes D and the following known chord.
 
-The colors show chord-tone membership under each mapping; they do not by themselves name every output pitch or interval. Pulse and color settings control the presentation, while Play Color may overlay pads being played. With Late rendering, the effective harmony can instead be the previous chord, so Both Full Lookahead's current/next pair is not a complete display of every possible effective harmony. This distinction keeps the two-reference view predictable.
+Colors show membership of current outputs, not their exact pitch names or intervals. Selected-tone pulses use the same rule. With Late rendering, the mapping can still come from the previous chord; both current and next membership are evaluated using that delayed mapping. Play Color and trails also use the actual current mapping. While paused, an opening-chord preview remains a color target and does not replace the live rendering context or shift a playing highlight to another input pad.
 
 ## Chromatic approach pad membership
 
 A chromatic approach describes how a note is produced, not necessarily a note outside the scale. A piano gap approaches the mapped note on the pad below it by one semitone. The resulting note can itself belong to the scale or a harmony. With Movy hbclean.94, these playable gaps use the same color meanings as other pads: scale background, Current Color, Lookahead Color, and Both Color for overlap. An approach outside all displayed memberships stays dark. Empty, unmapped pads stay dark too.
 
-Current and full-next membership each render the approach under their own harmony mapping. Scale membership follows the effective rendering scale. Changing Lookahead timing therefore retains the established current/next comparison. Playback highlights still take precedence. For example, with C-major Scale content and None travel, the approach below C is B and the approach below F is E: both are scale tones, and E is also a C-major chord tone. Other travel modes may produce different results.
+Current and full-next membership compare the same currently rendered approach note with their respective chord tones. Scale membership follows the effective rendering scale. When Lookahead changes the actual mapping, all memberships follow the resulting output. Playback highlights still take precedence. For example, with C-major Scale content and None travel, the approach below C is B and the approach below F is E: both are scale tones, and E is also a C-major chord tone. Other travel modes may produce different results.
 
 Direct has been removed from the Travel selector because it duplicated None. Previously saved Direct settings and legacy API inputs retain their sound and display as None.
 
@@ -832,3 +834,10 @@ The active dominant collection applies to live conductor notes and Direct follow
 ## External Launchpad surface
 
 Movy can request two independent 32-pad previews through `surface_preview0/1` and `surface_view0/1`. These use the canonical pad renderer and preserve Move’s preview geometry. `surface_enabled` controls the external approach layout. The `approach_latch_slots` readout exposes permanent bank preferences for external latch toggles. See the Movy Launchpad guide for controller setup and routing requirements.
+
+
+## Live playing over a clip
+
+Live input adds to clip playback. Source pitch, MIDI channel and live/clip origin identify the held note before mapping; shared rendered pitches stay sounding until their final owner releases. Latch replacement and toggle affect only their own live or clip input pool. Captured approach and motion settings remain with the note that introduced them. Recording continues to append notes to the clip.
+
+Retrigger Held keeps its existing meaning for both streams. Off preserves each held note’s onset pitch through a chord change. On re-renders each owner through the current harmony with its original input intent; one stream cannot replace the other’s held note. Release tails retain their separately selected follow-harmony policy.

@@ -286,6 +286,7 @@ static void unchanged_pitch_updates_output_role(void){
     hb_harmony_t previous=chord(9,1,0);
     hb_effective_write(previous);
     instance->follower_path_harmony[71]=previous;
+    instance->follower_voices[0]=(hb_follower_voice){.used=1,.source=71,.pitch=71,.velocity=100,.harmony=previous};
     instance->follower_bus_seq=__atomic_load_n(&g_bus.seq,__ATOMIC_ACQUIRE);
     char display[256];uint8_t output[16][3];int lengths[16];
     API.get_param(instance,"follower_snapshot",display,sizeof(display));

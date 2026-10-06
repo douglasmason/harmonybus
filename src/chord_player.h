@@ -17,6 +17,7 @@ typedef struct {
     unsigned sequence, harmony_mask, harmony_sequence, semantic_mask;
     hb_cp_config onset_config;
     int harmony_root, playback_origin, range;
+    int input_degree,input_target,input_shift;unsigned input_token;
     unsigned transform_revision,trail_serial;
     int notes[HB_CP_VOICES];
     int release_synced,release_follow;double release_start,release_end;
@@ -311,42 +312,52 @@ static int hb_cp_held(const hb_chord_player *player){
 }
 /* Toggle ownership by the original input key, independent of rendered pitch.
    Shared rendered tones remain owned by any other retained input keys. */
-static int hb_cp_toggle_off(hb_chord_player *player,int source,int channel){
+static int hb_cp_toggle_off_origin(hb_chord_player *player,int source,int channel,int origin){
     if(hb_cp_settings(player)->latch!=2&&hb_cp_settings(player)->latch!=3&&hb_cp_settings(player)->latch!=5)return 0;
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
-        if(key->used&&!key->release_end&&key->source==source&&key->channel==channel){
+        if(key->used&&!key->release_end&&key->source==source&&key->channel==channel&&key->playback_origin==origin){
             memset(key,0,sizeof(*key));
             return 1;
         }
     }
     return 0;
 }
-static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,
-                    const int *notes,int count){
-    if(hb_cp_toggle_off(player,source,channel))return 1;
+static int hb_cp_toggle_off(hb_chord_player *player,int source,int channel){return hb_cp_toggle_off_origin(player,source,channel,0);}
+static int hb_cp_on_origin(hb_chord_player *player,int source,int channel,int velocity,
+                    const int *notes,int count,int origin){
+    if(hb_cp_toggle_off_origin(player,source,channel,origin))return 1;
     if(count<=0)return 1;
     int released_source=0;
-    for(int index=0;index<HB_CP_KEYS;index++)if(player->keys[index].used&&player->keys[index].source==source&&player->keys[index].channel==channel&&player->keys[index].release_end>0)released_source=1;
+    int held=0,other_origin=0;
+    for(int index=0;index<HB_CP_KEYS;index++)if(player->keys[index].used){
+        hb_cp_key *key=&player->keys[index];
+        if(key->playback_origin!=origin){other_origin=1;continue;}
+        held+=key->held;
+        if(key->source==source&&key->channel==channel&&key->release_end>0)released_source=1;
+    }
     if(released_source&&hb_cp_settings(player)->phase!=1){player->running=0;player->step=0;}
-    if(hb_cp_settings(player)->latch==4||hb_cp_settings(player)->latch==5||((hb_cp_settings(player)->latch==1||hb_cp_settings(player)->latch==2)&&!hb_cp_held(player))){
+    if(hb_cp_settings(player)->latch==4||hb_cp_settings(player)->latch==5||((hb_cp_settings(player)->latch==1||hb_cp_settings(player)->latch==2)&&!held)){
         /* A latched replacement changes the pitch pool, not the running clock.
            Re-arming Auto here can postpone every division under rapid input. */
-        if(hb_cp_playback(player)!=1){
+        if(hb_cp_playback(player)!=1&&!other_origin){
             memcpy(player->retrigger,player->sounding,sizeof(player->retrigger));
             player->running=0;player->step=0;
         }
-        memset(player->keys,0,sizeof(player->keys));
+        /* Latch replaces only its own input stream. Live changes must never
+           erase a clip's keys (or the reverse), including Toggle/Replace. */
+        for(int index=0;index<HB_CP_KEYS;index++)if(player->keys[index].playback_origin==origin)
+            memset(&player->keys[index],0,sizeof(player->keys[index]));
     }
     int slot=-1;
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
-        if(key->used&&key->source==source&&key->channel==channel){slot=index;break;}
+        if(key->used&&key->source==source&&key->channel==channel&&key->playback_origin==origin){slot=index;break;}
         if(!key->used&&slot<0)slot=index;
     }
     /* A fresh strike takes priority over an old fading tail when all slots
        are occupied. Never steal a physically held key. */
-    if(slot<0)for(int index=0;index<HB_CP_KEYS;index++)if(!player->keys[index].held&&player->keys[index].release_end>0&&
+    if(slot<0)for(int index=0;index<HB_CP_KEYS;index++)if(player->keys[index].playback_origin==origin&&!player->keys[index].held&&player->keys[index].release_end>0&&
         (slot<0||player->keys[index].sequence<player->keys[slot].sequence))slot=index;
     if(slot<0)return 0;
     hb_cp_key *key=&player->keys[slot];
@@ -361,17 +372,20 @@ static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,
         if(!shared)player->retrigger[channel][pitch]=1;
     }
     memset(key,0,sizeof(*key));
-    key->used=key->held=key->fresh=1;key->source=source;key->channel=channel;
+    key->used=key->held=key->fresh=1;key->source=source;key->channel=channel;key->playback_origin=origin;
     key->played_pitch=source;key->root_pc=hb_cp_mod(source);key->velocity=velocity;key->count=count;key->sequence=++player->sequence;
     for(int index=0;index<count;index++)key->notes[index]=notes[index];
     return 1;
 }
+static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,const int *notes,int count){
+    return hb_cp_on_origin(player,source,channel,velocity,notes,count,0);
+}
 static const char *HB_CP_RELEASE_ARP[]={"Arp Note 1/2","Arp Note 1","Arp Note 2","Arp Note 3","Arp Note 4","Arp Note 8","Arp Cycle 1/4","Arp Cycle 1/2","Arp Cycle 1","Arp Cycle 2","Arp Cycle 4"};
 static double hb_cp_release_beats(hb_chord_player *player);
-static void hb_cp_off(hb_chord_player *player,int source,int channel){
+static void hb_cp_off_origin(hb_chord_player *player,int source,int channel,int origin){
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
-        if(!key->used||key->source!=source||key->channel!=channel)continue;
+        if(!key->used||key->source!=source||key->channel!=channel||key->playback_origin!=origin)continue;
         if(key->release_end>0)continue; /* Duplicate OFF cannot extend a tail. */
         int was_held=key->held;key->held=0;
         if(was_held&&player->repeat_override&&player->release_ms!=0&&(player->release_held||player->release_armed||player->release_latched)){
@@ -396,6 +410,7 @@ static void hb_cp_off(hb_chord_player *player,int source,int channel){
         if(!any){player->running=0;player->step=0;}
     }
 }
+static void hb_cp_off(hb_chord_player *player,int source,int channel){hb_cp_off_origin(player,source,channel,0);}
 /* Emit a desired-state difference, OFFs first. Capacity exhaustion leaves the
    remaining differences intact for the next tick, including panic/role changes.
    Multiple owners sharing a pitch generate one ON and one final OFF. */

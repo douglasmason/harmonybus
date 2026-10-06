@@ -17,7 +17,7 @@ static double hb_rr_time(double beat,int pattern,double span){
 }
 #define HB_RR_VOICES 256
 #define HB_RR_EVENTS 512
-typedef struct {int used,closed,channel,pitch,sounding;unsigned serial;double delay;} hb_rr_voice;
+typedef struct {int used,closed,channel,pitch,sounding,input_owner;unsigned serial;double delay;} hb_rr_voice;
 typedef struct {int used,owner;unsigned serial;double due;unsigned short trail;uint8_t midi[3];} hb_rr_event;
 typedef struct {
     hb_rr_voice voices[HB_RR_VOICES];hb_rr_event events[HB_RR_EVENTS];
@@ -31,7 +31,7 @@ static int hb_rr_active(const hb_rr_route *r){
 }
 /* FIFO ownership per channel/pitch; each OFF retains its ON's timing even if
    settings change. Overflow cancels pending attacks and drains sounding OFFs. */
-static void hb_rr_push(hb_rr_route *r,const uint8_t midi[3],double now,double delay){
+static void hb_rr_push_owned(hb_rr_route *r,const uint8_t midi[3],double now,double delay,int input_owner){
     if(r->panic)return;
     int status=midi[0]&240,ch=midi[0]&15,pitch=midi[1]&127;
     int on=status==0x90&&midi[2],off=status==0x80||(status==0x90&&!midi[2]);
@@ -39,11 +39,11 @@ static void hb_rr_push(hb_rr_route *r,const uint8_t midi[3],double now,double de
     if(on){
         for(int i=0;i<HB_RR_VOICES;i++)if(!r->voices[i].used){owner=i;break;}
         if(owner<0){hb_rr_panic(r);return;}
-        r->owned++;r->voices[owner]=(hb_rr_voice){.used=1,.channel=ch,.pitch=pitch,.serial=++r->serial,.delay=delay>0?delay:0};
+        r->owned++;r->voices[owner]=(hb_rr_voice){.used=1,.channel=ch,.pitch=pitch,.input_owner=input_owner,.serial=++r->serial,.delay=delay>0?delay:0};
     }else if(off||status==0xa0){
         for(int i=0;i<HB_RR_VOICES;i++){
             hb_rr_voice *v=&r->voices[i];
-            if(v->used&&!v->closed&&v->channel==ch&&v->pitch==pitch&&(owner<0||v->serial<r->voices[owner].serial))owner=i;
+            if(v->used&&!v->closed&&v->channel==ch&&v->pitch==pitch&&v->input_owner==input_owner&&(owner<0||v->serial<r->voices[owner].serial))owner=i;
         }
         delay=owner<0?0:r->voices[owner].delay;
         if(off&&owner>=0)r->voices[owner].closed=1;
@@ -54,6 +54,7 @@ static void hb_rr_push(hb_rr_route *r,const uint8_t midi[3],double now,double de
     }
     hb_rr_panic(r);
 }
+static void hb_rr_push(hb_rr_route *r,const uint8_t midi[3],double now,double delay){hb_rr_push_owned(r,midi,now,delay,0);}
 static int hb_rr_pop(hb_rr_route *r,double now,uint8_t midi[3]){
     r->trail_out=0;
     if(r->panic){
@@ -68,6 +69,16 @@ static int hb_rr_pop(hb_rr_route *r,double now,uint8_t midi[3]){
         hb_rr_event e=r->events[best];
         int status=e.midi[0]&240,ch=e.midi[0]&15,pitch=e.midi[1]&127;
         if(status==0x90&&e.midi[2]&&r->refs[ch][pitch]){
+            int shared=e.owner>=0&&r->voices[e.owner].input_owner;
+            for(int i=0;i<HB_RR_VOICES&&!shared;i++)if(r->voices[i].used&&r->voices[i].sounding&&
+                r->voices[i].channel==ch&&r->voices[i].pitch==pitch&&r->voices[i].input_owner)shared=1;
+            if(shared){
+                /* Explicit input owners share the sounding gate. A live hit
+                   must not steal a clip's sustained voice under beat warping. */
+                r->events[best].used=0;r->count--;r->refs[ch][pitch]++;
+                if(e.owner>=0)r->voices[e.owner].sounding=1;
+                continue;
+            }
             /* MIDI has no voice IDs: close the previous attack before a
                retrigger, and swallow that old owner's later release. This
                keeps downstream receiver gates balanced as well. */
@@ -82,7 +93,8 @@ static int hb_rr_pop(hb_rr_route *r,double now,uint8_t midi[3]){
                 int sounding=r->voices[e.owner].sounding;r->voices[e.owner].used=0;r->owned--;
                 if(!sounding)continue;
             }else if(r->refs[ch][pitch])continue;
-            r->refs[ch][pitch]=0;
+            if(r->refs[ch][pitch])r->refs[ch][pitch]--;
+            if(r->refs[ch][pitch])continue;
         }
         r->trail_out=e.trail;memcpy(midi,e.midi,3);return 1;
     }return 0;
