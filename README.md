@@ -1,4 +1,4 @@
-HarmonyBus 0.2.263 / Movy hbclean.180: Live Key Center survives clip recording and Undo. Separate recordable absolute and recursive relative operations add signed shifts, Step Back, Return to Start and optional return after N modulations. See [Key center operations](docs/key-center-operations.md).
+HarmonyBus 0.2.263 / Movy hbclean.181: Live Key Center survives clip recording and Undo. Separate recordable absolute and recursive relative operations add signed shifts, Step Back, Return to Start and optional return after N modulations. See [Key center operations](docs/key-center-operations.md).
 
 HarmonyBus 0.2.262 / Movy hbclean.179: Coherent Move and Launchpad pad snapshots for Movy hbclean.179, reusing identical rendered inputs within each read. The paired Movy update batches external note input, makes Launchpad pulses steady, paces LED traffic and widens footer arrows. No Schwung host changes. Physical Move latency and crackle testing remain necessary.
 
