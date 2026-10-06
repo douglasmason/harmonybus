@@ -47,7 +47,8 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
     int first,int last,double arrival,double onset_override,int use_tap_context){
     hb_mt_runtime *runtime=&instance->motif;hb_mt_recorder *editor=&runtime->editor;
     if(runtime->cancel&&runtime->pending){editor->error=8;return 0;}
-    if(!phrase->count||phrase->anchor<0)return 0;
+    if(!phrase->count||phrase->anchor<0||phrase->anchor>phrase->count||
+       (phrase->anchor==phrase->count&&!phrase->reference_valid))return 0;
     double now=hb_motion_position(instance);
     if(arrival<0)arrival=hb_mt_arrival(instance,now);
     if(arrival<0){editor->error=5;return 0;}
@@ -71,7 +72,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
     scale=hb_key_approach_scale(instance,target,scale);
     hb_key_context phrase_key=hb_key_for(instance);
     if(phrase_key.approach_scale)phrase_key=hb_key_collection_context(phrase_key,target,scale);
-    int anchor=phrase->events[phrase->anchor].notes[0].pitch;
+    int anchor=phrase->reference_valid?phrase->reference_pitch:phrase->events[phrase->anchor].notes[0].pitch;
     hb_mt_scheduled staged[HB_MT_SCHEDULE];int count=0;double key_anchor=-1;
     double offset=-before;
     for(int step=0;step<phrase->count;step++){
@@ -174,8 +175,18 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
 }
 
 static const hb_mt_phrase *hb_mt_selected(Inst *instance,hb_mt_phrase *builtin){
-    if(instance->motif.editor.preset){hb_mt_preset(instance->motif.editor.preset,builtin);return builtin;}
-    return &g_motifs[instance->motif.editor.selected];
+    hb_mt_recorder *editor=&instance->motif.editor;
+    hb_mt_definition stock;const hb_mt_definition *definition=0;
+    if(editor->preset){hb_mt_preset_definition(editor->preset,&stock);definition=&stock;}
+    else if(editor->selected>=0&&editor->selected<HB_MT_SLOTS&&hb_mt_occupied(&g_motifs[editor->selected]))
+        definition=&g_motifs[editor->selected];
+    memset(builtin,0,sizeof(*builtin));
+    if(definition)hb_mt_materialize(definition,hb_mt_placement(editor->placement,definition->placement),builtin);
+    /* Omit approaches a silent destination after the body. Saved continues
+       to honor the legacy arrival position of body-only stock phrases. */
+    if(editor->placement==4)builtin->anchor=builtin->count;
+    if(definition&&instance->motif_load[5])hb_mt_pad_even(builtin,g_motif_rhythm,hb_mt_placement(editor->placement,definition->placement));
+    return builtin;
 }
 static double hb_mt_step_offset(Inst *instance,const hb_mt_phrase *phrase,int step){
     double offset=0;int rhythm=instance->motif.tap_rhythm,span=instance->motif.tap_span;

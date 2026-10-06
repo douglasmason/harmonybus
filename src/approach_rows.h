@@ -12,6 +12,7 @@ typedef struct {
     unsigned sequence_pad;
     int row_preset,row_event,pending_row,preview_row,performance,latch,motif_latch,used;
     double touched_at[16];
+    int target_placement;
     int enabled,knobs[8],bank[16],order[8],order_slot[8],count,cursor,event,bank_armed;
     unsigned latch_slots,turned;
     unsigned down,knob_down,step_down,selected;unsigned long long saved_word;int restore_word;unsigned short tokens[128];unsigned char swallow[16][128];
@@ -25,14 +26,43 @@ static int hb_ar_code(const hb_ar_state *state,int slot){int reference=state->ba
 static int hb_ar_alias_shift(unsigned long long word){int marker=(word>>2)&3;return marker==1?-36:marker==2?36:marker==3?(int)(signed char)(word>>55):0;}
 static unsigned long long hb_ar_alias_word(int shift){return shift==-36?4:shift==36?8:shift?12|((unsigned long long)(unsigned char)shift<<55):0;}
 static int hb_ar_alias_valid(unsigned long long word){int marker=(word>>2)&3,extra=(word>>55)&255;if(marker!=3)return extra==0;int shift=(signed char)extra;return shift==32||shift==-32||shift==64||shift==-64||shift==96||shift==-96;}
-static const hb_mt_phrase *hb_ar_phrase(int code,hb_mt_phrase *builtin){int reference=code-15;if(hb_mt_reference_preset(reference)){hb_mt_preset(hb_mt_reference_preset(reference),builtin);return builtin;}return reference>=20&&reference<36?&g_motifs[reference-20]:0;}
-static unsigned hb_ar_peek(const hb_ar_state *state){return state->count?((unsigned)state->order[state->cursor]|((unsigned)state->event<<6)):1;}
+static const hb_mt_phrase *hb_ar_phrase(int code,hb_mt_phrase *builtin){int reference=code-15;if(code==15){memset(builtin,0,sizeof(*builtin));builtin->count=1;builtin->events[0]=(hb_mt_event){.duration=24,.count=1,.chord_mode=3,.scale=0xAB5,.notes={{60,100}}};return builtin;}if(hb_mt_reference_preset(reference)){hb_mt_preset(hb_mt_reference_preset(reference),builtin);return builtin;}if(reference>=20&&reference<36){hb_mt_library_view(reference-20,builtin);return builtin;}return 0;}
+/* Live cursors select stable legacy tokens. Placement never changes the
+   meaning of a token already written into a clip. Code 15 is the neutral
+   target for motifs which never contained a boundary target. */
+static int hb_ar_live_steps(int code,int choice,int spatial,unsigned *tokens){
+    hb_mt_phrase builtin;const hb_mt_phrase *phrase=hb_ar_phrase(code,&builtin);
+    if(!phrase){tokens[0]=(unsigned)code;return 1;}
+    int first=0,last=phrase->count,start=-1,end=-1,count=0;
+    if(choice||spatial){
+        const hb_mt_event *reference=&phrase->events[phrase->anchor];
+        while(first<last){
+            int tail=last-1;while(tail>first&&phrase->events[tail].kind==2)tail--;
+            if(!hb_mt_is_target(&phrase->events[tail],reference))break;
+            if(end<0)end=tail;last=tail;
+        }
+        while(first<last&&hb_mt_is_target(&phrase->events[first],reference)){
+            if(start<0)start=first;first++;
+            while(first<last&&phrase->events[first].kind==2)first++;
+        }
+        int placement=hb_mt_placement(choice,0);
+        if(placement&HB_MT_TARGET_START){int index=start>=0?start:end;tokens[count++]=index<0?15:(unsigned)code|((unsigned)index<<6);}
+        for(int index=first;index<last;index++)if(phrase->events[index].kind!=2)
+            tokens[count++]=(unsigned)code|((unsigned)index<<6);
+        if(placement&HB_MT_TARGET_END){int index=end>=0?end:start;tokens[count++]=index<0?15:(unsigned)code|((unsigned)index<<6);}
+    }else for(int index=0;index<phrase->count;index++)if(phrase->events[index].kind!=2)
+        tokens[count++]=(unsigned)code|((unsigned)index<<6);
+    return count;
+}
+static unsigned hb_ar_live_step(int code,int choice,int spatial,int step){
+    unsigned tokens[HB_MT_STEPS+2];int count=hb_ar_live_steps(code,choice,spatial,tokens);
+    return count?tokens[step>=0&&step<count?step:0]:0;
+}
+static unsigned hb_ar_peek(const hb_ar_state *state){return state->count?
+    hb_ar_live_step(state->order[state->cursor],state->target_placement,0,state->event):1;}
 static void hb_ar_advance(hb_ar_state *state){
-    hb_mt_phrase builtin;const hb_mt_phrase *phrase=hb_ar_phrase(state->order[state->cursor],&builtin);
-    if(phrase){
-        do{state->event++;}while(state->event<phrase->count&&phrase->events[state->event].kind==2);
-        if(state->event<phrase->count)return;
-    }
+    unsigned tokens[HB_MT_STEPS+2];int count=hb_ar_live_steps(state->order[state->cursor],state->target_placement,0,tokens);
+    if(++state->event<count)return;
     state->event=0;state->cursor=(state->cursor+1)%state->count;if(!state->cursor&&!state->motif_latch&&(state->count>1||(!state->down&&!state->latch)))state->performance=0;
 }
 /* Last three control touches form a persistent FIFO, independent of holds. */
@@ -46,24 +76,22 @@ static void hb_ar_pad_press(hb_ar_state *state,int source,int row,int shift){
     if(!pad||pad!=state->sequence_pad)state->sequence_cursor=state->sequence_event=state->row_event=0;
     state->sequence_pad=pad;
 }
-static unsigned hb_ar_sequence_peek(const hb_ar_state *state){return (unsigned)hb_ar_code(state,state->sequence_slots[state->sequence_cursor])|((unsigned)state->sequence_event<<6);}
+static unsigned hb_ar_sequence_peek(const hb_ar_state *state){return hb_ar_live_step(hb_ar_code(state,state->sequence_slots[state->sequence_cursor]),state->target_placement,1,state->sequence_event);}
 static void hb_ar_sequence_touch(hb_ar_state *state,int slot){
     if(!state->knob_down)state->sequence_count=0;
     if(state->sequence_count<8)state->sequence_slots[state->sequence_count++]=slot;
     state->sequence_cursor=state->sequence_event=0;
 }
-static unsigned hb_ar_row_peek(const hb_ar_state *state,int row){if(row==3&&state->sequence_count)return hb_ar_sequence_peek(state);unsigned code=hb_ar_code(state,row==3?state->row_preset:state->row_slots[row]);unsigned step=row==3?state->row_event:state->row_steps[row];return code<16||code>=59?code:code|(step<<6);}
+static unsigned hb_ar_row_peek(const hb_ar_state *state,int row){if(row==3&&state->sequence_count)return hb_ar_sequence_peek(state);unsigned code=hb_ar_code(state,row==3?state->row_preset:state->row_slots[row]);unsigned step=row==3?state->row_event:state->row_steps[row];return hb_ar_live_step((int)code,state->target_placement,1,(int)step);}
 static unsigned hb_ar_live_peek(const hb_ar_state *state,int row){return row>=0?hb_ar_row_peek(state,row):state->performance?hb_ar_peek(state):0;}
 /* Rows are spatial keys. Their next press repeats the assigned step; only
    the separate performance bank consumes a sequence. */
 static void hb_ar_live_advance(hb_ar_state *state,int row){
     if(row<0){state->used=1;hb_ar_advance(state);return;}
     if(row!=3||!state->sequence_count)return;
-    hb_mt_phrase builtin;const hb_mt_phrase *phrase=hb_ar_phrase(hb_ar_code(state,state->sequence_slots[state->sequence_cursor]),&builtin);
-    if(phrase){
-        do{state->sequence_event++;}while(state->sequence_event<phrase->count&&phrase->events[state->sequence_event].kind==2);
-        if(state->sequence_event<(phrase->anchor>0?phrase->anchor:phrase->count))return;
-    }
+    unsigned tokens[HB_MT_STEPS+2];
+    int count=hb_ar_live_steps(hb_ar_code(state,state->sequence_slots[state->sequence_cursor]),state->target_placement,1,tokens);
+    if(++state->sequence_event<count)return;
     state->sequence_event=0;state->sequence_cursor=(state->sequence_cursor+1)%state->sequence_count;
 }
 static unsigned long long hb_ar_intent(unsigned token){

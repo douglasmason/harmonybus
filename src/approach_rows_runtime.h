@@ -5,6 +5,18 @@ static int hb_ar_schedule(Inst *instance,int source,int shift,unsigned token,int
     if(!phrase||!phrase->count)return 0;
     int step=(token>>6)&31;if(step>=phrase->count)return 0;
     hb_mt_runtime *runtime=&instance->motif;
+    if(whole&&(runtime->editor.placement||instance->motif_load[5])){
+        int reference=(int)(token&63)-15,preset=hb_mt_reference_preset(reference);
+        hb_mt_definition stock;const hb_mt_definition *definition=0;
+        if(preset){hb_mt_preset_definition(preset,&stock);definition=&stock;}
+        else if(reference>=20&&reference<36)definition=&g_motifs[reference-20];
+        if(definition){
+            if(!hb_mt_materialize(definition,hb_mt_placement(runtime->editor.placement,definition->placement),&builtin))return 0;
+            if(runtime->editor.placement==4)builtin.anchor=builtin.count;
+            if(instance->motif_load[5])hb_mt_pad_even(&builtin,g_motif_rhythm,hb_mt_placement(runtime->editor.placement,definition->placement));
+        }
+        if(!phrase->count)return 0;
+    }
     int old_target=runtime->tap_target,old_rhythm=runtime->tap_rhythm,old_span=runtime->tap_span;
     hb_harmony_t old_harmony=runtime->tap_harmony;
     hb_harmony_t harmony=hb_render_harmony(instance);

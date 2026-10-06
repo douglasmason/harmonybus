@@ -15,15 +15,20 @@ static int hb_mt_read_hex(const char **cursor,unsigned *value,int digits){
         *value=(*value<<4)|digit;(*cursor)++;
     }return 1;
 }
+#define HB_MT_SNAPSHOTS 160
+static int hb_mt_storage_count(const hb_mt_definition *definition){return hb_mt_occupied(definition)?definition->body.count+2:0;}
+static hb_mt_event *hb_mt_storage_event(hb_mt_definition *definition,int index){
+    return index<definition->body.count?&definition->body.events[index]:index==definition->body.count?&definition->target_start:&definition->target_end;
+}
 static int hb_mt_save(Inst *instance,char *buffer,int length,int used){
     if(used<0||used>=length)return used;
     hb_mt_recorder *editor=&instance->motif.editor;
-    used+=snprintf(buffer+used,(size_t)(length-used),";mf1,%d,%d,%d,%d,%d,%d,%d:",editor->selected,editor->duration,editor->relation,editor->arrival,editor->late,g_motif_span,editor->target);
-    const unsigned long long *snapshots[128];int snapshot_count=0;
-    for(int slot=0;slot<HB_MT_SLOTS;slot++)for(int step=0;step<g_motifs[slot].count;step++){
-        const unsigned long long *actions=g_motifs[slot].events[step].actions;int found=0;
-        for(int index=0;index<snapshot_count;index++)if(!memcmp(actions,snapshots[index],sizeof(g_motifs[slot].events[step].actions))){found=1;break;}
-        if(!found){if(snapshot_count>=128)return -1;snapshots[snapshot_count++]=actions;}
+    used+=snprintf(buffer+used,(size_t)(length-used),";mf2,%d,%d,%d,%d,%d,%d,%d:",editor->selected,editor->duration,editor->relation,editor->arrival,editor->late,g_motif_span,editor->target);
+    const unsigned long long *snapshots[HB_MT_SNAPSHOTS];int snapshot_count=0;
+    for(int slot=0;slot<HB_MT_SLOTS;slot++)for(int step=0;step<hb_mt_storage_count(&g_motifs[slot]);step++){
+        const unsigned long long *actions=hb_mt_storage_event(&g_motifs[slot],step)->actions;int found=0;
+        for(int index=0;index<snapshot_count;index++)if(!memcmp(actions,snapshots[index],sizeof(hb_mt_storage_event(&g_motifs[slot],step)->actions))){found=1;break;}
+        if(!found){if(snapshot_count>=HB_MT_SNAPSHOTS)return -1;snapshots[snapshot_count++]=actions;}
     }
     used=hb_mt_write_hex(buffer,length,used,(unsigned)snapshot_count,2);
     for(int index=0;index<snapshot_count;index++){
@@ -36,13 +41,22 @@ static int hb_mt_save(Inst *instance,char *buffer,int length,int used){
         for(int lane=0;lane<=HB_MOTION_LANES;lane++)if(mask&(1ULL<<lane)){used=hb_mt_write_hex(buffer,length,used,(unsigned)(actions[lane]>>32),8);used=hb_mt_write_hex(buffer,length,used,(unsigned)actions[lane],8);}
     }
     for(int slot=0;slot<HB_MT_SLOTS;slot++){
-        const hb_mt_phrase *phrase=&g_motifs[slot];
-        used=hb_mt_write_hex(buffer,length,used,(unsigned)phrase->count,2);
-        used=hb_mt_write_hex(buffer,length,used,(unsigned)(phrase->count?phrase->anchor:0),2);
-        for(int step=0;step<phrase->count;step++){
-            const hb_mt_event *event=&phrase->events[step];
+        const hb_mt_definition *definition=&g_motifs[slot];
+        int count=hb_mt_storage_count(definition);
+        used=hb_mt_write_hex(buffer,length,used,(unsigned)count,2);
+        used=hb_mt_write_hex(buffer,length,used,(unsigned)(count?definition->reference_step+1:0),2);
+        used=hb_mt_write_hex(buffer,length,used,(unsigned)definition->reference_pitch,2);
+        used=hb_mt_write_hex(buffer,length,used,(unsigned)definition->placement,1);
+        used=hb_mt_write_hex(buffer,length,used,(unsigned)definition->legacy_count,2);
+        used=hb_mt_write_hex(buffer,length,used,(unsigned)definition->legacy_anchor,2);
+        for(int index=0;index<definition->legacy_count;index++){
+            used=hb_mt_write_hex(buffer,length,used,definition->legacy_event[index],2);
+            used=hb_mt_write_hex(buffer,length,used,definition->legacy_duration[index],4);
+        }
+        for(int step=0;step<count;step++){
+            const hb_mt_event *event=hb_mt_storage_event(&g_motifs[slot],step);
             unsigned fields[]={event->kind,event->duration,event->count,event->relation,event->modifier+1,event->secondary,event->cadence,event->chord_mode,event->scale,event->flags};
-            const int digits[]={1,3,1,1,1,2,2,1,3,4};
+            const int digits[]={1,4,1,1,1,2,2,1,3,4};
             for(int field=0;field<10;field++)used=hb_mt_write_hex(buffer,length,used,fields[field],digits[field]);
             int snapshot=0;while(snapshot<snapshot_count&&memcmp(event->actions,snapshots[snapshot],sizeof(event->actions)))snapshot++;
             used=hb_mt_write_hex(buffer,length,used,(unsigned)snapshot,2);
@@ -50,22 +64,22 @@ static int hb_mt_save(Inst *instance,char *buffer,int length,int used){
         }
     }
     if(used>=length)return -1;
-    used+=snprintf(buffer+used,(size_t)(length-used),";mp1,%d,%d,%d,%d;mg1,%d,%d",editor->playback,editor->preset,editor->tap_grid,editor->completion,g_motif_rhythm,g_motif_span);
+    used+=snprintf(buffer+used,(size_t)(length-used),";mp1,%d,%d,%d,%d;mg1,%d,%d;mt1,%d",editor->playback,editor->preset,editor->tap_grid,editor->completion,g_motif_rhythm,g_motif_span,editor->placement);
     if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),";rr1,%d,%d,%d,%d",instance->rhythm_mode,instance->rhythm_pattern,instance->rhythm_window,g_render_window);
     return used>=length?-1:used;
 }
 static void hb_mt_restore(Inst *instance,const char *state){
-    const char *marker=strstr(state,";mf1,");if(!marker)return;
+    const char *marker=strstr(state,";mf2,");int normalized=marker!=0;if(!marker)marker=strstr(state,";mf1,");if(!marker)return;
     int selected,duration,relation,arrival,late,span,target,offset=0;
-    if(sscanf(marker,";mf1,%d,%d,%d,%d,%d,%d,%d:%n",&selected,&duration,&relation,&arrival,&late,&span,&target,&offset)!=7||!offset)return;
+    if(sscanf(marker+5,"%d,%d,%d,%d,%d,%d,%d:%n",&selected,&duration,&relation,&arrival,&late,&span,&target,&offset)!=7||!offset)return;
     if(selected<0||selected>=16||duration<0||duration>=13||relation<0||relation>2||arrival<0||arrival>5||late<0||late>2||span<0||span>2||target<0||target>6)return;
     /* Restore atomically: malformed/truncated libraries cannot partially replace a live bank. */
-    hb_mt_phrase *bank=(hb_mt_phrase*)malloc(sizeof(g_motifs));if(!bank)return;memset(bank,0,sizeof(g_motifs));
-    const char *cursor=marker+offset;int valid=1;
+    hb_mt_definition *bank=(hb_mt_definition*)malloc(sizeof(g_motifs));if(!bank)return;memset(bank,0,sizeof(g_motifs));
+    const char *cursor=marker+5+offset;int valid=1;
     unsigned snapshot_count=0;
-    unsigned long long (*snapshots)[HB_MOTION_LANES+1]=malloc(128*sizeof(*snapshots));
+    unsigned long long (*snapshots)[HB_MOTION_LANES+1]=malloc(HB_MT_SNAPSHOTS*sizeof(*snapshots));
     if(!snapshots){free(bank);return;}
-    if(!hb_mt_read_hex(&cursor,&snapshot_count,2)||snapshot_count>128)valid=0;
+    if(!hb_mt_read_hex(&cursor,&snapshot_count,2)||snapshot_count>HB_MT_SNAPSHOTS)valid=0;
     for(unsigned index=0;index<snapshot_count&&valid;index++){
         unsigned high=0,low=0,mask_high=0,mask_low=0;
         if(!hb_mt_read_hex(&cursor,&high,8)||!hb_mt_read_hex(&cursor,&low,8)||!hb_mt_read_hex(&cursor,&mask_high,8)||!hb_mt_read_hex(&cursor,&mask_low,8)||mask_high>0xFFFFF){valid=0;break;}
@@ -80,18 +94,40 @@ static void hb_mt_restore(Inst *instance,const char *state){
     }
     int total=0;
     for(int slot=0;slot<16&&valid;slot++){
-        unsigned count=0,anchor=0;
-        if(!hb_mt_read_hex(&cursor,&count,2)||!hb_mt_read_hex(&cursor,&anchor,2)||count>HB_MT_STEPS||(count&&anchor>=count)){valid=0;break;}
-        total+=(int)count;if(total>128){valid=0;break;}
-        bank[slot].count=(int)count;bank[slot].anchor=(int)anchor;
+        unsigned count=0,anchor=0,reference=0,placement=0;
+        if(!hb_mt_read_hex(&cursor,&count,2)||!hb_mt_read_hex(&cursor,&anchor,2)){valid=0;break;}
+        if(normalized){
+            if(!hb_mt_read_hex(&cursor,&reference,2)||!hb_mt_read_hex(&cursor,&placement,1)||reference>127||placement>3||
+               count>HB_MT_STEPS+2||(count&&count<2)||(count&&anchor>count-2)||(!count&&(anchor||reference||placement))){valid=0;break;}
+            bank[slot].body.count=count?(int)count-2:0;
+            bank[slot].body.anchor=bank[slot].reference_step=(int)anchor-1;
+            bank[slot].reference_pitch=(int)reference;bank[slot].placement=(int)placement;
+            unsigned legacy_count=0,legacy_anchor=0;
+            if(!hb_mt_read_hex(&cursor,&legacy_count,2)||!hb_mt_read_hex(&cursor,&legacy_anchor,2)||
+               legacy_count>HB_MT_STEPS||(legacy_count&&legacy_anchor>=legacy_count)||
+               (!legacy_count&&legacy_anchor)||(!count&&legacy_count)){valid=0;break;}
+            bank[slot].legacy_count=(int)legacy_count;bank[slot].legacy_anchor=(int)legacy_anchor;
+            for(unsigned index=0;index<legacy_count;index++){
+                unsigned event=0,duration=0;
+                if(!hb_mt_read_hex(&cursor,&event,2)||!hb_mt_read_hex(&cursor,&duration,4)||
+                   event>34||(event<32&&event>=(unsigned)bank[slot].body.count)||
+                   !duration||duration>1536||(event==34&&!index)){valid=0;break;}
+                bank[slot].legacy_event[index]=(unsigned char)event;
+                bank[slot].legacy_duration[index]=(unsigned short)duration;
+            }
+            if(!valid)break;
+        }else if(count>HB_MT_STEPS||(count&&anchor>=count)){valid=0;break;}
+        total+=(int)count;if(total>(normalized?160:128)){valid=0;break;}
+        hb_mt_phrase legacy={.count=(int)count,.anchor=(int)anchor};
         for(unsigned step=0;step<count&&valid;step++){
-            unsigned fields[10];const int digits[]={1,3,1,1,1,2,2,1,3,4};
+            unsigned fields[10];const int digits[]={1,normalized?4:3,1,1,1,2,2,1,3,4};
             for(int field=0;field<10;field++)if(!hb_mt_read_hex(&cursor,&fields[field],digits[field])){valid=0;break;}
             if(!valid)break;
-            if(fields[0]>2||!fields[1]||fields[1]>1536||fields[2]>8||fields[3]>2||fields[4]>3||fields[5]>17||fields[6]>HB_CADENCE_COUNT*HB_CADENCE_STEPS||fields[7]>3||(!fields[0]&&!fields[2])||(fields[0]&&fields[2])){valid=0;break;}
-            hb_mt_event *event=&bank[slot].events[step];
+            if(fields[0]>2||!fields[1]||fields[1]>(normalized&&step>=count-2?HB_MT_STEPS*1536:1536)||fields[2]>8||fields[3]>2||fields[4]>3||fields[5]>17||fields[6]>HB_CADENCE_COUNT*HB_CADENCE_STEPS||fields[7]>3||(!fields[0]&&!fields[2])||(fields[0]&&fields[2])){valid=0;break;}
+            hb_mt_event *event=normalized?hb_mt_storage_event(&bank[slot],(int)step):&legacy.events[step];
             event->kind=fields[0];event->duration=fields[1];event->count=fields[2];event->relation=fields[3];event->modifier=(int)fields[4]-1;event->secondary=fields[5];event->cadence=fields[6];event->chord_mode=fields[7];event->scale=fields[8];event->flags=fields[9];
-            if(event->kind==2&&(!step||bank[slot].events[step-1].kind==1)){valid=0;break;}
+            if(normalized&&step>=count-2&&event->kind){valid=0;break;}
+            if(event->kind==2&&(!step||(normalized?bank[slot].body.events[step-1].kind:legacy.events[step-1].kind)==1)){valid=0;break;}
             unsigned snapshot=0;if(!hb_mt_read_hex(&cursor,&snapshot,2)||snapshot>=snapshot_count){valid=0;break;}
             memcpy(event->actions,snapshots[snapshot],sizeof(event->actions));
             for(int voice=0;voice<event->count;voice++){
@@ -100,7 +136,10 @@ static void hb_mt_restore(Inst *instance,const char *state){
                 event->notes[voice]=(hb_mt_note){(unsigned char)pitch,(unsigned char)velocity};
             }
         }
-        if(count&&bank[slot].events[anchor].kind)valid=0;
+        if(count&&valid){
+            if(normalized){if(anchor&&bank[slot].body.events[anchor-1].kind)valid=0;}
+            else if(!hb_mt_normalize(&legacy,&bank[slot]))valid=0;
+        }
     }
     if(valid&&(*cursor==';'||!*cursor)){
         hb_mt_recorder *editor=&instance->motif.editor;editor->selected=selected;editor->duration=duration;editor->relation=relation;editor->arrival=arrival;editor->late=late;editor->span=span;editor->target=target;
@@ -113,6 +152,10 @@ static void hb_mt_restore(Inst *instance,const char *state){
         if(!g_motifs_restored){memcpy(g_motifs,bank,sizeof(g_motifs));g_motifs_restored=1;}
     }
     if(valid){
+        int placement=0;const char *targets=strstr(state,";mt1,");
+        if(!targets||(sscanf(targets,";mt1,%d",&placement)==1&&placement>=0&&placement<5))
+            instance->motif.editor.placement=placement;
+        instance->approach_rows.target_placement=instance->motif.editor.placement;
         int mode=0,preset=0,grid=1,completion=0;
         const char *play=strstr(state,";mp1,");
         if(!play||(sscanf(play,";mp1,%d,%d,%d,%d",&mode,&preset,&grid,&completion)==4&&mode>=0&&mode<4&&preset>=0&&preset<HB_MT_PRESET_COUNT&&grid>=0&&grid<4&&completion>=0&&completion<2)){
@@ -125,7 +168,7 @@ static void hb_mt_restore(Inst *instance,const char *state){
 }
 static int hb_mt_free_slot(void){
     for(int slot=0;slot<HB_MT_SLOTS;slot++){
-        if(g_motifs[slot].count)continue;
+        if(hb_mt_occupied(&g_motifs[slot]))continue;
         int busy=0;
         for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_pool[index].motif.editor.recording==slot)busy=1;
         if(!busy)return slot;
@@ -141,7 +184,7 @@ static void hb_mt_lane_begin(Inst *instance,int duplicate){
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&&g_pool[index]!=instance&&g_pool[index].motif.editor.recording==slot){editor->error=11;return;}
     hb_mt_begin(editor,slot);
     if(hb_mt_reference_preset(reference)){hb_mt_preset(hb_mt_reference_preset(reference),&editor->draft);editor->changed=1;}
-    else if(duplicate&&reference>=20&&reference<36){editor->draft=g_motifs[reference-20];editor->changed=1;}
+    else if(duplicate&&reference>=20&&reference<36){hb_mt_library_view(reference-20,&editor->draft);editor->changed=1;}
 }
 static int hb_mt_set(Inst *instance,const char *key,const char *value){
     if(strncmp(key,"motif_",6))return 0;
@@ -178,12 +221,12 @@ static int hb_mt_set(Inst *instance,const char *key,const char *value){
     }
     if(!strcmp(key,"motif_slot")){editor->selected=hb_cp_clamp(parse_i(value,editor->selected+1)-1,0,15);editor->preset=0;instance->motif.tap_active=0;return 1;}
     if(!strcmp(key,"motif_trigger")){int note=parse_i(value,60);if(note>=0&&note<=127)hb_mt_launch(instance,note,100,instance->source_channel>=0?instance->source_channel:0);return 1;}
-    if(!strcmp(key,"motif_arm")){instance->motif.playback_lane=-1;int slot=parse_i(value,editor->selected+1)-1;if(slot>=0&&slot<16&&editor->recording<0){editor->selected=slot;instance->motif.tap_active=0;editor->armed=(editor->preset||g_motifs[slot].count)?slot:-1;editor->error=(editor->preset||g_motifs[slot].count)?0:10;}return 1;}
+    if(!strcmp(key,"motif_arm")){instance->motif.playback_lane=-1;int slot=parse_i(value,editor->selected+1)-1;if(slot>=0&&slot<16&&editor->recording<0){editor->selected=slot;instance->motif.tap_active=0;editor->armed=(editor->preset||hb_mt_occupied(&g_motifs[slot]))?slot:-1;editor->error=(editor->preset||hb_mt_occupied(&g_motifs[slot]))?0:10;}return 1;}
     if(!strcmp(key,"motif_record")){
         instance->motif.tap_active=0;
         if(!strcmp(value,"Cancel")){hb_mt_finish(editor,0);return 1;}
         if(editor->recording>=0){
-            int slot=editor->recording;hb_mt_phrase previous=g_motifs[slot];
+            int slot=editor->recording;hb_mt_definition previous=g_motifs[slot];
             if(editor->lane>=0&&instance->motion.lanes[editor->lane].operation!=HB_MO_MOTIF){editor->error=11;return 1;}
             if(hb_mt_finish(editor,1)){
                 char encoded[4096];
@@ -229,6 +272,7 @@ static int hb_mt_set(Inst *instance,const char *key,const char *value){
     if(!strcmp(key,"motif_relation")){editor->relation=enum_index(value,HB_MT_RELATIONS,3,editor->relation);return 1;}
     if(!strcmp(key,"motif_arrival")){editor->arrival=enum_index(value,HB_MT_ARRIVALS,6,editor->arrival);return 1;}
     if(!strcmp(key,"motif_target")){editor->target=enum_index(value,HB_MT_TARGETS,7,editor->target);return 1;}
+    if(!strcmp(key,"motif_placement")){editor->placement=enum_index(value,HB_MT_PLACEMENTS,5,editor->placement);instance->approach_rows.target_placement=editor->placement;instance->approach_rows.event=instance->approach_rows.sequence_event=0;return 1;}
     if(!strcmp(key,"motif_late")){editor->late=enum_index(value,HB_MT_LATE,3,editor->late);return 1;}
     if(!strcmp(key,"motif_rhythm")){g_motif_rhythm=enum_index(value,HB_MT_RHYTHMS,6,g_motif_rhythm);g_motif_timing_restored=1;return 1;}
     if(!strcmp(key,"motif_span")){g_motif_span=enum_index(value,HB_MT_SPANS,3,g_motif_span);g_motif_timing_restored=1;return 1;}
@@ -247,6 +291,7 @@ static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"motif_relation"))return snprintf(buffer,(size_t)length,"%s",HB_MT_RELATIONS[editor->relation]);
     if(!strcmp(key,"motif_arrival"))return snprintf(buffer,(size_t)length,"%s",HB_MT_ARRIVALS[editor->arrival]);
     if(!strcmp(key,"motif_target"))return snprintf(buffer,(size_t)length,"%s",HB_MT_TARGETS[editor->target]);
+    if(!strcmp(key,"motif_placement"))return snprintf(buffer,(size_t)length,"%s",HB_MT_PLACEMENTS[editor->placement]);
     if(!strcmp(key,"motif_late"))return snprintf(buffer,(size_t)length,"%s",HB_MT_LATE[editor->late]);
     if(!strcmp(key,"motif_rhythm"))return snprintf(buffer,(size_t)length,"%s",HB_MT_RHYTHMS[g_motif_rhythm]);
     if(!strcmp(key,"motif_span"))return snprintf(buffer,(size_t)length,"%s",HB_MT_SPANS[g_motif_span]);
@@ -261,17 +306,17 @@ static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
             return snprintf(buffer,(size_t)length,"Tap %d/%d A%+.2fb",runtime->tap_step+1,runtime->tap_phrase.count,delta);
         }
         if(editor->preset&&editor->recording<0)return snprintf(buffer,(size_t)length,"%s: %s",HB_MT_PRESETS[editor->preset],editor->armed>=0?"play target":"Arm to play");
-        return snprintf(buffer,(size_t)length,editor->recording>=0?"REC %d Step %d":editor->armed>=0?"Slot %d: play target":"Slot %d: %d steps",editor->selected+1,editor->recording>=0?editor->cursor+1:g_motifs[editor->selected].count);
+        return snprintf(buffer,(size_t)length,editor->recording>=0?"REC %d Step %d":editor->armed>=0?"Slot %d: play target":"Slot %d: %d steps",editor->selected+1,editor->recording>=0?editor->cursor+1:g_motifs[editor->selected].body.count);
     }
     if(!strcmp(key,"motif_row")){
-        unsigned occupied=0;for(int slot=0;slot<16;slot++)if(g_motifs[slot].count)occupied|=1u<<slot;
+        unsigned occupied=0;for(int slot=0;slot<16;slot++)if(hb_mt_occupied(&g_motifs[slot]))occupied|=1u<<slot;
         int tapping=instance->motif.tap_active;
         hb_mt_phrase builtin;
         const hb_mt_phrase *display=tapping?&instance->motif.tap_phrase:&editor->draft;
         if(!tapping&&editor->lane>=0&&editor->recording<0){
             int reference=instance->motion.lanes[editor->lane].amount;
             if(hb_mt_reference_preset(reference)){hb_mt_preset(hb_mt_reference_preset(reference),&builtin);display=&builtin;}
-            else if(reference>=20&&reference<36)display=&g_motifs[reference-20];
+            else if(reference>=20&&reference<36){hb_mt_library_view(reference-20,&builtin);display=&builtin;}
             else {memset(&builtin,0,sizeof(builtin));builtin.anchor=-1;display=&builtin;}
         }
         int used=snprintf(buffer,(size_t)length,"%d,%d,%d,%d,%u,%d",tapping?-2:editor->recording,editor->selected,tapping?instance->motif.tap_step:editor->cursor,editor->armed,occupied,display->anchor);
