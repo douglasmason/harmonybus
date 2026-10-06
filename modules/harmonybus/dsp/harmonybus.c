@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.257"
+#define HB_VERSION "0.2.258"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -270,13 +270,18 @@ static void hb_input_set(Inst *instance,int source,hb_input_intent input){
     instance->movy_input_degree[source]=(uint8_t)input.degree;instance->movy_input_target[source]=(uint8_t)input.target;
     instance->movy_pad_shift[source]=(signed char)input.shift;instance->approach_rows.tokens[source]=input.token;
 }
-/* Keep legacy pitch diagnostics representative of a remaining owner. */
-static void hb_follower_summary(Inst *instance,int source){
-    hb_follower_voice *selected=0;
+/* Prefer live input consistently when a clip shares its source pitch. */
+static const hb_follower_voice *hb_follower_display_voice(const Inst *instance,int source){
+    const hb_follower_voice *selected=0;
     for(int index=0;index<HB_FOLLOWER_VOICES;index++){
-        hb_follower_voice *voice=&instance->follower_voices[index];
+        const hb_follower_voice *voice=&instance->follower_voices[index];
         if(voice->used&&voice->source==source&&(!selected||!voice->origin))selected=voice;
     }
+    return selected;
+}
+/* Keep legacy pitch diagnostics representative of a remaining owner. */
+static void hb_follower_summary(Inst *instance,int source){
+    const hb_follower_voice *selected=hb_follower_display_voice(instance,source);
     instance->follower_sounding[source]=selected!=0;
     instance->mapped[source]=selected?selected->pitch:-1;
     if(selected){
@@ -486,7 +491,7 @@ static int hb_sync_conductor_from_monitor(Inst *instance){
     (void)generation;
     return changed;
 }
-static void ensure_init(void){if(g_init)return;hb_override_reset();hb_sc_reset();memset(&g_key_context,0,sizeof(g_key_context));g_key_armed=g_parallel_on=g_parallel_latch=g_parallel_manual=g_key_lane_parallel=0;g_parallel_scale=2;g_key_preview[0]=0;g_key_scale_mode=1;g_key_conductor_travel=g_key_settings_restored=0;g_key_follower_recorded_travel=g_key_follower_live_travel=-1;hb_touch_defaults();g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=0;g_bus.follower_scale=1;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
+static void ensure_init(void){if(g_init)return;hb_override_reset();hb_sc_reset();memset(&g_key_context,0,sizeof(g_key_context));g_key_armed=g_parallel_on=g_parallel_latch=g_parallel_manual=g_key_lane_parallel=0;g_parallel_scale=2;g_key_preview[0]=0;g_key_scale_mode=1;g_key_conductor_travel=3;g_key_settings_restored=0;g_key_follower_travel=0;hb_touch_defaults();g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=0;g_bus.follower_scale=1;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
 
 static char *hb_read_text_file(const char *path,long *size_out){
     FILE *file=fopen(path,"rb");if(!file)return 0;
@@ -6072,31 +6077,36 @@ static int hb_follower_path(Inst *instance,const char *key,char *buffer,int leng
     const Inst *owner=instance;
     int raw=global?hb_nth_aggregate_follower_observation(ordinal,&owner):hb_nth_local_follower_note(instance,ordinal);
     if(raw<0||!owner)return snprintf(buffer,(size_t)length,"--");
-    hb_harmony_t harmony=owner->follower_path_harmony[raw];
-    int piano=owner->movy_pad_shift[raw];
+    const hb_follower_voice *plain=hb_follower_display_voice(owner,raw);
+    const hb_cp_key *chord_voice=0;
+    if(!plain)for(int index=0;index<HB_CP_KEYS;index++){
+        const hb_cp_key *voice=&owner->player.keys[index];
+        if(voice->used&&voice->source==raw&&(!chord_voice||!voice->playback_origin))chord_voice=voice;
+    }
+    hb_input_intent intent=plain?plain->input:chord_voice?
+        (hb_input_intent){chord_voice->input_degree,chord_voice->input_target,chord_voice->input_shift,chord_voice->input_token}:hb_input_get((Inst*)owner,raw);
+    hb_harmony_t harmony=plain?plain->harmony:owner->follower_path_harmony[raw];
+    int piano=intent.shift;
     if(field==0){char name[12];int shown=piano?raw+piano-1:raw;while(shown<0)shown+=12;
         return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(shown,harmony,name,sizeof(name)));}
     int input_root=0;
     int have_root=hb_resolve_follower_reference_root((Inst*)owner,&input_root);
     uint16_t input=have_root?hb_follower_input_scale((Inst*)owner,input_root):0;
-    int chromatic=owner->movy_input_target[raw]||(input&&!(input&(1u<<mod12(raw))));
+    int chromatic=intent.target||(input&&!(input&(1u<<mod12(raw))));
     int approach=piano||(chromatic&&hb_chromatic_travel(owner)&&raw<127);
     if(field==1){
         if(piano)return snprintf(buffer,(size_t)length,"%s-1",hb_follower_degree_role_for_note((Inst*)owner,raw+piano));
         if(approach){
-            int next=owner->movy_input_target[raw]?owner->movy_input_target[raw]-1:raw+1;while(next<127&&!(input&(1u<<mod12(next))))next++;
+            int next=intent.target?intent.target-1:raw+1;while(next<127&&!(input&(1u<<mod12(next))))next++;
             if(input&(1u<<mod12(next)))return snprintf(buffer,(size_t)length,"%s-1",hb_follower_degree_role_for_note((Inst*)owner,next));
         }
-        if(chromatic)return snprintf(buffer,(size_t)length,"%s*",hb_follower_degree_role_for_note((Inst*)owner,raw));
-        return snprintf(buffer,(size_t)length,"%s",hb_follower_degree_role_for_note((Inst*)owner,raw));
+        const char *role=intent.degree?hb_role_name_for_degree(intent.degree-1):have_root?
+            hb_role_name_for_degree(hb_source_degree_from_parent_scale(mod12(raw-input_root),input_root,input)):"--";
+        return snprintf(buffer,(size_t)length,"%s%s",role,chromatic?"*":"");
     }
     int pitches[HB_CP_VOICES],count=0;
-    for(int index=0;index<HB_CP_KEYS;index++){
-        const hb_cp_key *voice=&owner->player.keys[index];
-        if(!voice->used||voice->source!=raw)continue;
-        for(int note=0;note<voice->count&&count<HB_CP_VOICES;note++)pitches[count++]=voice->notes[note];
-        break;
-    }
+    if(plain)pitches[count++]=plain->pitch;
+    else if(chord_voice)for(int note=0;note<chord_voice->count&&count<HB_CP_VOICES;note++)pitches[count++]=chord_voice->notes[note];
     if(!count&&owner->mapped[raw]>=0)pitches[count++]=owner->mapped[raw];
     if(!count)return snprintf(buffer,(size_t)length,"--"); /* queued, not rendered */
     int rendered_approach=approach&&count==1&&hb_cp_mode(&owner->player)==0;
@@ -6104,7 +6114,8 @@ static int hb_follower_path(Inst *instance,const char *key,char *buffer,int leng
        random/probabilistic lane while drawing a diagnostic. */
     for(int note=0;note<count;note++)for(int index=HB_MOTION_OWNERS-1;index>=0;index--){
         const hb_motion_owner *motion=&owner->motion_local.owners[index];
-        if(motion->used&&motion->source==pitches[note]&&!motion->generated){
+        int identity=plain?hb_fv_identity(raw,plain->channel,plain->origin):0;
+        if(motion->used&&motion->source==pitches[note]&&motion->input_owner==identity&&!motion->generated){
             if(pitches[note]!=motion->pitch)rendered_approach=0;
             pitches[note]=motion->pitch;break;
         }
@@ -6243,6 +6254,13 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
     /* Output grouping still compares the actual expanded voicing. Reset and
        render it separately on the same private preview; no live state changes. */
     if(follower_single&&output_low&&output_high){
+        /* Without expansion, the color voice already is the complete
+           output. Replaying it repeats all mapping and operation scans. */
+        if(!hb_cp_effective_config(&instance->player).mode){
+            *output_low|=preview->preview_single_low;
+            *output_high|=preview->preview_single_high;
+            return rendered_mask;
+        }
         unsigned long long low=preview->preview_single_low,high=preview->preview_single_high;
         unsigned gap_mask=preview->preview_gap_mask;int target=preview->preview_target;
         hb_pad_render_mask(preview,instance,harmony,source_note,0,output_low,output_high);
@@ -6425,8 +6443,8 @@ if(!strcmp(key,"key_center")){int owner=(int)(instance-g_pool);int active=g_sc_l
 if(!strcmp(key,"follower_scale")&&instance->movy_track==g_sc_record_track&&g_sc_record_track>=0&&g_sc_live[instance-g_pool][HB_SC_PARENT].on)return snprintf(buffer,(size_t)length,"%s",FOLLOWER_SCALE_OPTS[g_sc_live[instance-g_pool][HB_SC_PARENT].a]);
 if(!strcmp(key,"parallel_mode")){int owner=(int)(instance-g_pool);int active=g_sc_live[owner][HB_SC_PARALLEL].on||(instance->movy_track>=0&&instance->role==0&&g_sc_replay[instance->movy_track][HB_SC_PARALLEL].on);return snprintf(buffer,(size_t)length,"%s",active?((g_sc_latch[owner]||(instance->movy_track>=0&&instance->role==0&&g_sc_replay[instance->movy_track][HB_SC_PARALLEL].c==2))?"Latch":"Hold"):"Off");}
 if(!strcmp(key,"conductor_key_travel"))return snprintf(buffer,(size_t)length,"%s",HB_KEY_TRAVEL[g_key_conductor_travel]);
-if(!strcmp(key,"follower_recorded_key_travel")||!strcmp(key,"follower_live_key_travel")){
-    int travel=!strcmp(key,"follower_recorded_key_travel")?g_key_follower_recorded_travel:g_key_follower_live_travel;
+if(!strcmp(key,"follower_key_travel")||!strcmp(key,"follower_recorded_key_travel")||!strcmp(key,"follower_live_key_travel")){
+    int travel=g_key_follower_travel;
     return snprintf(buffer,(size_t)length,"%s",travel<0?"Same as Conductor":HB_KEY_TRAVEL[travel]);
 }
 if(!strcmp(key,"key_center_scale"))return snprintf(buffer,(size_t)length,"%s",g_key_scale_mode==2?"Use Parallel Scale":g_key_scale_mode==0?"Simplified Major/Minor":"Mode from Parent");
@@ -6683,7 +6701,7 @@ if(!strcmp(key,"state")){
     used=hb_role_save(instance,buffer,length,used);
     used=hb_mo_save(&instance->motion,buffer,length,used);
     if(used<0||used>=length)return used;
-    used+=snprintf(buffer+used,(size_t)(length-used),";kc1,%d,%d,%d;kt2,%d,%d,%d",g_key_scale_mode,g_key_conductor_travel,g_parallel_scale,g_key_conductor_travel,g_key_follower_recorded_travel,g_key_follower_live_travel);
+    used+=snprintf(buffer+used,(size_t)(length-used),";kc1,%d,%d,%d;kt2,%d,%d,%d;kt3,%d,%d",g_key_scale_mode,g_key_conductor_travel,g_parallel_scale,g_key_conductor_travel,g_key_follower_travel,g_key_follower_travel,g_key_conductor_travel,g_key_follower_travel);
     return hb_timeline_save(instance,buffer,length,hb_ar_save(instance,buffer,length,hb_mt_save(instance,buffer,length,used)));
 }
 if(!strcmp(key,"hb_record_action")){
@@ -7242,8 +7260,8 @@ static void set_param(void *value,const char *key,const char *parameter){
         instance->target_scale_policy[field]=enum_index(parameter,HB_TARGET_OPTIONS[field],HB_TARGET_COUNTS[field],instance->target_scale_policy[field]);
         memset(instance->key_cache,0,sizeof(instance->key_cache));instance->opening_hash=0;instance->dirty=1;return;
     }
-    if(!strcmp(key,"conductor_key_travel")||!strcmp(key,"follower_recorded_key_travel")||!strcmp(key,"follower_live_key_travel")){
-        int *travel=!strcmp(key,"conductor_key_travel")?&g_key_conductor_travel:!strcmp(key,"follower_recorded_key_travel")?&g_key_follower_recorded_travel:&g_key_follower_live_travel;
+    if(!strcmp(key,"conductor_key_travel")||!strcmp(key,"follower_key_travel")||!strcmp(key,"follower_recorded_key_travel")||!strcmp(key,"follower_live_key_travel")){
+        int *travel=!strcmp(key,"conductor_key_travel")?&g_key_conductor_travel:&g_key_follower_travel;
         int selected=travel!=&g_key_conductor_travel&&!strcmp(parameter,"Same as Conductor")?-1:enum_index(parameter,HB_KEY_TRAVEL,4,*travel);
         if(selected!=*travel){*travel=selected;for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used){g_pool[index].play_revision++;g_pool[index].opening_hash=0;}}
         return;
@@ -7265,7 +7283,11 @@ static void set_param(void *value,const char *key,const char *parameter){
             if(suffix&&sscanf(suffix,";kc1,%d,%d,%d",&mode,&travel,&scale)==3&&mode>=0&&mode<=2&&travel>=0&&travel<=3&&scale>=1&&scale<HB_PARALLEL_COUNT){
                 g_key_scale_mode=mode;g_key_conductor_travel=travel;g_parallel_scale=scale;
                 const char *travel_suffix=strstr(parameter,";kt2,");int conductor,recorded,live;
-                if(travel_suffix&&sscanf(travel_suffix,";kt2,%d,%d,%d",&conductor,&recorded,&live)==3&&conductor>=0&&conductor<4&&recorded>=-1&&recorded<4&&live>=-1&&live<4){g_key_conductor_travel=conductor;g_key_follower_recorded_travel=recorded;g_key_follower_live_travel=live;}
+                /* Legacy split settings migrate to the recorded policy so saved clips
+                   retain their rendering. The new shared suffix takes precedence. */
+                if(travel_suffix&&sscanf(travel_suffix,";kt2,%d,%d,%d",&conductor,&recorded,&live)==3&&conductor>=0&&conductor<4&&recorded>=-1&&recorded<4&&live>=-1&&live<4){g_key_conductor_travel=conductor;g_key_follower_travel=recorded;}
+                travel_suffix=strstr(parameter,";kt3,");int follower;
+                if(travel_suffix&&sscanf(travel_suffix,";kt3,%d,%d",&conductor,&follower)==2&&conductor>=0&&conductor<4&&follower>=-1&&follower<4){g_key_conductor_travel=conductor;g_key_follower_travel=follower;}
                 g_key_settings_restored=1;
             }}
         instance->dominant_color_held=instance->dominant_color_latched=0;instance->dominant_color_family=3;

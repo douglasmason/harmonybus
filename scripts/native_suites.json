@@ -447,5 +447,12 @@
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/live_overdub_test.c src/harmony_core.c -lm -o /tmp/live_overdub_test",
       "/tmp/live_overdub_test"
     ]
+  },
+  {
+    "name": "pad_single_render_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_single_render_test.c src/harmony_core.c -lm -o /tmp/pad_single_render_test",
+      "/tmp/pad_single_render_test"
+    ]
   }
 ]
