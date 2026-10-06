@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.258"
+#define HB_VERSION "0.2.259"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -6182,6 +6182,13 @@ static int hb_timing_events(hb_loop_harmony_event_t *events){
     }
     return used;
 }
+/* Tests compare both traversal paths against the same musical state. */
+#ifdef HB_PAD_PREVIEW_TEST
+#define HB_PAD_PREVIEW_CAN_COMPARE 1
+static int hb_pad_preview_reuse=1;
+#else
+#define hb_pad_preview_reuse 1
+#endif
 /* Reuse the note renderer on a private preview under the requested harmony.
    Display membership compares the current rendered pitch with each target
    chord; a future color target must not change this rendering context. */
@@ -6913,7 +6920,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         struct {int valid,source,shift,row,target;unsigned mask,gap;
             unsigned long long single_low,single_high;} pad_preview[32]={0};
         for(int pass=0;pass<12+pad_count;pass++){
-            int sample=pass<pad_count?pass+12:pass-pad_count;
+            int sample=hb_pad_preview_reuse?(pass<pad_count?pass+12:pass-pad_count):pass;
             /* Only actual pad slots consume trail targets. Pitch-class color
                probes and alternative harmony previews need colors alone. */
             preview.trail_enabled=instance->trail_enabled&&sample>=12;
@@ -6929,7 +6936,7 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             int pitch_class=mod12(source_note);
             unsigned rendered_mask=0;
             int row=gap?preview.approach_rows.preview_row:-1,shift=gap?gap_target-source_note:0,cached=-1;
-            for(int previous=0;previous<(sample>=12?sample-12:pad_count);previous++)
+            for(int previous=0;hb_pad_preview_reuse&&previous<(sample>=12?sample-12:pad_count);previous++)
                 if(pad_preview[previous].valid&&pad_preview[previous].source==source_note&&
                    pad_preview[previous].shift==shift&&pad_preview[previous].row==row){cached=previous;break;}
             if(cached>=0){
