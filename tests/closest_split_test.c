@@ -16,6 +16,59 @@ static void assert_distinct_notes(const int outputs[HB_CLOSEST_SPLIT_DEGREES]) {
 }
 
 int main(void) {
+    /* Diversity is not a small motion discount: three available chord tones
+       must not collapse to two merely because two inputs are near the root. */
+    {
+        const int nominal[3]={60,61,62};
+        const unsigned allowed[3]={0x91u,0x91u,0x91u};int mapped[3];
+        assert(hb_build_closest_assignment(3,nominal,allowed,mapped));
+        unsigned used=0;for(int index=0;index<3;index++)used|=1u<<hb_cs_mod12(mapped[index]);
+        assert(used==0x91u);
+        /* A restricted class may necessarily reuse a tone. It must never
+           borrow an available pitch from the other class to hide that fact. */
+        const unsigned restricted[3]={1u,1u,0x90u};
+        assert(hb_build_closest_assignment(3,nominal,restricted,mapped));
+        assert(hb_cs_mod12(mapped[0])==0&&hb_cs_mod12(mapped[1])==0);
+        assert(restricted[2]&(1u<<hb_cs_mod12(mapped[2])));
+        unsigned char required[12]={0};required[0]=required[4]=required[7]=1;
+        hb_closest_cache cache={0};
+        assert(hb_cached_closest_assignment_required(&cache,3,nominal,allowed,required,mapped));
+        unsigned before=cache.cursor;
+        assert(hb_cached_closest_assignment_required(&cache,3,nominal,allowed,required,mapped));
+        assert(cache.cursor==before);
+        required[0]=2;required[7]=0;
+        assert(hb_cached_closest_assignment_required(&cache,3,nominal,allowed,required,mapped));
+        int roots=0;used=0;
+        for(int index=0;index<3;index++){roots+=hb_cs_mod12(mapped[index])==0;used|=1u<<hb_cs_mod12(mapped[index]);}
+        assert(roots==2&&used==0x11u&&cache.cursor==before+1);
+    }
+    /* Independent exhaustive oracle: every collection, chromatic tie and
+       boundary register must retain the old pitch choice exactly. */
+    for(int nominal=-24;nominal<=151;nominal++)for(unsigned mask=0;mask<4096;mask++){
+        int expected=-1,distance=1000000;
+        for(int pitch=0;pitch<128;pitch++)if(mask&(1u<<(pitch%12))){
+            int next=hb_cs_abs(pitch-nominal);
+            if(next<distance){expected=pitch;distance=next;}
+        }
+        assert(hb_cs_nearest(nominal,mask)==expected);
+    }
+    /* Exact cached and fresh solves agree through context changes and eviction. */
+    hb_closest_cache cache={0};
+    for(int pass=0;pass<3;pass++)for(int context=0;context<40;context++){
+        int count=1+context%12,nominal[12],fresh[12],cached[12];unsigned allowed[12];
+        for(int row=0;row<count;row++){
+            nominal[row]=24+(context*7+row*2)%80;
+            allowed[row]=(context%3==0?0x91u:context%3==1?0xAB5u:0xFFFu);
+        }
+        int expected=hb_build_closest_assignment(count,nominal,allowed,fresh);
+        assert(hb_cached_closest_assignment(&cache,count,nominal,allowed,cached)==expected);
+        if(expected){
+            for(int row=0;row<count;row++)assert(cached[row]==fresh[row]);
+            unsigned cursor=cache.cursor;
+            assert(hb_cached_closest_assignment(&cache,count,nominal,allowed,cached));
+            assert(cache.cursor==cursor);
+        }
+    }
     const unsigned int c_major_degree_mask[HB_CLOSEST_SPLIT_DEGREES] = {
         1u << 0, 1u << 2, 1u << 4, 1u << 5, 1u << 7, 1u << 9, 1u << 11
     };

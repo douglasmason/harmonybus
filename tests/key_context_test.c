@@ -310,7 +310,7 @@ int main(void){key_center_waits_for_touch_target();anticipated_destination_scale
     instance=fixture();single_setup(instance);new_key_major(instance,65);
     API.set_param(instance,"role","Conductor");API.set_param(instance,"source_channel","1");API.set_param(instance,"render_channel","4");single_setup(instance);
     API.set_param(instance,"conductor_key_travel","Closest Chord Tone");
-    assert(press_mask(instance,60)==1u);release(instance,60); /* C is already a tone of the new F chord. */
+    assert(press_mask(instance,60)==(1u<<5));release(instance,60); /* A conductor's tonic remains the tonic in F. */
     API.destroy_instance(instance);
     instance=fixture();single_setup(instance);API.set_param(instance,"motion_operation_1","Key Center");API.set_param(instance,"motion_gesture_1","Touch");
     press_mask(instance,62);assert(g_key_context.target_root==2);release(instance,62);API.destroy_instance(instance);

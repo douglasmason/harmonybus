@@ -92,4 +92,67 @@ static void persistence(void){
     assert(g_key_conductor_travel==1&&g_key_follower_recorded_travel==-1&&g_key_follower_live_travel==-1);
     API.destroy_instance(instance);
 }
-int main(void){relative_register();contexts_and_chromatic();paired_release();persistence();puts("key travel: register, separate origins, chromatic targets, paired releases and persistence pass");}
+static void conductor_progression(void){
+    const int inputs[4]={62,67,60,69};
+    const int major_degrees[4]={2,7,0,9},minor_degrees[4]={2,7,0,8};
+    const int major_thirds[4]={3,4,4,3},minor_thirds[4]={3,4,3,4};
+    for(int target=0;target<12;target++)for(int minor=0;minor<2;minor++)for(int policy=0;policy<4;policy++)for(int seventh=0;seventh<2;seventh++){
+        Inst *instance=fixture();
+        API.set_param(instance,"role","Conductor");API.set_param(instance,"source_channel","1");
+        API.set_param(instance,"chord_mode","Scale Degree");API.set_param(instance,"chord_form",seventh?"Seventh":"Triad");
+        API.set_param(instance,"dominant_minor_scale","Harmonic Minor");
+        g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=target,
+            .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(target,minor?2:1)};
+        g_key_conductor_travel=policy;instance->movy_playback=1;
+        for(int step=0;step<4;step++){
+            int root=mod12(target+(minor?minor_degrees[step]:major_degrees[step]));
+            int third=minor?minor_thirds[step]:major_thirds[step],fifth=minor&&step==0?6:7;
+            unsigned expected=(1u<<root)|(1u<<mod12(root+third))|(1u<<mod12(root+fifth));
+            if(seventh)expected|=1u<<mod12(root+(minor?(step==3?11:10):(step==2?11:10)));
+            unsigned actual=played(instance,inputs[step]);
+            if(actual!=expected)fprintf(stderr,"conductor target%d minor%d policy%d step%d: %x != %x\n",target,minor,policy,step,actual,expected);
+            assert(actual==expected);release(instance,inputs[step]);
+        }
+        API.destroy_instance(instance);
+    }
+}
+static void conductor_inversions(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"role","Conductor");API.set_param(instance,"source_channel","1");
+    API.set_param(instance,"chord_mode","Scale Degree");API.set_param(instance,"chord_form","Triad");
+    g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=9,
+        .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(9,2)};
+    g_key_conductor_travel=1;instance->movy_playback=1;
+    assert(played(instance,62)==((1u<<11)|(1u<<2)|(1u<<5)));
+    int notes[3],count=0;
+    for(int event=0;event<render_count;event++)if((rendered[event][1]&0xf0)==0x90&&rendered[event][3]){
+        assert(count<3);notes[count++]=rendered[event][2];
+    }
+    hb_cp_sort(notes,count);assert(count==3);
+    const int expected[3]={62,65,71};expect_notes(notes,expected,3); /* Bdim/D beside recorded D-F-A. */
+    /* Releases own their emitted pitches across another key/policy change. */
+    g_key_context.target_root=2;g_key_context.target_mask=hb_explicit_scale_mask(2,1);g_key_conductor_travel=0;
+    render_count=0;release(instance,62);unsigned released=0;
+    for(int event=0;event<render_count;event++)if((rendered[event][1]&0xf0)==0x80)
+        released|=1u<<mod12(rendered[event][2]);
+    assert(released==((1u<<11)|(1u<<2)|(1u<<5)));API.destroy_instance(instance);
+    /* Octave duplicates, extended forms and MIDI boundaries keep every voice
+       and never cost more ordered motion than the original relative voicing. */
+    for(int form=1;form<HB_CP_FORMS;form++)for(int source=0;source<116;source+=5)for(int target=0;target<12;target++){
+        hb_cp_config config={0};config.mode=1;config.size=form;
+        int reference[HB_CP_VOICES],pitches[HB_CP_VOICES],before[12]={0},after[12]={0};
+        int reference_count=hb_cp_voice(config,source,0,0,hb_explicit_scale_mask(0,1),reference);
+        int count=hb_cp_voice(config,source+target,target,0,hb_explicit_scale_mask(target,1),pitches);
+        if(reference_count!=count)continue;
+        int original_cost=0,final_cost=0;
+        for(int voice=0;voice<count;voice++){before[mod12(pitches[voice])]++;original_cost+=abs(pitches[voice]-reference[voice]);}
+        hb_closest_cache cache={0};hb_key_closest_voicing(&cache,pitches,count,reference,reference_count);
+        for(int voice=0;voice<count;voice++){
+            assert(pitches[voice]>=0&&pitches[voice]<=127);
+            if(voice)assert(pitches[voice]>pitches[voice-1]);
+            after[mod12(pitches[voice])]++;final_cost+=abs(pitches[voice]-reference[voice]);
+        }
+        assert(final_cost<=original_cost);assert(!memcmp(before,after,sizeof(before)));
+    }
+}
+int main(void){conductor_progression();conductor_inversions();relative_register();contexts_and_chromatic();paired_release();persistence();puts("key travel: conductor progression/inversions, register, separate origins, chromatic targets, paired releases and persistence pass");}
