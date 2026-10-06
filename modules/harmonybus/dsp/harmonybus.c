@@ -6906,7 +6906,14 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         for(int pitch=0;pitch<128;pitch++)if(instance->pad_sounding[pitch]){
             if(pitch<64)sounding_low|=1ULL<<pitch;else sounding_high|=1ULL<<(pitch-64);
         }
-        for(int sample=0;sample<12+pad_count;sample++){
+        /* Identical inputs in this snapshot share their render. Pad slots go
+           first because they also need full output groups and trail targets;
+           the twelve pitch-class probes can then reuse those richer results.
+           Nothing survives this read, so key/chord/motion changes cannot stale it. */
+        struct {int valid,source,shift,row,target;unsigned mask,gap;
+            unsigned long long single_low,single_high;} pad_preview[32]={0};
+        for(int pass=0;pass<12+pad_count;pass++){
+            int sample=pass<pad_count?pass+12:pass-pad_count;
             /* Only actual pad slots consume trail targets. Pitch-class color
                probes and alternative harmony previews need colors alone. */
             preview.trail_enabled=instance->trail_enabled&&sample>=12;
@@ -6921,9 +6928,27 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
             if(source_note<0){output_group[sample-12]=-1;continue;}
             int pitch_class=mod12(source_note);
             unsigned rendered_mask=0;
-            if(instance->role==0||instance->role==1){
+            int row=gap?preview.approach_rows.preview_row:-1,shift=gap?gap_target-source_note:0,cached=-1;
+            for(int previous=0;previous<(sample>=12?sample-12:pad_count);previous++)
+                if(pad_preview[previous].valid&&pad_preview[previous].source==source_note&&
+                   pad_preview[previous].shift==shift&&pad_preview[previous].row==row){cached=previous;break;}
+            if(cached>=0){
+                rendered_mask=pad_preview[cached].mask;preview.preview_gap_mask=pad_preview[cached].gap;
+                preview.preview_target=pad_preview[cached].target;
+                preview.preview_single_low=pad_preview[cached].single_low;
+                preview.preview_single_high=pad_preview[cached].single_high;
+                if(sample>=12){output_low[sample-12]=output_low[cached];output_high[sample-12]=output_high[cached];}
+            }else if(instance->role==0||instance->role==1){
                 rendered_mask=hb_pad_render_mask(&preview,instance,rendering,source_note,1,
                     sample>=12?&output_low[sample-12]:0,sample>=12?&output_high[sample-12]:0);
+            }
+            if(sample>=12){
+                int slot=sample-12;
+                pad_preview[slot].valid=1;pad_preview[slot].source=source_note;
+                pad_preview[slot].shift=shift;pad_preview[slot].row=row;
+                pad_preview[slot].mask=rendered_mask;pad_preview[slot].gap=preview.preview_gap_mask;
+                pad_preview[slot].target=preview.preview_target;
+                pad_preview[slot].single_low=preview.preview_single_low;pad_preview[slot].single_high=preview.preview_single_high;
             }
             if(sample>=12){
                 int slot=sample-12,effective_target=preview.preview_target;output_group[slot]=-1;
