@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.257"
+#define HB_VERSION "0.2.258"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -270,13 +270,18 @@ static void hb_input_set(Inst *instance,int source,hb_input_intent input){
     instance->movy_input_degree[source]=(uint8_t)input.degree;instance->movy_input_target[source]=(uint8_t)input.target;
     instance->movy_pad_shift[source]=(signed char)input.shift;instance->approach_rows.tokens[source]=input.token;
 }
-/* Keep legacy pitch diagnostics representative of a remaining owner. */
-static void hb_follower_summary(Inst *instance,int source){
-    hb_follower_voice *selected=0;
+/* Prefer live input consistently when a clip shares its source pitch. */
+static const hb_follower_voice *hb_follower_display_voice(const Inst *instance,int source){
+    const hb_follower_voice *selected=0;
     for(int index=0;index<HB_FOLLOWER_VOICES;index++){
-        hb_follower_voice *voice=&instance->follower_voices[index];
+        const hb_follower_voice *voice=&instance->follower_voices[index];
         if(voice->used&&voice->source==source&&(!selected||!voice->origin))selected=voice;
     }
+    return selected;
+}
+/* Keep legacy pitch diagnostics representative of a remaining owner. */
+static void hb_follower_summary(Inst *instance,int source){
+    const hb_follower_voice *selected=hb_follower_display_voice(instance,source);
     instance->follower_sounding[source]=selected!=0;
     instance->mapped[source]=selected?selected->pitch:-1;
     if(selected){
@@ -6072,31 +6077,36 @@ static int hb_follower_path(Inst *instance,const char *key,char *buffer,int leng
     const Inst *owner=instance;
     int raw=global?hb_nth_aggregate_follower_observation(ordinal,&owner):hb_nth_local_follower_note(instance,ordinal);
     if(raw<0||!owner)return snprintf(buffer,(size_t)length,"--");
-    hb_harmony_t harmony=owner->follower_path_harmony[raw];
-    int piano=owner->movy_pad_shift[raw];
+    const hb_follower_voice *plain=hb_follower_display_voice(owner,raw);
+    const hb_cp_key *chord_voice=0;
+    if(!plain)for(int index=0;index<HB_CP_KEYS;index++){
+        const hb_cp_key *voice=&owner->player.keys[index];
+        if(voice->used&&voice->source==raw&&(!chord_voice||!voice->playback_origin))chord_voice=voice;
+    }
+    hb_input_intent intent=plain?plain->input:chord_voice?
+        (hb_input_intent){chord_voice->input_degree,chord_voice->input_target,chord_voice->input_shift,chord_voice->input_token}:hb_input_get((Inst*)owner,raw);
+    hb_harmony_t harmony=plain?plain->harmony:owner->follower_path_harmony[raw];
+    int piano=intent.shift;
     if(field==0){char name[12];int shown=piano?raw+piano-1:raw;while(shown<0)shown+=12;
         return snprintf(buffer,(size_t)length,"%s",hb_note_name_with_octave(shown,harmony,name,sizeof(name)));}
     int input_root=0;
     int have_root=hb_resolve_follower_reference_root((Inst*)owner,&input_root);
     uint16_t input=have_root?hb_follower_input_scale((Inst*)owner,input_root):0;
-    int chromatic=owner->movy_input_target[raw]||(input&&!(input&(1u<<mod12(raw))));
+    int chromatic=intent.target||(input&&!(input&(1u<<mod12(raw))));
     int approach=piano||(chromatic&&hb_chromatic_travel(owner)&&raw<127);
     if(field==1){
         if(piano)return snprintf(buffer,(size_t)length,"%s-1",hb_follower_degree_role_for_note((Inst*)owner,raw+piano));
         if(approach){
-            int next=owner->movy_input_target[raw]?owner->movy_input_target[raw]-1:raw+1;while(next<127&&!(input&(1u<<mod12(next))))next++;
+            int next=intent.target?intent.target-1:raw+1;while(next<127&&!(input&(1u<<mod12(next))))next++;
             if(input&(1u<<mod12(next)))return snprintf(buffer,(size_t)length,"%s-1",hb_follower_degree_role_for_note((Inst*)owner,next));
         }
-        if(chromatic)return snprintf(buffer,(size_t)length,"%s*",hb_follower_degree_role_for_note((Inst*)owner,raw));
-        return snprintf(buffer,(size_t)length,"%s",hb_follower_degree_role_for_note((Inst*)owner,raw));
+        const char *role=intent.degree?hb_role_name_for_degree(intent.degree-1):have_root?
+            hb_role_name_for_degree(hb_source_degree_from_parent_scale(mod12(raw-input_root),input_root,input)):"--";
+        return snprintf(buffer,(size_t)length,"%s%s",role,chromatic?"*":"");
     }
     int pitches[HB_CP_VOICES],count=0;
-    for(int index=0;index<HB_CP_KEYS;index++){
-        const hb_cp_key *voice=&owner->player.keys[index];
-        if(!voice->used||voice->source!=raw)continue;
-        for(int note=0;note<voice->count&&count<HB_CP_VOICES;note++)pitches[count++]=voice->notes[note];
-        break;
-    }
+    if(plain)pitches[count++]=plain->pitch;
+    else if(chord_voice)for(int note=0;note<chord_voice->count&&count<HB_CP_VOICES;note++)pitches[count++]=chord_voice->notes[note];
     if(!count&&owner->mapped[raw]>=0)pitches[count++]=owner->mapped[raw];
     if(!count)return snprintf(buffer,(size_t)length,"--"); /* queued, not rendered */
     int rendered_approach=approach&&count==1&&hb_cp_mode(&owner->player)==0;
@@ -6104,7 +6114,8 @@ static int hb_follower_path(Inst *instance,const char *key,char *buffer,int leng
        random/probabilistic lane while drawing a diagnostic. */
     for(int note=0;note<count;note++)for(int index=HB_MOTION_OWNERS-1;index>=0;index--){
         const hb_motion_owner *motion=&owner->motion_local.owners[index];
-        if(motion->used&&motion->source==pitches[note]&&!motion->generated){
+        int identity=plain?hb_fv_identity(raw,plain->channel,plain->origin):0;
+        if(motion->used&&motion->source==pitches[note]&&motion->input_owner==identity&&!motion->generated){
             if(pitches[note]!=motion->pitch)rendered_approach=0;
             pitches[note]=motion->pitch;break;
         }
@@ -6243,6 +6254,13 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
     /* Output grouping still compares the actual expanded voicing. Reset and
        render it separately on the same private preview; no live state changes. */
     if(follower_single&&output_low&&output_high){
+        /* Without expansion, the color voice already is the complete
+           output. Replaying it repeats all mapping and operation scans. */
+        if(!hb_cp_effective_config(&instance->player).mode){
+            *output_low|=preview->preview_single_low;
+            *output_high|=preview->preview_single_high;
+            return rendered_mask;
+        }
         unsigned long long low=preview->preview_single_low,high=preview->preview_single_high;
         unsigned gap_mask=preview->preview_gap_mask;int target=preview->preview_target;
         hb_pad_render_mask(preview,instance,harmony,source_note,0,output_low,output_high);

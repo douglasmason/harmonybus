@@ -275,6 +275,26 @@ static void follower_rows(void){
     API.get_param(second,"fpath_0_0_3",display,sizeof(display));assert(!strcmp(display,"--"));
     API.destroy_instance(first);API.destroy_instance(second);
 }
+static void overdub_rows_keep_one_voice_owner(void){
+    Inst *instance=fixture();
+    instance->published_follower[67]=instance->follower_held[67]=1;
+    instance->follower_voices[0]=(hb_follower_voice){.used=1,.source=67,.channel=0,.origin=0,.pitch=69,.harmony=chord(0,0,0),.input={.degree=3}};
+    instance->follower_voices[1]=(hb_follower_voice){.used=1,.source=67,.channel=0,.origin=1,.pitch=69,.harmony=chord(2,1,0),.input={.degree=5}};
+    /* Both map to A4 before operations. Each operation owns a different
+       result; array order must not make the live row borrow the clip's D5. */
+    instance->motion_local.owners[0]=(hb_motion_owner){.used=1,.source=69,.pitch=72,.input_owner=hb_fv_identity(67,0,0)};
+    instance->motion_local.owners[1]=(hb_motion_owner){.used=1,.source=69,.pitch=74,.input_owner=hb_fv_identity(67,0,1)};
+    /* Later pad metadata must not relabel either held input. */
+    instance->movy_pad_shift[67]=12;instance->movy_input_degree[67]=7;instance->movy_input_target[67]=70;
+    hb_follower_summary(instance,67);
+    char display[256];
+    API.get_param(instance,"follower_snapshot",display,sizeof(display));
+    assert(!strcmp(display,"fp1|G4|3rd|Root|C5|--|--|--|--"));
+    instance->follower_voices[0].used=0;hb_follower_summary(instance,67);
+    API.get_param(instance,"follower_snapshot",display,sizeof(display));
+    assert(!strcmp(display,"fp1|G4|5th|Root|D5|--|--|--|--"));
+    API.destroy_instance(instance);
+}
 static void unchanged_pitch_updates_output_role(void){
     Inst *instance=fixture();
     API.set_param(instance,"travel_map","None");
@@ -334,4 +354,4 @@ static void direct_follower_input_owns_its_display(void){
     g_monitor=0;API.destroy_instance(instance);
 }
 
-int main(void){lookahead_disables_follower_buffer();direct_follower_input_owns_its_display();unchanged_pitch_updates_output_role();harmony_flow();coherent_display_and_none();transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}
+int main(void){overdub_rows_keep_one_voice_owner();lookahead_disables_follower_buffer();direct_follower_input_owns_its_display();unchanged_pitch_updates_output_role();harmony_flow();coherent_display_and_none();transpose_last_at_limits();follower_rows();reference_invariance();transpose_equivariance();anti_buffer();puts("follower reference, transpose, anti-buffer and state regressions pass");}
