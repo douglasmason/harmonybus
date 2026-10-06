@@ -454,5 +454,12 @@
       "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pad_single_render_test.c src/harmony_core.c -lm -o /tmp/pad_single_render_test",
       "/tmp/pad_single_render_test"
     ]
+  },
+  {
+    "name": "pad_snapshot_probe",
+    "commands": [
+      "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all -I tests tests/pad_snapshot_probe.c src/harmony_core.c -lm -o /tmp/pad_snapshot_probe",
+      "/tmp/pad_snapshot_probe > /tmp/pad_snapshot_probe-output.txt"
+    ]
   }
 ]
