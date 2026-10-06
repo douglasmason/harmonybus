@@ -2467,7 +2467,8 @@ static int hb_map_follower_note_relative(Inst *instance,int source_note,hb_harmo
 
     int source_interval=hb_nth_scale_interval_from_root(
         hb_follower_input_scale(instance,source_root),source_root,source_degree);
-    int relative=nominal+target_interval-source_interval;
+    int source_tonic=hb_note_near_pc(source_note-source_interval,source_root);
+    int relative=source_tonic+hb_signed_root_delta(source_root,mod12(detected.root_pc))+target_interval;
     while(relative<0)relative+=12;
     while(relative>127)relative-=12;
     if(content_target.pitch_mask&(1u<<target_pc))return relative;
