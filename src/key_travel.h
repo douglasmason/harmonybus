@@ -1,3 +1,12 @@
+/* Register policies keep the chosen destination pitch class intact. At a MIDI
+   boundary use the only available octave rather than changing chord identity. */
+static int hb_travel_register(int source,int mapped,int policy){
+    if(policy!=4&&policy!=5&&policy!=6)return mapped;
+    int note=hb_cs_nearest_pc(source,mod12(mapped));
+    if(policy==5&&note<source&&note+12<=127)note+=12;
+    if(policy==6&&note>source&&note-12>=0)note-=12;
+    return note;
+}
 /* Key changes act on parent-key coordinates before approach construction.
    All three playback contexts share one mapper; no policy is baked into notes. */
 static int hb_key_follower_travel(const Inst *instance){
@@ -36,6 +45,14 @@ static int hb_key_travel_pitch(Inst *instance,int pitch,hb_harmony_t harmony,int
     hb_key_context context=hb_key_for(instance);
     if(!context.active||policy==0)
         return active_family?hb_key_active_pitch(instance,pitch,harmony):hb_key_map(context,pitch);
+    if(policy==4||policy==5||policy==6){
+        int mapped=active_family?hb_key_active_pitch(instance,pitch,harmony):hb_key_map(context,pitch);
+        return hb_travel_register(pitch,mapped,policy);
+    }
+    if(active_family&&!context.blues){
+        unsigned active=hb_dominant_scale_mask(instance,harmony,context.target_root);
+        if(active)context.target_mask=active;
+    }
     /* Key-center Closest Chord Tone is inversion-like travel within input
        classes, not a chord-only quantizer for every degree. */
     if((policy==1||policy==3)&&harmony.valid)

@@ -21,6 +21,37 @@ static inline int hb_cs_nearest(int nominal,unsigned pitch_mask){
     }
     return best;
 }
+/* A bounded soft preference for ordered scalar runs. Swap pitch-class roles
+   only when both source classes permit it; preserve the complete PC multiset
+   and the six-semitone closest radius. Exact conductor voices use their own
+   required-capacity solve and are not treated as a scalar run. */
+static inline int hb_cs_run_cost(int count,const int *nominal,const int *output){
+    int low=nominal[0],high=nominal[count-1],cost=0;
+    for(int row=0;row<count;row++){
+        int pitch=output[row];
+        cost+=10*hb_cs_abs(pitch-nominal[row])+5*(pitch<low?low-pitch:pitch>high?pitch-high:0);
+        if(row&&pitch<output[row-1])cost+=20+5*(output[row-1]-pitch);
+    }
+    return cost;
+}
+static inline void hb_cs_order_run(int count,const int *nominal,const unsigned *allowed,int *output){
+    if(count<2)return;
+    for(int row=1;row<count;row++)if(nominal[row]<=nominal[row-1])return;
+    for(int pass=0;pass<count;pass++){
+        int best=hb_cs_run_cost(count,nominal,output),left=-1,right=-1,best_a=0,best_b=0;
+        for(int a=0;a<count-1;a++)for(int b=a+1;b<count;b++){
+            int pc_a=hb_cs_mod12(output[b]),pc_b=hb_cs_mod12(output[a]);
+            if(pc_a==pc_b||!(allowed[a]&(1u<<pc_a))||!(allowed[b]&(1u<<pc_b)))continue;
+            int next_a=hb_cs_nearest_pc(nominal[a],pc_a),next_b=hb_cs_nearest_pc(nominal[b],pc_b);
+            if(hb_cs_abs(next_a-nominal[a])>6||hb_cs_abs(next_b-nominal[b])>6)continue;
+            int old_a=output[a],old_b=output[b];output[a]=next_a;output[b]=next_b;
+            int cost=hb_cs_run_cost(count,nominal,output);output[a]=old_a;output[b]=old_b;
+            if(cost<best){best=cost;left=a;right=b;best_a=next_a;best_b=next_b;}
+        }
+        if(left<0)break;
+        output[left]=best_a;output[right]=best_b;
+    }
+}
 /* Shared constrained assignment for conductor voicings and follower travel.
    Allowed pools are hard class boundaries. Within those pools, distinct pitch
    classes take priority over motion/register cost. Optional capacities retain
@@ -67,6 +98,7 @@ static inline int hb_build_closest_assignment_required(int count,const int *nomi
         if(cost[row][pc]>=10000000||(required&&(column-1)%count>=required[pc]))return 0;
         outputs[row]=candidate[row][pc];
     }
+    if(!required)hb_cs_order_run(count,nominal,allowed,outputs);
     return 1;
 }
 static inline int hb_build_closest_assignment(int count,const int *nominal,
