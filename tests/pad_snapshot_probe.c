@@ -5,7 +5,7 @@
 #undef main
 int main(void){
     char snapshot[8192];
-    for(int scenario=0;scenario<6;scenario++)for(int mode=0;mode<3;mode++)for(int travel=0;travel<8;travel++)for(int trails=0;trails<2;trails++)for(int layout=0;layout<4;layout++){
+    for(int scenario=0;scenario<6;scenario++)for(int mode=0;mode<3;mode++)for(int travel=0;travel<10;travel++)for(int trails=0;trails<2;trails++)for(int layout=0;layout<4;layout++){
         Inst *instance=fixture();instance->player.config.mode=mode;instance->travel_map=travel;instance->trail_enabled=trails;
         instance->chromatic_map=1;instance->preview_count=32;instance->approach_layout=layout>1;
         g_key_context=(hb_key_context){.active=layout&1,.source_root=0,.target_root=9,

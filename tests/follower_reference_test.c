@@ -20,6 +20,7 @@ static Inst *fixture(void){
     move_midi_fx_init(&host);
     Inst *instance=API.create_instance("",0);
     instance->chromatic_map=0; /* Existing suites exercise unmodified travel. */
+    instance->travel_map=0; /* Explicit Relative fixture; fresh tracks default to None. */
     API.set_param(instance,"role","Follower");
     API.set_param(instance,"follower_root_policy","Explicit");
     API.set_param(instance,"follower_explicit_root","C");

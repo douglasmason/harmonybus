@@ -16,6 +16,20 @@ static void assert_distinct_notes(const int outputs[HB_CLOSEST_SPLIT_DEGREES]) {
 }
 
 int main(void) {
+    {
+        const int source[4]={60,62,64,65};
+        const unsigned allowed[4]={0xfffu,0xfffu,0xfffu,0xfffu};
+        int output[4]={60,64,62,65};
+        int before=hb_cs_run_cost(4,source,output);
+        hb_cs_order_run(4,source,allowed,output);
+        assert(hb_cs_run_cost(4,source,output)<before);
+        for(int row=1;row<4;row++)assert(output[row]>output[row-1]);
+        const unsigned fixed[4]={1u,1u<<4,1u<<2,1u<<5};
+        int constrained[4]={60,64,62,65};
+        hb_cs_order_run(4,source,fixed,constrained);
+        assert(constrained[1]==64&&constrained[2]==62); /* class boundary wins */
+    }
+
     /* Diversity is not a small motion discount: three available chord tones
        must not collapse to two merely because two inputs are near the root. */
     {

@@ -30,17 +30,19 @@ static void contexts_and_chromatic(void){
     Inst *instance=travel_fixture();
     API.set_param(instance,"conductor_key_travel","Closest Scale Tone");
     API.set_param(instance,"follower_key_travel","Relative");
-    int live_outputs[4]={0};
+    int live_outputs[HB_KEY_TRAVEL_COUNT]={0};
     for(int origin=0;origin<2;origin++){
         instance->movy_playback=origin;
-        assert(hb_key_follower_travel(instance)==(origin?3:0));
-        for(int policy=0;policy<4;policy++){
+        assert(hb_key_follower_travel(instance)==(origin?HB_KEY_TRAVEL_COUNT-1:0));
+        for(int policy=0;policy<HB_KEY_TRAVEL_COUNT;policy++){
             API.set_param(instance,"follower_key_travel",HB_KEY_TRAVEL[policy]);
             int target=hb_map_follower_note_unoperated(instance,65);
             if(origin)assert(target==live_outputs[policy]);else live_outputs[policy]=target;
             if(policy==0)assert(target==72);
             else {
-                assert(abs(target-65)<=6);
+                if(policy<5)assert(abs(target-65)<=6);
+                if(policy==5)assert(target>=65);
+                if(policy==6)assert(target<=65);
                 hb_harmony_t harmony=hb_key_harmony(instance,hb_render_harmony(instance));
                 unsigned legal=policy==1?(g_key_context.target_mask&~hb_harmony_chord_mask(harmony)):g_key_context.target_mask;
                 assert(legal&(1u<<mod12(target)));
@@ -104,7 +106,7 @@ static void defaults_and_persistence(void){
     API.get_param(instance,"conductor_key_travel",label,sizeof(label));assert(!strcmp(label,"Closest Split"));
     API.get_param(instance,"follower_key_travel",label,sizeof(label));assert(!strcmp(label,"Relative"));
     API.destroy_instance(instance);
-    for(int policy=-1;policy<4;policy++){
+    for(int policy=-1;policy<HB_KEY_TRAVEL_COUNT;policy++){
         instance=travel_fixture();
         API.set_param(instance,"follower_key_travel",policy<0?"Same as Conductor":HB_KEY_TRAVEL[policy]);
         API.get_param(instance,"state",state,sizeof(state));API.destroy_instance(instance);
@@ -138,7 +140,7 @@ static void conductor_progression(void){
     const int inputs[4]={62,67,60,69};
     const int major_degrees[4]={2,7,0,9},minor_degrees[4]={2,7,0,8};
     const int major_thirds[4]={3,4,4,3},minor_thirds[4]={3,4,3,4};
-    for(int target=0;target<12;target++)for(int minor=0;minor<2;minor++)for(int policy=0;policy<4;policy++)for(int seventh=0;seventh<2;seventh++){
+    for(int target=0;target<12;target++)for(int minor=0;minor<2;minor++)for(int policy=0;policy<HB_KEY_TRAVEL_COUNT;policy++)for(int seventh=0;seventh<2;seventh++){
         Inst *instance=fixture();
         API.set_param(instance,"role","Conductor");API.set_param(instance,"source_channel","1");
         API.set_param(instance,"chord_mode","Scale Degree");API.set_param(instance,"chord_form",seventh?"Seventh":"Triad");
@@ -180,7 +182,7 @@ static void conductor_inversions(void){
     assert(released==((1u<<11)|(1u<<2)|(1u<<5)));API.destroy_instance(instance);
     /* Octave duplicates, extended forms and MIDI boundaries keep every voice
        and never cost more ordered motion than the original relative voicing. */
-    for(int form=1;form<HB_CP_FORMS;form++)for(int source=0;source<116;source+=5)for(int target=0;target<12;target++){
+    for(int policy=1;policy<HB_KEY_TRAVEL_COUNT;policy++)for(int form=1;form<HB_CP_FORMS;form++)for(int source=0;source<116;source+=5)for(int target=0;target<12;target++){
         hb_cp_config config={0};config.mode=1;config.size=form;
         int reference[HB_CP_VOICES],pitches[HB_CP_VOICES],before[12]={0},after[12]={0};
         int reference_count=hb_cp_voice(config,source,0,0,hb_explicit_scale_mask(0,1),reference);
@@ -188,13 +190,54 @@ static void conductor_inversions(void){
         if(reference_count!=count)continue;
         int original_cost=0,final_cost=0;
         for(int voice=0;voice<count;voice++){before[mod12(pitches[voice])]++;original_cost+=abs(pitches[voice]-reference[voice]);}
-        hb_closest_cache cache={0};hb_key_closest_voicing(&cache,pitches,count,reference,reference_count);
+        hb_closest_cache cache={0};hb_key_travel_voicing(&cache,pitches,count,reference,reference_count,policy);
         for(int voice=0;voice<count;voice++){
             assert(pitches[voice]>=0&&pitches[voice]<=127);
             if(voice)assert(pitches[voice]>pitches[voice-1]);
             after[mod12(pitches[voice])]++;final_cost+=abs(pitches[voice]-reference[voice]);
         }
-        assert(final_cost<=original_cost);assert(!memcmp(before,after,sizeof(before)));
+        if(policy<4)assert(final_cost<=original_cost);assert(!memcmp(before,after,sizeof(before)));
     }
 }
-int main(void){key_center_preserves_input_classes();conductor_progression();conductor_inversions();relative_register();contexts_and_chromatic();paired_release();defaults_and_persistence();puts("key travel: conductor progression/inversions, register, shared follower policy, chromatic targets, paired releases and persistence pass");}
+static void common_algorithms(void){
+    const char *names[]={"Relative","Nearest Octave","Closest Chord Tone","Closest Scale Tone","Closest Split","Upward","Downward"};
+    const char *keys[]={"travel_map","conductor_key_travel","follower_key_travel"};
+    char state[32768],label[64];
+    for(int algorithm=0;algorithm<7;algorithm++){
+        Inst *instance=fixture();
+        for(int control=0;control<3;control++)API.set_param(instance,keys[control],names[(algorithm+control)%7]);
+        API.get_param(instance,"state",state,sizeof(state));API.destroy_instance(instance);
+        instance=fixture();API.set_param(instance,"state",state);
+        for(int control=0;control<3;control++){
+            API.get_param(instance,keys[control],label,sizeof(label));assert(!strcmp(label,names[(algorithm+control)%7]));
+        }
+        API.destroy_instance(instance);
+    }
+    Inst *instance=fixture();instance->content_map=1;hb_set_shared_follower_scale(1);
+    uint8_t notes[]={66,69,73};hb_harmony_t destination=hb_infer_harmony(notes,3);
+    hb_effective_write(destination);
+    API.set_param(instance,"travel_map","Relative");
+    int relative=hb_map_follower_note_now(instance,64);
+    API.set_param(instance,"travel_map","Nearest Octave");
+    int nearest=hb_map_follower_note_now(instance,64);
+    assert(mod12(relative)==mod12(nearest));
+    /* Mode changes can move a degree beyond six semitones. Relative retains
+       the contour; Nearest Octave is allowed to wrap that degree downward. */
+    for(int root=0;root<12;root++)for(int scale=1;scale<10;scale++){
+        hb_key_context context={.active=1,.source_root=0,.target_root=root,
+            .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(root,scale)};
+        for(int pitch=0;pitch<128;pitch++)for(int policy=4;policy<7;policy++){
+            int mapped=hb_key_map(context,pitch),actual=hb_travel_register(pitch,mapped,policy);
+            assert(actual>=0&&actual<=127&&mod12(actual)==mod12(mapped));
+            if(policy==4)assert(abs(actual-pitch)<=11); /* MIDI boundary octave fallback */
+            if(policy==5&&actual<pitch)assert(actual+12>127);
+            if(policy==6&&actual>pitch)assert(actual-12<0);
+        }
+    }
+    hb_key_context altered={.active=1,.source_root=0,.target_root=6,
+        .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(6,5)};
+    assert(hb_key_map(altered,65)==72);
+    assert(hb_travel_register(65,72,4)==60);
+    API.destroy_instance(instance);
+}
+int main(void){common_algorithms();key_center_preserves_input_classes();conductor_progression();conductor_inversions();relative_register();contexts_and_chromatic();paired_release();defaults_and_persistence();puts("key travel: conductor progression/inversions, register, shared follower policy, chromatic targets, paired releases and persistence pass");}
