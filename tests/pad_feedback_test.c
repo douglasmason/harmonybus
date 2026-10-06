@@ -3,6 +3,38 @@
 #define main reference_fixture_main
 #include "follower_reference_test.c"
 #undef main
+static void resolved_footer(void){
+    for(int role=0;role<2;role++)for(int target=0;target<12;target++)for(int minor=0;minor<2;minor++)for(int policy=0;policy<4;policy++){
+        Inst *instance=fixture();instance->role=role;g_key_conductor_travel=policy;
+        API.set_param(instance,"dominant_minor_scale","Harmonic Minor");
+        g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=target,
+            .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(target,minor?2:1)};
+        const int roots[]={2,7,0,9};
+        const int minor_roots[]={2,7,0,8};
+        unsigned expected[4];
+        for(int step=0;step<4;step++){
+            int root=mod12(target+(minor?minor_roots[step]:roots[step]));
+            int third=minor?(step==0||step==2?3:4):(step==0||step==3?3:4);
+            expected[step]=(1u<<root)|(1u<<mod12(root+third))|(1u<<mod12(root+(minor&&step==0?6:7)));
+            if(step==1)expected[step]|=1u<<mod12(root+10);
+        }
+        g_bus.next_model_locked=1;g_bus.next_model_count=4;g_bus.clip_loop_end=4;
+        for(int step=0;step<4;step++)g_bus.next_model[step]=(hb_loop_harmony_event_t){.phase=step,.harmony=chord(roots[step],step==0||step==3,step==1)};
+        for(int step=0;step<4;step++){
+            position=step+0.25;hb_commit_observed_harmony(g_bus.next_model[step].harmony);
+            char view[4096];API.get_param(instance,"pad_view",view,sizeof(view));
+            const char *footer=strstr(view,"|footer1,");assert(footer);
+            int key,scale,current,next;unsigned current_mask,next_mask;
+            assert(sscanf(footer,"|footer1,%d,%d,%d,%u,%d,%u",&key,&scale,&current,&current_mask,&next,&next_mask)==6);
+            assert(key==target&&scale==(minor?2:1));
+            assert(mod12(current-key)==(minor?minor_roots[step]:roots[step]));
+            assert(mod12(next-key)==(minor?minor_roots[(step+1)%4]:roots[(step+1)%4]));
+            assert(current_mask==expected[step]);
+            assert(next_mask==expected[(step+1)%4]);
+        }
+        API.destroy_instance(instance);
+    }
+}
 static void active_key_colors(void){
     Inst *instance=fixture();
     API.set_param(instance,"dominant_minor_scale","Harmonic Minor");
@@ -81,7 +113,9 @@ static void next_tone_pulse(void){
     Inst unchanged=*instance;hb_harmony_t bus_before=bus_read();
     API.get_param(instance,"pad_view",view,sizeof(view));
     assert(section(view,"|nextpulse1,")==((1u<<5)|(1u<<0)));
-    assert(!memcmp(&unchanged,instance,sizeof(unchanged)));assert(hb_harmony_equal_effective(bus_before,bus_read()));
+    /* Pure memoized assignments may warm; musical state must not change. */
+            unchanged.closest_assignments=instance->closest_assignments;
+            assert(!memcmp(&unchanged,instance,sizeof(unchanged)));assert(hb_harmony_equal_effective(bus_before,bus_read()));
     API.set_param(instance,"pad_display","Current");
     API.get_param(instance,"pad_view",view,sizeof(view));assert(!section(view,"|nextpulse1,"));
     API.set_param(instance,"pad_display","Effective");
@@ -248,7 +282,18 @@ static void harmony_off_view(void){
     assert(strcmp(first,second));API.destroy_instance(instance);
 }
 
-int main(void){active_key_colors();harmony_off_view();
+int main(void){resolved_footer();active_key_colors();harmony_off_view();
+    {
+        Inst *instance=fixture();char view[4096];
+        hb_commit_observed_harmony(chord(0,0,0));
+        API.set_param(instance,"pad_next_pulse","None");
+        for(int mode=0;mode<7;mode++){
+            g_pad_settings[0]=mode;
+            API.get_param(instance,"pad_view",view,sizeof(view));
+            assert(strstr(view,"|nextpulse1,0,0"));
+        }
+        API.destroy_instance(instance);
+    }
     separate_color_forms();
     all_pulse_options();next_tone_pulse();independent_pad_form();
     movy_input_and_spatial_sequence();

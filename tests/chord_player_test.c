@@ -1258,7 +1258,8 @@ static void pad_render_mapping(void){
     Inst before=*instance;unsigned sequence=g_bus.seq;
     API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
     assert(sscanf(snapshot,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&lookahead)==5);
-    assert(!memcmp(&before,instance,sizeof(before))&&g_bus.seq==sequence);
+    before.closest_assignments=instance->closest_assignments; /* Memoization only. */
+        assert(!memcmp(&before,instance,sizeof(before))&&g_bus.seq==sequence);
     assert(current&(1u<<0)); /* input C renders G, a G-major chord tone */
     assert(!(current&(1u<<2))); /* input D renders A, despite D being in G major chord */
     assert(current==effective&&!ready&&!lookahead);
@@ -1299,11 +1300,13 @@ static void pad_harmony_snapshot(void){
         assert(sscanf(snapshot,"%u,%u,%u,%d",&current,&effective,&scale,&ready)==4);
         unsigned cmask=(1u<<0)|(1u<<4)|(1u<<7),dmask=(1u<<2)|(1u<<6)|(1u<<9);
         assert(current==(late?dmask:cmask));assert(effective==(late?cmask:dmask));
-        assert(ready&&scale);assert(!memcmp(&before,instance,sizeof(before))&&g_bus.seq==sequence);
+        assert(ready&&scale);before.closest_assignments=instance->closest_assignments; /* Memoization only. */
+        assert(!memcmp(&before,instance,sizeof(before))&&g_bus.seq==sequence);
         unsigned lookahead;
         API.set_param(instance,"pad_display","Both");
         API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));
         assert(sscanf(snapshot,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&lookahead)==5);
+        before.closest_assignments=instance->closest_assignments; /* Memoization only. */
         assert(!memcmp(&before,instance,sizeof(before))&&g_bus.seq==sequence);
         instance->approach_pad_armed=HB_APPROACH_OFF;
         API.get_param(instance,"pad_render",snapshot,sizeof(snapshot));

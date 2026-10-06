@@ -29,6 +29,7 @@ static void approach_pad_membership(void){
         hb_set_shared_follower_scale(scales[scale]);instance->travel_map=travels[travel];
         Inst before=*instance;
         assert(API.get_param(instance,"pad_view",view,sizeof(view))>0);
+        before.closest_assignments=instance->closest_assignments; /* Memoization only. */
         assert(!memcmp(&before,instance,sizeof(before)));
         const char *cursor=strstr(view,"|gapcolors1");assert(cursor);cursor+=11;
         for(int slot=0;slot<32;slot++){
