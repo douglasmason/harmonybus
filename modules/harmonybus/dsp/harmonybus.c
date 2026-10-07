@@ -6545,7 +6545,7 @@ if(!strcmp(key,"follower_key_travel")||!strcmp(key,"follower_recorded_key_travel
 }
 if(!strcmp(key,"key_center_tonic"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[instance->key_tonic]);
 if(!strcmp(key,"key_center_explicit_scale"))return snprintf(buffer,(size_t)length,"%s",HB_SCALE_NAMES[instance->key_scale+1]);
-if(!strcmp(key,"key_center_apply"))return snprintf(buffer,(size_t)length,"Apply");
+if(!strcmp(key,"key_center_apply"))return snprintf(buffer,(size_t)length,"Ready");
 if(!strcmp(key,"key_center_scale"))return snprintf(buffer,(size_t)length,"%s",g_key_scale_mode==2?"Use Parallel Scale":g_key_scale_mode==0?"Simplified Major/Minor":"Mode from Parent");
 if(!strcmp(key,"parallel_scale"))return snprintf(buffer,(size_t)length,"%s",HB_PARALLEL_NAMES[g_parallel_scale]);
 for(int field=0;field<4;field++)if(!strcmp(key,HB_TARGET_KEYS[field]))

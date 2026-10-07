@@ -263,6 +263,7 @@ static void explicit_key_entry(void){
         Inst *instance=fixture();single_setup(instance);instance->movy_track=0;
         API.set_param(instance,"role",role?"Follower":"Conductor");
         char value[32];snprintf(value,sizeof(value),"%d",transpose);API.set_param(instance,"transpose",value);
+        API.set_param(instance,"key_center_apply","Ready");assert(!g_key_context.active);
         API.set_param(instance,"hb_shared_record","0");g_sc_count=g_sc_head=0;
         for(int tonic=0;tonic<12;tonic++)for(int scale=1;scale<HB_SCALE_COUNT;scale++){
             hb_key_context before=hb_key_for(instance);
