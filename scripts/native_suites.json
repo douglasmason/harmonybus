@@ -520,5 +520,12 @@
       "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined,float-cast-overflow -fno-sanitize-recover=all tests/motion_output_filter_test.c src/harmony_core.c -lm -o /tmp/motion_output_filter_test",
       "/tmp/motion_output_filter_test"
     ]
+  },
+  {
+    "name": "scale_math_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined,float-cast-overflow -fno-sanitize-recover=all tests/scale_math_test.c src/harmony_core.c -lm -o /tmp/scale_math_test",
+      "/tmp/scale_math_test"
+    ]
   }
 ]
