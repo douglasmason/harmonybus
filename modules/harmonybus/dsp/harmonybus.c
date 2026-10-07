@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.269"
+#define HB_VERSION "0.2.270"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -372,6 +372,10 @@ static void hb_trail_output(Inst *instance,uint8_t *output,unsigned tag){
     }else hb_trail_heard(instance,tag);
 }
 static Inst g_pool[HB_MAX_INSTANCES];
+/* Final cable-2 gates share a destination across HB tracks. The player and
+   motion router already merge voices within each instance; retain one bit per
+   source here so another track's OFF cannot close a still-owned MIDI gate. */
+static uint16_t g_render_owners[16][128];
 #include "../../../src/harmony_override.h"
 static int g_touch_lanes[9]={1,2,3,4,13,14,15,16,5},g_touch_restored;
 static void hb_touch_publish(const int *lanes){
@@ -500,7 +504,7 @@ static int hb_sync_conductor_from_monitor(Inst *instance){
     (void)generation;
     return changed;
 }
-static void ensure_init(void){if(g_init)return;hb_override_reset();hb_sc_reset();memset(&g_key_context,0,sizeof(g_key_context));g_key_armed=g_parallel_on=g_parallel_latch=g_parallel_manual=g_key_lane_parallel=0;g_parallel_scale=2;g_key_preview[0]=0;g_key_scale_mode=1;g_key_conductor_travel=3;g_key_settings_restored=0;g_key_follower_travel=0;hb_touch_defaults();g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=7;g_bus.follower_scale=1;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
+static void ensure_init(void){if(g_init)return;memset(g_render_owners,0,sizeof(g_render_owners));hb_override_reset();hb_sc_reset();memset(&g_key_context,0,sizeof(g_key_context));g_key_armed=g_parallel_on=g_parallel_latch=g_parallel_manual=g_key_lane_parallel=0;g_parallel_scale=2;g_key_preview[0]=0;g_key_scale_mode=1;g_key_conductor_travel=3;g_key_settings_restored=0;g_key_follower_travel=0;hb_touch_defaults();g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=7;g_bus.follower_scale=1;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
 
 static char *hb_read_text_file(const char *path,long *size_out){
     FILE *file=fopen(path,"rb");if(!file)return 0;
@@ -1882,7 +1886,20 @@ static int hb_send_render_raw(Inst *source,const uint8_t input_packet[4],int sup
         }
     }
     if(suppress_external)return 0; // preserve stock-channel self-echo guard
-    return g_host&&g_host->midi_inject_to_move?g_host->midi_inject_to_move(packet,4):0;
+    if(!g_host||!g_host->midi_inject_to_move)return 0;
+    int status=packet[1]&0xf0,pitch=packet[2]&127;
+    int note=status==0x80||status==0x90;
+    if(!note||id<0||id>=HB_MAX_INSTANCES)return g_host->midi_inject_to_move(packet,4);
+    uint16_t owner=(uint16_t)(1u<<id),previous=g_render_owners[channel][pitch];
+    uint16_t next=(status==0x90&&packet[3])?(previous|owner):(previous&~owner);
+    /* Keep fresh attacks audible. Only the final owner may send a release;
+       an unmatched OFF is harmless even after a muted/skipped attack. */
+    if(!(status==0x90&&packet[3])&&(!(previous&owner)||next)){
+        g_render_owners[channel][pitch]=next;return 4;
+    }
+    int sent=g_host->midi_inject_to_move(packet,4);
+    if(sent==4)g_render_owners[channel][pitch]=next;
+    return sent;
 }
 static void hb_motion_flush_render(Inst *instance){
     uint8_t message[3];
@@ -4138,7 +4155,8 @@ static int hb_emit_role_change_flush(Inst *instance,uint8_t output[][3],int leng
         lengths[emitted]=3;
         emitted++;
     }
-    if(instance->role_flush_cursor>=128)instance->role_flush_cursor=0;
+    /* Leave an exhausted queue at its end. Every producer resets the cursor
+       when adding releases; an idle audio tick need not rescan 128 zeros. */
     return emitted;
 }
 static void hb_clear_instance_note_state(Inst *instance){

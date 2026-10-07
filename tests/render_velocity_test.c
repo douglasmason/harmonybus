@@ -12,7 +12,8 @@ static void attack(Inst *instance,int velocity,int expected){
     else assert(render_count==before);
     note[0]=0x80;note[2]=37;before=render_count;
     API.process_midi(instance,note,3,output,lengths,64);API.tick(instance,128,48000,output,lengths,64);
-    assert(render_count==before+1&&(rendered[before][1]&0xf0)==0x80); /* release at any gain */
+    if(expected)assert(render_count==before+1&&(rendered[before][1]&0xf0)==0x80);
+    else assert(render_count==before); /* a muted attack never acquired an output gate */
 }
 int main(void){
     Inst *instance=fixture();char state[8192],value[64];

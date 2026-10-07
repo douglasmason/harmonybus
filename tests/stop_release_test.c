@@ -40,7 +40,29 @@ static void stop_case(int role,int generated,int baked,int explicit_stop){
     for(int pitch=0;pitch<128;pitch++)assert(route_balance[pitch]<=0);
     assert(instance->follower_queue_count==0&&!instance->player.sounding_count);
 }
+static void stop_after_empty_ticks(void){
+    Inst *instance=fixture();
+    API.set_param(instance,"role","Conductor");
+    API.set_param(instance,"chord_mode","Off");
+    API.set_param(instance,"render_channel","Off");
+    for(int cycle=0;cycle<4;cycle++){
+        memset(local_balance,0,sizeof(local_balance));
+        /* Exercise new releases behind the previous drain cursor, including
+           both MIDI endpoints, after the queue has been empty for many ticks. */
+        for(int idle=0;idle<20;idle++)assert(advance(instance,1,1)==0);
+        for(int note=0;note<3;note++){
+            uint8_t message[3]={0x90,(uint8_t)(cycle%2?note:127-note),100};
+            collect(API.process_midi(instance,message,3,output,lengths,64));
+        }
+        uint8_t stop=0xfc;
+        collect(API.process_midi(instance,&stop,1,output,lengths,1));
+        for(int tick_index=0;tick_index<8;tick_index++)collect(advance(instance,1,1));
+        for(int pitch=0;pitch<128;pitch++)assert(local_balance[pitch]==0);
+    }
+    API.destroy_instance(instance);
+}
 int main(void){
+    stop_after_empty_ticks();
     for(int direct=0;direct<2;direct++){
         stop_case(0,0,0,direct);
         stop_case(0,1,1,direct);

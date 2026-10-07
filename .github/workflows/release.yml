@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.269'
+          assert module['version']=='0.2.270'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.269 reduces shared live-note and preview scale arithmetic: rotate the twelve-bit pitch mask directly and skip chord accommodation when every chord tone already belongs to the parent scale. No new cache or separate surface mapper. Exact arithmetic comparisons and complete Move/Launchpad snapshot comparisons preserve rendering. Keep Movy hbclean.189 and the current host. Desktop savings do not establish a hardware crackle fix; the existing CPU TIME capture remains the device check." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.270 fixes shared Render To Channel note ownership: releasing a recorded auto-chord on one track no longer cuts off overlapping notes held by another track on the same MIDI destination. Fresh attacks remain audible and the final owner releases the pitch. Auto Chord and Arp/Strum remain per track; clips still store input notes and settings, not expanded chord notes. Covers both release orders, single-note/chord layering, separate channels, role changes, rerouting and removal. Also avoids rescanning empty release queues on each audio tick, reusing the existing cursor. Keep Movy hbclean.189 and the current Schwung host." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.269 reduces shared live-note and preview scale arithmetic: rotate the twelve-bit pitch mask directly and skip chord accommodation when every chord tone already belongs to the parent scale. No new cache or separate surface mapper. Exact arithmetic comparisons and complete Move/Launchpad snapshot comparisons preserve rendering. Keep Movy hbclean.189 and the current host. Desktop savings do not establish a hardware crackle fix; the existing CPU TIME capture remains the device check." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.270 fixes shared Render To Channel note ownership: releasing a recorded auto-chord on one track no longer cuts off overlapping notes held by another track on the same MIDI destination. Fresh attacks remain audible and the final owner releases the pitch. Auto Chord and Arp/Strum remain per track; clips still store input notes and settings, not expanded chord notes. Covers both release orders, single-note/chord layering, separate channels, role changes, rerouting and removal. Also avoids rescanning empty release queues on each audio tick, reusing the existing cursor. Keep Movy hbclean.189 and the current Schwung host." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
