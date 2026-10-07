@@ -503,5 +503,15 @@
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/repeated_preview_edges_test.c src/harmony_core.c -lm -o /tmp/repeated_preview_edges_test",
       "/tmp/repeated_preview_edges_test"
     ]
+  },
+  {
+    "name": "block_operation_sync_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/block_operation_sync_test.c src/harmony_core.c -lm -o /tmp/block_operation_sync_test",
+      "/tmp/block_operation_sync_test > /tmp/block_operation_sync_test.trace",
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all -DHB_LEGACY_TICK_SYNC tests/block_operation_sync_test.c src/harmony_core.c -lm -o /tmp/block_operation_sync_legacy",
+      "/tmp/block_operation_sync_legacy > /tmp/block_operation_sync_legacy.trace",
+      "cmp /tmp/block_operation_sync_test.trace /tmp/block_operation_sync_legacy.trace"
+    ]
   }
 ]
