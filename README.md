@@ -1,3 +1,5 @@
+HarmonyBus 0.2.266 removes unused scale/degree work from follower mapping and pad previews. Includes repeated-strike edge-order regression. This is a measured CPU reduction, not a confirmed hardware crackle fix; no host change.
+
 HarmonyBus 0.2.265 adds Set Live Key: choose an exact tonic and scale, then Apply without playing a note. Fixes premature key selection on the first tapped motif approach. Live entry stays out of clip recording and Undo, cancels queued key arrivals, and uses existing travel settings. Pair with Movy hbclean.186; no Schwung host update.
 
 HarmonyBus 0.2.264 removes redundant per-track shared timeline refreshes when Movy has already published its audio-block barrier. Incoming MIDI refreshes and standalone-host tick refreshes remain active. Compatible with Movy hbclean.184; only HarmonyBus needs updating. No Schwung host update. Desktop CPU reduction is measured; a device crackle fix is not yet confirmed.
