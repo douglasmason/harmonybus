@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.268"
+#define HB_VERSION "0.2.269"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2144,9 +2144,8 @@ static uint16_t hb_follower_input_scale(Inst *instance,int source_root){
     return hb_explicit_scale_mask(source_root,hb_follower_input_scale_index(instance,source_root));
 }
 static uint16_t hb_transpose_mask(uint16_t mask,int semitones){
-    uint16_t shifted=0;
-    for(int pitch=0;pitch<12;pitch++)if(mask&(1u<<pitch))shifted|=(uint16_t)(1u<<mod12(pitch+semitones));
-    return shifted;
+    unsigned bits=mask&0xfffu;int shift=mod12(semitones);
+    return (uint16_t)(((bits<<shift)|(bits>>(12-shift)))&0xfffu);
 }
 static const char *hb_follower_degree_role_for_note(Inst *instance,int note){
     if(!instance||note<0||note>127)return "--";
@@ -2266,6 +2265,8 @@ static uint16_t hb_dominant_scale_mask(Inst *instance,hb_harmony_t harmony,int t
 static uint16_t hb_accommodate_chord(uint16_t parent,hb_harmony_t harmony,int tonic){
     uint16_t chord=hb_harmony_chord_mask(harmony),result=parent;
     if(!parent)return chord;
+    /* The selected parent already contains this chord; no degrees change. */
+    if(!(chord&~parent))return parent;
     int root_degree=hb_source_degree_from_parent_scale(mod12(harmony.root_pc-tonic),tonic,parent);
     static const int interval_degree[12]={0,1,1,2,2,3,4,4,5,5,6,6};
     for(int interval=0;interval<12;interval++){

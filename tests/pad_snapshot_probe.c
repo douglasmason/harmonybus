@@ -7,6 +7,7 @@ int main(void){
     char snapshot[8192];
     for(int scenario=0;scenario<6;scenario++)for(int mode=0;mode<3;mode++)for(int travel=0;travel<10;travel++)for(int trails=0;trails<2;trails++)for(int layout=0;layout<4;layout++){
         Inst *instance=fixture();instance->player.config.mode=mode;instance->travel_map=travel;instance->trail_enabled=trails;
+        instance->surface_enabled=1;instance->surface_count[0]=instance->surface_count[1]=32;
         instance->chromatic_map=1;instance->preview_count=32;instance->approach_layout=layout>1;
         g_key_context=(hb_key_context){.active=layout&1,.source_root=0,.target_root=9,
             .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(9,2)};
@@ -15,6 +16,11 @@ int main(void){
             instance->preview_notes[slot]=layout==1?60+slot%12:48+slot;
             instance->preview_targets[slot]=layout>1&&slot%2?60+slot/4:-1;
             instance->preview_rows[slot]=layout>1?slot%4:0;
+            for(int bank=0;bank<2;bank++){
+                instance->surface_notes[bank][slot]=24+bank*32+slot;
+                instance->surface_targets[bank][slot]=layout>1&&slot%2?48+slot/4:-1;
+                instance->surface_rows[bank][slot]=layout>1?slot%4:0;
+            }
         }
         if(scenario==1||scenario==2){
             instance->motion.lanes[0].operation=HB_MO_TRANSPOSE;
@@ -47,6 +53,11 @@ int main(void){
             assert(!strcmp(reference,snapshot));
 #endif
             printf("%d %d %d %d %d %d:%s\n",scenario,mode,travel,trails,layout,color,snapshot);
+            for(int bank=0;bank<2;bank++){
+                const char *key=bank?"surface_view1":"surface_view0";
+                assert(API.get_param(instance,key,snapshot,sizeof(snapshot))>0);
+                printf("surface%d %d %d %d %d %d %d:%s\n",bank,scenario,mode,travel,trails,layout,color,snapshot);
+            }
         }
         API.destroy_instance(instance);
     }
