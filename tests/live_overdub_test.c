@@ -152,7 +152,88 @@ static void rendered_overlap(void){
     input_origin(i,1,0,60);assert(render_count==2&&rendered[1][1]==0x83&&rendered[1][2]==60);
     API.destroy_instance(i);
 }
+/* Follow the actual injected packets: a MIDI destination releases a pitch
+   on any OFF, regardless of which track originally sent it. */
+static uint8_t destination[16][128];
+static int destination_cursor;
+static void read_destination(void){
+    while(destination_cursor<render_count){
+        const uint8_t *packet=rendered[destination_cursor++];
+        int type=packet[1]&0xf0,channel=packet[1]&15;
+        if(type==0x80||type==0x90)destination[channel][packet[2]]=type==0x90&&packet[3];
+    }
+}
+static void finish_render_source(Inst *instance,int recorded,int pitch,int cleanup){
+    if(cleanup==1){API.set_param(instance,"role","Off");hear(advance(instance,1,64));}
+    else if(cleanup==2)API.set_param(instance,"render_channel","Off");
+    else if(cleanup==3)API.destroy_instance(instance);
+    else input_origin(instance,recorded,0,pitch);
+    read_destination();
+}
+static void rendered_track_overlap(int chord,int pitch,int clip_first,int cleanup,int separate){
+    Inst *clip=fixture();memset(heard,0,sizeof(heard));
+    memset(destination,0,sizeof(destination));destination_cursor=0;
+    API.set_param(clip,"role","Conductor");
+    API.set_param(clip,"chord_mode","Scale Degree");
+    API.set_param(clip,"chord_form","Triad");
+    Inst *live=API.create_instance("",NULL);assert(live);
+    API.set_param(live,"role","Conductor");
+    API.set_param(live,"source_channel","1");
+    API.set_param(live,"render_channel",separate?"3":"4");
+    API.set_param(live,"chord_mode",chord?"Scale Degree":"Off");
+    API.set_param(live,"chord_form","Triad");
+    int clip_rate=clip->player.config.rate;
+    API.set_param(live,"arp_rate","1/8");
+    API.set_param(live,"arp_playback","Repeat Arp");
+    assert(clip->player.config.rate==clip_rate&&clip->player.config.playback==0);
+    assert(live->player.config.playback==1);
+    API.set_param(live,"arp_playback","Together");
+    live->player.config.phase=live->player.config.start=0;
+    input_origin(clip,1,1,60);read_destination();
+    uint8_t clip_notes[128];memcpy(clip_notes,destination[3],128);
+    memset(heard,0,sizeof(heard));input_origin(live,0,1,pitch);read_destination();
+    uint8_t live_notes[128];memcpy(live_notes,heard,128);
+    assert(clip_notes[60]&&live_notes[pitch]);
+    /* Track controls really are independent, including arp rate/playback. */
+    assert(clip->player.config.mode==1&&live->player.config.mode==(chord?1:0));
+    Inst *first=clip_first?clip:live,*last=clip_first?live:clip;
+    finish_render_source(first,clip_first,clip_first?60:pitch,cleanup);
+    if(separate){
+        for(int note=0;note<128;note++){
+            assert(destination[clip_first?3:2][note]==0);
+            assert(destination[clip_first?2:3][note]==(clip_first?live_notes[note]:clip_notes[note]));
+        }
+    }else for(int note=0;note<128;note++)
+        assert(destination[3][note]==(clip_first?live_notes[note]:clip_notes[note]));
+    finish_render_source(last,!clip_first,clip_first?pitch:60,0);
+    for(int channel=0;channel<16;channel++)for(int note=0;note<128;note++)assert(!destination[channel][note]);
+    if(cleanup!=3)API.destroy_instance(first);
+    API.destroy_instance(last);
+}
+static void all_render_sources(void){
+    Inst *sources[HB_MAX_INSTANCES];sources[0]=fixture();
+    memset(destination,0,sizeof(destination));destination_cursor=0;
+    uint8_t on[4]={0x29,0x93,60,100},off[4]={0x28,0x83,60,0};
+    for(int index=0;index<HB_MAX_INSTANCES;index++){
+        if(index)sources[index]=API.create_instance("",NULL);
+        assert(sources[index]);
+        assert(hb_send_render_raw(sources[index],on,0)==4);
+    }
+    read_destination();assert(destination[3][60]);
+    for(int index=0;index<HB_MAX_INSTANCES;index++){
+        assert(hb_send_render_raw(sources[index],off,0)==4);
+        read_destination();assert(destination[3][60]==(index<HB_MAX_INSTANCES-1));
+        int before=render_count;
+        assert(hb_send_render_raw(sources[index],off,0)==4);
+        assert(render_count==before); /* duplicate OFF cannot release a peer */
+    }
+    for(int index=0;index<HB_MAX_INSTANCES;index++)API.destroy_instance(sources[index]);
+}
 int main(void){
+    all_render_sources();
+    for(int chord=0;chord<2;chord++)for(int pitch=60;pitch<=64;pitch+=4)
+        for(int first=0;first<2;first++)for(int cleanup=0;cleanup<4;cleanup++)
+            for(int separate=0;separate<2;separate++)rendered_track_overlap(chord,pitch,first,cleanup,separate);
     for(int chord=0;chord<2;chord++)for(int separate=0;separate<2;separate++)
         for(int first=0;first<2;first++)overlapping_input(chord,separate,first);
     for(int chord=0;chord<2;chord++)for(int retrigger=0;retrigger<2;retrigger++)held_chord_change(chord,retrigger);
