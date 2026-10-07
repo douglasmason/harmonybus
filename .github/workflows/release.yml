@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.266 removes unused follower mapping calculations from synchronous pad previews and live notes. All four split modes retain identical preview output in differential tests. Adds short release/repress edge-order regression coverage. Pair with Movy hbclean.188. No host or buffer changes; this is a measured CPU reduction, not a confirmed hardware crackle fix." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.266 removes unused follower mapping calculations from synchronous pad previews and live notes. All four split modes retain identical preview output in differential tests. Adds short release/repress edge-order regression coverage. Compatible with installed Movy hbclean.187; only HarmonyBus needs updating. No host or buffer changes; this is a measured CPU reduction, not a confirmed hardware crackle fix." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.266 removes unused follower mapping calculations from synchronous pad previews and live notes. All four split modes retain identical preview output in differential tests. Adds short release/repress edge-order regression coverage. Pair with Movy hbclean.188. No host or buffer changes; this is a measured CPU reduction, not a confirmed hardware crackle fix." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.266 removes unused follower mapping calculations from synchronous pad previews and live notes. All four split modes retain identical preview output in differential tests. Adds short release/repress edge-order regression coverage. Compatible with installed Movy hbclean.187; only HarmonyBus needs updating. No host or buffer changes; this is a measured CPU reduction, not a confirmed hardware crackle fix." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
