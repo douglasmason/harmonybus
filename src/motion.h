@@ -572,8 +572,13 @@ static int hb_mo_value_at(const hb_motion_config *config,int index,double beat,d
     int held=(config->held&(1ULL<<index))!=0;
     if(!hb_mo_condition(config,index,condition_beat)||(!held&&!lane->probability))return 0;
     double grid=hb_mo_grid(lane->grid),cycle=hb_mo_cycle(lane->cycle);
-    if(lane->advance){const unsigned long long *events=config->event_override?config->event_override:config->events;
-        beat=(double)(events[index]?events[index]-1:0)*grid;}
+    if(lane->advance){
+        unsigned long long count=config->event_override?config->event_override[index]:config->events[index];
+        /* A held lane replaces a recorded outcome with live performance.
+           Packed outcomes are not event counters; advance from live input. */
+        if(count&HB_MO_RECORDED)count=config->events[index];
+        beat=(double)(count?count-1:0)*grid;
+    }
     double shifted=beat+(double)lane->phase*grid;
     long long iteration=(long long)hb_mo_floor(shifted/cycle);
     double position=shifted-(double)iteration*cycle;

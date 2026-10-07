@@ -44,7 +44,27 @@ static void reference_motion_values(Inst *instance,const uint8_t message[3],int 
     }
 }
 
+static void held_recorded_advancement(void){
+    hb_motion_config config;hb_mo_defaults(&config);
+    unsigned long long recorded[HB_MOTION_LANES+1]={0};
+    recorded[0]=HB_MO_RECORDED|hb_mo_operation_word(HB_MO_TRANSPOSE)|1750;
+    hb_motion_lane *lane=&config.lanes[0];
+    lane->operation=HB_MO_TRANSPOSE;lane->amount=12;lane->cycle=0;
+    for(int advance=1;advance<=2;advance++)for(int grid=0;grid<=8;grid++)
+    for(int pattern=0;pattern<7;pattern++)for(int count=0;count<4;count++){
+        lane->advance=advance;lane->grid=grid;lane->pattern=pattern;
+        config.events[0]=count;config.held=1;config.event_override=0;
+        double expected,actual;
+        assert(hb_mo_value_at(&config,0,0.25,0.25,60,&expected));
+        config.event_override=recorded;
+        assert(hb_mo_value_at(&config,0,0.25,0.25,60,&actual));
+        assert(actual==expected); /* held recorded lane uses live event count */
+        config.held=0;
+        assert(hb_mo_value_at(&config,0,0.25,0.25,60,&actual)&&actual==1.75);
+    }
+}
 int main(void){
+    held_recorded_advancement();
     Inst *instance=fixture();hb_commit_observed_harmony(chord(2,1,1));
     hb_motion_config original=instance->motion;
     unsigned long long recorded[HB_MOTION_LANES+1]={0};
