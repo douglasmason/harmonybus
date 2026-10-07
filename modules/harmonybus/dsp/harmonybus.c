@@ -4155,7 +4155,8 @@ static int hb_emit_role_change_flush(Inst *instance,uint8_t output[][3],int leng
         lengths[emitted]=3;
         emitted++;
     }
-    if(instance->role_flush_cursor>=128)instance->role_flush_cursor=0;
+    /* Leave an exhausted queue at its end. Every producer resets the cursor
+       when adding releases; an idle audio tick need not rescan 128 zeros. */
     return emitted;
 }
 static void hb_clear_instance_note_state(Inst *instance){
