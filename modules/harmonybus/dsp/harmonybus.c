@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.265"
+#define HB_VERSION "0.2.266"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2549,10 +2549,13 @@ static int hb_map_follower_note_classified(Inst *instance,int source_note,hb_har
 
     unsigned on_bits_135=(1u<<0)|(1u<<2)|(1u<<4);
     unsigned on_bits_1357=on_bits_135|(1u<<6);
-    uint16_t on_mask_135=hb_scale_degree_mask(chord_scale,detected,on_bits_135);
-    uint16_t off_mask_135=hb_scale_degree_mask(chord_scale,detected,0x7Fu&~on_bits_135);
-    uint16_t on_mask_1357=hb_scale_degree_mask(chord_scale,detected,on_bits_1357);
-    uint16_t off_mask_1357=hb_scale_degree_mask(chord_scale,detected,0x7Fu&~on_bits_1357);
+    /* Only the selected split consumes these degree pools. Ordinary Closest
+       and active-note splitting previously rebuilt both unused alternatives
+       for every input (including every pad preview). */
+    uint16_t on_mask_135=split==1?hb_scale_degree_mask(chord_scale,detected,on_bits_135):0;
+    uint16_t off_mask_135=split==1?hb_scale_degree_mask(chord_scale,detected,0x7Fu&~on_bits_135):0;
+    uint16_t on_mask_1357=split==2?hb_scale_degree_mask(chord_scale,detected,on_bits_1357):0;
+    uint16_t off_mask_1357=split==2?hb_scale_degree_mask(chord_scale,detected,0x7Fu&~on_bits_1357):0;
 
     uint16_t input_scale=hb_follower_input_scale(instance,source_root);
     int source_degree_interval=hb_nth_scale_interval_from_root(input_scale,source_root,source_degree);
@@ -2561,8 +2564,6 @@ static int hb_map_follower_note_classified(Inst *instance,int source_note,hb_har
 
     for(int degree=0;degree<HB_CLOSEST_SPLIT_DEGREES;degree++){
         int source_interval=hb_nth_scale_interval_from_root(input_scale,source_root,degree);
-        int target_interval=hb_render_degree_interval(chord_scale,detected,degree);
-        int degree_pc=mod12(detected.root_pc+target_interval);
         /* Closest Split stays near the source degree's ACTUAL register position.
            Using target_root+target_degree here reconstructs Relative mapping. */
         nominal_by_degree[degree]=source_root_note+source_interval;
@@ -2579,6 +2580,8 @@ static int hb_map_follower_note_classified(Inst *instance,int source_note,hb_har
             preferred=(uint16_t)(legal&pool);
             if(!preferred)preferred=pool;
         }else if(split==3){
+            int target_interval=hb_render_degree_interval(chord_scale,detected,degree);
+            int degree_pc=mod12(detected.root_pc+target_interval);
             int is_on=(active_mask&(1u<<degree_pc))!=0;
             uint16_t out_mask=(uint16_t)(chord_scale&(uint16_t)(~active_mask)&0x0FFFu);
             preferred=(uint16_t)(legal&(is_on?active_mask:out_mask));
@@ -2822,10 +2825,11 @@ static int hb_map_follower_note_now(Inst *instance,int source_note){
     int rendered=hb_map_follower_note_unoperated(instance,source_note);
     if(!hb_cp_mode(&instance->player)){
         int secondary=hb_secondary_at(instance,source_note);
+        const hb_cadence_step *cadence=hb_mo_current_cadence(&instance->motion);
+        if(!secondary&&!cadence)return rendered;
         hb_harmony_t harmony=hb_key_harmony(instance,hb_render_harmony(instance));
         int parent_root=0;hb_resolve_follower_reference_root(instance,&parent_root);
         unsigned parent=hb_parent_chord_scale(instance,harmony,parent_root,hb_follower_input_scale(instance,parent_root),g_bus.global_transpose);
-        const hb_cadence_step *cadence=hb_mo_current_cadence(&instance->motion);
         if(cadence)rendered=hb_resolve_cadence(instance,cadence,rendered,parent).root;
         else rendered+=hb_context_approach_offset(instance,secondary,rendered,hb_secondary_collection(instance,secondary,rendered,parent));
         while(rendered<0)rendered+=12;while(rendered>127)rendered-=12;
