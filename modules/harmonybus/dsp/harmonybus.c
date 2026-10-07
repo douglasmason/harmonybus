@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.267"
+#define HB_VERSION "0.2.268"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -3327,27 +3327,37 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
         }
     }
     for(int index=0;index<HB_MOTION_LANES;index++){
+        /* Only evaluate operations consumed by this output stage. Recorded
+           events can replace the live operation; resolve that identity first. */
+        int operation=hb_mo_operation(&instance->motion,index);
+        switch(operation){
+            case HB_MO_VELOCITY:case HB_MO_PAN:case HB_MO_OCTAVE:
+            case HB_MO_ROTATE:case HB_MO_GATE:case HB_MO_SKIP:
+            case HB_MO_TRANSPOSE:case HB_MO_BELOW:case HB_MO_ABOVE:
+            case HB_MO_CHROM_ABOVE:case HB_MO_TRITONE_V:break;
+            default:continue;
+        }
         double value;
         if(!hb_mo_value_at(&instance->motion,index,beat,condition,message[1],&value))continue;
-        hb_motion_lane resolved=hb_mo_settings(&instance->motion,index);const hb_motion_lane *lane=&resolved;
-        if(lane->operation==HB_MO_VELOCITY)*velocity=hb_mo_clamp(hb_mo_round(*velocity*(1.0+value/100.0)),1,127);
-        else if(lane->operation==HB_MO_PAN)*pan=hb_mo_clamp(hb_mo_round(64.0+value*0.63),0,127);
-        else if(lane->operation==HB_MO_OCTAVE){
+        if(operation==HB_MO_VELOCITY)*velocity=hb_mo_clamp(hb_mo_round(*velocity*(1.0+value/100.0)),1,127);
+        else if(operation==HB_MO_PAN)*pan=hb_mo_clamp(hb_mo_round(64.0+value*0.63),0,127);
+        else if(operation==HB_MO_OCTAVE){
             *pitch+=12*hb_mo_clamp(hb_mo_round(value),-4,4);
             while(*pitch<0)*pitch+=12;while(*pitch>127)*pitch-=12;
-        }else if(lane->operation==HB_MO_ROTATE){
+        }else if(operation==HB_MO_ROTATE){
             hb_harmony_t harmony=hb_render_harmony(instance);if(!harmony.valid)continue;
             hb_harmony_t collection=instance->content_map==1?hb_follower_scale_target(instance,harmony):hb_follower_content_target(instance,harmony,instance->content_map);
             if(instance->content_map==2)collection.pitch_mask=0xfff;
             hb_fp_config transform={0};transform.rotate=hb_mo_clamp(hb_mo_round(value),-24,24);
             *pitch=hb_fp_note(transform,*pitch,harmony.root_pc,collection.pitch_mask);
-        }else if(lane->operation==HB_MO_GATE){
-            double deadline=beat+hb_mo_grid(lane->grid)*hb_mo_clamp(hb_mo_round(value),1,400)/100.0;
+        }else if(operation==HB_MO_GATE){
+            hb_motion_lane resolved=hb_mo_settings(&instance->motion,index);
+            double deadline=beat+hb_mo_grid(resolved.grid)*hb_mo_clamp(hb_mo_round(value),1,400)/100.0;
             if(*off_beat<0||deadline<*off_beat)*off_beat=deadline;
-        }else if(lane->operation==HB_MO_SKIP&&value>0)*skip=1;
-        else if(lane->operation==HB_MO_TRANSPOSE)*pitch=hb_mo_clamp(*pitch+hb_mo_round(value),0,127);
-        else if(!hb_mo_chord_approach_done(&instance->motion)&&!(instance->motion.held&(1ULL<<index))&&(lane->operation==HB_MO_BELOW||lane->operation==HB_MO_ABOVE||lane->operation==HB_MO_CHROM_ABOVE||lane->operation==HB_MO_TRITONE_V)&&value>0)
-            *pitch=hb_apply_approach(instance,*pitch,lane->operation==HB_MO_BELOW?HB_APPROACH_CHROM_BELOW:(lane->operation==HB_MO_CHROM_ABOVE||lane->operation==HB_MO_TRITONE_V)?HB_APPROACH_CHROM_ABOVE:HB_APPROACH_SCALE_ABOVE);
+        }else if(operation==HB_MO_SKIP&&value>0)*skip=1;
+        else if(operation==HB_MO_TRANSPOSE)*pitch=hb_mo_clamp(*pitch+hb_mo_round(value),0,127);
+        else if(!hb_mo_chord_approach_done(&instance->motion)&&!(instance->motion.held&(1ULL<<index))&&(operation==HB_MO_BELOW||operation==HB_MO_ABOVE||operation==HB_MO_CHROM_ABOVE||operation==HB_MO_TRITONE_V)&&value>0)
+            *pitch=hb_apply_approach(instance,*pitch,operation==HB_MO_BELOW?HB_APPROACH_CHROM_BELOW:(operation==HB_MO_CHROM_ABOVE||operation==HB_MO_TRITONE_V)?HB_APPROACH_CHROM_ABOVE:HB_APPROACH_SCALE_ABOVE);
     }
 }
 static void hb_motion_resolve_output(Inst *instance,const uint8_t message[3],int *result_pitch,int *result_velocity,int *result_pan,double *result_off,int *result_skip){

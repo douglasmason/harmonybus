@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.267'
+          assert module['version']=='0.2.268'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.267 removes repeated all-track key and chord/arp synchronization from every Movy MIDI tick. Shared work uses the existing audio-block barrier; each track keeps its local updates, and MIDI/settings entry remains immediate. Differential event traces match the old traversal across playback, stopped transport, arps, key changes, previews and rapid note edges. Keep Movy hbclean.189 and the current host. This reduces measured desktop CPU work; hardware crackle improvement is not yet confirmed." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.268 skips motion-value evaluation for operations not consumed by the note-output stage. Live notes and pad previews use the same filtered path, with recorded and held operation replacement preserved and no new cache. All 10,080 complete preview snapshots and 185,640 motion-output comparisons match 0.2.267. Keep Movy hbclean.189 and the current host; use its existing CPU TIME capture for hardware comparison. Desktop preview work is reduced; hardware crackle improvement remains unconfirmed." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.267 removes repeated all-track key and chord/arp synchronization from every Movy MIDI tick. Shared work uses the existing audio-block barrier; each track keeps its local updates, and MIDI/settings entry remains immediate. Differential event traces match the old traversal across playback, stopped transport, arps, key changes, previews and rapid note edges. Keep Movy hbclean.189 and the current host. This reduces measured desktop CPU work; hardware crackle improvement is not yet confirmed." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.268 skips motion-value evaluation for operations not consumed by the note-output stage. Live notes and pad previews use the same filtered path, with recorded and held operation replacement preserved and no new cache. All 10,080 complete preview snapshots and 185,640 motion-output comparisons match 0.2.267. Keep Movy hbclean.189 and the current host; use its existing CPU TIME capture for hardware comparison. Desktop preview work is reduced; hardware crackle improvement remains unconfirmed." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
