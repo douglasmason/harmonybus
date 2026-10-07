@@ -1,4 +1,4 @@
-HarmonyBus 0.2.265 removes redundant per-track shared timeline refreshes when Movy has already published its audio-block barrier. Incoming MIDI refreshes and standalone-host tick refreshes remain active. Compatible with Movy hbclean.184; only HarmonyBus needs updating. No Schwung host update. Desktop CPU reduction is measured; a device crackle fix is not yet confirmed.
+HarmonyBus 0.2.266 removes unused follower mapping calculations from synchronous pad previews and live notes. All four split modes retain identical preview output in differential tests. Adds short release/repress edge-order regression coverage. Pair with Movy hbclean.188. No host or buffer changes; this is a measured CPU reduction, not a confirmed hardware crackle fix.
 
 HarmonyBus 0.2.263 key-center operations distinguish persistent live control from clip-owned modulation events; see [Key center operations](key-center-operations.md).
 

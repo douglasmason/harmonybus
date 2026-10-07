@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.265'
+          assert module['version']=='0.2.266'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.265 adds Set Live Key: choose an exact tonic and scale, then Apply without playing a note. Fixes premature key selection on the first tapped motif approach. Live entry stays out of clip recording and Undo, cancels queued key arrivals, and uses existing travel settings. Pair with Movy hbclean.186; no Schwung host update." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.266 removes unused follower mapping calculations from synchronous pad previews and live notes. All four split modes retain identical preview output in differential tests. Adds short release/repress edge-order regression coverage. Pair with Movy hbclean.188. No host or buffer changes; this is a measured CPU reduction, not a confirmed hardware crackle fix." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.265 adds Set Live Key: choose an exact tonic and scale, then Apply without playing a note. Fixes premature key selection on the first tapped motif approach. Live entry stays out of clip recording and Undo, cancels queued key arrivals, and uses existing travel settings. Pair with Movy hbclean.186; no Schwung host update." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.266 removes unused follower mapping calculations from synchronous pad previews and live notes. All four split modes retain identical preview output in differential tests. Adds short release/repress edge-order regression coverage. Pair with Movy hbclean.188. No host or buffer changes; this is a measured CPU reduction, not a confirmed hardware crackle fix." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
