@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.266"
+#define HB_VERSION "0.2.267"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -5104,40 +5104,52 @@ static int process_key_base(void *value,const uint8_t *input,int length,uint8_t 
     if(instance){instance->motion.event_override=0;hb_gesture_finish_use(instance);hb_pad_observe_output(instance,output,lengths,count);}
     return count;
 }
-static void hb_key_operations_sync(void){
-    for(int index=0;index<HB_MAX_INSTANCES;index++){
-        Inst *instance=&g_pool[index];if(!instance->used||instance->role>=2)continue;
-        int parallel=0,override_scope=0;
-        unsigned long long active=0;
-        for(int lane=0;lane<HB_MOTION_USER_LANES;lane++){
-            int operation=instance->motion.lanes[lane].operation;
-            /* Reuse this existing scan: an inactive override adds no
-               second all-track/all-lane walk to every MIDI event. */
-            if(instance->role==1&&!instance->motion.bypass&&(instance->motion.held&(1ULL<<lane))){
-                if(operation==HB_MO_HARMONY_OVERRIDE)override_scope=2;
-                else if(operation==HB_MO_LIVE_HARMONY_OVERRIDE&&!override_scope)override_scope=1;
-            }
-            if(operation!=HB_MO_KEY_CENTER&&operation!=HB_MO_PARALLEL_SCALE&&(operation<HB_MO_RECORD_KEY||operation>HB_MO_KEY_RETURN))continue;
-            double value;
-            if(!hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&value))continue;
-            active|=1ULL<<lane;
-            if(operation!=HB_MO_PARALLEL_SCALE&&!(instance->key_lane_active&(1ULL<<lane))){
-                instance->key_action=operation==HB_MO_KEY_CENTER?0:operation-HB_MO_RECORD_KEY+1;
-                instance->key_shift=instance->motion.lanes[lane].amount;
-                instance->key_return_after=instance->motion.lanes[lane].offset;
-                if(instance->key_action>=2){hb_key_commit(instance,hb_key_baseline(instance));instance->motion.gesture_used|=1ULL<<lane;}
-                else {g_key_armed=1;g_sc_arm_owner=index;}
-            }
-            if(operation==HB_MO_PARALLEL_SCALE)parallel=1;
+/* Shared work runs once at Movy's block barrier. Per-track ticks still
+   reconcile their own gestures; MIDI and parameter entry keep immediate sync.
+   Standalone hosts without the barrier retain the full original traversal. */
+static void hb_key_operations_sync_instance(Inst *instance){
+    if(!instance->used||instance->role>=2)return;
+    int index=(int)(instance-g_pool);
+    int parallel=0,override_scope=0;
+    unsigned long long active=0;
+    for(int lane=0;lane<HB_MOTION_USER_LANES;lane++){
+        int operation=instance->motion.lanes[lane].operation;
+        /* Reuse this existing scan: an inactive override adds no
+           second all-track/all-lane walk to every MIDI event. */
+        if(instance->role==1&&!instance->motion.bypass&&(instance->motion.held&(1ULL<<lane))){
+            if(operation==HB_MO_HARMONY_OVERRIDE)override_scope=2;
+            else if(operation==HB_MO_LIVE_HARMONY_OVERRIDE&&!override_scope)override_scope=1;
         }
-        instance->key_lane_active=active;
-        hb_override_set_scope(instance,override_scope);
-        if(parallel!=g_sc_lane[index]){
-            g_sc_lane[index]=parallel;
-            if(parallel||(!g_sc_manual[index]&&!g_sc_latch[index]))hb_key_parallel(instance,parallel);
+        if(operation!=HB_MO_KEY_CENTER&&operation!=HB_MO_PARALLEL_SCALE&&(operation<HB_MO_RECORD_KEY||operation>HB_MO_KEY_RETURN))continue;
+        double value;
+        if(!hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&value))continue;
+        active|=1ULL<<lane;
+        if(operation!=HB_MO_PARALLEL_SCALE&&!(instance->key_lane_active&(1ULL<<lane))){
+            instance->key_action=operation==HB_MO_KEY_CENTER?0:operation-HB_MO_RECORD_KEY+1;
+            instance->key_shift=instance->motion.lanes[lane].amount;
+            instance->key_return_after=instance->motion.lanes[lane].offset;
+            if(instance->key_action>=2){hb_key_commit(instance,hb_key_baseline(instance));instance->motion.gesture_used|=1ULL<<lane;}
+            else {g_key_armed=1;g_sc_arm_owner=index;}
         }
+        if(operation==HB_MO_PARALLEL_SCALE)parallel=1;
+    }
+    instance->key_lane_active=active;
+    hb_override_set_scope(instance,override_scope);
+    if(parallel!=g_sc_lane[index]){
+        g_sc_lane[index]=parallel;
+        if(parallel||(!g_sc_manual[index]&&!g_sc_latch[index]))hb_key_parallel(instance,parallel);
     }
 }
+static void hb_key_operations_sync(void){
+    for(int index=0;index<HB_MAX_INSTANCES;index++)
+        hb_key_operations_sync_instance(&g_pool[index]);
+}
+#ifndef HB_LEGACY_TICK_SYNC
+#define HB_SCOPED_TICK_SYNC 1
+#else
+#define HB_SCOPED_TICK_SYNC 0
+#endif
+
 static int process(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int capacity){
     Inst *instance=(Inst*)value;if(!instance)return 0;
     if(input&&length>=1&&input[0]==0xfc){memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=instance->target_attack_owner=0;}
@@ -5211,7 +5223,8 @@ static int hb_motion_pending_trigger(const Inst *instance){
 static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int capacity){
     Inst *instance=(Inst*)value;if(!instance)return 0;
     hb_gesture_finish_use(instance);
-    for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
+    if(HB_SCOPED_TICK_SYNC&&g_conductor_block_ready)hb_auto_chord_repeat_sync(instance);
+    else for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
     if(frames>0&&sample_rate>0){double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120.0;if(bpm<=0)bpm=120.0;instance->motion_beat+=(double)frames*bpm/(60.0*sample_rate);}
     hb_motion_tick_routes(instance);
     /* Receiver already owns shared rendered gates. Only drain this route while
@@ -5231,8 +5244,9 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
     int emitted=hb_motion_local_drain(instance,output,lengths,capacity);hb_gesture_finish_use(instance);return emitted;
 }
 static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int capacity){
-    hb_key_operations_sync();
     Inst *instance=(Inst*)value;if(!instance)return 0;
+    if(HB_SCOPED_TICK_SYNC&&g_conductor_block_ready)hb_key_operations_sync_instance(instance);
+    else hb_key_operations_sync();
     int advanced=0;
     if(instance->advance_pending&&capacity>0){
         unsigned owner=instance->advance_owner;int channel=(owner-1)/128,note=(owner-1)%128;
@@ -5672,6 +5686,11 @@ if(!strcmp(key,"hb_movy_block")){
         hb_movy_refresh();
         g_conductor_block_id=block;g_conductor_block_ready=1;
         hb_prepare_conductors(frames,rate);
+        if(HB_SCOPED_TICK_SYNC){
+            hb_key_operations_sync();
+            for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)
+                hb_auto_chord_repeat_sync(&g_pool[index]);
+        }
     }
     return;
 }

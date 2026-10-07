@@ -1,3 +1,5 @@
+HarmonyBus 0.2.267 removes repeated all-track key and chord/arp synchronization from every Movy MIDI tick. Shared work uses the existing audio-block barrier; each track keeps its local updates, and MIDI/settings entry remains immediate. Differential event traces match the old traversal across playback, stopped transport, arps, key changes, previews and rapid note edges. Keep Movy hbclean.189 and the current host. This reduces measured desktop CPU work; hardware crackle improvement is not yet confirmed.
+
 HarmonyBus 0.2.266 removes unused follower mapping calculations from synchronous pad previews and live notes. All four split modes retain identical preview output in differential tests. Adds short release/repress edge-order regression coverage. Compatible with installed Movy hbclean.187; only HarmonyBus needs updating. No host or buffer changes; this is a measured CPU reduction, not a confirmed hardware crackle fix.
 
 HarmonyBus 0.2.263 key-center operations distinguish persistent live control from clip-owned modulation events; see [Key center operations](key-center-operations.md).
