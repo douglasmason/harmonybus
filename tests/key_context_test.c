@@ -258,7 +258,51 @@ static void immediate_key_feedback(void){
     }
 }
 
-int main(void){key_center_waits_for_touch_target();anticipated_destination_scale();immediate_key_feedback();live_dominant_without_key_change();modal_leading_and_active_family();unchanged_key_voicings();functional_key_change();blues_mode();
+static void explicit_key_entry(void){
+    for(int role=0;role<2;role++)for(int transpose=-2;transpose<=2;transpose+=2){
+        Inst *instance=fixture();single_setup(instance);instance->movy_track=0;
+        API.set_param(instance,"role",role?"Follower":"Conductor");
+        char value[32];snprintf(value,sizeof(value),"%d",transpose);API.set_param(instance,"transpose",value);
+        API.set_param(instance,"hb_shared_record","0");g_sc_count=g_sc_head=0;
+        for(int tonic=0;tonic<12;tonic++)for(int scale=1;scale<HB_SCALE_COUNT;scale++){
+            hb_key_context before=hb_key_for(instance);
+            API.set_param(instance,"key_center_tonic",PC_OPTS[tonic]);
+            API.set_param(instance,"key_center_explicit_scale",HB_SCALE_NAMES[scale]);
+            assert(hb_key_for(instance).target_root==before.target_root);
+            assert(hb_key_for(instance).target_mask==before.target_mask);
+            instance->key_pending=1;instance->key_pending_context=before;
+            instance->key_action=2; /* A preceding recordable operation cannot leak. */
+            API.set_param(instance,"key_center_apply","Apply");
+            assert(!instance->key_pending&&!g_key_armed&&!g_sc_count);
+            assert(g_key_context.target_root==tonic);
+            assert(g_key_context.target_mask==hb_explicit_scale_mask(tonic,scale));
+            assert(g_key_context.blues==HB_SCALE_DOMINANT[scale]);
+            assert(!render_count&&!recorded_count);
+            API.set_param(instance,"hb_shared_reset",""); /* Clip Undo keeps the live key. */
+            assert(g_key_context.target_root==tonic);
+        }
+        char saved[32768];API.get_param(instance,"state",saved,sizeof(saved));
+        API.set_param(instance,"key_center_tonic","C");API.set_param(instance,"key_center_explicit_scale","Major");
+        API.set_param(instance,"state",saved);
+        API.get_param(instance,"key_center_tonic",value,sizeof(value));assert(!strcmp(value,"B"));
+        API.get_param(instance,"key_center_explicit_scale",value,sizeof(value));assert(!strcmp(value,"Harmonic Major"));
+        API.destroy_instance(instance);
+    }
+}
+static void tapped_motif_key_landing(void){
+    Inst *instance=fixture();single_setup(instance);
+    API.set_param(instance,"motif_preset","ii-V-Target");
+    API.set_param(instance,"motif_playback","Tap Free");
+    API.set_param(instance,"motif_arm","1");API.set_param(instance,"key_center","On");
+    for(int step=0;step<3;step++){
+        press_mask(instance,62);
+        assert(g_key_armed==(step<2));
+        assert(g_key_context.active==(step==2));
+        release(instance,62);
+    }
+    assert(g_key_context.target_root==2);API.destroy_instance(instance);
+}
+int main(void){explicit_key_entry();tapped_motif_key_landing();key_center_waits_for_touch_target();anticipated_destination_scale();immediate_key_feedback();live_dominant_without_key_change();modal_leading_and_active_family();unchanged_key_voicings();functional_key_change();blues_mode();
     Inst *instance=fixture();single_setup(instance);
     new_key_major(instance,62);
     assert(g_key_context.target_root==2&&!g_key_armed);

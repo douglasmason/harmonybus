@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.264"
+#define HB_VERSION "0.2.265"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -254,7 +254,7 @@ typedef struct {
     unsigned long long low,high,single_low,single_high;
 } hb_surface_sample;
 typedef struct { int count; hb_surface_sample samples[108]; } hb_surface_frame_cache;
-typedef struct { int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_action,key_shift,key_return_after,key_pending_action; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[2][16][128]; int chord_pair_owner[2][16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; int motif_load[6],motif_load_last; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
+typedef struct { int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_tonic,key_scale,key_input_consumed; int key_action,key_shift,key_return_after,key_pending_action; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[2][16][128]; int chord_pair_owner[2][16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; int motif_load[6],motif_load_last; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 hb_follower_voice follower_voices[HB_FOLLOWER_VOICES];
 hb_input_intent follower_queue_input[64];
 uint8_t follower_input_held[2][128];
@@ -5090,8 +5090,8 @@ static int process_key_base(void *value,const uint8_t *input,int length,uint8_t 
             if(target>=0&&target<=127)instance->motif_load_last=target;
         }
         hb_gesture_target_input(instance,input,length);
-        if(hb_ar_input(instance,input,length)){hb_gesture_finish_use(instance);return 0;}
-        if(hb_mt_input(instance,input,length)){hb_gesture_finish_use(instance);return 0;}
+        if(hb_ar_input(instance,input,length)){instance->key_input_consumed=1;hb_gesture_finish_use(instance);return 0;}
+        if(hb_mt_input(instance,input,length)){instance->key_input_consumed=1;hb_gesture_finish_use(instance);return 0;}
     }
     if(instance&&length>=3&&(input[0]&0xf0)==0x90&&input[2]&&instance->movy_playback&&instance->recorded_action_valid[input[1]&127])
         instance->motion.event_override=instance->recorded_actions[input[1]&127];
@@ -5184,8 +5184,10 @@ static int process(void *value,const uint8_t *input,int length,uint8_t output[][
         }
     }
     instance->key_scope=1;
+    instance->key_input_consumed=0;
     int count=process_key_base(value,input,length,output,lengths,capacity);
-    if(land&&!instance->key_pending)hb_key_land(instance,input[1]&127);
+    /* Motif rendering owns arrival, including the first tap and silent steps. */
+    if(land&&!instance->key_input_consumed&&!instance->key_pending)hb_key_land(instance,input[1]&127);
     if(instance->key_pending&&instance->key_pending_at<=hb_motion_position(instance)+1e-6){hb_key_commit_pending(instance);}
     instance->key_schedule_arm=0;instance->key_scope=0;return count;
 }
@@ -6541,6 +6543,9 @@ if(!strcmp(key,"follower_key_travel")||!strcmp(key,"follower_recorded_key_travel
     int travel=g_key_follower_travel;
     return snprintf(buffer,(size_t)length,"%s",travel<0?"Same as Conductor":HB_KEY_TRAVEL[travel]);
 }
+if(!strcmp(key,"key_center_tonic"))return snprintf(buffer,(size_t)length,"%s",PC_OPTS[instance->key_tonic]);
+if(!strcmp(key,"key_center_explicit_scale"))return snprintf(buffer,(size_t)length,"%s",HB_SCALE_NAMES[instance->key_scale+1]);
+if(!strcmp(key,"key_center_apply"))return snprintf(buffer,(size_t)length,"Apply");
 if(!strcmp(key,"key_center_scale"))return snprintf(buffer,(size_t)length,"%s",g_key_scale_mode==2?"Use Parallel Scale":g_key_scale_mode==0?"Simplified Major/Minor":"Mode from Parent");
 if(!strcmp(key,"parallel_scale"))return snprintf(buffer,(size_t)length,"%s",HB_PARALLEL_NAMES[g_parallel_scale]);
 for(int field=0;field<4;field++)if(!strcmp(key,HB_TARGET_KEYS[field]))
@@ -6797,6 +6802,8 @@ if(!strcmp(key,"state")){
     used=hb_mo_save(&instance->motion,buffer,length,used);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";kc1,%d,%d,%d;kt2,%d,%d,%d;kt3,%d,%d",g_key_scale_mode,g_key_conductor_travel,g_parallel_scale,g_key_conductor_travel,g_key_follower_travel,g_key_follower_travel,g_key_conductor_travel,g_key_follower_travel);
+    if(used<0||used>=length)return used;
+    used+=snprintf(buffer+used,(size_t)(length-used),";ke1,%d,%d",instance->key_tonic,instance->key_scale);
     return hb_timeline_save(instance,buffer,length,hb_ar_save(instance,buffer,length,hb_mt_save(instance,buffer,length,hb_ml_save(instance,buffer,length,used))));
 }
 if(!strcmp(key,"hb_record_action")){
@@ -7395,6 +7402,21 @@ static void set_param(void *value,const char *key,const char *parameter){
         set_param_base(value,key,parameter);return;
     }
     hb_role_sync(instance);
+    if(!strcmp(key,"key_center_tonic")){instance->key_tonic=enum_index(parameter,PC_OPTS,12,instance->key_tonic);return;}
+    if(!strcmp(key,"key_center_explicit_scale")){instance->key_scale=enum_index(parameter,HB_SCALE_NAMES+1,HB_SCALE_COUNT-1,instance->key_scale);return;}
+    if(!strcmp(key,"key_center_apply")){
+        if(!strcmp(parameter,"Apply")||!strcmp(parameter,"Down")){
+            /* An explicit sounding destination replaces any queued pad arrival.
+               Use the live operation path even during clip recording. */
+            for(int index=0;index<HB_MAX_INSTANCES;index++)g_pool[index].key_pending=0;
+            hb_key_context context=hb_key_baseline(instance);context.active=1;
+            context.target_root=instance->key_tonic;
+            context.target_mask=hb_explicit_scale_mask(context.target_root,instance->key_scale+1);
+            context.blues=HB_SCALE_DOMINANT[instance->key_scale+1];
+            instance->key_action=0;hb_key_commit(instance,context);
+        }
+        return;
+    }
     if(!strcmp(key,"key_center")){
         instance->key_action=0;
         if(!strcmp(parameter,"Off")||!strcmp(parameter,"LatchOff")){for(int index=0;index<HB_MAX_INSTANCES;index++)g_pool[index].key_pending=0;g_key_armed=0;g_sc_arm_owner=-1;g_key_preview[0]=0;hb_sc_set_live(instance,HB_SC_KEY,0,0,0,0);}
@@ -7424,6 +7446,9 @@ static void set_param(void *value,const char *key,const char *parameter){
     if(!hb_ml_set(instance,key,parameter)&&!hb_ar_set(instance,key,parameter)&&!hb_cs_set(instance,key,parameter)&&!hb_rr_set(instance,key,parameter)&&!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
     if(!strcmp(key,"state")){
         memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=instance->target_attack_owner=0;instance->advance_pending=instance->advance_phase=0;
+        instance->key_tonic=instance->key_scale=0;
+        const char *entry_suffix=strstr(parameter,";ke1,");int tonic,entry_scale;
+        if(entry_suffix&&sscanf(entry_suffix,";ke1,%d,%d",&tonic,&entry_scale)==2&&tonic>=0&&tonic<12&&entry_scale>=0&&entry_scale<HB_SCALE_COUNT-1){instance->key_tonic=tonic;instance->key_scale=entry_scale;}
         if(!g_key_settings_restored){const char *suffix=strstr(parameter,";kc1,");int mode,travel,scale;
             if(suffix&&sscanf(suffix,";kc1,%d,%d,%d",&mode,&travel,&scale)==3&&mode>=0&&mode<=2&&travel>=0&&travel<HB_KEY_TRAVEL_COUNT&&scale>=1&&scale<HB_PARALLEL_COUNT){
                 g_key_scale_mode=mode;g_key_conductor_travel=travel;g_parallel_scale=scale;
