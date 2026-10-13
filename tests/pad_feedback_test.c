@@ -371,6 +371,10 @@ int main(void){future_membership_uses_current_output();resolved_footer();active_
     uint8_t messages[2][3]={{0x90,60,100},{0x80,60,0}};int lengths[2]={3,3};
     hb_pad_observe_output(instance,messages,lengths,2);
     assert(!instance->pad_sounding[60]);
+    char pitches[1024];API.get_param(instance,"pad_output",pitches,sizeof(pitches));assert(!strcmp(pitches,"po1,60"));
+    /* Output feedback is read-only and independent of input/travel geometry. */
+    instance->travel_map=5;API.get_param(instance,"pad_output",pitches,sizeof(pitches));assert(!strcmp(pitches,"po1,60"));
+
     API.get_param(instance,request,view,sizeof(view));
     assert(section(view,"|playpads1,")==0);
     assert(section(view,"|playflash1,")==1u<<12);
@@ -382,6 +386,7 @@ int main(void){future_membership_uses_current_output();resolved_footer();active_
     hb_pad_observe_output(instance,messages,lengths,2);
     uint8_t stop[1][3]={{0xfc,0,0}};int one[1]={1};hb_pad_observe_output(instance,stop,one,1);
     API.get_param(instance,request,view,sizeof(view));assert(section(view,"|playflash1,")==0);
+    API.get_param(instance,"pad_output",pitches,sizeof(pitches));assert(!strcmp(pitches,"po1"));
     API.destroy_instance(instance);
     puts("Approach membership stays chromatic across chord modes; short onsets flash without sustaining MIDI and clear on stop");
 }

@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.271"
+#define HB_VERSION "0.2.272"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -6515,6 +6515,16 @@ static hb_harmony_t hb_opening_harmony(void){
 }
 #include "../../../src/shared_context_runtime.h"
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+/* Final MIDI pitches only: cross-actor overlays must not re-render these through
+   another actor's travel or feed them back into harmony inference. */
+if(!strcmp(key,"pad_output")){
+    int used=snprintf(buffer,(size_t)length,"po1");
+    for(int pitch=0;pitch<128&&used>=0&&used<length;pitch++)
+        if(instance->pad_sounding[pitch]||instance->pad_flash_seconds[pitch]>0)
+            used+=snprintf(buffer+used,(size_t)(length-used),",%d",pitch);
+    return used;
+}
+
 /* One response freezes all three geometries in the same audio-thread callback.
    The temporary cache shares identical rendered inputs across Move and both banks;
    it is never retained across reads, harmony changes, or parameter writes. */
