@@ -15,7 +15,7 @@ int main(void){
     Inst *third=API.create_instance("",0);expect_bank(third,"Leading Tone");
     API.set_param(second,"state",saved);expect_bank(second,"Leading Tone");expect_bank(first,"Leading Tone");
     /* Operators already share their definitions without sharing holds. */
-    API.set_param(first,"motion_operation_1","Motif");
+    API.set_param(first,"motion_operation_1","Play Motif");
     assert(first->motion.lanes[0].operation==HB_MO_MOTIF&&first->motion.lanes[0].operation==second->motion.lanes[0].operation);
     first->motion.held=1;assert(second->motion.held==0);
     API.destroy_instance(third);API.destroy_instance(second);API.destroy_instance(first);
