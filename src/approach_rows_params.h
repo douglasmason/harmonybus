@@ -1,3 +1,10 @@
+/* Assignment edits are global; held notes, cursors and latch state stay local.
+   Publish only from edits/restores, never from the audio tick. */
+static void hb_ar_publish_bank(const hb_ar_state *source){
+    memcpy(g_ar_bank,source->bank,sizeof(g_ar_bank));g_ar_bank_ready=1;
+    for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)
+        memcpy(g_pool[index].approach_rows.bank,g_ar_bank,sizeof(g_ar_bank));
+}
 /* Dedicated approach layouts give knobs exclusive ownership of spatial assignments. */
 static int hb_ar_single_layout(const Inst *instance){
     if(!instance->approach_layout||instance->preview_count!=32)return 0;
@@ -9,7 +16,7 @@ static int hb_ar_slot(const char *key,const char *prefix,int count){
     size_t length=strlen(prefix);if(strncmp(key,prefix,length))return -1;
     char *end;long value=strtol(key+length,&end,10);return !*end&&value>=1&&value<=count?(int)value-1:-1;
 }
-static int hb_ar_set(Inst *instance,const char *key,const char *value){
+static int hb_ar_set_local(Inst *instance,const char *key,const char *value){
     hb_ar_state *state=&instance->approach_rows;
     if(!strcmp(value,"Secondary LT")||!strcmp(value,"Chromatic Below")||!strcmp(value,"Chrom Below")||!strcmp(value,"CCB"))value="Connector Below";
     else if(!strcmp(value,"Chromatic Above")||!strcmp(value,"Chrom Above")||!strcmp(value,"CCA"))value="Connector Above";
@@ -130,6 +137,12 @@ static int hb_ar_sequence_view(Inst *instance,char *buffer,int length){
     for(int index=begin;index<end&&used>=0&&used<length;index++)used+=snprintf(buffer+used,(size_t)(length-used),"|%s",labels[index]);
     return used;
 }
+static int hb_ar_set(Inst *instance,const char *key,const char *value){
+    int handled=hb_ar_set_local(instance,key,value);
+    if(handled&&(hb_ar_slot(key,"approach_bank_",16)>=0||hb_ar_slot(key,"approach_knob_",8)>=0))
+        hb_ar_publish_bank(&instance->approach_rows);
+    return handled;
+}
 static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"approach_sequence_view"))return hb_ar_sequence_view(instance,buffer,length);
     hb_ar_state *state=&instance->approach_rows;int slot=hb_ar_slot(key,"approach_knob_",8);
@@ -193,4 +206,8 @@ static void hb_ar_restore(Inst *instance,const char *source){
         if(*end&&*end!=';')return;restored.sequence_count=(int)entries;
     }
     instance->approach_rows=restored;
+    /* First valid saved bank wins, matching existing shared operator settings.
+       Later per-track/undo restores cannot roll back the global assignment. */
+    if(!g_ar_bank_ready)hb_ar_publish_bank(&instance->approach_rows);
+    else memcpy(instance->approach_rows.bank,g_ar_bank,sizeof(g_ar_bank));
 }
