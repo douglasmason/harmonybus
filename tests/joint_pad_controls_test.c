@@ -21,6 +21,16 @@ int main(void){
     assert(!hb_joint_key_zone(comp)&&!hb_joint_key_zone(other));
     API.set_param(melody,"key_center","Down");assert(!g_sc_pad_mask&&g_sc_arm_owner==melody-g_pool);
     API.set_param(melody,"key_center","Off");
+    API.set_param(other,"role","Conductor");
+    API.set_param(other,"motion_operation_1","Live Key Center");
+    g_sc_pad_mask=9;API.set_param(other,"motion_hold_1","On");hb_key_operations_sync();
+    assert(g_key_armed&&!g_sc_pad_mask&&g_sc_arm_owner==other-g_pool);
+    API.set_param(other,"motion_hold_1","Off");API.set_param(other,"key_center","Off");
+    API.set_param(root,"motion_operation_1","Relative Key Center");
+    hb_key_context before=g_key_context;
+    API.set_param(root,"joint_pad_motion_hold_1","9|On");
+    assert(g_key_armed&&g_sc_pad_mask==9&&!memcmp(&before,&g_key_context,sizeof(before)));
+    API.set_param(root,"joint_pad_motion_hold_1","9|Off");API.set_param(root,"key_center","Off");
     API.set_param(root,"joint_pad_approach_step_touch_1","9|Up,500");
     API.set_param(melody,"joint_pad_approach_step_touch_1","9|Up,500");
     assert(!root->approach_rows.step_down&&!melody->approach_rows.step_down);

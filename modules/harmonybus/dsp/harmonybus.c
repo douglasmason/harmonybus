@@ -5160,8 +5160,8 @@ static void hb_key_operations_sync_instance(Inst *instance){
             instance->key_action=operation==HB_MO_KEY_CENTER?0:operation-HB_MO_RECORD_KEY+1;
             instance->key_shift=instance->motion.lanes[lane].amount;
             instance->key_return_after=instance->motion.lanes[lane].offset;
-            if(instance->key_action>=2){hb_key_commit(instance,hb_key_baseline(instance));instance->motion.gesture_used|=1ULL<<lane;}
-            else {g_key_armed=1;g_sc_arm_owner=index;}
+            if(instance->key_action>=2&&!instance->joint_pad_control){hb_key_commit(instance,hb_key_baseline(instance));instance->motion.gesture_used|=1ULL<<lane;}
+            else {g_key_armed=1;g_sc_pad_mask=0;g_sc_arm_owner=index;}
         }
         if(operation==HB_MO_PARALLEL_SCALE)parallel=1;
     }
@@ -7412,7 +7412,7 @@ static void set_param(void *value,const char *key,const char *parameter){
            The UI addresses only root, melody and independently played bass. */
         char *end;unsigned long mask=strtoul(parameter,&end,10);
         if(end==parameter||*end!='|'||!mask||mask>65535||instance->movy_track<0||instance->movy_track>=16||!(mask&(1u<<instance->movy_track)))return;
-        instance->joint_pad_control=1;set_param(value,key+10,end+1);instance->joint_pad_control=0;
+        instance->joint_pad_control=1;set_param(value,key+10,end+1);hb_key_operations_sync_instance(instance);instance->joint_pad_control=0;
         if(g_key_armed){g_sc_pad_mask=(unsigned)mask;g_sc_arm_owner=-1;}
         return;
     }
