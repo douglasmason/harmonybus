@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.271'
+          assert module['version']=='0.2.272'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.271 makes Motif Play bank assignments global, matching the shared operator bank and motif library. Joint Play modifiers arm pad zones without a target selector or adopting existing held notes; the pressed pad chooses the role, and comp is excluded from key-center capture. Track-local playback cursors, holds and latch state remain independent. First-restored shared assignments survive later track/undo restores. Use with Movy hbclean.196." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.272 exposes read-only final sounding pitches for shared Joint Play overlays. Feedback follows actual MIDI output after travel, chord, arp and motif rendering, includes brief onset flashes, and clears on stop. Use with Movy hbclean.197 for actor pad participation, track-backed settings panels and linked-pair or all-actor playback colors." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.271 makes Motif Play bank assignments global, matching the shared operator bank and motif library. Joint Play modifiers arm pad zones without a target selector or adopting existing held notes; the pressed pad chooses the role, and comp is excluded from key-center capture. Track-local playback cursors, holds and latch state remain independent. First-restored shared assignments survive later track/undo restores. Use with Movy hbclean.196." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.272 exposes read-only final sounding pitches for shared Joint Play overlays. Feedback follows actual MIDI output after travel, chord, arp and motif rendering, includes brief onset flashes, and clears on stop. Use with Movy hbclean.197 for actor pad participation, track-backed settings panels and linked-pair or all-actor playback colors." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
