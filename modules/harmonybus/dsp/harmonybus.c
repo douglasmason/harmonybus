@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.270"
+#define HB_VERSION "0.2.271"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -16,6 +16,7 @@ extern int strcmp(const char *, const char *);
 extern int strncmp(const char *, const char *, size_t);
 extern char *strchr(const char *, int);
 extern long strtol(const char *, char **, int);
+extern unsigned long strtoul(const char *, char **, int);
 extern unsigned long long strtoull(const char *, char **, int);
 extern double strtod(const char *, char **);
 extern void *malloc(size_t);
@@ -269,7 +270,7 @@ char follower_display[8][24]; int follower_display_valid;
 int follower_input_seen; /* Direct MIDI takes ownership from monitor fallback. */
 char harmony_display[4][48]; int harmony_display_valid;
 unsigned long long next_touch_mask; double next_touch_started,next_touch_until; hb_harmony_t next_touch_observed;
-uint8_t physical_velocity[16][128];unsigned short physical_target,target_attack_owner;int adopt_held,advance_pending,advance_phase,synthetic_advance;unsigned short advance_owner;
+uint8_t physical_velocity[16][128];unsigned short physical_target,target_attack_owner;int joint_pad_control,adopt_held,advance_pending,advance_phase,synthetic_advance;unsigned short advance_owner;
 hb_surface_frame_cache *surface_frame_cache;
 int pressure_full_velocity;uint16_t pad_sounding[128];double pad_flash_seconds[128];unsigned long long preview_single_low,preview_single_high;unsigned preview_gap_mask;int approach_layout,move_approach_layout,surface_approach_layout,surface_enabled;int surface_count[2],surface_notes[2][32],surface_targets[2][32],surface_rows[2][32];int preview_count,preview_notes[32],preview_targets[32],preview_rows[32]; signed char movy_pad_shift[128]; int movy_pad_pending, movy_pad_pending_shift; uint8_t movy_input_degree[128],movy_input_target[128]; uint8_t follower_origin[128], follower_queue_origin[64]; int used,role,mode,content_map,travel_map,chromatic_map,touch_lanes[9],follower_split_map,quant_timing,approach_control,approach_mode,window_ms,dirty,frames_since_change; uint8_t active[128]; uint8_t held_now[128]; uint8_t held_count[128]; int pending_off_frames[128]; int mapped[128]; uint8_t follower_held[128]; uint8_t follower_sounding[128]; uint8_t follower_velocity[128]; unsigned follower_bus_seq; uint8_t source_seen[12]; int resolved_root,resolved_confidence; unsigned rx_count; unsigned note_on_count; unsigned note_off_count; int last_note; int last_status; int last_velocity; int active_count; int last_inferred_count; unsigned raw_event_count; unsigned raw_note_count; unsigned raw_note_on_count; unsigned raw_note_off_count; int raw_last_note; int raw_last_status; int raw_last_velocity; int raw_last_channel; int raw_last_cable; uint8_t raw_prev[HB_MIDI_OUT_BYTES]; int map_target; hb_harmony_t candidate_harmony; int candidate_frames; int committed_frames; int render_channel; int source_channel; int resolved_source_channel; unsigned live_press_count; int live_vouch_pending; int live_vouch_age; int recent_live_note[16]; int recent_live_age[16]; uint8_t recent_live_valid[16]; unsigned render_count; unsigned render_fail_count; int render_last_note; int retrigger_held; int follow_lookahead_ms; int approach_pad_armed; uint8_t approach_below_held; uint8_t approach_above_held; int follower_queue_count; uint8_t follower_queue_note[64]; uint8_t follower_queue_velocity[64]; uint8_t follower_queue_on[64]; uint8_t follower_queue_channel[64]; int follower_queue_age_frames[64]; double follower_queue_target_beat[64]; double follower_queue_quant_beat[64]; double follower_queue_harmony_beat[64]; hb_harmony_t render_harmony; int render_harmony_active; double follower_queue_arrival_beat[64]; double follower_note_delay_beats[128]; uint8_t follower_role_interval[128]; uint8_t published_conductor[128]; uint8_t published_follower[128]; int settle_frames_remaining; int clip_event_idle_frames; int last_transport_playing; uint8_t trace_note[8]; uint8_t trace_on[8]; uint8_t trace_channel[8]; unsigned trace_count; int local_sense_count; int conductor_note_on_pending; uint8_t local_sense_notes[64]; int global_timing_restored; uint8_t role_flush_pending[128]; int role_flush_cursor; int movy_track,movy_playback,movy_passthrough; uint8_t recorded_sounding[16][128],recorded_source_pitch[16][128],passthrough_held[128]; } Inst;
 static hb_input_intent hb_input_get(const Inst *instance,int source){
@@ -504,7 +505,7 @@ static int hb_sync_conductor_from_monitor(Inst *instance){
     (void)generation;
     return changed;
 }
-static void ensure_init(void){if(g_init)return;memset(g_render_owners,0,sizeof(g_render_owners));hb_override_reset();hb_sc_reset();memset(&g_key_context,0,sizeof(g_key_context));g_key_armed=g_parallel_on=g_parallel_latch=g_parallel_manual=g_key_lane_parallel=0;g_parallel_scale=2;g_key_preview[0]=0;g_key_scale_mode=1;g_key_conductor_travel=3;g_key_settings_restored=0;g_key_follower_travel=0;hb_touch_defaults();g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=7;g_bus.follower_scale=1;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
+static void ensure_init(void){if(g_init)return;memset(g_render_owners,0,sizeof(g_render_owners));hb_override_reset();hb_sc_reset();memset(&g_key_context,0,sizeof(g_key_context));g_key_armed=g_parallel_on=g_parallel_latch=g_parallel_manual=g_key_lane_parallel=0;g_parallel_scale=2;g_key_preview[0]=0;g_key_scale_mode=1;g_key_conductor_travel=3;g_key_settings_restored=0;g_key_follower_travel=0;hb_touch_defaults();g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_ar_bank_ready=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=7;g_bus.follower_scale=1;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
 
 static char *hb_read_text_file(const char *path,long *size_out){
     FILE *file=fopen(path,"rb");if(!file)return 0;
@@ -952,12 +953,15 @@ static int hb_resolve_follower_reference_root(Inst *instance,int *root_out){
     return hb_infer_follower_root(instance,root_out);
 }
 static int hb_map_follower_note_unoperated(Inst *instance,int source_note);
+static int hb_joint_key_zone(const Inst *instance){
+    return !g_sc_pad_mask||(instance->movy_track>=0&&instance->movy_track<16&&(g_sc_pad_mask&(1u<<instance->movy_track)));
+}
 static hb_key_context hb_key_for(Inst *instance){
     hb_key_context context=instance->key_scope?instance->key_onset:g_key_context;
     /* Freeze the destination choice with delayed onsets; previews retain their
        real owner through the private Inst copy. Never borrow a live arm for replay. */
     if(!instance->key_scope&&!instance->movy_playback&&g_key_armed&&g_key_scale_mode==2&&
-       (g_sc_arm_owner<0||g_sc_arm_owner==instance->key_owner))
+       (g_sc_arm_owner<0||g_sc_arm_owner==instance->key_owner)&&hb_joint_key_zone(instance))
         context.approach_scale=g_parallel_scale==18?-1:HB_PARALLEL_SCALE_IDS[g_parallel_scale];
     if(!context.active&&HB_SCALE_DOMINANT[hb_shared_follower_scale()]){
         int root=0;hb_resolve_follower_reference_root(instance,&root);
@@ -4042,7 +4046,7 @@ if(instance){
     hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);
     hb_receiver_remove_source(instance);
     instance->used=0;
-}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(1);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
+}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_ar_bank_ready=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(1);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
     /* Movy delivers each private chain on channel 1; Receive selects bus
@@ -5157,8 +5161,8 @@ static void hb_key_operations_sync_instance(Inst *instance){
             instance->key_action=operation==HB_MO_KEY_CENTER?0:operation-HB_MO_RECORD_KEY+1;
             instance->key_shift=instance->motion.lanes[lane].amount;
             instance->key_return_after=instance->motion.lanes[lane].offset;
-            if(instance->key_action>=2){hb_key_commit(instance,hb_key_baseline(instance));instance->motion.gesture_used|=1ULL<<lane;}
-            else {g_key_armed=1;g_sc_arm_owner=index;}
+            if(instance->key_action>=2&&!instance->joint_pad_control){hb_key_commit(instance,hb_key_baseline(instance));instance->motion.gesture_used|=1ULL<<lane;}
+            else {g_key_armed=1;g_sc_pad_mask=0;g_sc_arm_owner=index;}
         }
         if(operation==HB_MO_PARALLEL_SCALE)parallel=1;
     }
@@ -5193,9 +5197,9 @@ static int process(void *value,const uint8_t *input,int length,uint8_t output[][
     hb_key_operations_sync();
     int on=input&&length>=3&&(input[0]&0xf0)==0x90&&input[2];
     if(on){int owner=(input[1]&127)+(instance->movy_playback?128:0);instance->trail_input[owner]=++instance->trail_serial;}
-    int land=on&&g_key_armed&&(g_sc_arm_owner<0||g_sc_arm_owner==instance-g_pool)&&!instance->movy_playback&&instance->role<2&&instance->motif.editor.recording<0&&
+    int land=on&&g_key_armed&&(g_sc_arm_owner<0||g_sc_arm_owner==instance-g_pool)&&hb_joint_key_zone(instance)&&!instance->movy_playback&&instance->role<2&&instance->motif.editor.recording<0&&
         hb_source_channel_matches(instance,input[0]&15)&&instance->movy_pad_pending!=(input[1]&127)+1;
-    if(on&&g_key_armed&&(g_sc_arm_owner<0||g_sc_arm_owner==instance-g_pool)&&!instance->movy_playback&&instance->role<2&&hb_source_channel_matches(instance,input[0]&15)){
+    if(on&&g_key_armed&&(g_sc_arm_owner<0||g_sc_arm_owner==instance-g_pool)&&hb_joint_key_zone(instance)&&!instance->movy_playback&&instance->role<2&&hb_source_channel_matches(instance,input[0]&15)){
         hb_key_context current=hb_key_baseline(instance),destination=hb_key_destination(instance,input[1]&127);
         snprintf(g_key_preview,sizeof(g_key_preview),"%s%s>%s%s",HB_KEY_NAMES[current.target_root],hb_key_quality(current),HB_KEY_NAMES[destination.target_root],hb_key_quality(destination));
     }
@@ -7404,6 +7408,18 @@ static void hb_reset_track_defaults(Inst *instance,int track){
 }
 static void set_param(void *value,const char *key,const char *parameter){
     Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
+    if(!strncmp(key,"joint_pad_",10)){
+        /* Reuse the normal control protocol without adopting existing notes.
+           The UI addresses only root, melody and independently played bass. */
+        char *end;unsigned long mask=strtoul(parameter,&end,10);
+        if(end==parameter||*end!='|'||!mask||mask>65535||instance->movy_track<0||instance->movy_track>=16||!(mask&(1u<<instance->movy_track)))return;
+        int previous_arm=g_key_armed,previous_owner=g_sc_arm_owner;
+        instance->joint_pad_control=1;set_param(value,key+10,end+1);hb_key_operations_sync_instance(instance);instance->joint_pad_control=0;
+        if(g_key_armed&&(!previous_arm||g_sc_arm_owner!=previous_owner||(!strcmp(key+10,"key_center")&&(!strncmp(end+1,"Down",4)||!strcmp(end+1,"On")||!strcmp(end+1,"LatchOn"))))){
+            g_sc_pad_mask=(unsigned)mask;g_sc_arm_owner=-1;
+        }
+        return;
+    }
     if(!strcmp(key,"harm_play_release_control")){
         hb_chord_player *p=&instance->player;
         if(!strcmp(parameter,"Down")){p->release_held=1;p->release_used=p->release_turned=0;}
@@ -7470,9 +7486,8 @@ static void set_param(void *value,const char *key,const char *parameter){
         return;
     }
     if(!strcmp(key,"key_center")){
-        instance->key_action=0;
-        if(!strcmp(parameter,"Off")||!strcmp(parameter,"LatchOff")){for(int index=0;index<HB_MAX_INSTANCES;index++)g_pool[index].key_pending=0;g_key_armed=0;g_sc_arm_owner=-1;g_key_preview[0]=0;hb_sc_set_live(instance,HB_SC_KEY,0,0,0,0);}
-        else if(!strncmp(parameter,"Down",4)||!strcmp(parameter,"On")||!strcmp(parameter,"LatchOn")){g_key_armed=1;g_sc_arm_owner=(int)(instance-g_pool);g_key_preview[0]=0;}
+        if(!strcmp(parameter,"Off")||!strcmp(parameter,"LatchOff")){instance->key_action=0;g_sc_pad_mask=0;for(int index=0;index<HB_MAX_INSTANCES;index++)g_pool[index].key_pending=0;g_key_armed=0;g_sc_arm_owner=-1;g_key_preview[0]=0;hb_sc_set_live(instance,HB_SC_KEY,0,0,0,0);}
+        else if(!strncmp(parameter,"Down",4)||!strcmp(parameter,"On")||!strcmp(parameter,"LatchOn")){instance->key_action=0;g_sc_pad_mask=0;g_key_armed=1;g_sc_arm_owner=(int)(instance-g_pool);g_key_preview[0]=0;}
         return;
     }
     for(int field=0;field<4;field++)if(!strcmp(key,HB_TARGET_KEYS[field])){
@@ -7494,7 +7509,7 @@ static void set_param(void *value,const char *key,const char *parameter){
         else {g_sc_manual[instance-g_pool]=0;if(!g_sc_latch[instance-g_pool]&&!g_sc_lane[instance-g_pool])hb_key_parallel(instance,0);}
         return;
     }
-    instance->adopt_held=!strncmp(key,"motion_gesture_",15)||!strncmp(key,"motion_hold_",12);
+    instance->adopt_held=!instance->joint_pad_control&&(!strncmp(key,"motion_gesture_",15)||!strncmp(key,"motion_hold_",12));
     if(!hb_ml_set(instance,key,parameter)&&!hb_ar_set(instance,key,parameter)&&!hb_cs_set(instance,key,parameter)&&!hb_rr_set(instance,key,parameter)&&!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
     if(!strcmp(key,"state")){
         memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=instance->target_attack_owner=0;instance->advance_pending=instance->advance_phase=0;

@@ -11,6 +11,7 @@ static hb_sc_value g_sc_key_audition[HB_MAX_INSTANCES],g_sc_key_request[HB_MAX_I
 static hb_ks_state g_sc_key_sequence[HB_MAX_INSTANCES];
 static int g_sc_manual[HB_MAX_INSTANCES],g_sc_latch[HB_MAX_INSTANCES],g_sc_lane[HB_MAX_INSTANCES];
 static int g_sc_owner[HB_SC_KINDS],g_sc_recorded[HB_SC_KINDS],g_sc_ready,g_sc_dirty,g_sc_arm_owner=-1;
+static unsigned g_sc_pad_mask;
 static unsigned long long g_sc_serial;
 static hb_key_context g_sc_base;
 static hb_sc_event g_sc_events[64];
@@ -19,7 +20,7 @@ static void hb_sc_reset(void){
     memset(g_sc_key_audition,0,sizeof(g_sc_key_audition));memset(g_sc_key_request,0,sizeof(g_sc_key_request));memset(g_sc_key_sequence,0,sizeof(g_sc_key_sequence));
     memset(g_sc_live,0,sizeof(g_sc_live));memset(g_sc_replay,0,sizeof(g_sc_replay));
     memset(g_sc_manual,0,sizeof(g_sc_manual));memset(g_sc_latch,0,sizeof(g_sc_latch));memset(g_sc_lane,0,sizeof(g_sc_lane));
-    memset(&g_sc_base,0,sizeof(g_sc_base));g_sc_ready=g_sc_dirty=g_sc_head=g_sc_count=0;g_sc_serial=0;g_sc_arm_owner=-1;g_sc_record_track=-1;
+    memset(&g_sc_base,0,sizeof(g_sc_base));g_sc_ready=g_sc_dirty=g_sc_head=g_sc_count=0;g_sc_serial=0;g_sc_pad_mask=0;g_sc_arm_owner=-1;g_sc_record_track=-1;
     for(int kind=0;kind<HB_SC_KINDS;kind++){g_sc_owner[kind]=-1;g_sc_recorded[kind]=0;}
 }
 #endif

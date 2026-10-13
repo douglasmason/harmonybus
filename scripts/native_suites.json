@@ -527,5 +527,19 @@
       "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined,float-cast-overflow -fno-sanitize-recover=all tests/scale_math_test.c src/harmony_core.c -lm -o /tmp/scale_math_test",
       "/tmp/scale_math_test"
     ]
+  },
+  {
+    "name": "global_motif_bank_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/global_motif_bank_test.c src/harmony_core.c -lm -o /tmp/global_motif_bank_test",
+      "/tmp/global_motif_bank_test"
+    ]
+  },
+  {
+    "name": "joint_pad_controls_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/joint_pad_controls_test.c src/harmony_core.c -lm -o /tmp/joint_pad_controls_test",
+      "/tmp/joint_pad_controls_test"
+    ]
   }
 ]

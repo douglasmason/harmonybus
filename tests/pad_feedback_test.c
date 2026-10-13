@@ -358,9 +358,11 @@ int main(void){future_membership_uses_current_output();resolved_footer();active_
     instance->approach_rows.bank[2]=-2;
     char saved_state[65536];API.get_param(instance,"state",saved_state,sizeof(saved_state));
     char *marker=strstr(saved_state,";ar5,1");assert(marker);memmove(marker,marker+6,strlen(marker+6)+1);
+    API.destroy_instance(instance);instance=fixture(); /* first restore of a new set owns the global bank */
     API.set_param(instance,"state",saved_state);
     assert(instance->approach_rows.bank[0]==-5&&instance->approach_rows.bank[1]==-4&&instance->approach_rows.bank[2]==-2);
     instance->approach_rows.bank[0]=1;API.get_param(instance,"state",saved_state,sizeof(saved_state));
+    API.destroy_instance(instance);instance=fixture();
     API.set_param(instance,"state",saved_state);assert(instance->approach_rows.bank[0]==1);
     API.destroy_instance(instance);
     instance=fixture();instance->role=3;
