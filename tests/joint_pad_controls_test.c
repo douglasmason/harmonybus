@@ -19,6 +19,11 @@ int main(void){
     API.set_param(root,"joint_pad_key_center","9|Down");
     assert(g_key_armed&&hb_joint_key_zone(root)&&!hb_joint_key_zone(bass)&&hb_joint_key_zone(melody));
     assert(!hb_joint_key_zone(comp)&&!hb_joint_key_zone(other));
+    API.set_param(other,"joint_pad_key_center","144|Down");
+    assert(g_sc_pad_mask==144);
+    API.set_param(root,"joint_pad_approach_step_touch_1","9|Up,500");
+    API.set_param(root,"joint_pad_key_center","9|Up,500");
+    assert(g_sc_pad_mask==144); /* old-unit releases cannot retarget an armed key change */
     API.set_param(melody,"key_center","Down");assert(!g_sc_pad_mask&&g_sc_arm_owner==melody-g_pool);
     API.set_param(melody,"key_center","Off");
     API.set_param(other,"role","Conductor");

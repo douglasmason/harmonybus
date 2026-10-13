@@ -16,6 +16,7 @@ extern int strcmp(const char *, const char *);
 extern int strncmp(const char *, const char *, size_t);
 extern char *strchr(const char *, int);
 extern long strtol(const char *, char **, int);
+extern unsigned long strtoul(const char *, char **, int);
 extern unsigned long long strtoull(const char *, char **, int);
 extern double strtod(const char *, char **);
 extern void *malloc(size_t);
@@ -7412,8 +7413,11 @@ static void set_param(void *value,const char *key,const char *parameter){
            The UI addresses only root, melody and independently played bass. */
         char *end;unsigned long mask=strtoul(parameter,&end,10);
         if(end==parameter||*end!='|'||!mask||mask>65535||instance->movy_track<0||instance->movy_track>=16||!(mask&(1u<<instance->movy_track)))return;
+        int previous_arm=g_key_armed,previous_owner=g_sc_arm_owner;
         instance->joint_pad_control=1;set_param(value,key+10,end+1);hb_key_operations_sync_instance(instance);instance->joint_pad_control=0;
-        if(g_key_armed){g_sc_pad_mask=(unsigned)mask;g_sc_arm_owner=-1;}
+        if(g_key_armed&&(!previous_arm||g_sc_arm_owner!=previous_owner||(!strcmp(key+10,"key_center")&&(!strncmp(end+1,"Down",4)||!strcmp(end+1,"On")||!strcmp(end+1,"LatchOn"))))){
+            g_sc_pad_mask=(unsigned)mask;g_sc_arm_owner=-1;
+        }
         return;
     }
     if(!strcmp(key,"harm_play_release_control")){
@@ -7482,9 +7486,8 @@ static void set_param(void *value,const char *key,const char *parameter){
         return;
     }
     if(!strcmp(key,"key_center")){
-        g_sc_pad_mask=0;instance->key_action=0;
-        if(!strcmp(parameter,"Off")||!strcmp(parameter,"LatchOff")){for(int index=0;index<HB_MAX_INSTANCES;index++)g_pool[index].key_pending=0;g_key_armed=0;g_sc_arm_owner=-1;g_key_preview[0]=0;hb_sc_set_live(instance,HB_SC_KEY,0,0,0,0);}
-        else if(!strncmp(parameter,"Down",4)||!strcmp(parameter,"On")||!strcmp(parameter,"LatchOn")){g_key_armed=1;g_sc_arm_owner=(int)(instance-g_pool);g_key_preview[0]=0;}
+        if(!strcmp(parameter,"Off")||!strcmp(parameter,"LatchOff")){instance->key_action=0;g_sc_pad_mask=0;for(int index=0;index<HB_MAX_INSTANCES;index++)g_pool[index].key_pending=0;g_key_armed=0;g_sc_arm_owner=-1;g_key_preview[0]=0;hb_sc_set_live(instance,HB_SC_KEY,0,0,0,0);}
+        else if(!strncmp(parameter,"Down",4)||!strcmp(parameter,"On")||!strcmp(parameter,"LatchOn")){instance->key_action=0;g_sc_pad_mask=0;g_key_armed=1;g_sc_arm_owner=(int)(instance-g_pool);g_key_preview[0]=0;}
         return;
     }
     for(int field=0;field<4;field++)if(!strcmp(key,HB_TARGET_KEYS[field])){
