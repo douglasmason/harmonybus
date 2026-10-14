@@ -18,7 +18,7 @@ static int hb_ml_build(Inst *instance,hb_mc_plan *plan,int *root,int *scale){
     *scale=hb_follower_input_scale_index(instance,*root);if(*scale<1)*scale=1;
     int placement=hb_mt_placement(instance->motif.editor.placement,definition.placement);
     int mode=placement==3?HB_MC_BOTH:placement==HB_MT_TARGET_START?HB_MC_START:placement==HB_MT_TARGET_END?HB_MC_END:HB_MC_OMIT;
-    if(!hb_mc_build(&definition,mode,HB_MT_DURATIONS[instance->motif_load[3]],g_motif_rhythm,instance->motif_load[5],plan)){
+    if(!hb_mc_build(&definition,mode,HB_MT_DURATIONS[instance->motif_load[3]],hb_rr_pattern(instance),instance->motif_load[5],plan)){
         g_ml_error="Invalid motif timing";return 0;
     }
     if(plan->duration*4>256*24){g_ml_error="Exceeds 16 bars";return 0;}
