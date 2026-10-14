@@ -185,7 +185,7 @@ static const hb_mt_phrase *hb_mt_selected(Inst *instance,hb_mt_phrase *builtin){
     /* Omit approaches a silent destination after the body. Saved continues
        to honor the legacy arrival position of body-only stock phrases. */
     if(editor->placement==4)builtin->anchor=builtin->count;
-    if(definition&&instance->motif_load[5])hb_mt_pad_even(builtin,g_motif_rhythm,hb_mt_placement(editor->placement,definition->placement));
+    if(definition&&instance->motif_load[5])hb_mt_pad_even(builtin,hb_rr_pattern(instance),hb_mt_placement(editor->placement,definition->placement));
     return builtin;
 }
 static double hb_mt_step_offset(Inst *instance,const hb_mt_phrase *phrase,int step){

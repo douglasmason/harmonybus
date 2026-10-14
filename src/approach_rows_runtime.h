@@ -13,7 +13,7 @@ static int hb_ar_schedule(Inst *instance,int source,int shift,unsigned token,int
         if(definition){
             if(!hb_mt_materialize(definition,hb_mt_placement(runtime->editor.placement,definition->placement),&builtin))return 0;
             if(runtime->editor.placement==4)builtin.anchor=builtin.count;
-            if(instance->motif_load[5])hb_mt_pad_even(&builtin,g_motif_rhythm,hb_mt_placement(runtime->editor.placement,definition->placement));
+            if(instance->motif_load[5])hb_mt_pad_even(&builtin,hb_rr_pattern(instance),hb_mt_placement(runtime->editor.placement,definition->placement));
         }
         if(!phrase->count)return 0;
     }

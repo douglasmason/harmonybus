@@ -50,4 +50,21 @@ static void live_and_state(void){
     count=API.process_midi(i,on,3,output,lengths,64);assert(count>0); // already warped clip
     API.destroy_instance(i);
 }
-int main(void){mapping();rhythm_ownership();motion_rhythm_overlap();live_and_state();puts("Render Rhythm: monotone windows, live delay, release ownership, panic, state and clip bypass pass");}
+static void shared_recipe(void){
+    Inst *i=fixture();char recipe[128];
+    for(int pattern=0;pattern<6;pattern++){
+        API.set_param(i,"motif_rhythm",HB_MT_RHYTHMS[pattern]);
+        API.get_param(i,"render_rhythm_config2",recipe,sizeof(recipe));
+        int p,w,a,b,c,d;assert(sscanf(recipe,"rr2,%d,%d,%d,%d,%d,%d",&p,&w,&a,&b,&c,&d)==6);
+        assert(p==pattern);int weights[]={a,b,c,d};
+        hb_mt_phrase phrase={.count=4,.anchor=0};
+        for(int k=0;k<4;k++)phrase.events[k].duration=24;
+        for(int k=0;k<4;k++){
+            assert(weights[k]==hb_rhythm_weight(pattern,k,4));
+            double delta=hb_rr_warp((k+1)/4.0,pattern)-hb_rr_warp(k/4.0,pattern);
+            assert(fabs(hb_mt_duration(&phrase,k,pattern,0)/4-delta)<1e-9);
+        }
+    }
+    API.destroy_instance(i);
+}
+int main(void){shared_recipe();mapping();rhythm_ownership();motion_rhythm_overlap();live_and_state();puts("Render Rhythm: monotone windows, live delay, release ownership, panic, state and clip bypass pass");}

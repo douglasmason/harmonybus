@@ -78,4 +78,22 @@ static void scrub_all_edges(void){
     unsigned tokens[HB_MT_STEPS+2];assert(hb_ar_live_steps(35,4,1,tokens)==3);
     memset(g_motifs,0,sizeof(g_motifs));
 }
-int main(void){scrub_all_edges();export_plan();puts("motif loader: intent export, target placement, parallel borrowing, padding, state and complete boundary normalization pass");}
+static void shared_track_rhythm(void){
+    Inst *instance=setup();
+    API.set_param(instance,"motif_load_choice","ii-V-Target");
+    API.set_param(instance,"motif_placement","Both");
+    for(int pattern=0;pattern<6;pattern++){
+        API.set_param(instance,"motif_rhythm","Long-Short");
+        API.set_param(instance,"render_rhythm_mode","Override");
+        API.set_param(instance,"render_rhythm_pattern",HB_MT_RHYTHMS[pattern]);
+        API.set_param(instance,"motif_load_prepare","Preview");
+        hb_mc_plan overridden=g_ml_plan;
+        API.set_param(instance,"motif_rhythm",HB_MT_RHYTHMS[pattern]);
+        API.set_param(instance,"render_rhythm_mode","Inherit");
+        API.set_param(instance,"motif_load_prepare","Preview");
+        assert(overridden.count==g_ml_plan.count&&overridden.duration==g_ml_plan.duration);
+        for(int k=0;k<overridden.count;k++)assert(overridden.events[k].duration==g_ml_plan.events[k].duration);
+    }
+    API.destroy_instance(instance);
+}
+int main(void){shared_track_rhythm();scrub_all_edges();export_plan();puts("motif loader: intent export, target placement, parallel borrowing, padding, state and complete boundary normalization pass");}

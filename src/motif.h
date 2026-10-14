@@ -1,3 +1,4 @@
+#include "rhythm_pattern.h"
 #ifndef HB_MOTIF_H
 #define HB_MOTIF_H
 /* Bounded, untimed motif recorder. Duration units are 1/24 beat (triplet-safe).
@@ -220,16 +221,8 @@ static void hb_mt_library_view(int slot,hb_mt_phrase *phrase){
     }
 }
 static const char *HB_MT_SPANS[]={"As Entered","Half","Double"};
-static const char *HB_MT_RHYTHMS[]={"As Entered","Even","Long-Short","Short-Long","Accelerate","Decelerate"};
-/* Normalize each side of the anchor independently. Redistribute duration,
-   preserving both the anchor offset and the tail length before global span. */
-static double hb_mt_weight(int rhythm,int index,int count){
-    if(rhythm==2)return index%2?1:3;
-    if(rhythm==3)return index%2?3:1;
-    if(rhythm==4)return count-index;
-    if(rhythm==5)return index+1;
-    return 1;
-}
+/* Normalize each side of the anchor independently, preserving its arrival
+   and tail while using the shared rhythm vocabulary. */
 static double hb_mt_duration(const hb_mt_phrase *phrase,int step,int rhythm,int span){
     double scale=span==1?.5:span==2?2:1;
     if(phrase->timed)return phrase->durations[step]*scale;
@@ -239,9 +232,9 @@ static double hb_mt_duration(const hb_mt_phrase *phrase,int step,int rhythm,int 
     double stored=0,weights=0;
     for(int index=begin;index<end;index++){
         stored+=phrase->events[index].duration/24.0;
-        weights+=hb_mt_weight(rhythm,index-begin,end-begin);
+        weights+=hb_rhythm_weight(rhythm,index-begin,end-begin);
     }
-    return weights>0?stored*hb_mt_weight(rhythm,step-begin,end-begin)/weights*scale:0;
+    return weights>0?stored*hb_rhythm_weight(rhythm,step-begin,end-begin)/weights*scale:0;
 }
 /* Padding is a held target/rest, not a fresh attack or a new rhythm pass. */
 static void hb_mt_pad_even(hb_mt_phrase *phrase,int rhythm,int placement){

@@ -60,12 +60,12 @@ static int hb_mc_build(const hb_mt_definition *definition,int placement,int unit
     int total=0;double weights=0;
     for(int index=0;index<plan.count;index++){
         total+=plan.events[index].duration;
-        weights+=hb_mt_weight(rhythm,index,plan.count)*plan.events[index].duration;
+        weights+=hb_rhythm_weight(rhythm,index,plan.count)*plan.events[index].duration;
     }
     if(rhythm>=2){
         double cumulative=0;int previous=0;
         for(int index=0;index<plan.count;index++){
-            cumulative+=hb_mt_weight(rhythm,index,plan.count)*plan.events[index].duration;
+            cumulative+=hb_rhythm_weight(rhythm,index,plan.count)*plan.events[index].duration;
             int boundary=index==plan.count-1?total:(int)(total*cumulative/weights+0.5);
             if(boundary<=previous)return 0;
             plan.events[index].duration=boundary-previous;previous=boundary;

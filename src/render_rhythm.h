@@ -1,14 +1,14 @@
 #ifndef HB_RENDER_RHYTHM_H
 #define HB_RENDER_RHYTHM_H
+#include "rhythm_pattern.h"
 /* Piecewise-linear, monotone beat warping. Endpoints never move. The same
    weights are used by the clip scheduler; an onset group has one position. */
 static double hb_rr_warp(double phase,int pattern){
-    static const int weights[6][4]={{1,1,1,1},{1,1,1,1},{3,1,3,1},{1,3,1,3},{4,3,2,1},{1,2,3,4}};
     if(phase<=0)return 0;if(phase>=1)return 1;
     if(pattern<0||pattern>5)pattern=0;
     double scaled=phase*4;int step=(int)scaled,total=0,before=0;
-    for(int i=0;i<4;i++){total+=weights[pattern][i];if(i<step)before+=weights[pattern][i];}
-    return (before+(scaled-step)*weights[pattern][step])/total;
+    for(int i=0;i<4;i++){total+=hb_rhythm_weight(pattern,i,4);if(i<step)before+=hb_rhythm_weight(pattern,i,4);}
+    return (before+(scaled-step)*hb_rhythm_weight(pattern,step,4))/total;
 }
 static double hb_rr_time(double beat,int pattern,double span){
     if(pattern<2||span<=0)return beat;
