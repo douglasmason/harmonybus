@@ -541,5 +541,12 @@
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/joint_pad_controls_test.c src/harmony_core.c -lm -o /tmp/joint_pad_controls_test",
       "/tmp/joint_pad_controls_test"
     ]
+  },
+  {
+    "name": "raised_avoid_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/raised_avoid_test.c src/harmony_core.c -lm -o /tmp/raised_avoid_test",
+      "/tmp/raised_avoid_test"
+    ]
   }
 ]
