@@ -1,5 +1,6 @@
 #ifndef HB_CHORD_PLAYER_H
 #define HB_CHORD_PLAYER_H
+#include "available_tensions.h"
 /* Allocation-free chord voicing and owned-note playback. Times are supplied
    by the host adapter; the adapter decides which role owns the output. */
 #define HB_CP_KEYS 16
@@ -7,9 +8,11 @@
 #define HB_CP_FORMS 21
 #define HB_CP_FOLLOW_DETECTED 17
 static const char *CP_CHORD_FORM[]={"Auto","Power","Triad","Seventh","Ninth","Add9","Sixth","6/9","Eleventh","Thirteenth","Sus2","Sus4","Shell 7","Shell 9","Shell 6/9","Rootless 7","Rootless 9","Follow Detected","Root Only","Root + Third","Root + Seventh"};
+static const char *CP_CHORD_EXTENSIONS[]={"As Derived","Raise Avoid"};
 typedef struct {
     int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread, phase;
     int quality, chromatic_quality, note_phase, clear_harmony, start;
+    int extension_treatment; /* 0 derived, 1 raise avoid extensions */
 } hb_cp_config;
 typedef struct {
     int used, held, source, channel, velocity, count, fresh, root_pc, recordable, played_pitch;
@@ -200,6 +203,14 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
             tones[4]=hb_cp_mod(root+fifth[quality]);
             tones[6]=hb_cp_mod(root+seventh[quality]);
         }
+    }
+    /* Alter only extension roles after the defining quality is resolved.
+       Suspensions and detected explicit chord members remain intentional. */
+    if(config.extension_treatment&&config.size!=10&&config.size!=11){
+        unsigned protected=(1u<<tones[0])|(1u<<tones[2])|(1u<<tones[4])|(1u<<tones[6]);
+        if(config.mode==2)protected|=chord;
+        for(int role=1;role<=5;role+=2)
+            if(hb_tension_is_avoid(protected,tones[role]))tones[role]=hb_cp_mod(tones[role]+1);
     }
     /* Form: Auto, Power, Triad, Seventh, Ninth, Add9, Sixth, 6/9,
        Eleventh, Thirteenth, Sus2, Sus4. Values are zero-based scale degrees. */
