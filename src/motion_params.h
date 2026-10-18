@@ -1,4 +1,4 @@
-_Static_assert(sizeof(hb_cp_config)==16*sizeof(int),"Chord state wire format requires 16 integer fields");
+_Static_assert(__builtin_offsetof(hb_cp_config,extension_treatment)==16*sizeof(int),"Preserve the 16-field legacy chord-state prefix");
 #ifndef HB_MOTION_PARAMS_H
 #define HB_MOTION_PARAMS_H
 #include "motion_metadata.h"
@@ -411,6 +411,10 @@ static int hb_mo_save(hb_motion_config *config,char *buffer,int length,int used)
         for(int field=0;field<16;field++){
             if(used>=length)return -1;used+=snprintf(buffer+used,(size_t)(length-used),",%d",fields[field]);
         }
+        if(lane->chord_state.extension_treatment){
+            if(used>=length)return -1;
+            used+=snprintf(buffer+used,(size_t)(length-used),";ce2,%d,%d",index,lane->chord_state.extension_treatment);
+        }
     }
     return used;
 }
@@ -463,6 +467,15 @@ static void hb_mo_restore(hb_motion_config *config,const char *state){
             if(end==word||value<low[field]||value>high[field]){valid=0;break;}word=end;fields[field]=(int)value;
         }
         if(valid&&(!*word||*word==';')){memcpy(&config->lanes[lane].chord_state,fields,sizeof(fields));config->lanes[lane].chord_input=input;config->lanes[lane].chord_state_valid=1;}
+        cursor+=5;
+    }
+    cursor=state;
+    while((cursor=strstr(cursor,";ce2,"))){
+        int lane,treatment,consumed=0;
+        if(sscanf(cursor,";ce2,%d,%d%n",&lane,&treatment,&consumed)==2&&consumed>0&&
+           (!cursor[consumed]||cursor[consumed]==';')&&lane>=0&&lane<16&&
+           treatment>=0&&treatment<=1&&config->lanes[lane].chord_state_valid)
+            config->lanes[lane].chord_state.extension_treatment=treatment;
         cursor+=5;
     }
     cursor=state;

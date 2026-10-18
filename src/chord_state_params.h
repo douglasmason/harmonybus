@@ -19,6 +19,7 @@ static const hb_cs_parameter HB_CS_PARAMETERS[]={
     CS_PARAM("arp_note_phase",note_phase,0,0,-256,256),
     CS_PARAM("arp_clear_harmony",clear_harmony,MO_SWITCH,2,0,1),
     CS_PARAM("strum_spread",spread,0,0,-9,1000),
+    CS_PARAM("chord_extensions",extension_treatment,CP_CHORD_EXTENSIONS,2,0,1),
 };
 #undef CS_PARAM
 static hb_motion_lane *hb_cs_edit_lane(Inst *instance){
@@ -75,7 +76,7 @@ static int hb_cs_set(Inst *instance,const char *key,const char *value){
         if(lane){lane->amount=0;lane->chord_state_valid=1;hb_motion_publish_settings(instance);}return 1;
     }return 0;
 }
-static const char *HB_CS_NAMES[]={"Auto Chord","Form","Quality","Chromatic","Inversion","Voicing","Playback","Hold","Order","Rate","Gate","Start Note","Start Timing","Note Phase","Clear on Harmony","Spread"};
+static const char *HB_CS_NAMES[]={"Auto Chord","Form","Quality","Chromatic","Inversion","Voicing","Playback","Hold","Order","Rate","Gate","Start Note","Start Timing","Note Phase","Clear on Harmony","Spread","Extensions"};
 static int hb_cs_metadata(Inst *instance,char *buffer,int length){
     int used=hb_mo_get(&instance->motion,"chain_params",buffer,length);
     if(used<1||used>=length)return -1;used--;

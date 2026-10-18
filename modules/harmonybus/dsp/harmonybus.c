@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.274"
+#define HB_VERSION "0.2.275"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2398,15 +2398,10 @@ static int hb_map_scale_degree_relative(Inst *instance,int source_note,hb_harmon
     while(mapped>127)mapped-=12;
     return mapped;
 }
-/* Classify against the original harmony, never against newly raised tones. */
-static int hb_content_is_avoid(uint16_t chord_mask,int pitch_class){
-    return !(chord_mask&(1u<<pitch_class)) &&
-        (chord_mask&(1u<<mod12(pitch_class-1)))!=0;
-}
 static int hb_content_degree_interval(uint16_t chord_scale,hb_harmony_t harmony,
                                       int degree,int content_map){
     int interval=hb_render_degree_interval(chord_scale,harmony,degree);
-    if(content_map==9 && hb_content_is_avoid(hb_harmony_chord_mask(harmony),
+    if(content_map==9 && hb_tension_is_avoid(hb_harmony_chord_mask(harmony),
                                             mod12(harmony.root_pc+interval)))interval++;
     return interval;
 }
@@ -2462,7 +2457,7 @@ static hb_harmony_t hb_follower_content_target(Inst *instance,hb_harmony_t harmo
                  Phrygian          -> avoid b2 and b6 (above root and 5)
                and generalizes to diminished/altered chord-scales without a
                brittle mode-name switch. */
-            if(hb_content_is_avoid(chord_mask,pc))continue;
+            if(hb_tension_is_avoid(chord_mask,pc))continue;
         }
         target.pitch_mask|=(uint16_t)(1u<<pc);
     }
@@ -5638,6 +5633,10 @@ if(!strcmp(key,"dominant_scale")){
     hb_set_scale_exceptions(selected,hb_shared_borrowed_scale());
     return;
 }
+if(!strcmp(key,"chord_extensions")){
+    instance->player.config.extension_treatment=enum_index(parameter,CP_CHORD_EXTENSIONS,2,instance->player.config.extension_treatment);
+    return;
+}
 if(!strcmp(key,"chord_mode")){
     if(!strcmp(parameter,"Scale Root")||!strcmp(parameter,"Scale Degree"))parameter="Rendered Note Root"; /* Legacy presets/scripts. */
     int selected=enum_index(parameter,CP_CHORD_MODE,3,instance->player.config.mode);
@@ -6192,13 +6191,16 @@ static void hb_restore_state(Inst *instance,const char *state){
     int phase_limit=hb_arp_phase_limit(config.rate);
     if(note_phase_suffix&&sscanf(note_phase_suffix,";np1,%d",&note_phase)==1)
         config.note_phase=hb_cp_clamp(note_phase,-phase_limit,phase_limit);
+    const char *extension_suffix=strstr(state,";ce1,");int extension_treatment=0;
+    if(extension_suffix&&sscanf(extension_suffix,";ce1,%d",&extension_treatment)==1&&
+       extension_treatment>=0&&extension_treatment<=1)config.extension_treatment=extension_treatment;
     const char *quality_suffix=strstr(state,";cq1,");
     int quality=0,chromatic=0;
     if(quality_suffix&&sscanf(quality_suffix,";cq1,%d,%d",&quality,&chromatic)==2&&
        quality>=0&&quality<13&&chromatic>=0&&chromatic<7){
         config.quality=quality;config.chromatic_quality=chromatic;
     }
-    if(config.note_phase!=instance->player.config.note_phase||config.phase!=instance->player.config.phase||config.mode!=instance->player.config.mode||config.size!=instance->player.config.size||config.inversion!=instance->player.config.inversion||config.voicing!=instance->player.config.voicing||config.playback!=instance->player.config.playback||config.latch!=instance->player.config.latch||config.order!=instance->player.config.order||config.rate!=instance->player.config.rate||config.gate!=instance->player.config.gate||config.spread!=instance->player.config.spread||config.quality!=instance->player.config.quality||config.chromatic_quality!=instance->player.config.chromatic_quality){
+    if(config.extension_treatment!=instance->player.config.extension_treatment||config.note_phase!=instance->player.config.note_phase||config.phase!=instance->player.config.phase||config.mode!=instance->player.config.mode||config.size!=instance->player.config.size||config.inversion!=instance->player.config.inversion||config.voicing!=instance->player.config.voicing||config.playback!=instance->player.config.playback||config.latch!=instance->player.config.latch||config.order!=instance->player.config.order||config.rate!=instance->player.config.rate||config.gate!=instance->player.config.gate||config.spread!=instance->player.config.spread||config.quality!=instance->player.config.quality||config.chromatic_quality!=instance->player.config.chromatic_quality){
         hb_prepare_role_change_flush(instance);hb_clear_instance_note_state(instance);instance->player.config=config;
     }
     if(instance->role==0){if(!hb_load_clip_cache())hb_clear_clip_cache();}
@@ -6421,6 +6423,7 @@ static unsigned hb_pad_chord_mask_base_form(Inst *instance,hb_harmony_t harmony,
     if(!form)return chord;
     hb_cp_config config;hb_cp_defaults(&config);
     config.mode=2;config.size=form;config.inversion=1;
+    config.extension_treatment=hb_cp_settings(&instance->player)->extension_treatment;
     int notes[12];unsigned mask=0;
     int count=hb_cp_voice(config,60+harmony.root_pc,harmony.root_pc,chord,
         hb_follower_scale_target(instance,harmony).pitch_mask,notes);
@@ -6850,6 +6853,8 @@ if(!strcmp(key,"state")){
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";pd1,%d,%d,%d,%d,%d",g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4]);
     if(used<0||used>=length)return used;
+    used+=snprintf(buffer+used,(size_t)(length-used),";ce1,%d",instance->player.config.extension_treatment);
+    if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";dc1,%d",instance->dominant_color_family);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";ts1,%d,%d,%d,%d",instance->target_scale_policy[0],instance->target_scale_policy[1],instance->target_scale_policy[2],instance->target_scale_policy[3]);
@@ -7267,6 +7272,7 @@ if(!strcmp(key,"chord_quality"))return snprintf(buffer,(size_t)length,"%s",CP_CH
 if(!strcmp(key,"chromatic_quality"))return snprintf(buffer,(size_t)length,"%s",CP_CHROMATIC_QUALITY[instance->player.config.chromatic_quality]);
 if(!strcmp(key,"chord_form"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_FORM[instance->player.config.size]);
 if(!strcmp(key,"chord_inversion"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_INVERSION[instance->player.config.inversion]);
+if(!strcmp(key,"chord_extensions"))return snprintf(buffer,(size_t)length,"%s",instance->player.config.extension_treatment?"Raise Avoid":"As Derived");
 if(!strcmp(key,"chord_voicing"))return snprintf(buffer,(size_t)length,"%s",CP_CHORD_VOICING[instance->player.config.voicing]);
 if(!strcmp(key,"arp_playback"))return snprintf(buffer,(size_t)length,"%s",CP_ARP_PLAYBACK[instance->player.config.playback]);
 if(!strcmp(key,"arp_clear_harmony"))return snprintf(buffer,(size_t)length,"%s",instance->player.config.clear_harmony?"On":"Off");

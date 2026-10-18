@@ -48,8 +48,8 @@ int main(void){
         ((1u<<4)|(1u<<7)|(1u<<9)|(1u<<11)|(1u<<2)));
     /* Explicit chord tones, including a requested b9, cannot be raised. */
     uint16_t chord_mask=(1u<<0)|(1u<<1)|(1u<<4)|(1u<<7)|(1u<<10);
-    assert(!hb_content_is_avoid(chord_mask,1));
-    assert(hb_content_is_avoid(chord_mask,5));
+    assert(!hb_tension_is_avoid(chord_mask,1));
+    assert(hb_tension_is_avoid(chord_mask,5));
     const char *labels[]={"Chord","Scale","Free","135","1357","12357","12356","Non-Avoid","123567","Raised-Avoid"};
     for(int index=0;index<10;index++){
         char alias[32],state[65536],value[32];
