@@ -38,6 +38,12 @@ static void palettes(void){
         API.set_param(instance,"gap_scale","Strict Local");
         assert(hb_local_output_scale(instance,harmony)==expected);
         assert(hb_follower_scale_target(instance,harmony).pitch_mask==expected);
+        assert(hb_render_degree_interval(expected,harmony,2)==4);
+        assert(hb_render_degree_interval(expected,harmony,6)==10);
+        unsigned preview=hb_pad_chord_mask_base_form(instance,harmony,9);
+        unsigned preview_expected=expected;
+        if(palette==2||palette==3)preview_expected&=~(1u<<mod12(root+3));
+        assert(preview==preview_expected);
         API.set_param(instance,"gap_scale","Auto Local");
         g_bus.next_model_locked=0;
         assert(hb_local_output_scale(instance,harmony)==expected);

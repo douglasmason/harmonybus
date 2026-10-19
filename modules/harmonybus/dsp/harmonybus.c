@@ -2347,7 +2347,8 @@ static int hb_nth_scale_interval_from_root(uint16_t scale_mask,int target_root,i
        the chord-scale/mode for that diatonic chord root. */
     if(degree<=0)return 0;
     unsigned relative=0;for(int interval=0;interval<12;interval++)if(scale_mask&(1u<<mod12(target_root+interval)))relative|=1u<<interval;
-    if(relative==0x55Bu){static const int altered[7]={0,1,4,6,6,8,10};return altered[degree%7];}
+    int special=hb_cp_special_scale_interval(relative,degree);
+    if(special>=0)return special;
     int seen=0;
     for(int semitones=1;semitones<=24;semitones++){
         int pc=mod12(target_root+semitones);
@@ -2361,7 +2362,7 @@ static int hb_nth_scale_interval_from_root(uint16_t scale_mask,int target_root,i
 static int hb_render_degree_interval(uint16_t scale,hb_harmony_t harmony,int degree){
     int interval=hb_nth_scale_interval_from_root(scale,harmony.root_pc,degree);
     unsigned relative=0;for(int semitone=0;semitone<12;semitone++)if(scale&(1u<<mod12(harmony.root_pc+semitone)))relative|=1u<<semitone;
-    if(relative==0x55Bu&&(degree==2||degree==4||degree==6)){
+    if(hb_cp_special_scale_interval(relative,degree)>=0&&(degree==2||degree==4||degree==6)){
         unsigned chord=hb_harmony_chord_mask(harmony);
         static const int choices[3][3]={{4,3,-1},{7,6,8},{10,11,-1}};
         int role=degree/2-1;
