@@ -135,6 +135,18 @@ static unsigned hb_cp_detected_roles(int root,unsigned chord){
     }
     return roles;
 }
+/* Special collections need harmonic roles for both voicing and Relative travel.
+   Return -1 when ordinary ordered scale degrees are appropriate. */
+static int hb_cp_special_scale_interval(unsigned relative,int degree){
+    static const int altered[7]={0,1,4,6,6,8,10};
+    static const int half_whole[7]={0,1,4,6,7,9,10};
+    static const int whole_tone[7]={0,2,4,6,8,8,10};
+    if(degree<0||degree>6)return -1;
+    if(relative==0x55bu)return altered[degree];
+    if(relative==0x6dbu)return half_whole[degree];
+    if(relative==0x555u)return whole_tone[degree];
+    return -1;
+}
 static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned chord,
                        unsigned scale,int *output,unsigned *semantic){
     unsigned detected_roles=hb_cp_detected_roles(root,chord);
@@ -152,7 +164,10 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
         if(scale&(1u<<hb_cp_mod(root+offset)))tones[degree++]=hb_cp_mod(root+offset);
     if(degree<7){static const int major[7]={0,2,4,5,7,9,11};for(int index=1;index<7;index++)tones[index]=hb_cp_mod(root+major[index]);}
     unsigned relative_scale=0;for(int interval=0;interval<12;interval++)if(scale&(1u<<hb_cp_mod(root+interval)))relative_scale|=1u<<interval;
-    if(relative_scale==0x55Bu){static const int altered[7]={0,1,4,6,6,8,10};for(int index=0;index<7;index++)tones[index]=hb_cp_mod(root+altered[index]);}
+    for(int index=0;index<7;index++){
+        int interval=hb_cp_special_scale_interval(relative_scale,index);
+        if(interval>=0)tones[index]=hb_cp_mod(root+interval);
+    }
     /* Six-note symmetric collections have harmonic roles, not seven ordinal
        degrees. Whole tone supplies #5/b7; augmented supplies #5/M7 where
        present. On its other three roots there is no seventh: omit that voice. */

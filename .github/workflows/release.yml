@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.275'
+          assert module['version']=='0.2.276'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -104,7 +104,7 @@ jobs:
           chord_mode=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='chord_mode')
           assert chord_mode['default']=='Off'
           dominant=next(parameter for parameter in levels['track_scales']['params'] if parameter.get('key')=='track_dominant_scale')
-          assert dominant['options']==['None','Harmonic Minor','Melodic Minor','Altered V','Major','Harmonic Major','Simplified Target','Minimal','Follow Role'] and dominant['default']=='Follow Role'
+          assert dominant['options']==['None','Harmonic Minor','Melodic Minor','Altered V','Major','Harmonic Major','Simplified Target','Minimal','Lydian Dominant','Half-Whole Dim','Whole Tone','Follow Role'] and dominant['default']=='Follow Role'
           assert next(p for p in module['capabilities']['chain_params'] if p['key']=='track_dominant_minor_scale')['options']==dominant['options']
           assert next(p for p in module['capabilities']['chain_params'] if p['key']=='conductor_default_dominant_minor_scale')['default']=='Simplified Target'
           assert 'track_dominant_minor_scale' in levels['track_scales']['knobs']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.275 adds Chords > Extensions: As Derived / Raise Avoid. Generated 9ths, 11ths and 13ths share the follower avoid-note classifier, preserving chord identity, suspensions and explicit detected chord tones. The choice applies on the next onset and persists in track settings and Chord/Arp State lanes. Existing sets retain As Derived. No Movy update is required." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.276 adds Lydian Dominant, Half-Whole Dim and Whole Tone to the existing dominant settings, plus Local Dominant on Track Scales knob 8 and role defaults. Shared palettes preserve contextual precedence and explicit chord tones; generated extensions use harmonic roles for symmetric scales. Existing sets keep their choices. Restart HarmonyBus after installing. No Movy update is required." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.275 adds Chords > Extensions: As Derived / Raise Avoid. Generated 9ths, 11ths and 13ths share the follower avoid-note classifier, preserving chord identity, suspensions and explicit detected chord tones. The choice applies on the next onset and persists in track settings and Chord/Arp State lanes. Existing sets retain As Derived. No Movy update is required." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.276 adds Lydian Dominant, Half-Whole Dim and Whole Tone to the existing dominant settings, plus Local Dominant on Track Scales knob 8 and role defaults. Shared palettes preserve contextual precedence and explicit chord tones; generated extensions use harmonic roles for symmetric scales. Existing sets keep their choices. Restart HarmonyBus after installing. No Movy update is required." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 

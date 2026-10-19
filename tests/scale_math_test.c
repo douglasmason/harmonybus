@@ -1,4 +1,4 @@
-/* Exact arithmetic comparisons against the v0.2.268 implementations. */
+/* Exact legacy arithmetic, except the intentional symmetric-dominant policy. */
 #define main fixture_main
 #include "follower_reference_test.c"
 #undef main
@@ -46,14 +46,18 @@ int main(void){
             if(!subset)break;
             subset=(subset-1)&parent;
         }while(1);
-        /* Chromatic alterations still take the full degree-preserving path. */
+        /* Ordinary collections retain legacy degree replacement. The named
+           symmetric dominant palettes instead retain colors and add chord tones. */
         const unsigned chords[]={0x91,0x89,0x891,0x149};
         for(int root=0;root<12;root++)for(int form=0;form<4;form++){
             hb_harmony_t harmony={.valid=1,.root_pc=root,.chord_index=HB_HARMONY_EXPLICIT_TONES,
                 .pitch_mask=reference_transpose_mask(chords[form],root)};
             int tonic=(root+parent)%12;
-            assert(hb_accommodate_chord(parent,harmony,tonic)==reference_accommodate_chord(parent,harmony,tonic));chord_cases++;
+            unsigned expected=reference_accommodate_chord(parent,harmony,tonic);
+            if(parent==reference_transpose_mask(0x555u,root)||parent==reference_transpose_mask(0x6dbu,root))
+                expected=parent|harmony.pitch_mask;
+            assert(hb_accommodate_chord(parent,harmony,tonic)==expected);chord_cases++;
         }
     }
-    printf("Scale arithmetic: %u mask rotations and %u chord accommodations match v0.2.268\n",transpose_cases,chord_cases);
+    printf("Scale arithmetic: %u rotations and %u accommodations preserve legacy or symmetric-palette semantics\n",transpose_cases,chord_cases);
 }

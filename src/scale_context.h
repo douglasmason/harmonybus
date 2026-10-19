@@ -15,7 +15,8 @@ static unsigned hb_local_recipe(Inst *instance,hb_harmony_t harmony){
             if(mask&(1u<<mod12(root+9)))return hb_transpose_mask(0xb6du,root); /* whole-half diminished */
             index=hb_policy_value(instance,HB_P_HALFDIM)?14:7;
         }else if(mask&(1u<<mod12(root+11)))index=9;
-    }else if(hb_chord_dominant(harmony))index=6;
+    }else if(hb_chord_dominant(harmony))
+        return hb_accommodate_chord(hb_dominant_palette(root,hb_policy_value(instance,HB_P_LOCAL_DOMINANT)),harmony,root);
     else if((mask&(1u<<mod12(root+8)))&&!(mask&(1u<<mod12(root+7))))index=11;
     return hb_accommodate_chord(hb_explicit_scale_mask(root,index),harmony,root);
 }
