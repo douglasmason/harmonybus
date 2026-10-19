@@ -2293,7 +2293,8 @@ static uint16_t hb_accommodate_chord(uint16_t parent,hb_harmony_t harmony,int to
     if(!(chord&~parent))return parent;
     /* Symmetric collections do not have seven diatonic degree slots.
        Preserve their colors when an explicit chord contributes another tone. */
-    if(hb_popcount12(parent)!=7)return (uint16_t)(parent|chord);
+    if(parent==hb_dominant_palette(harmony.root_pc,3)||
+       parent==hb_dominant_palette(harmony.root_pc,4))return (uint16_t)(parent|chord);
     int root_degree=hb_source_degree_from_parent_scale(mod12(harmony.root_pc-tonic),tonic,parent);
     static const int interval_degree[12]={0,1,1,2,2,3,4,4,5,5,6,6};
     for(int interval=0;interval<12;interval++){
