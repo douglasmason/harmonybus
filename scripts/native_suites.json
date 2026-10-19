@@ -555,5 +555,12 @@
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O2 tests/raised_extensions_test.c src/harmony_core.c -lm -o /tmp/raised_extensions_test",
       "/tmp/raised_extensions_test"
     ]
+  },
+  {
+    "name": "grid_gate_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/grid_gate_test.c src/harmony_core.c -lm -o /tmp/grid-gate-test",
+      "/tmp/grid-gate-test"
+    ]
   }
 ]

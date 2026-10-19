@@ -1,4 +1,4 @@
-> HarmonyBus 0.2.275 adds Chords > Extensions: As Derived / Raise Avoid. Generated 9ths, 11ths and 13ths share the follower avoid-note classifier, preserving chord identity, suspensions and explicit detected chord tones. The choice applies on the next onset and persists in track settings and Chord/Arp State lanes. Existing sets retain As Derived. No Movy update is required.
+> HarmonyBus 0.2.276 adds sequenced operation gates for Movy Grid Sequencer. Scheduled holds are independent of physical holds, reuse existing operation settings, and can launch the existing motif scheduler against a held target. Pair with HarmonyBus-Movy hbclean.199. All 0.2.275 extension settings remain.
 
 > HarmonyBus 0.2.274 adds Raised-Avoid beside Non-Avoid in Foll Map > Follower Content. Eligible avoid tones are raised by one semitone while chord tones, saved content IDs and approach behavior are preserved. Relative travel retains the raised degree; pad scale feedback uses the same collection. Auto Chord extension generation is unchanged. No Movy update is required for this feature.
 

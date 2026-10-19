@@ -45,6 +45,18 @@ static int hb_mo_edit_label(const hb_motion_config *config,int lane,char *buffer
     return snprintf(buffer,(size_t)length,"%s %d: %s",group,number,name);
 }
 static int hb_mo_set(hb_motion_config *config,const char *key,const char *value){
+    if(!strcmp(key,"motion_sequence_mask")){
+        unsigned long long next=(unsigned)parse_i(value,0)&65535u;
+        unsigned long long started=next&~config->sequence_held;
+        config->sequence_held=next;
+        for(int lane=0;lane<16;lane++)if(started&(1ULL<<lane)){
+            config->held_serial[lane]=++config->serial;
+            int operation=config->lanes[lane].operation;
+            if(hb_mo_trigger_bit(operation)){config->enclosure=0;config->tap_mask=0;}
+            if(hb_mo_enclosure_mask(operation))hb_mo_arm_sequence(config,operation,lane,config->lanes[lane].auto_off);
+        }
+        return 1;
+    }
     int assignment=hb_mo_slot_key(key,"motion_operation_");
     if(assignment>=0){
         if(assignment>=HB_MOTION_USER_LANES)return 1;
@@ -192,6 +204,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     return 0;
 }
 static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int length){
+    if(!strcmp(key,"motion_sequence_mask"))return snprintf(buffer,(size_t)length,"%llu",config->sequence_held);
     int assignment=hb_mo_slot_key(key,"motion_operation_");
     if(assignment>=0)return snprintf(buffer,(size_t)length,"%s",hb_mo_operation_name(config->lanes[assignment].operation));
     if(!strcmp(key,"cadence_status"))return snprintf(buffer,(size_t)length,"%s",hb_mo_pending_status(config));
@@ -303,11 +316,11 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         used+=snprintf(buffer+used,(size_t)(length-used),"]");
         return used>=length?-1:used;
     }
-    if(!strcmp(key,"motion_clip_config")){
+    if(!strcmp(key,"motion_clip_config")||!strcmp(key,"motion_grid_config")){
         int used=snprintf(buffer,(size_t)length,"mca1");
         for(int index=0;index<HB_MOTION_LANES;index++){
             const hb_motion_lane *lane=&config->lanes[index];
-            if(config->host_capabilities<2||config->bypass||!lane->enabled||lane->operation<HB_MO_REPEAT||lane->operation>HB_MO_SPEED)continue;
+            if(config->host_capabilities<2||(!strcmp(key,"motion_clip_config")&&(config->bypass||!lane->enabled))||lane->operation<HB_MO_REPEAT||lane->operation>HB_MO_SPEED)continue;
             if(used<0||used>=length)return -1;
             used+=snprintf(buffer+used,(size_t)(length-used),";%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",index,lane->operation,lane->amount,lane->grid,lane->cycle,lane->every,lane->from,lane->through,lane->probability,lane->evolve);
         }
