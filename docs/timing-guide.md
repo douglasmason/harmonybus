@@ -1,3 +1,5 @@
+HarmonyBus 0.2.279 separates motif pitch material from generated rhythm: attacks cycle through playable motif events while the selected pattern supplies rests, ties, accents and gates. Held-note pitch changes take effect at the next attack, and release finishes the current gate. Rhythm-filled clips use existing arp ordering on their written attacks without a second clock. Includes Grid Sequencer support from 0.2.278; pair with Movy hbclean.201.
+
 HarmonyBus 0.2.278 adds sequenced operation gates for Movy Grid Sequencer. Scheduled holds are independent of physical holds, reuse existing operation settings, and can launch the existing motif scheduler against a held target. Pair with HarmonyBus-Movy hbclean.200. Includes the 0.2.277 shared rhythm generator and earlier dominant palettes and extension settings.
 
 HarmonyBus 0.2.277 adds shared attack/rest/tie rhythm patterns with accents and gates, five presets and four editable global slots. Tracks select their own pattern, span and Repeat/Once/Fit behavior; Joint Play exposes a fixed rhythm page for each actor. Chords and arpeggios share the pattern clock. Motif fills reuse the same patterns with Motif or Target notes and preserve target placement. Install Movy hbclean.199 for the actor panels.
@@ -881,7 +883,7 @@ For held chords and arpeggios, Repeat runs while notes are retained, Once plays 
 
 Timed motifs remain one bounded approach per trigger. Fit uses the available target-arrival window; other modes use the configured span with the existing Trim/Fit/Defer late policy. Clip fill renders one pattern cycle, leaving clip looping to Movy. Fill Notes chooses the motif's note material or repeats its target; explicit Start/End/Both placement is retained. Existing capacity checks reject oversized fills without partially writing a clip. Patterns do not alter tap-by-tap motif performance.
 
-Rhythm-filled clip events carry an explicit timing marker, preserved by Movy save/load and Undo. While a generator is selected they render their written notes/chord voicings directly; they are not sent through the pattern clock again. Live notes on the same track still use the generator.
+Rhythm-filled clip events carry an explicit timing marker, preserved by Movy save/load and Undo. Their written attacks and note-offs own timing, even with Rhythm Generate Off. With Arp enabled, each written attack advances the existing pitch ordering through the rendered chord; no additional arp clock runs. With Arp disabled they render the written notes/chord voicings. Live notes on the same track still use the generator.
 
 
 ## Dominant palettes (0.2.276)
@@ -911,3 +913,11 @@ compare Lydian Dominant (A C# E), Half-Whole Dim (Ab C# E), and Whole Tone
 on a standalone G7. Save/reload, check the selected palettes, and compare
 Raise Avoid on/off separately. Restart HarmonyBus after the update to refresh
 the shared settings layout in every instance.
+
+## Pitch material and rhythm (0.2.279)
+
+Fill Notes = Motif cycles through the motif's playable note/chord events in order, retaining their operations. Source rests and ties do not consume pattern attacks. The selected rhythm supplies rests, ties, accents and gates. Fill Notes = Target repeats the captured target. Both live timed motifs and Motif to Clip use this rule; target placement remains Start/End/Both as selected.
+
+For a repeating bass line, select a motif and target, choose Fill Notes = Motif and a rhythm on the bass track, then use the existing Motif to Clip workflow to write it to that track. Set the Joint Play bass source to Clip. Movy's clip loop supplies repetition and the bass track's existing follower settings supply harmony and travel. Use Fill Notes = Target for repeated target attacks. There is no separate bass sequencer or hidden actor target.
+
+For held-note generated comping, the current gate keeps its onset pitch when melody or harmony changes. The next attack uses the latest retained pitch material. Releasing the input finishes the current gate and stops future attacks unless the track's existing latch retains it. Clear/stop still releases immediately. In Clip + Guide, the clip continues to own rhythm and note length, and melody updates guide the next clip attack; releasing melody does not stop the backing clip.
