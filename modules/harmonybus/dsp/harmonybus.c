@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.278"
+#define HB_VERSION "0.2.279"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2325,19 +2325,32 @@ static uint16_t hb_borrowed_scale_mask(Inst *instance,hb_harmony_t harmony,int t
     static const int selections[]={0,2,3,13};
     return hb_explicit_scale_mask(tonic,selections[hb_policy_value(instance,HB_P_BORROWED)]);
 }
+#include "../../../src/scale_resolution.h"
 #include "../../../src/scale_context.h"
-static uint16_t hb_parent_chord_scale(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent,int transpose){
+static uint16_t hb_parent_chord_scale_resolved(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent,int transpose,int *source){
     int tonic=mod12(source_root+transpose);
     parent=hb_transpose_mask(parent,transpose);
     hb_key_context context=hb_key_for(instance);
     if(instance->role==1&&context.active){tonic=mod12(context.target_root+transpose-g_bus.global_transpose);parent=hb_transpose_mask(context.target_mask,transpose-g_bus.global_transpose);}
     uint16_t shifted=hb_dominant_scale_mask(instance,harmony,tonic);
-    if(shifted)return shifted; /* Final follower target includes actual chord tones without deleting altered tensions. */
+    if(shifted){
+        int explicit_context=(harmony.intent_kind>0&&harmony.intent_kind<4)||(harmony.intent_kind>=8&&harmony.intent_kind<=10);
+        int target=explicit_context?harmony.intent_target:tonic;
+        unsigned effective=explicit_context&&harmony.intent_scale?harmony.intent_scale:hb_effective_parent(instance,tonic);
+        int minor=explicit_context?harmony.intent_minor:hb_target_minor(effective,target);
+        return hb_scale_resolved(shifted,hb_dominant_origin(instance,minor),source);
+    } /* Final follower target retains actual chord tones. */
     uint16_t borrowed=hb_borrowed_scale_mask(instance,harmony,tonic,parent);
-    return hb_accommodate_chord(borrowed?borrowed:parent,harmony,tonic);
+    return hb_scale_resolved(hb_accommodate_chord(borrowed?borrowed:parent,harmony,tonic),borrowed?HB_SCALE_BORROWED:HB_SCALE_PARENT,source);
+}
+static uint16_t hb_parent_chord_scale(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent,int transpose){
+    return hb_parent_chord_scale_resolved(instance,harmony,source_root,parent,transpose,0);
+}
+static uint16_t hb_output_chord_scale_resolved(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent,int transpose,int *source){
+    return hb_policy_value(instance,HB_P_GAP)?hb_local_output_scale_resolved(instance,harmony,source):hb_parent_chord_scale_resolved(instance,harmony,source_root,parent,transpose,source);
 }
 static uint16_t hb_output_chord_scale_at_transpose(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent,int transpose){
-    return hb_policy_value(instance,HB_P_GAP)?hb_local_output_scale(instance,harmony):hb_parent_chord_scale(instance,harmony,source_root,parent,transpose);
+    return hb_output_chord_scale_resolved(instance,harmony,source_root,parent,transpose,0);
 }
 static uint16_t hb_output_chord_scale(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent){
     return hb_output_chord_scale_at_transpose(instance,harmony,source_root,parent,g_bus.global_transpose);
@@ -5408,6 +5421,7 @@ static int hb_context_to_legacy_stability(int context){
     if(context<=3)return 1;
     return 2;
 }
+#include "../../../src/scale_status.h"
 static const char *BORROWED_SCALE_OPTS[]={"Minimal","Aeolian","Dorian","Mixolydian b6"};
 static const char *DOMINANT_SCALE_OPTS[]={"None","Harmonic Minor","Melodic Minor","Altered V","Major","Harmonic Major","Simplified Target","Minimal","Lydian Dominant","Half-Whole Dim","Whole Tone"};
 static const char *CP_CHORD_MODE[]={"Off","Rendered Note Root","Conductor Chord"};
@@ -6667,13 +6681,8 @@ int approach_result=hb_ar_get(instance,key,buffer,length);if(approach_result>=0)
 int loader_result=hb_ml_get(instance,key,buffer,length);if(loader_result>=0)return loader_result;
 int motif_result=hb_mt_get(instance,key,buffer,length);if(motif_result>=0)return motif_result;
 hb_role_sync(instance);int policy_result=hb_policy_get(instance,key,buffer,length);if(policy_result>=0)return policy_result;
-if(!strcmp(key,"scale_status")){
-    hb_harmony_t selected=hb_render_harmony(instance);int minor=0,destination=-1;
-    int mode=hb_policy_value(instance,HB_P_GAP);
-    if(mode==2||selected.intent_kind)destination=hb_context_destination(instance,selected,&minor);
-    return destination>=0?snprintf(buffer,(size_t)length,"%s: %s %s",selected.intent_kind?"Intent":"Context",hb_pc_name(destination),minor?"minor":"major"):
-        snprintf(buffer,(size_t)length,"%s",mode==0?"Parent":mode==1?"Strict local":"Auto local: fallback");
-}
+if(!strcmp(key,"scale_status"))return hb_effective_scale_status(instance,buffer,length);
+
 
 if(!strcmp(key,"motion_editor")){
     /* One control-thread snapshot replaces a page of synchronous IPC reads. */

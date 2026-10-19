@@ -1,3 +1,5 @@
+HarmonyBus 0.2.279 adds effective-scale diagnostics and reuses Simplified target policy for established minor tonics. Parallel Scale remains the shared parent operation.
+
 HarmonyBus 0.2.278 adds sequenced operation gates for Movy Grid Sequencer. Scheduled holds are independent of physical holds, reuse existing operation settings, and can launch the existing motif scheduler against a held target. Pair with HarmonyBus-Movy hbclean.200. Includes the 0.2.277 shared rhythm generator and earlier dominant palettes and extension settings.
 
 HarmonyBus 0.2.277 adds shared attack/rest/tie rhythm patterns with accents and gates, five presets and four editable global slots. Tracks select their own pattern, span and Repeat/Once/Fit behavior; Joint Play exposes a fixed rhythm page for each actor. Chords and arpeggios share the pattern clock. Motif fills reuse the same patterns with Motif or Target notes and preserve target placement. Install Movy hbclean.199 for the actor panels.
@@ -911,3 +913,38 @@ compare Lydian Dominant (A C# E), Half-Whole Dim (Ab C# E), and Whole Tone
 on a standalone G7. Save/reload, check the selected palettes, and compare
 Raise Avoid on/off separately. Restart HarmonyBus after the update to refresh
 the shared settings layout in every instance.
+
+
+## Effective scales, Parallel Scale and minor tonics (0.2.279)
+
+Parallel Scale changes the shared effective key collection. Local and contextual
+chord-scale settings then select the collection for a particular chord. A named
+dominant family can therefore override the parallel parent's extensions on V.
+Scale Status now reports the actual resulting chord scale, the resolver's source,
+and the effective parent. For example: G Lydian Dominant | Dom minor |
+C Melodic Minor (Parallel). An unmatched collection is shown as its actual notes.
+
+Raised-Avoid follower changes are listed as pitch transformations. If generated
+chord Raise Avoid is enabled, a separately labeled Chord preview compares the
+configured voicing on the current harmony; it does not describe older held voices
+or every individual root you might play next. Releasing Parallel Scale or Dominant
+Color reveals the underlying collection and its source immediately.
+
+For a local minor-tonic color, choose Auto Local, Target Scale = Simplified and
+Simple Minor = Natural Minor, Dorian, Harmonic Minor or Melodic Minor. This reuses
+the existing target policy: no second minor-scale list is introduced. The tonic
+must either match the effective minor key or have an unambiguous contextual
+resolution to itself. A chord merely ending a loop is not sufficient evidence;
+a preceding ii retains its own destination context. Explicit and recorded scale
+intent remains authoritative. Strict Local, Auto target source, and Parent target
+source keep their previous behavior.
+
+An explicit Cm7 retains Bb even if Simple Minor is Melodic Minor: the resulting
+available collection is C Dorian. A C-minor triad permits the melodic-minor B.
+This separates preserving an entered chord from choosing its additional notes.
+
+Listening test: hold Parallel Scale = Melodic Minor, compare the dominant-to-minor
+palettes on G7, and observe Scale Status. Release the parallel operation and verify
+the parent/source change. Then use Auto Local + Simplified on a C-minor tonic;
+compare Simple Minor choices with a triad and with an explicit Cm7. Save/reload
+and confirm that the same existing settings produce the same status and notes.
