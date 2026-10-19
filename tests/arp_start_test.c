@@ -43,7 +43,7 @@ static void shuffle_pin_scope(void){
         }
         assert(order==6?starts==2:(starts&(starts-1))!=0);
         /* An explicit pad/chord reanchor still pins the next opening note. */
-        player.anchor_pending=1;player.beat=player.next_beat;
+        player.order_state.anchor_pending=1;player.beat=player.next_beat;
         hb_cp_tick(&player,output,lengths,64);assert(player.arp_note==60);
         Inst *instance=fixture();char state[16384],value[40];
         API.set_param(instance,"arp_order",CP_ARP_ORDER[order]);
@@ -65,7 +65,7 @@ static void harmony_anchor_and_state(void){
         uint8_t harmony_notes[]={62,65,69};hb_commit_observed_harmony(hb_infer_harmony(harmony_notes,3));
         instance->player.beat=due-.01;hb_player_tick(instance,output,lengths,64);
         assert(instance->player.next_beat==due);
-        assert(!!instance->player.anchor_pending==(start==3||start==4||start==6));
+        assert(!!instance->player.order_state.anchor_pending==(start==3||start==4||start==6));
         instance->player.beat=due;hb_player_tick(instance,output,lengths,64);
         if(start==3||start==4||start==6)assert(instance->player.arp_note==(start==6?60:start==3?55:67));
         char state[8192],value[40];API.get_param(instance,"state",state,sizeof(state));

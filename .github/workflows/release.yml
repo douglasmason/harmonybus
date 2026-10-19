@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.279 adds resolved scale diagnostics with Parallel/Key parent provenance and separate Raise Avoid reports. Auto Local reuses the existing Simplified target and Simple Minor choices for an established minor tonic while preserving explicit chord tones. Existing Auto and Parent behavior is unchanged. No Movy update is required." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.279 separates motif pitch material from generated rhythm: attacks cycle through playable motif events while the selected pattern supplies rests, ties, accents and gates. Held-note pitch changes take effect at the next attack, and release finishes the current gate. Rhythm-filled clips use existing arp ordering on their written attacks without a second clock. Includes Grid Sequencer support from 0.2.278; pair with Movy hbclean.201." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.279 adds resolved scale diagnostics with Parallel/Key parent provenance and separate Raise Avoid reports. Auto Local reuses the existing Simplified target and Simple Minor choices for an established minor tonic while preserving explicit chord tones. Existing Auto and Parent behavior is unchanged. No Movy update is required." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.279 separates motif pitch material from generated rhythm: attacks cycle through playable motif events while the selected pattern supplies rests, ties, accents and gates. Held-note pitch changes take effect at the next attack, and release finishes the current gate. Rhythm-filled clips use existing arp ordering on their written attacks without a second clock. Includes Grid Sequencer support from 0.2.278; pair with Movy hbclean.201." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
