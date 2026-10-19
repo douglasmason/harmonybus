@@ -1,3 +1,11 @@
+HarmonyBus 0.2.281 extracts the shared portable musical core without changing musical behavior. Preserves the 0.2.280 scale diagnostics, rhythm performance and Grid gates. Pair with Movy hbclean.202 for opt-in stock FM-1 USB MIDI input; no firmware update is required.
+
+HarmonyBus 0.2.280 adds effective-scale diagnostics and reuses Simplified target policy for established minor tonics. Parallel Scale remains the shared parent operation.
+
+HarmonyBus 0.2.279 separates motif pitch material from generated rhythm: attacks cycle through playable motif events while the selected pattern supplies rests, ties, accents and gates. Held-note pitch changes take effect at the next attack, and release finishes the current gate. Rhythm-filled clips use existing arp ordering on their written attacks without a second clock. Includes Grid Sequencer support from 0.2.278; pair with Movy hbclean.201.
+
+HarmonyBus 0.2.278 adds sequenced operation gates for Movy Grid Sequencer. Scheduled holds are independent of physical holds, reuse existing operation settings, and can launch the existing motif scheduler against a held target. Pair with HarmonyBus-Movy hbclean.200. Includes the 0.2.277 shared rhythm generator and earlier dominant palettes and extension settings.
+
 HarmonyBus 0.2.277 adds shared attack/rest/tie rhythm patterns with accents and gates, five presets and four editable global slots. Tracks select their own pattern, span and Repeat/Once/Fit behavior; Joint Play exposes a fixed rhythm page for each actor. Chords and arpeggios share the pattern clock. Motif fills reuse the same patterns with Motif or Target notes and preserve target placement. Install Movy hbclean.199 for the actor panels.
 
 HarmonyBus 0.2.275 adds Chords > Extensions: As Derived / Raise Avoid. Generated 9ths, 11ths and 13ths share the follower avoid-note classifier, preserving chord identity, suspensions and explicit detected chord tones. The choice applies on the next onset and persists in track settings and Chord/Arp State lanes. Existing sets retain As Derived. No Movy update is required.
@@ -879,7 +887,7 @@ For held chords and arpeggios, Repeat runs while notes are retained, Once plays 
 
 Timed motifs remain one bounded approach per trigger. Fit uses the available target-arrival window; other modes use the configured span with the existing Trim/Fit/Defer late policy. Clip fill renders one pattern cycle, leaving clip looping to Movy. Fill Notes chooses the motif's note material or repeats its target; explicit Start/End/Both placement is retained. Existing capacity checks reject oversized fills without partially writing a clip. Patterns do not alter tap-by-tap motif performance.
 
-Rhythm-filled clip events carry an explicit timing marker, preserved by Movy save/load and Undo. While a generator is selected they render their written notes/chord voicings directly; they are not sent through the pattern clock again. Live notes on the same track still use the generator.
+Rhythm-filled clip events carry an explicit timing marker, preserved by Movy save/load and Undo. Their written attacks and note-offs own timing, even with Rhythm Generate Off. With Arp enabled, each written attack advances the existing pitch ordering through the rendered chord; no additional arp clock runs. With Arp disabled they render the written notes/chord voicings. Live notes on the same track still use the generator.
 
 
 ## Dominant palettes (0.2.276)
@@ -909,3 +917,46 @@ compare Lydian Dominant (A C# E), Half-Whole Dim (Ab C# E), and Whole Tone
 on a standalone G7. Save/reload, check the selected palettes, and compare
 Raise Avoid on/off separately. Restart HarmonyBus after the update to refresh
 the shared settings layout in every instance.
+
+
+## Effective scales, Parallel Scale and minor tonics (0.2.280)
+
+Parallel Scale changes the shared effective key collection. Local and contextual
+chord-scale settings then select the collection for a particular chord. A named
+dominant family can therefore override the parallel parent's extensions on V.
+Scale Status now reports the actual resulting chord scale, the resolver's source,
+and the effective parent. For example: G Lydian Dominant | Dom minor |
+C Melodic Minor (Parallel). An unmatched collection is shown as its actual notes.
+
+Raised-Avoid follower changes are listed as pitch transformations. If generated
+chord Raise Avoid is enabled, a separately labeled Chord preview compares the
+configured voicing on the current harmony; it does not describe older held voices
+or every individual root you might play next. Releasing Parallel Scale or Dominant
+Color reveals the underlying collection and its source immediately.
+
+For a local minor-tonic color, choose Auto Local, Target Scale = Simplified and
+Simple Minor = Natural Minor, Dorian, Harmonic Minor or Melodic Minor. This reuses
+the existing target policy: no second minor-scale list is introduced. The tonic
+must either match the effective minor key or have an unambiguous contextual
+resolution to itself. A chord merely ending a loop is not sufficient evidence;
+a preceding ii retains its own destination context. Explicit and recorded scale
+intent remains authoritative. Strict Local, Auto target source, and Parent target
+source keep their previous behavior.
+
+An explicit Cm7 retains Bb even if Simple Minor is Melodic Minor: the resulting
+available collection is C Dorian. A C-minor triad permits the melodic-minor B.
+This separates preserving an entered chord from choosing its additional notes.
+
+Listening test: hold Parallel Scale = Melodic Minor, compare the dominant-to-minor
+palettes on G7, and observe Scale Status. Release the parallel operation and verify
+the parent/source change. Then use Auto Local + Simplified on a C-minor tonic;
+compare Simple Minor choices with a triad and with an explicit Cm7. Save/reload
+and confirm that the same existing settings produce the same status and notes.
+
+## Pitch material and rhythm (0.2.279)
+
+Fill Notes = Motif cycles through the motif's playable note/chord events in order, retaining their operations. Source rests and ties do not consume pattern attacks. The selected rhythm supplies rests, ties, accents and gates. Fill Notes = Target repeats the captured target. Both live timed motifs and Motif to Clip use this rule; target placement remains Start/End/Both as selected.
+
+For a repeating bass line, select a motif and target, choose Fill Notes = Motif and a rhythm on the bass track, then use the existing Motif to Clip workflow to write it to that track. Set the Joint Play bass source to Clip. Movy's clip loop supplies repetition and the bass track's existing follower settings supply harmony and travel. Use Fill Notes = Target for repeated target attacks. There is no separate bass sequencer or hidden actor target.
+
+For held-note generated comping, the current gate keeps its onset pitch when melody or harmony changes. The next attack uses the latest retained pitch material. Releasing the input finishes the current gate and stops future attacks unless the track's existing latch retains it. Clear/stop still releases immediately. In Clip + Guide, the clip continues to own rhythm and note length, and melody updates guide the next clip attack; releasing melody does not stop the backing clip.

@@ -1,7 +1,6 @@
 name: Shared core candidate (no deployment)
 on:
-  push:
-    branches: [work/shared-core-fm1]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

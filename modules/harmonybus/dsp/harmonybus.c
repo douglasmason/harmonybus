@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.277"
+#define HB_VERSION "0.2.281"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2325,19 +2325,32 @@ static uint16_t hb_borrowed_scale_mask(Inst *instance,hb_harmony_t harmony,int t
     static const int selections[]={0,2,3,13};
     return hb_explicit_scale_mask(tonic,selections[hb_policy_value(instance,HB_P_BORROWED)]);
 }
+#include "../../../src/scale_resolution.h"
 #include "../../../src/scale_context.h"
-static uint16_t hb_parent_chord_scale(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent,int transpose){
+static uint16_t hb_parent_chord_scale_resolved(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent,int transpose,int *source){
     int tonic=mod12(source_root+transpose);
     parent=hb_transpose_mask(parent,transpose);
     hb_key_context context=hb_key_for(instance);
     if(instance->role==1&&context.active){tonic=mod12(context.target_root+transpose-g_bus.global_transpose);parent=hb_transpose_mask(context.target_mask,transpose-g_bus.global_transpose);}
     uint16_t shifted=hb_dominant_scale_mask(instance,harmony,tonic);
-    if(shifted)return shifted; /* Final follower target includes actual chord tones without deleting altered tensions. */
+    if(shifted){
+        int explicit_context=(harmony.intent_kind>0&&harmony.intent_kind<4)||(harmony.intent_kind>=8&&harmony.intent_kind<=10);
+        int target=explicit_context?harmony.intent_target:tonic;
+        unsigned effective=explicit_context&&harmony.intent_scale?harmony.intent_scale:hb_effective_parent(instance,tonic);
+        int minor=explicit_context?harmony.intent_minor:hb_target_minor(effective,target);
+        return hb_scale_resolved(shifted,hb_dominant_origin(instance,minor),source);
+    } /* Final follower target retains actual chord tones. */
     uint16_t borrowed=hb_borrowed_scale_mask(instance,harmony,tonic,parent);
-    return hb_accommodate_chord(borrowed?borrowed:parent,harmony,tonic);
+    return hb_scale_resolved(hb_accommodate_chord(borrowed?borrowed:parent,harmony,tonic),borrowed?HB_SCALE_BORROWED:HB_SCALE_PARENT,source);
+}
+static uint16_t hb_parent_chord_scale(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent,int transpose){
+    return hb_parent_chord_scale_resolved(instance,harmony,source_root,parent,transpose,0);
+}
+static uint16_t hb_output_chord_scale_resolved(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent,int transpose,int *source){
+    return hb_policy_value(instance,HB_P_GAP)?hb_local_output_scale_resolved(instance,harmony,source):hb_parent_chord_scale_resolved(instance,harmony,source_root,parent,transpose,source);
 }
 static uint16_t hb_output_chord_scale_at_transpose(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent,int transpose){
-    return hb_policy_value(instance,HB_P_GAP)?hb_local_output_scale(instance,harmony):hb_parent_chord_scale(instance,harmony,source_root,parent,transpose);
+    return hb_output_chord_scale_resolved(instance,harmony,source_root,parent,transpose,0);
 }
 static uint16_t hb_output_chord_scale(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent){
     return hb_output_chord_scale_at_transpose(instance,harmony,source_root,parent,g_bus.global_transpose);
@@ -3337,7 +3350,7 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
                the old arp division, where a short target tap can vanish. */
             if(!instance->movy_playback&&instance->target_attack_owner==channel*128+source_note+1){
                 instance->target_attack_owner=0;
-                if(hb_cp_playback(player)==1&&hb_cp_settings(player)->phase!=1){player->running=0;player->step=0;}
+                if(hb_cp_playback(player)==1&&hb_cp_settings(player)->phase!=1){player->running=0;player->order_state.step=0;}
             }
             break;
         }
@@ -3679,7 +3692,7 @@ static void hb_reharmonize_held_chords(Inst *instance){
     runtime_config->latch=latch;instance->approach_pad_armed=armed;
     /* Revoicing is not a new gesture. In particular, resetting Auto at a
        due division would arm the following division and drop this hit. */
-    if(changed&&hb_cp_playback(player)!=1){player->running=0;player->step=0;}
+    if(changed&&hb_cp_playback(player)!=1){player->running=0;player->order_state.step=0;}
 }
 static int hb_reharmonize_held_follower(Inst *instance,uint8_t output[][3],int lengths[],int max_output){
     if(!instance||instance->role!=1||!output||!lengths||max_output<=0)return 0;
@@ -4439,7 +4452,9 @@ if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note
     }
     instance->movy_pad_pending=0;instance->approach_rows.pending_row=-1;
 }int input_channel=input[0]&0x0F;if(instance->role==2)return pass(input,length,output,lengths,max_output);if(!hb_source_channel_matches(instance,input_channel))return pass(input,length,output,lengths,max_output);if(is_on){
-    if(hb_cp_settings(&instance->player)->start==1||hb_cp_settings(&instance->player)->start==2||hb_cp_settings(&instance->player)->start==5)instance->player.anchor_pending=1;
+    /* Written rhythm attacks advance their arp sequence; only a new live
+       gesture reanchors the live clock. Harmony changes still reanchor both. */
+    if(hb_cp_settings(&instance->player)->start==1||hb_cp_settings(&instance->player)->start==2||hb_cp_settings(&instance->player)->start==5)instance->player.order_state.anchor_pending=1;
     if(instance->movy_playback&&instance->recorded_action_valid[note])instance->motion.event_override=instance->recorded_actions[note];
     else if(instance->motif.editor.recording<0)hb_mo_input(&instance->motion,note,instance->motion_beat,hb_ms_to_beats(25));
     if(instance->approach_rows.tokens[note]&&!instance->movy_playback){
@@ -4876,7 +4891,7 @@ static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int m
     unsigned anchor_mask=hb_harmony_chord_mask(anchor_harmony);
     if(anchor_harmony.valid){
         if((hb_cp_settings(player)->start==3||hb_cp_settings(player)->start==4||hb_cp_settings(player)->start==6)&&player->anchor_harmony_valid&&
-           (anchor_mask!=player->anchor_harmony_mask||anchor_harmony.root_pc!=player->anchor_harmony_root))player->anchor_pending=1;
+           (anchor_mask!=player->anchor_harmony_mask||anchor_harmony.root_pc!=player->anchor_harmony_root))player->order_state.anchor_pending=player->baked_order.anchor_pending=1;
         player->anchor_harmony_valid=1;player->anchor_harmony_mask=anchor_mask;player->anchor_harmony_root=anchor_harmony.root_pc;
     }
     for(int owner=0;owner<HB_CP_KEYS;owner++){
@@ -4897,6 +4912,8 @@ static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int m
                 int offset=output[index][1]-key->notes[voice];
                 if(offset>=0&&offset%12==0&&offset<12*(hb_cp_playback(player)==1?key->range:1))matches=1;
             }
+            if(key->rhythm_baked||(player->rhythm.active&&key->rhythm_serial==player->rhythm_serial&&player->beat<player->rhythm.gate))
+            for(int voice=0;voice<key->rhythm_count;voice++)if(output[index][1]==key->rhythm_notes[voice])matches=1;
             if(!matches)continue;
             instance->motion.event_override=instance->motion_player_events[owner];instance->movy_playback=key->playback_origin;
             {unsigned saved_serial=instance->trail_event_serial;instance->trail_event_serial=key->trail_serial;
@@ -5408,6 +5425,7 @@ static int hb_context_to_legacy_stability(int context){
     if(context<=3)return 1;
     return 2;
 }
+#include "../../../src/scale_status.h"
 static const char *BORROWED_SCALE_OPTS[]={"Minimal","Aeolian","Dorian","Mixolydian b6"};
 static const char *DOMINANT_SCALE_OPTS[]={"None","Harmonic Minor","Melodic Minor","Altered V","Major","Harmonic Major","Simplified Target","Minimal","Lydian Dominant","Half-Whole Dim","Whole Tone"};
 static const char *CP_CHORD_MODE[]={"Off","Rendered Note Root","Conductor Chord"};
@@ -5610,7 +5628,7 @@ if(hb_mo_set(&instance->motion,key,parameter)){
     instance->next_touch_mask&=(instance->motion.held|instance->motion.gesture_down|instance->motion.gesture_latched|hb_mo_pending_lanes(&instance->motion))&~instance->motion.gesture_persistent;
     if(!strncmp(key,"motion_",7)&&strncmp(key,"motion_gesture_",15)&&strncmp(key,"motion_hold_",12)&&
        strcmp(key,"motion_host")&&strcmp(key,"motion_release")&&strcmp(key,"motion_sequence_mask"))hb_motion_publish_settings(instance);
-    if(next_lane>=0&&instance->motion.lanes[next_lane].operation>=HB_MO_RELATIVE_KEY)hb_key_operations_sync();
+    if(!strcmp(key,"motion_sequence_mask")||(next_lane>=0&&instance->motion.lanes[next_lane].operation>=HB_MO_RELATIVE_KEY))hb_key_operations_sync();
     hb_mo_repeat_cancel(&instance->motion_local,&instance->motion,0);
     hb_mo_repeat_cancel(&instance->motion_render,&instance->motion,0);hb_motion_flush_render(instance);return;
 }
@@ -5694,8 +5712,8 @@ if(!strcmp(key,"chord_voicing")){
 if(!strcmp(key,"arp_playback")){
     int selected=enum_index(parameter,CP_ARP_PLAYBACK,3,instance->player.config.playback);
     if(selected!=instance->player.config.playback){instance->player.config.playback=selected;
-        instance->player.flushing=1;instance->player.running=0;
-        instance->player.shuffle_count=instance->player.shuffle_position=0;
+        instance->player.flushing=1;instance->player.running=0;instance->player.baked_started=0;
+        instance->player.order_state.shuffle_count=instance->player.order_state.shuffle_position=0;instance->player.baked_order.shuffle_count=instance->player.baked_order.shuffle_position=0;
         for(int index=0;index<HB_CP_KEYS;index++)if(instance->player.keys[index].used){
             instance->player.keys[index].fresh=1;instance->player.keys[index].started=0;
         }}
@@ -5707,10 +5725,10 @@ if(!strcmp(key,"arp_hold")){
     if(selected!=instance->player.config.latch){instance->player.config.latch=selected;}
     return;
 }
-if(!strcmp(key,"arp_start")){instance->player.config.start=enum_index(parameter,CP_ARP_START,7,instance->player.config.start);instance->player.anchor_pending=1;instance->player.shuffle_count=0;return;}
+if(!strcmp(key,"arp_start")){instance->player.config.start=enum_index(parameter,CP_ARP_START,7,instance->player.config.start);instance->player.order_state.anchor_pending=instance->player.baked_order.anchor_pending=1;instance->player.order_state.shuffle_count=instance->player.baked_order.shuffle_count=0;return;}
 if(!strcmp(key,"arp_order")){
     int selected=enum_index(parameter,CP_ARP_ORDER,7,instance->player.config.order);
-    if(selected!=instance->player.config.order){instance->player.config.order=selected;instance->player.shuffle_count=instance->player.shuffle_position=0;}
+    if(selected!=instance->player.config.order){instance->player.config.order=selected;instance->player.order_state.shuffle_count=instance->player.order_state.shuffle_position=0;instance->player.baked_order.shuffle_count=instance->player.baked_order.shuffle_position=0;}
     return;
 }
 if(!strcmp(key,"arp_phase")){
@@ -5721,7 +5739,7 @@ if(!strcmp(key,"arp_phase")){
 if(!strcmp(key,"arp_note_phase")){
     int limit=hb_arp_phase_limit(instance->player.config.rate);
     int selected=hb_cp_clamp(parse_i(parameter,instance->player.config.note_phase),-limit,limit);
-    if(selected!=instance->player.config.note_phase){instance->player.step+=instance->player.config.note_phase-selected;instance->player.config.note_phase=selected;}
+    if(selected!=instance->player.config.note_phase){instance->player.order_state.step+=instance->player.config.note_phase-selected;instance->player.baked_order.step+=instance->player.config.note_phase-selected;instance->player.config.note_phase=selected;}
     return;
 }
 if(!strcmp(key,"arp_rate")){
@@ -6667,13 +6685,8 @@ int approach_result=hb_ar_get(instance,key,buffer,length);if(approach_result>=0)
 int loader_result=hb_ml_get(instance,key,buffer,length);if(loader_result>=0)return loader_result;
 int motif_result=hb_mt_get(instance,key,buffer,length);if(motif_result>=0)return motif_result;
 hb_role_sync(instance);int policy_result=hb_policy_get(instance,key,buffer,length);if(policy_result>=0)return policy_result;
-if(!strcmp(key,"scale_status")){
-    hb_harmony_t selected=hb_render_harmony(instance);int minor=0,destination=-1;
-    int mode=hb_policy_value(instance,HB_P_GAP);
-    if(mode==2||selected.intent_kind)destination=hb_context_destination(instance,selected,&minor);
-    return destination>=0?snprintf(buffer,(size_t)length,"%s: %s %s",selected.intent_kind?"Intent":"Context",hb_pc_name(destination),minor?"minor":"major"):
-        snprintf(buffer,(size_t)length,"%s",mode==0?"Parent":mode==1?"Strict local":"Auto local: fallback");
-}
+if(!strcmp(key,"scale_status"))return hb_effective_scale_status(instance,buffer,length);
+
 
 if(!strcmp(key,"motion_editor")){
     /* One control-thread snapshot replaces a page of synchronous IPC reads. */
