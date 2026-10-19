@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.277"
+#define HB_VERSION "0.2.278"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -1415,7 +1415,7 @@ static hb_clip_cache_key_t hb_clip_cache_current_key(void){
         config=(const unsigned char *)&instance->play;
         for(unsigned byte=0;byte<sizeof(instance->play);byte++)key.rendering=hb_clip_hash(key.rendering,config[byte]);
         for(int lane=0;lane<HB_MOTION_LANES;lane++)key.rendering=hb_clip_hash(key.rendering,instance->motion.revision[lane]);
-        key.rendering=hb_clip_hash(key.rendering,instance->motion.held);
+        key.rendering=hb_clip_hash(key.rendering,(instance->motion.held|instance->motion.sequence_held));
         key.rendering=hb_clip_hash(key.rendering,instance->motion.bypass);
     }
     return key;
@@ -3400,7 +3400,7 @@ static void hb_motion_values(Inst *instance,const uint8_t message[3],int *pitch,
             if(*off_beat<0||deadline<*off_beat)*off_beat=deadline;
         }else if(operation==HB_MO_SKIP&&value>0)*skip=1;
         else if(operation==HB_MO_TRANSPOSE)*pitch=hb_mo_clamp(*pitch+hb_mo_round(value),0,127);
-        else if(!hb_mo_chord_approach_done(&instance->motion)&&!(instance->motion.held&(1ULL<<index))&&(operation==HB_MO_BELOW||operation==HB_MO_ABOVE||operation==HB_MO_CHROM_ABOVE||operation==HB_MO_TRITONE_V)&&value>0)
+        else if(!hb_mo_chord_approach_done(&instance->motion)&&!((instance->motion.held|instance->motion.sequence_held)&(1ULL<<index))&&(operation==HB_MO_BELOW||operation==HB_MO_ABOVE||operation==HB_MO_CHROM_ABOVE||operation==HB_MO_TRITONE_V)&&value>0)
             *pitch=hb_apply_approach(instance,*pitch,operation==HB_MO_BELOW?HB_APPROACH_CHROM_BELOW:(operation==HB_MO_CHROM_ABOVE||operation==HB_MO_TRITONE_V)?HB_APPROACH_CHROM_ABOVE:HB_APPROACH_SCALE_ABOVE);
     }
 }
@@ -5171,7 +5171,7 @@ static void hb_key_operations_sync_instance(Inst *instance){
         int operation=instance->motion.lanes[lane].operation;
         /* Reuse this existing scan: an inactive override adds no
            second all-track/all-lane walk to every MIDI event. */
-        if(instance->role==1&&!instance->motion.bypass&&(instance->motion.held&(1ULL<<lane))){
+        if(instance->role==1&&!instance->motion.bypass&&((instance->motion.held|instance->motion.sequence_held)&(1ULL<<lane))){
             if(operation==HB_MO_HARMONY_OVERRIDE)override_scope=2;
             else if(operation==HB_MO_LIVE_HARMONY_OVERRIDE&&!override_scope)override_scope=1;
         }
@@ -5578,7 +5578,20 @@ int touch_slot=hb_mo_slot_key(key,"follow_touch_");if(touch_slot>=0&&touch_slot<
 hb_next_touch_clear_expired(instance);
 int next_lane=hb_mo_slot_key(key,"motion_gesture_");if(next_lane<0)next_lane=hb_mo_slot_key(key,"motion_hold_");
 unsigned long long next_before=instance->motion.held|instance->motion.gesture_down;
+unsigned long long sequence_before=instance->motion.sequence_held;
 if(hb_mo_set(&instance->motion,key,parameter)){
+    if(!strcmp(key,"motion_sequence_mask")){
+        unsigned long long started=instance->motion.sequence_held&~sequence_before;
+        unsigned owner=instance->physical_target;
+        if(owner&&instance->role<2&&instance->motif.editor.recording<0&&instance->physical_velocity[(owner-1)/128][(owner-1)%128]){
+            for(int lane=15;lane>=0;lane--)if((started&(1ULL<<lane))&&instance->motion.lanes[lane].operation==HB_MO_MOTIF&&instance->motion.lanes[lane].amount>0&&instance->motion.lanes[lane].amount<44){
+                hb_mt_lane_load(&instance->motif.editor,&instance->motion.lanes[lane]);
+                instance->motif.playback_lane=lane;
+                hb_mt_launch(instance,(owner-1)%128,instance->physical_velocity[(owner-1)/128][(owner-1)%128],(owner-1)/128);
+                break;
+            }
+        }
+    }
     int assigned_lane=hb_mo_slot_key(key,"motion_operation_");
     if(!strcmp(key,"motion_operation")||(assigned_lane>=0&&assigned_lane<HB_MOTION_USER_LANES)){
         hb_motion_lane *lane=&instance->motion.lanes[assigned_lane>=0?assigned_lane:instance->motion.selected];
@@ -5596,8 +5609,8 @@ if(hb_mo_set(&instance->motion,key,parameter)){
        !(instance->next_touch_mask&(1ULL<<next_lane)))hb_next_touch_arm(instance,next_lane);
     instance->next_touch_mask&=(instance->motion.held|instance->motion.gesture_down|instance->motion.gesture_latched|hb_mo_pending_lanes(&instance->motion))&~instance->motion.gesture_persistent;
     if(!strncmp(key,"motion_",7)&&strncmp(key,"motion_gesture_",15)&&strncmp(key,"motion_hold_",12)&&
-       strcmp(key,"motion_host")&&strcmp(key,"motion_release"))hb_motion_publish_settings(instance);
-    if(next_lane>=0&&instance->motion.lanes[next_lane].operation>=HB_MO_RELATIVE_KEY)hb_key_operations_sync();
+       strcmp(key,"motion_host")&&strcmp(key,"motion_release")&&strcmp(key,"motion_sequence_mask"))hb_motion_publish_settings(instance);
+    if(!strcmp(key,"motion_sequence_mask")||(next_lane>=0&&instance->motion.lanes[next_lane].operation>=HB_MO_RELATIVE_KEY))hb_key_operations_sync();
     hb_mo_repeat_cancel(&instance->motion_local,&instance->motion,0);
     hb_mo_repeat_cancel(&instance->motion_render,&instance->motion,0);hb_motion_flush_render(instance);return;
 }
@@ -7558,7 +7571,7 @@ static void set_param(void *value,const char *key,const char *parameter){
         else {g_sc_manual[instance-g_pool]=0;if(!g_sc_latch[instance-g_pool]&&!g_sc_lane[instance-g_pool])hb_key_parallel(instance,0);}
         return;
     }
-    instance->adopt_held=!instance->joint_pad_control&&(!strncmp(key,"motion_gesture_",15)||!strncmp(key,"motion_hold_",12));
+    instance->adopt_held=!instance->joint_pad_control&&(!strncmp(key,"motion_gesture_",15)||!strncmp(key,"motion_hold_",12)||!strcmp(key,"motion_sequence_mask"));
     if(!hb_ml_set(instance,key,parameter)&&!hb_ar_set(instance,key,parameter)&&!hb_cs_set(instance,key,parameter)&&!hb_rg_set(instance,key,parameter)&&!hb_rr_set(instance,key,parameter)&&!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
     if(!strcmp(key,"state")){
         memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=instance->target_attack_owner=0;instance->advance_pending=instance->advance_phase=0;
