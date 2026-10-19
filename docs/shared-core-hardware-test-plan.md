@@ -85,3 +85,12 @@ stock restore procedure, memory/linker limits, audio interrupt call graph and
 RAM placement, MIDI transport behavior, and SDK license/source-delivery terms.
 Build/test in the simulator, then draft a separate FM1-specific flash plan and
 seek explicit approval. SDK header availability alone is insufficient.
+
+## Pin reconciliation and active branches
+
+The published Schwung 1.7.3 commit is
+`a6f7ec9e5cf4d0df172a1dbc00b29d0b5eb67124`. Its entire 1,801-file tree matches
+the local `911136d` checkout above; CI uses the published commit. The candidate
+also carries the existing Grid Sequencer operation-gate implementation and tests
+from HarmonyBus feature/grid-gates, which were not yet on main. Current dominant
+palette changes on main are retained alongside those gates.
