@@ -20,6 +20,16 @@ int main(void){
     assert(hb_mo_lane_active(&instance->motion,0));
     API.set_param(instance,"motion_sequence_mask","0");
     assert(!hb_mo_lane_active(&instance->motion,0));
+    instance->motion.lanes[0].operation=HB_MO_ENCLOSE_AB;
+    API.set_param(instance,"motion_sequence_mask","1");
+    assert(hb_mo_lane_active(&instance->motion,0));
+    API.set_param(instance,"motion_sequence_mask","0");
+    assert(!hb_mo_lane_active(&instance->motion,0));
+    API.set_param(instance,"motion_sequence_mask","1");
+    instance->motion.held|=1; /* A live owner retains the shared approach. */
+    API.set_param(instance,"motion_sequence_mask","0");
+    assert(hb_mo_lane_active(&instance->motion,0));
+    instance->motion.held=0;instance->motion.enclosure=0;
     instance->motion.lanes[0].operation=HB_MO_MOTIF;instance->motion.lanes[0].amount=1;
     instance->physical_target=61;instance->physical_velocity[0][60]=100;
     API.set_param(instance,"motion_sequence_mask","1");

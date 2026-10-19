@@ -48,7 +48,11 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     if(!strcmp(key,"motion_sequence_mask")){
         unsigned long long next=(unsigned)parse_i(value,0)&65535u;
         unsigned long long started=next&~config->sequence_held;
+        unsigned long long stopped=config->sequence_held&~next&~config->held;
         config->sequence_held=next;
+        if(config->enclosure_lane>=0&&(stopped&(1ULL<<config->enclosure_lane))){
+            config->enclosure=0;config->tap_mask=0;config->enclosure_revision++;
+        }
         for(int lane=0;lane<16;lane++)if(started&(1ULL<<lane)){
             config->held_serial[lane]=++config->serial;
             int operation=config->lanes[lane].operation;
