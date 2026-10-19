@@ -66,7 +66,7 @@ static int hb_mt_save(Inst *instance,char *buffer,int length,int used){
     if(used>=length)return -1;
     used+=snprintf(buffer+used,(size_t)(length-used),";mp1,%d,%d,%d,%d;mg1,%d,%d;mt1,%d",editor->playback,editor->preset,editor->tap_grid,editor->completion,g_motif_rhythm,g_motif_span,editor->placement);
     if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),";rr1,%d,%d,%d,%d",instance->rhythm_mode,instance->rhythm_pattern,instance->rhythm_window,g_render_window);
-    return used>=length?-1:used;
+    return hb_rg_save(instance,buffer,length,used);
 }
 static void hb_mt_restore(Inst *instance,const char *state){
     const char *marker=strstr(state,";mf2,");int normalized=marker!=0;if(!marker)marker=strstr(state,";mf1,");if(!marker)return;

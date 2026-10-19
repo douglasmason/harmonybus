@@ -1,6 +1,7 @@
 #ifndef HB_CHORD_PLAYER_H
 #define HB_CHORD_PLAYER_H
 #include "available_tensions.h"
+#include "rhythm_generator.h"
 /* Allocation-free chord voicing and owned-note playback. Times are supplied
    by the host adapter; the adapter decides which role owns the output. */
 #define HB_CP_KEYS 16
@@ -19,7 +20,7 @@ typedef struct {
     int intent_kind,intent_target,intent_minor;unsigned intent_scale,gap_mask;
     unsigned sequence, harmony_mask, harmony_sequence, semantic_mask;
     hb_cp_config onset_config;
-    int harmony_root, playback_origin, range;
+    int harmony_root, playback_origin, range, rhythm_baked;
     int input_degree,input_target,input_shift;unsigned input_token;
     unsigned transform_revision,trail_serial;
     int notes[HB_CP_VOICES];
@@ -28,6 +29,7 @@ typedef struct {
     unsigned started;
 } hb_cp_key;
 typedef struct {
+    hb_rg_clock rhythm;
     hb_cp_config config;
     int state_override;hb_cp_config state_config;
     int release_ms,release_follow_harmony;
@@ -324,9 +326,10 @@ static void hb_cp_defaults(hb_cp_config *config){
     memset(config,0,sizeof(*config));config->rate=2;config->gate=1;config->phase=2;config->start=5;
 }
 static int hb_cp_enabled(const hb_chord_player *player){
-    return hb_cp_mode(player)||hb_cp_playback(player);
+    return player->rhythm.pattern||hb_cp_mode(player)||hb_cp_playback(player);
 }
 static void hb_cp_clear(hb_chord_player *player){
+    hb_rg_reset(&player->rhythm);
     memset(player->keys,0,sizeof(player->keys));
     memset(player->retrigger,0,sizeof(player->retrigger));
     player->running=0;player->flushing=1;player->step=0;
@@ -524,47 +527,7 @@ static int hb_cp_release_velocity(const hb_chord_player *player,const hb_cp_key 
     double fraction=(key->release_end-hb_cp_release_clock(player,key))/(key->release_end-key->release_start);
     return hb_cp_clamp((int)(key->velocity*fraction+0.5),1,key->velocity);
 }
-static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],int capacity){
-    for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&player->keys[key].release_end>0&&hb_cp_release_clock(player,&player->keys[key])+1e-9>=player->keys[key].release_end)player->keys[key].used=0;
-    uint8_t desired[16][128];memset(desired,0,sizeof(desired));
-    if(player->flushing){
-        int emitted=hb_cp_diff(player,desired,output,lengths,capacity);
-        if(!player->sounding_count)player->flushing=0;
-        return emitted;
-    }
-    hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
-    if(hb_cp_playback(player)==1){
-        int count=hb_cp_entries(player,entries,0);
-        int cycle=hb_cp_settings(player)->order==2&&count>1?2*count-2:count;
-        double rate=hb_cp_division(hb_cp_settings(player)->rate%9);
-        if(hb_cp_settings(player)->rate>=9&&cycle>0)rate/=cycle;
-        if(!count)player->running=0;
-        if(count&&!player->running&&hb_cp_settings(player)->phase==1){
-            player->step=0;
-            /* Rotate the ordered cycle to the newest gesture's actual root,
-               which is not necessarily the bass of an inverted voicing. */
-            unsigned newest=0;int root=-1;
-            for(int index=0;index<count;index++){
-                hb_cp_key *owner=&player->keys[entries[index].key];
-                if(hb_cp_mod(entries[index].pitch)==owner->root_pc&&owner->sequence>newest){
-                    newest=owner->sequence;root=index;
-                }
-            }
-            if(root>=0&&!hb_cp_settings(player)->start)player->step=root;
-            if(!hb_cp_settings(player)->start)player->step-=hb_cp_settings(player)->note_phase;
-            player->next_beat=(hb_cp_floor(player->beat/rate)+1.0)*rate;
-            player->running=2; /* Armed, no sounding note yet. */
-        }
-        if(count&&(!player->running||player->beat+1e-9>=player->next_beat)){
-            int first=!player->running;
-            if(first)player->step=hb_cp_settings(player)->start?0:-hb_cp_settings(player)->note_phase;
-            /* Preserve the first-hit anchor in Free, including late callbacks.
-               Other modes use transport grid after their opening note. */
-            double onset=first?player->beat:player->next_beat;
-            if(!first){
-                int missed=(int)hb_cp_floor((player->beat-onset+1e-9)/rate);
-                if(missed>0){onset+=missed*rate;player->step+=missed;}
-            }
+static hb_cp_entry hb_cp_select(hb_chord_player *player,hb_cp_entry *entries,int count,int cycle,int first){
             int start_anchor=first||player->running==2||player->anchor_pending;
             if(hb_cp_settings(player)->start&&player->anchor_pending){player->step=0;player->anchor_pending=0;player->shuffle_count=0;}
             int extreme=0;
@@ -619,7 +582,77 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
                 }
                 ordinal=player->shuffle_order[cycle_position];
             }
-            hb_cp_entry entry=entries[ordinal];
+            return entries[ordinal];
+}
+static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],int capacity){
+    for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&player->keys[key].release_end>0&&hb_cp_release_clock(player,&player->keys[key])+1e-9>=player->keys[key].release_end)player->keys[key].used=0;
+    uint8_t desired[16][128];memset(desired,0,sizeof(desired));
+    if(player->flushing){
+        int emitted=hb_cp_diff(player,desired,output,lengths,capacity);
+        if(!player->sounding_count)player->flushing=0;
+        return emitted;
+    }
+    hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
+    if(player->rhythm.pattern){
+        hb_rg_clock *r=&player->rhythm;
+        int count=hb_cp_entries(player,entries,0),first=!r->active,live_count=0;
+        /* Explicit clip fills already own attacks/gates. Keep their harmony
+           voices in the same diff/ownership path without another clock. */
+        for(int k=0;k<count;k++){
+            hb_cp_entry e=entries[k];hb_cp_key *owner=&player->keys[e.key];
+            if(owner->rhythm_baked){if(e.pitch==owner->notes[e.voice])desired[e.channel][e.pitch]=(uint8_t)hb_cp_release_velocity(player,owner);}
+            else entries[live_count++]=e;
+        }
+        count=live_count;
+        if(first)player->step=0;
+        int attack=hb_rg_advance(r,player->beat,count>0);
+        int arp=hb_cp_playback(player)==1&&r->done!=2;
+        if(attack>=0){
+            if(arp){
+                int cycle=hb_cp_settings(player)->order==2&&count>1?2*count-2:count;
+                hb_cp_entry e=hb_cp_select(player,entries,count,cycle,first);
+                player->arp_note=e.pitch;player->arp_channel=e.channel;player->step=(player->step+1)%cycle;
+            }
+            for(int k=0;k<count;k++)if(!arp||(entries[k].pitch==player->arp_note&&entries[k].channel==player->arp_channel))
+                if(player->sounding[entries[k].channel][entries[k].pitch])player->retrigger[entries[k].channel][entries[k].pitch]=1;
+        }
+        if(r->active&&r->done!=1&&player->beat<r->gate)for(int k=0;k<count;k++){
+            hb_cp_entry e=entries[k];if(arp&&(e.pitch!=player->arp_note||e.channel!=player->arp_channel))continue;
+            desired[e.channel][e.pitch]=(uint8_t)hb_cp_clamp(hb_cp_release_velocity(player,&player->keys[e.key])*r->velocity/100,1,127);
+        }
+    }else if(hb_cp_playback(player)==1){
+        int count=hb_cp_entries(player,entries,0);
+        int cycle=hb_cp_settings(player)->order==2&&count>1?2*count-2:count;
+        double rate=hb_cp_division(hb_cp_settings(player)->rate%9);
+        if(hb_cp_settings(player)->rate>=9&&cycle>0)rate/=cycle;
+        if(!count)player->running=0;
+        if(count&&!player->running&&hb_cp_settings(player)->phase==1){
+            player->step=0;
+            /* Rotate the ordered cycle to the newest gesture's actual root,
+               which is not necessarily the bass of an inverted voicing. */
+            unsigned newest=0;int root=-1;
+            for(int index=0;index<count;index++){
+                hb_cp_key *owner=&player->keys[entries[index].key];
+                if(hb_cp_mod(entries[index].pitch)==owner->root_pc&&owner->sequence>newest){
+                    newest=owner->sequence;root=index;
+                }
+            }
+            if(root>=0&&!hb_cp_settings(player)->start)player->step=root;
+            if(!hb_cp_settings(player)->start)player->step-=hb_cp_settings(player)->note_phase;
+            player->next_beat=(hb_cp_floor(player->beat/rate)+1.0)*rate;
+            player->running=2; /* Armed, no sounding note yet. */
+        }
+        if(count&&(!player->running||player->beat+1e-9>=player->next_beat)){
+            int first=!player->running;
+            if(first)player->step=hb_cp_settings(player)->start?0:-hb_cp_settings(player)->note_phase;
+            /* Preserve the first-hit anchor in Free, including late callbacks.
+               Other modes use transport grid after their opening note. */
+            double onset=first?player->beat:player->next_beat;
+            if(!first){
+                int missed=(int)hb_cp_floor((player->beat-onset+1e-9)/rate);
+                if(missed>0){onset+=missed*rate;player->step+=missed;}
+            }
+            hb_cp_entry entry=hb_cp_select(player,entries,count,cycle,first);
             if(player->sounding[entry.channel][entry.pitch])player->retrigger[entry.channel][entry.pitch]=1;
             player->arp_note=entry.pitch;player->arp_channel=entry.channel;
             player->arp_velocity=hb_cp_release_velocity(player,&player->keys[entry.key]);
