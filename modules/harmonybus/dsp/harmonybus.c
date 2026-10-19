@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.277"
+#define HB_VERSION "0.2.278"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -318,7 +318,7 @@ static int hb_secondary_at(Inst *instance,int source_note);
 static double hb_motion_position(Inst *instance);
 static int hb_rr_pattern(const Inst *instance){return instance->rhythm_mode==1?0:instance->rhythm_mode==2?instance->rhythm_pattern:g_motif_rhythm;}
 static void hb_rr_prepare(Inst *instance,hb_motion_route *route){
-    int pattern=hb_rr_pattern(instance);double now=hb_motion_position(instance);
+    int pattern=instance->player.rhythm.pattern?0:hb_rr_pattern(instance);double now=hb_motion_position(instance);
     double span=(instance->rhythm_mode==2?instance->rhythm_window:g_render_window)?4:1;
     if(now+1e-6<route->rhythm_now&&hb_rr_active(&route->rhythm))hb_rr_panic(&route->rhythm);
     route->rhythm_now=now;route->rhythm_enabled=pattern>=2;
@@ -3267,6 +3267,8 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
         if(key->used&&key->source==source_note&&key->channel==channel&&key->playback_origin==(instance->movy_playback!=0)){
+            key->rhythm_baked=instance->movy_playback&&instance->motion.event_override&&
+                (instance->motion.event_override[HB_MOTION_LANES]&HB_MO_RHYTHM_BAKED)!=0;
             memcpy(instance->key_reference[index],reference_pitches,sizeof(reference_pitches));
             key->root_pc=config.mode==0?mod12(reference_pitches[0]):(config.mode==2?harmony.root_pc:mod12(modified_note+g_bus.global_transpose));
             key->played_pitch=config.mode?(instance->role==0?hb_key_pitch(instance,melody):melody):pitches[0];
@@ -4066,7 +4068,7 @@ if(instance){
     hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);
     hb_receiver_remove_source(instance);
     instance->used=0;
-}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_ar_bank_ready=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(1);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
+}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_ar_bank_ready=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(1);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_rg_ready=g_rg_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
     /* Movy delivers each private chain on channel 1; Receive selects bus
@@ -4402,7 +4404,7 @@ if(status==0xB0&&length>=3&&(input[1]==120||input[1]==123)){
 }
 /* Pressure belongs to the original held input, before chord expansion.
    Update future arp attacks without restarting the clock or current gate. */
-if(status==0xA0&&length>=3&&instance->role<2&&hb_cp_playback(&instance->player)==1&&
+if(status==0xA0&&length>=3&&instance->role<2&&(hb_cp_playback(&instance->player)==1||instance->player.rhythm.pattern)&&
    hb_source_channel_matches(instance,input[0]&15)){
     int source=input[1]&127,channel=input[0]&15,velocity=input[2]&127;
     if(instance->chord_pair_input&&instance->chord_pair_held[instance->movy_playback!=0][channel][source]&&instance->chord_pair_owner[instance->movy_playback!=0][channel])
@@ -6478,6 +6480,7 @@ static unsigned hb_pad_next_rank(Inst *instance,hb_harmony_t harmony,int rank){
     return roles?hb_pad_next_mask_roles(instance,harmony,roles):0;
 }
 
+#include "../../../src/rhythm_generator_params.h"
 #include "../../../src/render_rhythm_params.h"
 #include "../../../src/motif_params.h"
 #include "../../../src/motif_loader.h"
@@ -6618,6 +6621,7 @@ if(!strcmp(key,"harm_play_release_harmony"))return snprintf(buffer,(size_t)lengt
 if(!strcmp(key,"harm_play_release")){int setting=instance->player.release_ms;return setting<0?snprintf(buffer,(size_t)length,"%s",(setting<=-10?HB_CP_RELEASE_ARP[-setting-10]:BUFFER_DIVISIONS[-setting-1])):snprintf(buffer,(size_t)length,"%d ms",setting);}
 int shared_result=hb_sc_get(instance,key,buffer,length);if(shared_result>=0)return shared_result;
 int display_result=hb_display_snapshot(instance,key,buffer,length);if(display_result>=0)return display_result;
+int generator_result=hb_rg_param(instance,key,buffer,length);if(generator_result>=0)return generator_result;
 int rhythm_result=hb_rr_get(instance,key,buffer,length);if(rhythm_result>=0)return rhythm_result;
 int state_result=hb_cs_get(instance,key,buffer,length);if(state_result>=0||!strcmp(key,"chain_params"))return state_result;
 if(!strcmp(key,"sounding_key"))return hb_sc_get(instance,"shared_context_0",buffer,length);
@@ -7568,7 +7572,7 @@ static void set_param(void *value,const char *key,const char *parameter){
         return;
     }
     instance->adopt_held=!instance->joint_pad_control&&(!strncmp(key,"motion_gesture_",15)||!strncmp(key,"motion_hold_",12)||!strcmp(key,"motion_sequence_mask"));
-    if(!hb_ml_set(instance,key,parameter)&&!hb_ar_set(instance,key,parameter)&&!hb_cs_set(instance,key,parameter)&&!hb_rr_set(instance,key,parameter)&&!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
+    if(!hb_ml_set(instance,key,parameter)&&!hb_ar_set(instance,key,parameter)&&!hb_cs_set(instance,key,parameter)&&!hb_rg_set(instance,key,parameter)&&!hb_rr_set(instance,key,parameter)&&!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
     if(!strcmp(key,"state")){
         memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=instance->target_attack_owner=0;instance->advance_pending=instance->advance_phase=0;
         instance->key_tonic=instance->key_scale=0;
@@ -7594,7 +7598,7 @@ static void set_param(void *value,const char *key,const char *parameter){
             int valid=1;for(int field=0;field<4;field++)if(target_policy[field]<0||target_policy[field]>=HB_TARGET_COUNTS[field])valid=0;
             if(valid)memcpy(instance->target_scale_policy,target_policy,sizeof(target_policy));
         }
-        hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);hb_ml_restore(instance,parameter);hb_rr_restore(instance,parameter);hb_ar_restore(instance,parameter);hb_timeline_forget_track(instance);hb_timeline_restore(parameter);}
+        hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);hb_ml_restore(instance,parameter);hb_rr_restore(instance,parameter);hb_rg_restore(instance,parameter);hb_ar_restore(instance,parameter);hb_timeline_forget_track(instance);hb_timeline_restore(parameter);}
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used){g_pool[index].timeline_lane_cached=0;hb_role_sync(&g_pool[index]);}
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
     if(!strcmp(key,"role")||!strcmp(key,"track_role")){g_sc_dirty=1;hb_sc_resolve(instance);}

@@ -1,3 +1,4 @@
+#include "rhythm_generator_clip.h"
 /* Explicit clip construction only: no audio-loop work and no rendered voices.
    One immutable export belongs to its preparing instance. All 64-bit action
    words cross the host boundary as hex strings, never JavaScript numbers. */
@@ -21,6 +22,7 @@ static int hb_ml_build(Inst *instance,hb_mc_plan *plan,int *root,int *scale){
     if(!hb_mc_build(&definition,mode,HB_MT_DURATIONS[instance->motif_load[3]],hb_rr_pattern(instance),instance->motif_load[5],plan)){
         g_ml_error="Invalid motif timing";return 0;
     }
+    if(instance->player.rhythm.pattern&&!hb_rg_clip(plan,&instance->player.rhythm,&definition.target_end)){g_ml_error="Rhythm exceeds motif capacity";return 0;}
     if(plan->duration*4>256*24){g_ml_error="Exceeds 16 bars";return 0;}
     unsigned collection=hb_explicit_scale_mask(*root,*scale);
     for(int index=0;index<plan->count;index++){
@@ -33,6 +35,7 @@ static int hb_ml_build(Inst *instance,hb_mc_plan *plan,int *root,int *scale){
         /* Parallel borrowing is a recorded per-note destination operation,
            just like a live approach; it never changes the track's scale. */
         unsigned long long *intent=&event->actions[HB_MOTION_LANES];
+        if(instance->player.rhythm.pattern)*intent|=HB_MO_RHYTHM_BAKED;
         if(event->modifier)*intent=(*intent&~3ULL)|(event->modifier<0?1:event->modifier==2?3:2);
         if(event->secondary)*intent=(*intent&~((7ULL<<4)|(1ULL<<8)|(1ULL<<63)))|hb_mo_role_word(event->secondary);
         if(event->cadence)*intent=(*intent&~HB_MO_CADENCE_MASK)|((unsigned long long)event->cadence<<13);
