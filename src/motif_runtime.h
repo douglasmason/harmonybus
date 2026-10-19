@@ -1,3 +1,4 @@
+#include "rhythm_generator_motif.h"
 /* Included after the normal render path. Motif voices bypass remapping: their
    semantic relationships have already been resolved against the anchor. */
 static hb_harmony_t hb_mt_harmony_at(Inst *instance,double arrival,double now){
@@ -54,6 +55,13 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
     if(arrival<0){editor->error=5;return 0;}
     int rhythm=use_tap_context?runtime->tap_rhythm:hb_rr_pattern(instance);
     int span=use_tap_context?runtime->tap_span:g_motif_span;
+    hb_mt_phrase generated;double generated_gates[HB_MT_STEPS+2];int generated_rhythm=0;
+    if(instance->player.rhythm.pattern&&first==0&&last==phrase->count&&onset_override<0){
+        double window=instance->player.rhythm.mode==2?arrival-now:hb_rg_span(&instance->player.rhythm);
+        if(window<=0){window=hb_rg_span(&instance->player.rhythm);arrival=now+window;}
+        if(!hb_rg_motif(phrase,&instance->player.rhythm,window,&generated,generated_gates)){editor->error=8;return 0;}
+        phrase=&generated;last=phrase->count;span=0;rhythm=0;generated_rhythm=1;
+    }
     double before=0;
     for(int step=0;step<phrase->anchor;step++)before+=hb_mt_duration(phrase,step,rhythm,span);
     if(onset_override<0&&editor->late==2&&arrival-now<before){
@@ -80,6 +88,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
         double onset=onset_override>=0?onset_override:arrival+(step<phrase->anchor?offset*fit:offset);
         double sustained=duration;
         for(int next=step+1;next<phrase->count&&phrase->events[next].kind==2;next++)sustained+=hb_mt_duration(phrase,next,rhythm,span);
+        if(generated_rhythm&&step<phrase->anchor)sustained=duration*generated_gates[step];
         double end=onset+sustained*(step<phrase->anchor?fit:1);
         offset+=duration;
         if(step<first||step>=last)continue;

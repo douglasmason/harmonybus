@@ -1,3 +1,7 @@
+HarmonyBus 0.2.277 adds shared attack/rest/tie rhythm patterns with accents and gates, five presets and four editable global slots. Tracks select their own pattern, span and Repeat/Once/Fit behavior; Joint Play exposes a fixed rhythm page for each actor. Chords and arpeggios share the pattern clock. Motif fills reuse the same patterns with Motif or Target notes and preserve target placement. Install Movy hbclean.199 for the actor panels.
+
+HarmonyBus 0.2.275 adds Chords > Extensions: As Derived / Raise Avoid. Generated 9ths, 11ths and 13ths share the follower avoid-note classifier, preserving chord identity, suspensions and explicit detected chord tones. The choice applies on the next onset and persists in track settings and Chord/Arp State lanes. Existing sets retain As Derived. No Movy update is required.
+
 HarmonyBus 0.2.276 adds Chords > Extensions: As Derived / Raise Avoid. Generated 9ths, 11ths and 13ths share the follower avoid-note classifier, preserving chord identity, suspensions and explicit detected chord tones. The choice applies on the next onset and persists in track settings and Chord/Arp State lanes. Existing sets retain As Derived. No Movy update is required.
 
 HarmonyBus 0.2.274 adds Raised-Avoid beside Non-Avoid in Foll Map > Follower Content. Eligible avoid tones are raised by one semitone while chord tones, saved content IDs and approach behavior are preserved. Relative travel retains the raised degree; pad scale feedback uses the same collection. Auto Chord extension generation is unchanged. No Movy update is required for this feature.
@@ -866,6 +870,16 @@ Movy can request two independent 32-pad previews through `surface_preview0/1` an
 Live input adds to clip playback. Source pitch, MIDI channel and live/clip origin identify the held note before mapping; shared rendered pitches stay sounding until their final owner releases. Latch replacement and toggle affect only their own live or clip input pool. Captured approach and motion settings remain with the note that introduced them. Recording continues to append notes to the clip.
 
 Retrigger Held keeps its existing meaning for both streams. Off preserves each held note’s onset pitch through a chord change. On re-renders each owner through the current harmony with its original input intent; one stream cannot replace the other’s held note. Release tails retain their separately selected follow-harmony policy.
+
+## Generated rhythm patterns
+
+Rhythm Generate selects Off, Straight, Offbeats, Long-Short, Short-Long, 3-3-2 or one of four global user patterns. Off preserves existing behavior. Rhythm Pattern Edit changes a user slot's length (1–16), selected step, Attack/Rest/Tie, accent percentage and gate percentage. Each track selects its own pattern; library edits are shared and saved with the set. A running held-note cycle snapshots edits at its next cycle.
+
+For held chords and arpeggios, Repeat runs while notes are retained, Once plays one cycle until release, and Fit compresses the cycle to the next span boundary then lands the full target chord. Arp keeps its existing pitch ordering; the pattern owns attack timing. Existing latch and release ownership still apply. Disable a pattern to release its existing notes cleanly.
+
+Timed motifs remain one bounded approach per trigger. Fit uses the available target-arrival window; other modes use the configured span with the existing Trim/Fit/Defer late policy. Clip fill renders one pattern cycle, leaving clip looping to Movy. Fill Notes chooses the motif's note material or repeats its target; explicit Start/End/Both placement is retained. Existing capacity checks reject oversized fills without partially writing a clip. Patterns do not alter tap-by-tap motif performance.
+
+Rhythm-filled clip events carry an explicit timing marker, preserved by Movy save/load and Undo. While a generator is selected they render their written notes/chord voicings directly; they are not sent through the pattern clock again. Live notes on the same track still use the generator.
 
 
 ## Dominant palettes (0.2.276)
