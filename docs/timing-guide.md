@@ -1,4 +1,4 @@
-Next HarmonyBus release adds effective-scale diagnostics and reuses Simplified target policy for established minor tonics. Parallel Scale remains the shared parent operation.
+HarmonyBus 0.2.280 adds effective-scale diagnostics and reuses Simplified target policy for established minor tonics. Parallel Scale remains the shared parent operation.
 
 HarmonyBus 0.2.279 separates motif pitch material from generated rhythm: attacks cycle through playable motif events while the selected pattern supplies rests, ties, accents and gates. Held-note pitch changes take effect at the next attack, and release finishes the current gate. Rhythm-filled clips use existing arp ordering on their written attacks without a second clock. Includes Grid Sequencer support from 0.2.278; pair with Movy hbclean.201.
 
@@ -917,7 +917,7 @@ Raise Avoid on/off separately. Restart HarmonyBus after the update to refresh
 the shared settings layout in every instance.
 
 
-## Effective scales, Parallel Scale and minor tonics (next release)
+## Effective scales, Parallel Scale and minor tonics (0.2.280)
 
 Parallel Scale changes the shared effective key collection. Local and contextual
 chord-scale settings then select the collection for a particular chord. A named
