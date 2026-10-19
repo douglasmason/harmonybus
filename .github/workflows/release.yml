@@ -65,7 +65,7 @@ jobs:
           from pathlib import Path
           assert Path('modules/harmonybus/module.json').stat().st_size < 65536, 'Schwung reads module metadata into a 64 KiB buffer'
           module=json.load(open('modules/harmonybus/module.json'))
-          assert module['version']=='0.2.276'
+          assert module['version']=='0.2.277'
           assert module['name']=='Harmony Bus'
           assert '0.2.' not in module['description']
           levels=module['capabilities']['ui_hierarchy']['levels']
@@ -104,7 +104,7 @@ jobs:
           chord_mode=next(parameter for parameter in levels['chord_player']['params'] if parameter.get('key')=='chord_mode')
           assert chord_mode['default']=='Off'
           dominant=next(parameter for parameter in levels['track_scales']['params'] if parameter.get('key')=='track_dominant_scale')
-          assert dominant['options']==['None','Harmonic Minor','Melodic Minor','Altered V','Major','Harmonic Major','Simplified Target','Minimal','Follow Role'] and dominant['default']=='Follow Role'
+          assert dominant['options']==['None','Harmonic Minor','Melodic Minor','Altered V','Major','Harmonic Major','Simplified Target','Minimal','Lydian Dominant','Half-Whole Dim','Whole Tone','Follow Role'] and dominant['default']=='Follow Role'
           assert next(p for p in module['capabilities']['chain_params'] if p['key']=='track_dominant_minor_scale')['options']==dominant['options']
           assert next(p for p in module['capabilities']['chain_params'] if p['key']=='conductor_default_dominant_minor_scale')['default']=='Simplified Target'
           assert 'track_dominant_minor_scale' in levels['track_scales']['knobs']
@@ -262,12 +262,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
           else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.276 adds sequenced operation gates for Movy Grid Sequencer. Scheduled holds are independent of physical holds, reuse existing operation settings, and can launch the existing motif scheduler against a held target. Pair with HarmonyBus-Movy hbclean.199. All 0.2.275 extension settings remain." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
+            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.277 adds sequenced operation gates for Movy Grid Sequencer. Scheduled holds are independent of physical holds, reuse existing operation settings, and can launch the existing motif scheduler against a held target. Pair with HarmonyBus-Movy hbclean.199. Includes the 0.2.276 dominant palettes and extension settings." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
           fi
           # A failed gh create can leave a draft with uploaded assets. A retry
           # must publish it before exposing its URL to module installers.
           if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.276 adds sequenced operation gates for Movy Grid Sequencer. Scheduled holds are independent of physical holds, reuse existing operation settings, and can launch the existing motif scheduler against a held target. Pair with HarmonyBus-Movy hbclean.199. All 0.2.275 extension settings remain." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.277 adds sequenced operation gates for Movy Grid Sequencer. Scheduled holds are independent of physical holds, reuse existing operation settings, and can launch the existing motif scheduler against a held target. Pair with HarmonyBus-Movy hbclean.199. Includes the 0.2.276 dominant palettes and extension settings." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
           fi
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
