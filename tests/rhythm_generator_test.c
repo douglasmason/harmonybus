@@ -62,4 +62,57 @@ static void ownership(void){
     assert(hb_cp_tick(&p,out,sizes,128)==3);assert(!p.rhythm.active);
     p.beat=9.1;hb_cp_off_origin(&p,60,0,1);hb_cp_tick(&p,out,sizes,128);assert(!p.sounding_count);
 }
-int main(void){patterns();playback();fills();ownership();puts("Rhythm generation: patterns, bounded clock, held-note gates, shared edits, state, clip and target fills pass");}
+static void gate_transitions(void){
+    hb_chord_player p={0};hb_cp_defaults(&p.config);p.rhythm.pattern=1;p.rhythm.span=2;
+    int note=60;uint8_t out[128][3];int sizes[128];
+    hb_cp_on(&p,60,0,100,&note,1);hb_cp_tick(&p,out,sizes,128);assert(p.sounding[0][60]);
+    p.beat=.1;p.keys[0].notes[0]=64;assert(hb_cp_tick(&p,out,sizes,128)==0&&p.sounding[0][60]);
+    hb_cp_off(&p,60,0);assert(hb_cp_tick(&p,out,sizes,128)==0);
+    note=67;hb_cp_on(&p,60,0,90,&note,1);assert(hb_cp_tick(&p,out,sizes,128)==0&&p.sounding[0][60]);
+    p.beat=.25;hb_cp_tick(&p,out,sizes,128);assert(!p.sounding_count);
+    p.beat=.5;hb_cp_tick(&p,out,sizes,128);assert(p.sounding[0][67]);
+    p.beat=.6;hb_cp_off(&p,60,0);assert(hb_cp_tick(&p,out,sizes,128)==0);
+    p.beat=.75;hb_cp_tick(&p,out,sizes,128);assert(!p.sounding_count);
+    p.beat=1;hb_cp_tick(&p,out,sizes,128);assert(!p.sounding_count&&!p.rhythm.active);
+    p.config.latch=1;note=60;hb_cp_on(&p,60,0,100,&note,1);hb_cp_tick(&p,out,sizes,128);
+    p.beat=1.1;hb_cp_off(&p,60,0);note=64;hb_cp_on(&p,64,0,100,&note,1);assert(hb_cp_tick(&p,out,sizes,128)==0);
+    assert(p.sounding[0][60]&&!p.sounding[0][64]);
+    p.beat=1.5;hb_cp_tick(&p,out,sizes,128);assert(p.sounding[0][64]&&!p.sounding[0][60]);
+    hb_cp_off(&p,64,0);p.beat=2;hb_cp_tick(&p,out,sizes,128);assert(p.sounding[0][64]);
+    hb_cp_clear(&p);hb_cp_tick(&p,out,sizes,128);assert(!p.sounding_count);
+}
+static void written_arp(void){
+    for(int pattern=0;pattern<=2;pattern+=2)for(int order=0;order<7;order++){
+        hb_chord_player p={0};hb_cp_defaults(&p.config);p.config.playback=1;p.config.start=0;p.config.order=order;p.config.latch=1;p.rhythm.pattern=pattern;
+        int notes[]={60,64,67};int expected[][4]={{60,64,67,60},{67,64,60,67},{60,64,67,64}};
+        uint8_t out[128][3];int sizes[128];int visited=0;
+        for(int attack=0;attack<4;attack++){
+            p.beat=attack*.7;hb_cp_on_origin(&p,60,0,90,notes,3,1);
+            for(int k=0;k<HB_CP_KEYS;k++)if(p.keys[k].used)p.keys[k].rhythm_baked=1;
+            int count=hb_cp_tick(&p,out,sizes,128);assert(count==1&&(out[0][0]&240)==0x90);
+            if(order<3)assert(out[0][1]==expected[order][attack]);
+            if(order>=5&&attack<3){int bit=1<<(out[0][1]==60?0:out[0][1]==64?1:2);assert(!(visited&bit));visited|=bit;}
+            p.beat+=.05;assert(hb_cp_tick(&p,out,sizes,128)==0); /* no second arp clock */
+            hb_cp_off_origin(&p,60,0,1);assert(hb_cp_tick(&p,out,sizes,128)==1&&!p.sounding_count);
+            p.beat+=.4;assert(hb_cp_tick(&p,out,sizes,128)==0);
+        }
+    }
+}
+static void pitch_material(void){
+    hb_mt_phrase source={.count=5,.anchor=4};
+    for(int k=0;k<5;k++){source.events[k].count=1;source.events[k].notes[0]=(hb_mt_note){60+k,100};source.events[k].duration=24;}
+    source.events[1].kind=1;source.events[2].kind=2;
+    hb_rg_clock rhythm={.pattern=1,.span=2};hb_mt_phrase phrase;double gates[34];
+    assert(hb_rg_motif(&source,&rhythm,4,&phrase,gates));
+    hb_mc_plan clip={.count=5,.target_first=-1,.target_last=4};
+    for(int k=0;k<5;k++)clip.events[k]=(hb_mc_event){.event=source.events[k],.duration=24,.source_step=k};
+    assert(hb_rg_clip(&clip,&rhythm,&source.events[4]));
+    int attacks=0;for(int k=0;k<clip.target_last;k++)if(clip.events[k].event.kind==0){
+        int pitch=attacks%2?63:60;
+        assert(clip.events[k].event.notes[0].pitch==pitch);
+        assert(phrase.events[attacks].kind==0&&phrase.events[attacks].notes[0].pitch==pitch);attacks++;
+    }
+    assert(attacks==8&&phrase.events[phrase.anchor].notes[0].pitch==64);
+}
+
+int main(void){patterns();playback();fills();ownership();gate_transitions();written_arp();pitch_material();puts("Rhythm generation: patterns, bounded clock, held-note gates, shared edits, state, clip and target fills pass");}
