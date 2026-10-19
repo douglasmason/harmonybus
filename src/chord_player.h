@@ -153,6 +153,13 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
     if(degree<7){static const int major[7]={0,2,4,5,7,9,11};for(int index=1;index<7;index++)tones[index]=hb_cp_mod(root+major[index]);}
     unsigned relative_scale=0;for(int interval=0;interval<12;interval++)if(scale&(1u<<hb_cp_mod(root+interval)))relative_scale|=1u<<interval;
     if(relative_scale==0x55Bu){static const int altered[7]={0,1,4,6,6,8,10};for(int index=0;index<7;index++)tones[index]=hb_cp_mod(root+altered[index]);}
+    /* The extra #9 in half-whole is a melodic option, not the third.
+       A generated 13th chord uses b9/#11/13 around the dominant core. */
+    if((relative_scale&0x6dbu)==0x6dbu){
+        static const int diminished_dominant[7]={0,1,4,6,7,9,10};
+        for(int index=0;index<7;index++)tones[index]=hb_cp_mod(root+diminished_dominant[index]);
+    }
+    if(relative_scale==0x555u)tones[5]=hb_cp_mod(root+8); /* b13 shares #5 */
     /* Six-note symmetric collections have harmonic roles, not seven ordinal
        degrees. Whole tone supplies #5/b7; augmented supplies #5/M7 where
        present. On its other three roots there is no seventh: omit that voice. */

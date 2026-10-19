@@ -22,7 +22,7 @@ int main(void){
     expect_value(other,"local_major","Lydian");
     expect_value(other,"local_minor","Aeolian");
     expect_value(other,"local_halfdim","Locrian #2");
-    expect_value(instance,"defaults_control_7","All followers");
+    expect_value(instance,"defaults_control_7","Mixolydian");
     API.set_param(other,"local_palette","Ion / Dor / Loc");
     API.set_param(instance,"defaults_control_6","Lyd / Dor / Loc#2");
     expect_value(other,"local_major","Ionian");

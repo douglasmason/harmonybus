@@ -1,4 +1,4 @@
-HarmonyBus 0.2.275 adds Chords > Extensions: As Derived / Raise Avoid. Generated 9ths, 11ths and 13ths share the follower avoid-note classifier, preserving chord identity, suspensions and explicit detected chord tones. The choice applies on the next onset and persists in track settings and Chord/Arp State lanes. Existing sets retain As Derived. No Movy update is required.
+HarmonyBus 0.2.276 adds Chords > Extensions: As Derived / Raise Avoid. Generated 9ths, 11ths and 13ths share the follower avoid-note classifier, preserving chord identity, suspensions and explicit detected chord tones. The choice applies on the next onset and persists in track settings and Chord/Arp State lanes. Existing sets retain As Derived. No Movy update is required.
 
 HarmonyBus 0.2.274 adds Raised-Avoid beside Non-Avoid in Foll Map > Follower Content. Eligible avoid tones are raised by one semitone while chord tones, saved content IDs and approach behavior are preserved. Relative travel retains the raised degree; pad scale feedback uses the same collection. Auto Chord extension generation is unchanged. No Movy update is required for this feature.
 
@@ -866,3 +866,32 @@ Movy can request two independent 32-pad previews through `surface_preview0/1` an
 Live input adds to clip playback. Source pitch, MIDI channel and live/clip origin identify the held note before mapping; shared rendered pitches stay sounding until their final owner releases. Latch replacement and toggle affect only their own live or clip input pool. Captured approach and motion settings remain with the note that introduced them. Recording continues to append notes to the clip.
 
 Retrigger Held keeps its existing meaning for both streams. Off preserves each held note’s onset pitch through a chord change. On re-renders each owner through the current harmony with its original input intent; one stream cannot replace the other’s held note. Release tails retain their separately selected follow-harmony policy.
+
+
+## Dominant palettes (0.2.276)
+
+Dominant to Major/Minor and the temporary Dominant Color control now offer
+Lydian Dominant, Half-Whole Dim and Whole Tone. Existing numeric selections
+and defaults are preserved. Explicit dominant-preparation, V and leading-tone
+operations share the selected collection, as before; ordinary secondary II
+keeps its own target context.
+
+Track Scales knob 8, Local Dominant, chooses Mixolydian, Lydian Dominant,
+Altered, Half-Whole Dim or Whole Tone. It applies in Strict Local, and in Auto
+Local when no destination is established. An explicit functional destination
+uses the existing contextual family rules. Parent mode retains its parent rules.
+Role Defaults > Conductor Scales / Follower Scales knob 7 supplies the inherited
+choice; Follow Role clears a track override. Older states default to Mixolydian.
+
+Follower scale content retains the full collection, including both b9 and #9
+in half-whole diminished. Generated thirteenth chords select b9/#11/13 for
+half-whole and 9/#11/b13 for whole tone (b13 shares the augmented fifth).
+Played/detected chord tones remain authoritative. Raise Avoid is a separate
+optional transformation and can deliberately change these colors.
+
+For a listening test, use G7 resolving to C, Extensions = As Derived, and
+compare Lydian Dominant (A C# E), Half-Whole Dim (Ab C# E), and Whole Tone
+(A C# Eb). Then choose Strict Local and compare the Local Dominant choices
+on a standalone G7. Save/reload, check the selected palettes, and compare
+Raise Avoid on/off separately. Restart HarmonyBus after the update to refresh
+the shared settings layout in every instance.

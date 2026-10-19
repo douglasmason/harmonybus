@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.275"
+#define HB_VERSION "0.2.276"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -104,8 +104,8 @@ typedef struct {
 } hb_monitor_shared_t;
 static hb_monitor_shared_t *g_monitor=0;
 #define HB_GLOBAL_MAGIC 0x4842474Cu
-#define HB_GLOBAL_VERSION 5u
-#define HB_GLOBAL_SHM "/harmonybus-global-v5"
+#define HB_GLOBAL_VERSION 6u
+#define HB_GLOBAL_SHM "/harmonybus-global-v6"
 typedef struct {
     uint32_t magic;
     uint32_t version;
@@ -978,6 +978,7 @@ static int hb_target_minor(unsigned parent,int target);
 static uint16_t hb_dominant_scale_mask(Inst *instance,hb_harmony_t harmony,int tonic);
 static uint16_t hb_follower_input_scale(Inst *instance,int root);
 static uint16_t hb_transpose_mask(uint16_t mask,int semitones);
+#include "../../../src/dominant_palette.h"
 /* A prescribed destination collection keeps its intervals while the target
    itself follows the current key map. Do not flatten its major third through
    the old minor key's degree map. */
@@ -2239,6 +2240,8 @@ static unsigned hb_function_family(Inst *instance,int target,unsigned parent,int
     (void)kind;
     int choice=hb_policy_value(instance,minor?HB_P_DOMINANT_MINOR:HB_P_DOMINANT);
     if(!choice)return parent;
+    if(choice>=8&&choice<HB_DOMINANT_FAMILY_COUNT)
+        return hb_dominant_palette(mod12(target+7),choice==8?1:choice==9?3:4);
     unsigned collection;
     if(choice==7){
         hb_harmony_t dominant={0};dominant.valid=1;dominant.root_pc=mod12(target+7);
@@ -2247,7 +2250,7 @@ static unsigned hb_function_family(Inst *instance,int target,unsigned parent,int
         return hb_accommodate_chord(parent,dominant,mod12(target));
     }
     if(choice==6)collection=hb_simplified_target_scale(instance,target,parent);
-    else if(choice==3)collection=hb_explicit_scale_mask(mod12(target+8),9);
+    else if(choice==3)collection=hb_dominant_palette(mod12(target+7),2);
     else{
         static const int scales[]={0,8,9,0,1,19};
         collection=hb_explicit_scale_mask(mod12(target),scales[choice]);
@@ -2288,6 +2291,9 @@ static uint16_t hb_accommodate_chord(uint16_t parent,hb_harmony_t harmony,int to
     if(!parent)return chord;
     /* The selected parent already contains this chord; no degrees change. */
     if(!(chord&~parent))return parent;
+    /* Symmetric collections do not have seven diatonic degree slots.
+       Preserve their colors when an explicit chord contributes another tone. */
+    if(hb_popcount12(parent)!=7)return (uint16_t)(parent|chord);
     int root_degree=hb_source_degree_from_parent_scale(mod12(harmony.root_pc-tonic),tonic,parent);
     static const int interval_degree[12]={0,1,1,2,2,3,4,4,5,5,6,6};
     for(int interval=0;interval<12;interval++){
@@ -5399,7 +5405,7 @@ static int hb_context_to_legacy_stability(int context){
     return 2;
 }
 static const char *BORROWED_SCALE_OPTS[]={"Minimal","Aeolian","Dorian","Mixolydian b6"};
-static const char *DOMINANT_SCALE_OPTS[]={"None","Harmonic Minor","Melodic Minor","Altered V","Major","Harmonic Major","Simplified Target","Minimal"};
+static const char *DOMINANT_SCALE_OPTS[]={"None","Harmonic Minor","Melodic Minor","Altered V","Major","Harmonic Major","Simplified Target","Minimal","Lydian Dominant","Half-Whole Dim","Whole Tone"};
 static const char *CP_CHORD_MODE[]={"Off","Rendered Note Root","Conductor Chord"};
 static const char *CP_CHORD_INVERSION[]={"Auto","Root","First","Second","Third","Fourth","Fifth","Sixth","Played Top Note"};
 static const char *CP_CHORD_VOICING[]={"Close","Root + Fifth Low","Alternate Up","Shell"};
@@ -5624,12 +5630,12 @@ if(!strcmp(key,"borrowed_scale")){
     return;
 }
 if(!strcmp(key,"dominant_minor_scale")){
-    int selected=enum_index(!strcmp(parameter,"Off")?"None":!strcmp(parameter,"Parent / Minimal")?"Minimal":parameter,DOMINANT_SCALE_OPTS,8,hb_role_default(0,HB_P_DOMINANT_MINOR));
+    int selected=enum_index(!strcmp(parameter,"Off")?"None":!strcmp(parameter,"Parent / Minimal")?"Minimal":parameter,DOMINANT_SCALE_OPTS,HB_DOMINANT_FAMILY_COUNT,hb_role_default(0,HB_P_DOMINANT_MINOR));
     for(int role=0;role<2;role++)hb_role_store(role,HB_P_DOMINANT_MINOR,selected);
     g_role_restored=1;return;
 }
 if(!strcmp(key,"dominant_scale")){
-    int selected=enum_index(!strcmp(parameter,"Off")?"None":!strcmp(parameter,"Parent / Minimal")?"Minimal":parameter,DOMINANT_SCALE_OPTS,8,hb_shared_dominant_scale());
+    int selected=enum_index(!strcmp(parameter,"Off")?"None":!strcmp(parameter,"Parent / Minimal")?"Minimal":parameter,DOMINANT_SCALE_OPTS,HB_DOMINANT_FAMILY_COUNT,hb_shared_dominant_scale());
     hb_set_scale_exceptions(selected,hb_shared_borrowed_scale());
     return;
 }
@@ -6127,10 +6133,10 @@ static void hb_restore_state(Inst *instance,const char *state){
         int dominant=0,borrowed=0;
         const char *shared_suffix=strstr(state,";ss1,");
         if(shared_suffix){
-            if(sscanf(shared_suffix,";ss1,%d,%d",&dominant,&borrowed)==2&&dominant>=0&&dominant<8&&borrowed>=0&&borrowed<4){
+            if(sscanf(shared_suffix,";ss1,%d,%d",&dominant,&borrowed)==2&&dominant>=0&&dominant<HB_DOMINANT_FAMILY_COUNT&&borrowed>=0&&borrowed<4){
                 /* Modern role defaults are restored separately; the legacy
                    suffix must not overwrite an already selected role family. */
-                if(strstr(state,";rp2,")||strstr(state,";rp1,")){
+                if(strstr(state,";rp3,")||strstr(state,";rp2,")||strstr(state,";rp1,")){
                     hb_store_scale_exceptions(dominant,borrowed);g_scale_exceptions_restored=1;
                 }else hb_set_scale_exceptions(dominant,borrowed);
             }
@@ -6138,7 +6144,7 @@ static void hb_restore_state(Inst *instance,const char *state){
             /* Legacy per-track presets: first non-default choice seeds the
                global setting. Defaults on earlier tracks cannot hide it. */
             const char *legacy=strstr(state,";ds1,");
-            if(legacy&&sscanf(legacy,";ds1,%d",&dominant)==1&&dominant>0&&dominant<8)
+            if(legacy&&sscanf(legacy,";ds1,%d",&dominant)==1&&dominant>0&&dominant<HB_DOMINANT_FAMILY_COUNT)
                 hb_set_scale_exceptions(dominant,0);
         }
     }
@@ -7494,7 +7500,7 @@ static void set_param(void *value,const char *key,const char *parameter){
         instance->opening_hash=0;instance->dirty=1;return;
     }
     if(!strcmp(key,"dominant_color_family")){
-        instance->dominant_color_family=enum_index(parameter,DOMINANT_SCALE_OPTS,8,instance->dominant_color_family);
+        instance->dominant_color_family=enum_index(parameter,DOMINANT_SCALE_OPTS,HB_DOMINANT_FAMILY_COUNT,instance->dominant_color_family);
         instance->opening_hash=0;instance->dirty=1;return;
     }
     if(hb_sc_set(instance,key,parameter))return;
@@ -7566,7 +7572,7 @@ static void set_param(void *value,const char *key,const char *parameter){
             }}
         instance->dominant_color_held=instance->dominant_color_latched=0;instance->dominant_color_family=3;
         const char *color_suffix=strstr(parameter,";dc1,");int color_family=3;
-        if(color_suffix&&sscanf(color_suffix,";dc1,%d",&color_family)==1&&color_family>=0&&color_family<8)instance->dominant_color_family=color_family;
+        if(color_suffix&&sscanf(color_suffix,";dc1,%d",&color_family)==1&&color_family>=0&&color_family<HB_DOMINANT_FAMILY_COUNT)instance->dominant_color_family=color_family;
         memset(instance->target_scale_policy,0,sizeof(instance->target_scale_policy));instance->target_scale_policy[2]=2;
         const char *target_suffix=strstr(parameter,";ts1,");int target_policy[4];
         if(target_suffix&&sscanf(target_suffix,";ts1,%d,%d,%d,%d",&target_policy[0],&target_policy[1],&target_policy[2],&target_policy[3])==4){

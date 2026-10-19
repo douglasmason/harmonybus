@@ -46,8 +46,9 @@ static void hb_role_sync(Inst *instance){
     instance->policy_initialized=1;
 }
 static void hb_role_restore(Inst *instance,const char *state){
-    const char *marker=strstr(state,";rp2,");
+    const char *marker=strstr(state,";rp3,");
     int stride=HB_POLICY_FIELDS;
+    if(!marker){marker=strstr(state,";rp2,");stride=14;}
     if(!marker){marker=strstr(state,";rp1,");stride=13;}
     int values[1+HB_POLICY_FIELDS*3],count=0;char *end=0;
     if(marker){
@@ -71,7 +72,7 @@ static void hb_role_restore(Inst *instance,const char *state){
             if(instance->policy_overrides&(1u<<HB_P_DOMINANT))instance->policy_overrides|=1u<<HB_P_DOMINANT_MINOR;
         }
         if(!g_role_restored){
-            for(int role=0;role<2;role++)for(int field=0;field<HB_POLICY_FIELDS;field++)hb_role_store(role,field,values[1+(role+1)*stride+(field<stride?field:HB_P_DOMINANT)]);
+            for(int role=0;role<2;role++)for(int field=0;field<HB_POLICY_FIELDS;field++)hb_role_store(role,field,(field<stride?values[1+(role+1)*stride+field]:field==HB_P_DOMINANT_MINOR?values[1+(role+1)*stride+HB_P_DOMINANT]:HB_POLICY_DEFAULTS[field]));
             g_role_restored=1;
         }
     }else if(!marker){
@@ -88,7 +89,7 @@ static void hb_role_restore(Inst *instance,const char *state){
 }
 static int hb_role_save(Inst *instance,char *buffer,int length,int used){
     if(used<0||used>=length)return used;
-    used+=snprintf(buffer+used,(size_t)(length-used),";rp2,%u",instance->policy_overrides);
+    used+=snprintf(buffer+used,(size_t)(length-used),";rp3,%u",instance->policy_overrides);
     for(int group=0;group<3;group++)for(int field=0;field<HB_POLICY_FIELDS;field++){
         if(used>=length)return used;
         used+=snprintf(buffer+used,(size_t)(length-used),",%d",group?hb_role_default(group-1,field):instance->policy_values[field]);
