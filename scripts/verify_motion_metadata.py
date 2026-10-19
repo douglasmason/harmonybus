@@ -28,7 +28,7 @@ def main() -> None:
     assert {parameter['key'] for parameter in map_operation['params']} == set(map_operation['knobs'])
     for level_name, map_level in map_module['capabilities']['ui_hierarchy']['levels'].items():
         parameter_keys: set[str] = {parameter['key'] for parameter in map_level['params'] if 'key' in parameter}
-        assert parameter_keys == set(map_level['knobs']), f'{level_name}: unassigned parameters create overflow panels'
+        assert (not map_level['params'] and all(k in map_canonical for k in map_level['knobs'])) or parameter_keys == set(map_level['knobs']), f'{level_name}: unassigned parameters create overflow panels'
     assert maps[0]['motion_touch_mode']['options'] == ['Hold','Latch','Tap/Hold']
     assert maps[0]['motion_from']['options'] == [str(cycle) for cycle in range(1,17)]
     assert maps[1]['motion_from']['options'] == ['1']

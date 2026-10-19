@@ -12,12 +12,12 @@ static int hb_rr_set(Inst *i,const char *key,const char *value){
 static int hb_rr_get(Inst *i,const char *key,char *buffer,int length){
     /* Movy consumes HB's recipe; rr1 remains available for older hosts. */
     if(!strcmp(key,"render_rhythm_config2")){
-        int pattern=hb_rr_pattern(i);
+        int pattern=i->player.rhythm.pattern?0:hb_rr_pattern(i);
         return snprintf(buffer,(size_t)length,"rr2,%d,%d,%d,%d,%d,%d",pattern,i->rhythm_mode==2?i->rhythm_window:g_render_window,
             hb_rhythm_weight(pattern,0,4),hb_rhythm_weight(pattern,1,4),hb_rhythm_weight(pattern,2,4),hb_rhythm_weight(pattern,3,4));
     }
 
-    if(!strcmp(key,"render_rhythm_config"))return snprintf(buffer,(size_t)length,"rr1,%d,%d",hb_rr_pattern(i),i->rhythm_mode==2?i->rhythm_window:g_render_window);
+    if(!strcmp(key,"render_rhythm_config"))return snprintf(buffer,(size_t)length,"rr1,%d,%d",i->player.rhythm.pattern?0:hb_rr_pattern(i),i->rhythm_mode==2?i->rhythm_window:g_render_window);
     if(!strcmp(key,"render_rhythm_mode"))return snprintf(buffer,(size_t)length,"%s",HB_RR_MODES[i->rhythm_mode]);
     if(!strcmp(key,"render_rhythm_pattern"))return snprintf(buffer,(size_t)length,"%s",HB_MT_RHYTHMS[i->rhythm_pattern]);
     if(!strcmp(key,"render_rhythm_window"))return snprintf(buffer,(size_t)length,"%s",HB_RR_WINDOWS[g_render_window]);
