@@ -1,3 +1,5 @@
+HarmonyBus 0.2.281 extracts the shared portable musical core without changing musical behavior. Preserves the 0.2.280 scale diagnostics, rhythm performance and Grid gates. Pair with Movy hbclean.202 for opt-in stock FM-1 USB MIDI input; no firmware update is required.
+
 HarmonyBus 0.2.280 adds effective-scale diagnostics and reuses Simplified target policy for established minor tonics. Parallel Scale remains the shared parent operation.
 
 HarmonyBus 0.2.279 separates motif pitch material from generated rhythm: attacks cycle through playable motif events while the selected pattern supplies rests, ties, accents and gates. Held-note pitch changes take effect at the next attack, and release finishes the current gate. Rhythm-filled clips use existing arp ordering on their written attacks without a second clock. Includes Grid Sequencer support from 0.2.278; pair with Movy hbclean.201.
