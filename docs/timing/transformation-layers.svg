@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="580" viewBox="0 0 1040 580">
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="none" stroke="#526478"/></marker></defs>
+<rect width="1040" height="580" fill="#ffffff"/>
+<g font-family="DejaVu Sans, sans-serif" fill="#13283c">
+<text x="24" y="30" font-size="22" font-weight="bold">One input, several musical meanings</text>
+<text x="24" y="54" font-size="13">Conceptual dependencies — operations can affect more than one stage.</text>
+<rect x="24" y="78" width="992" height="84" rx="8" fill="#e8f4f4" stroke="#007f83"/>
+<text x="42" y="102" font-size="16" font-weight="bold">CONTEXT FOR THIS EVENT</text>
+<text x="42" y="125" font-size="14">Conductor harmony + key / parent / parallel scale + track mapping and rendering settings</text>
+<text x="42" y="147" font-size="13">Effective / lookahead harmony is selected here; master transpose applies once.</text>
+<rect x="24" y="208" width="282" height="106" rx="8" fill="#f1f4f8" stroke="#526478"/>
+<text x="42" y="234" font-size="16" font-weight="bold">1  INPUT IDENTITY</text>
+<text x="42" y="258" font-size="14">Live press or recorded input</text>
+<text x="42" y="281" font-size="13">Pitch, velocity, origin, timing</text>
+<text x="42" y="301" font-size="13">Keeps ownership of note-off</text>
+<rect x="378" y="208" width="282" height="106" rx="8" fill="#e8f4f4" stroke="#007f83"/>
+<text x="396" y="234" font-size="16" font-weight="bold">2  RESOLVED TARGET</text>
+<text x="396" y="258" font-size="14">Mapping + composable operations</text>
+<text x="396" y="281" font-size="13">Travel, key/scale interpretation,</text>
+<text x="396" y="301" font-size="13">rotation, approach / motif intent</text>
+<rect x="734" y="208" width="282" height="106" rx="8" fill="#e8f4f4" stroke="#007f83"/>
+<text x="752" y="234" font-size="16" font-weight="bold">3  HARMONIC INTENT</text>
+<text x="752" y="258" font-size="14">Resolved note or generated chord</text>
+<text x="752" y="281" font-size="13">Chord quality, form and voicing;</text>
+<text x="752" y="301" font-size="13">root / function can survive rootless forms</text>
+<rect x="734" y="380" width="282" height="108" rx="8" fill="#f1f4f8" stroke="#526478"/>
+<text x="752" y="406" font-size="16" font-weight="bold">4  TIMED OUTPUT</text>
+<text x="752" y="430" font-size="14">Together, strum or arpeggio</text>
+<text x="752" y="453" font-size="13">Timing, gate, velocity / humanize</text>
+<text x="752" y="476" font-size="13">MIDI → stock Schwung instrument</text>
+<rect x="24" y="380" width="636" height="108" rx="8" fill="#fff6e6" stroke="#b77514" stroke-dasharray="6 4"/>
+<text x="42" y="406" font-size="16" font-weight="bold">HARMONY OVERRIDE — IN DEVELOPMENT</text>
+<text x="42" y="430" font-size="14">Publish the resolved harmonic intent, before arp / strum timing.</text>
+<text x="42" y="453" font-size="13">Live input by default; Live + Recorded is an explicit alternative.</text>
+<text x="42" y="476" font-size="13">Affects subsequent resolution; never remap its own triggering event.</text>
+<text x="24" y="531" font-size="14" font-weight="bold">Example: input C → preceding transformations resolve D → Auto Chord makes D minor.</text>
+<text x="24" y="555" font-size="14">The proposed override publishes D minor, not raw C and not each individual arp note.</text>
+</g>
+<g fill="none" stroke="#526478" stroke-width="2" marker-end="url(#arrow)">
+<path d="M306 260 H374"/><path d="M660 260 H730"/>
+<path d="M519 162 V204"/><path d="M875 162 V204"/>
+<path d="M875 314 V376"/>
+<path d="M795 314 V350 H560 V376" stroke-dasharray="6 4"/>
+</g>
+</svg>

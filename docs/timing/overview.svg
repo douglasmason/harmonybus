@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="766" height="270" viewBox="0 0 766 270">
+<title>From keypress to the effective harmony at release</title>
+<text x="185.00" y="18.00" font-family="DejaVuSans" font-size="9" fill="#13283c">Time (ms) at 120 BPM</text>
+<line x1="185.00" y1="35.00" x2="750.00" y2="35.00" stroke="#93a5b3"/>
+<line x1="185.00" y1="31.00" x2="185.00" y2="39.00" stroke="#93a5b3"/>
+<text x="174.00" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1250</text>
+<line x1="326.25" y1="31.00" x2="326.25" y2="39.00" stroke="#93a5b3"/>
+<text x="315.25" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1500</text>
+<line x1="467.50" y1="31.00" x2="467.50" y2="39.00" stroke="#93a5b3"/>
+<text x="456.50" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1750</text>
+<line x1="608.75" y1="31.00" x2="608.75" y2="39.00" stroke="#93a5b3"/>
+<text x="597.75" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">2000</text>
+<line x1="750.00" y1="31.00" x2="750.00" y2="39.00" stroke="#93a5b3"/>
+<text x="739.00" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">2250</text>
+<text x="0.00" y="90.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Conductor harmony</text>
+<line x1="185.00" y1="86.00" x2="750.00" y2="86.00" stroke="#dfe7ed"/>
+<rect x="185.00" y="76.00" width="423.75" height="20" rx="3" fill="#007f83"/>
+<text x="190.00" y="89.00" font-family="DejaVuSans" font-size="9" fill="white">C major</text>
+<rect x="608.75" y="76.00" width="141.25" height="20" rx="3" fill="#2865ad"/>
+<text x="613.75" y="89.00" font-family="DejaVuSans" font-size="9" fill="white">D major</text>
+<text x="0.00" y="127.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Effective: lookahead 1/8</text>
+<line x1="185.00" y1="123.00" x2="750.00" y2="123.00" stroke="#dfe7ed"/>
+<rect x="185.00" y="113.00" width="282.50" height="20" rx="3" fill="#007f83"/>
+<text x="190.00" y="126.00" font-family="DejaVuSans" font-size="9" fill="white">C major</text>
+<rect x="467.50" y="113.00" width="282.50" height="20" rx="3" fill="#7756ae"/>
+<text x="472.50" y="126.00" font-family="DejaVuSans" font-size="9" fill="white">D major (250 ms early)</text>
+<text x="0.00" y="164.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Buffer before 1750</text>
+<line x1="185.00" y1="160.00" x2="750.00" y2="160.00" stroke="#dfe7ed"/>
+<rect x="269.75" y="158.00" width="197.75" height="20" rx="3" fill="#c16a13"/>
+<text x="274.75" y="171.00" font-family="DejaVuSans" font-size="9" fill="white">350 ms</text>
+<text x="0.00" y="199.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Quant Grid: 1/8</text>
+<line x1="185.00" y1="195.00" x2="750.00" y2="195.00" stroke="#dfe7ed"/>
+<circle cx="185.00" cy="195" r="3" fill="#2865ad"/>
+<text x="190.00" y="212.00" font-family="DejaVuSans" font-size="9" fill="#2865ad"></text>
+<circle cx="326.25" cy="195" r="3" fill="#2865ad"/>
+<text x="331.25" y="212.00" font-family="DejaVuSans" font-size="9" fill="#2865ad"></text>
+<circle cx="467.50" cy="195" r="3" fill="#2865ad"/>
+<text x="472.50" y="212.00" font-family="DejaVuSans" font-size="9" fill="#2865ad"></text>
+<circle cx="608.75" cy="195" r="3" fill="#2865ad"/>
+<text x="613.75" y="212.00" font-family="DejaVuSans" font-size="9" fill="#2865ad"></text>
+<circle cx="750.00" cy="195" r="3" fill="#2865ad"/>
+<text x="755.00" y="212.00" font-family="DejaVuSans" font-size="9" fill="#2865ad"></text>
+<text x="0.00" y="243.00" font-family="DejaVuSans" font-size="10" fill="#13283c">Follower event</text>
+<line x1="185.00" y1="239.00" x2="750.00" y2="239.00" stroke="#dfe7ed"/>
+<line x1="382.75" y1="227.00" x2="467.50" y2="227.00" stroke="#c16a13"/>
+<line x1="462.50" y1="224.00" x2="467.50" y2="227.00" stroke="#c16a13"/>
+<line x1="462.50" y1="230.00" x2="467.50" y2="227.00" stroke="#c16a13"/>
+<text x="385.75" y="220.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">150 ms</text>
+<circle cx="382.75" cy="239" r="3" fill="#13283c"/>
+<text x="387.75" y="256.00" font-family="DejaVuSans" font-size="9" fill="#13283c">keypress</text>
+<circle cx="467.50" cy="239" r="3" fill="#7756ae"/>
+<text x="472.50" y="256.00" font-family="DejaVuSans" font-size="9" fill="#7756ae">release with D</text>
+</svg>

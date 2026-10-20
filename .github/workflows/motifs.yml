@@ -1,0 +1,27 @@
+name: Motif candidate
+on:
+  push:
+    branches: [feature/motifs]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Motif scheduler and persistence regressions
+        run: |
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motif_test.c src/harmony_core.c -lm -o /tmp/motif-test
+          /tmp/motif-test
+          for suite in chord_player input_pad arp_start render_rhythm; do
+            clang -std=c11 -D_POSIX_C_SOURCE=200809L -O1 tests/${suite}_test.c src/harmony_core.c -lm -o /tmp/${suite}-test
+            /tmp/${suite}-test
+          done
+          python3 scripts/verify_motion_metadata.py
+      - name: Build Move candidate
+        run: bash scripts/build_harmonybus_move.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: harmonybus-motifs-candidate
+          path: dist/harmonybus-v*-module.tar.gz

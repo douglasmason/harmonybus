@@ -1,0 +1,751 @@
+#ifndef HB_CHORD_PLAYER_H
+#define HB_CHORD_PLAYER_H
+#include "available_tensions.h"
+#include "rhythm_generator.h"
+/* Allocation-free chord voicing and owned-note playback. Times are supplied
+   by the host adapter; the adapter decides which role owns the output. */
+#define HB_CP_KEYS 16
+#define HB_CP_VOICES 12
+#define HB_CP_FORMS 21
+#define HB_CP_FOLLOW_DETECTED 17
+static const char *CP_CHORD_FORM[]={"Auto","Power","Triad","Seventh","Ninth","Add9","Sixth","6/9","Eleventh","Thirteenth","Sus2","Sus4","Shell 7","Shell 9","Shell 6/9","Rootless 7","Rootless 9","Follow Detected","Root Only","Root + Third","Root + Seventh"};
+static const char *CP_CHORD_EXTENSIONS[]={"As Derived","Raise Avoid"};
+typedef struct {
+    int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread, phase;
+    int quality, chromatic_quality, note_phase, clear_harmony, start;
+    int extension_treatment; /* 0 derived, 1 raise avoid extensions */
+} hb_cp_config;
+typedef struct {
+    int used, held, source, channel, velocity, count, fresh, root_pc, recordable, played_pitch;
+    int intent_kind,intent_target,intent_minor;unsigned intent_scale,gap_mask;
+    unsigned sequence, harmony_mask, harmony_sequence, semantic_mask;
+    hb_cp_config onset_config;
+    int harmony_root, playback_origin, range, rhythm_baked;
+    int rhythm_count,rhythm_notes[HB_CP_VOICES],rhythm_velocity;
+    unsigned rhythm_serial;double rhythm_release_at;
+    int input_degree,input_target,input_shift;unsigned input_token;
+    unsigned transform_revision,trail_serial;
+    int notes[HB_CP_VOICES];
+    int release_synced,release_follow;double release_start,release_end;
+    double due[HB_CP_VOICES];
+    unsigned started;
+} hb_cp_key;
+typedef struct {
+    int step,shuffle_count,shuffle_position,anchor_pending;
+    unsigned random,shuffle_signature;
+    int shuffle_order[HB_CP_KEYS*HB_CP_VOICES*4];
+} hb_cp_order_state;
+typedef struct {
+    hb_cp_order_state order_state,baked_order;
+    int baked_started;double baked_beat;unsigned rhythm_serial;
+    hb_rg_clock rhythm;
+    hb_cp_config config;
+    int state_override;hb_cp_config state_config;
+    int release_ms,release_follow_harmony;
+    int release_held,release_armed,release_latched,release_used,release_turned;
+    int repeat_override; /* Runtime overlay: 0 off, 1 both, 2 chord only, 3 arp only. */
+    hb_cp_key keys[HB_CP_KEYS];
+    uint8_t sounding[16][128], retrigger[16][128];
+    int sounding_channels[16];
+    int sounding_count, flushing, render_channel, running, arp_note, arp_channel, arp_velocity;
+    unsigned sequence;
+
+    unsigned anchor_harmony_mask;int anchor_harmony_root,anchor_harmony_valid;
+    double seconds, beat, release_beats, next_beat, gate_beat;
+} hb_chord_player;
+static const hb_cp_config *hb_cp_settings(const hb_chord_player *player){return player->state_override?&player->state_config:&player->config;}
+static int hb_cp_mode(const hb_chord_player *player){int mode=hb_cp_settings(player)->mode;return player->repeat_override==3?0:player->repeat_override&&!mode?2:mode;}
+static int hb_cp_playback(const hb_chord_player *player){return player->repeat_override==2?0:player->repeat_override?1:hb_cp_settings(player)->playback;}
+static hb_cp_config hb_cp_effective_config(const hb_chord_player *player){
+    hb_cp_config config=*hb_cp_settings(player);config.mode=hb_cp_mode(player);config.playback=hb_cp_playback(player);return config;
+}
+static int hb_cp_mod(int value){value%=12;return value<0?value+12:value;}
+static int hb_cp_clamp(int value,int low,int high){return value<low?low:value>high?high:value;}
+static int hb_cp_abs(int value){return value<0?-value:value;}
+static double hb_cp_floor(double value){
+    long long whole=(long long)value;return (double)whole-(value<(double)whole);
+}
+static double hb_cp_division(int index){return 0.0625*(1u<<index);}
+static int hb_cp_nearest(int note,unsigned mask){
+    for(int distance=0;distance<128;distance++){
+        if(note-distance>=0&&(mask&(1u<<hb_cp_mod(note-distance))))return note-distance;
+        if(note+distance<128&&(mask&(1u<<hb_cp_mod(note+distance))))return note+distance;
+    }
+    return note;
+}
+static void hb_cp_sort(int *notes,int count){
+    for(int index=1;index<count;index++){
+        int pitch=notes[index],slot=index;
+        while(slot>0&&notes[slot-1]>pitch){notes[slot]=notes[slot-1];slot--;}
+        notes[slot]=pitch;
+    }
+}
+/* Played Top Note fixes the melody register. Repack selected pitch classes below it,
+   retaining an outside melody note without substituting it for a chord tone.
+   At the MIDI floor omit unavailable lower voices instead of moving melody. */
+static int hb_cp_top_note(int *notes,int count,int top,int root,int fifth,int voicing){
+    if(!count)return 0;
+    top=hb_cp_clamp(top,0,127);
+    unsigned selected=0;
+    for(int index=0;index<count;index++)selected|=1u<<hb_cp_mod(notes[index]);
+    int kept=0;
+    for(int distance=11;distance>0;distance--){
+        int note=top-distance,pitch=hb_cp_mod(note);
+        if(!(selected&(1u<<pitch)))continue;
+        notes[kept++]=note;
+    }
+    for(int index=0;index<kept;index++){
+        int pitch=hb_cp_mod(notes[index]);
+        if((voicing==1&&(pitch==root||pitch==fifth))||
+           (voicing==2&&!(index%2)))notes[index]-=12;
+    }
+    int available=0;
+    for(int index=0;index<kept;index++)if(notes[index]>=0)notes[available++]=notes[index];
+    notes[available++]=top;
+    hb_cp_sort(notes,available);
+    return available;
+}
+/* Inversion: Auto, Root, First through Sixth. Auto is From Key for
+   Conductor Chord and root position for Scale Root. Preserve the chosen bass
+   through spread voicings. Shift the WHOLE voicing at MIDI range edges. */
+/* Rootless V9 versus V7b9 follows the target collection's sixth, not
+   its third: melodic minor and Dorian keep the natural sixth. */
+static int hb_cp_auto_leading_quality(int target,unsigned scale){
+    unsigned sixth=1u<<hb_cp_mod(target+9),flat_sixth=1u<<hb_cp_mod(target+8);
+    if(scale&sixth)return 8;
+    if(scale&flat_sixth)return 9;
+    return 8;
+}
+static int hb_cp_chromatic_quality(int selection){
+    static const int qualities[]={0,5,6,9,7,8};
+    return qualities[hb_cp_clamp(selection,0,5)];
+}
+/* Translate detected chord members to degree roles before changing target root.
+   The destination scale/quality supplies pitches; detection supplies the form. */
+static int hb_cp_interval_role(int interval,unsigned relative){
+    int role=0;
+    if(interval==1||interval==2)role=1;
+    else if(interval==3)role=(relative&(1u<<4))?1:2;
+    else if(interval==4)role=2;
+    else if(interval==5)role=3;
+    else if(interval==6)role=(relative&(1u<<7))?3:4;
+    else if(interval==7)role=4;
+    else if(interval==8)role=(relative&(1u<<7))?5:4;
+    else if(interval==9)role=(relative&(1u<<3))&&(relative&(1u<<6))&&!(relative&((1u<<7)|(1u<<10)|(1u<<11)))?6:5;
+    else if(interval>=10)role=6;
+    return role;
+}
+static unsigned hb_cp_detected_roles(int root,unsigned chord){
+    if(!chord)return (1u<<0)|(1u<<2)|(1u<<4);
+    unsigned relative=0,roles=0;
+    for(int interval=0;interval<12;interval++)if(chord&(1u<<hb_cp_mod(root+interval)))relative|=1u<<interval;
+    for(int interval=0;interval<12;interval++)if(relative&(1u<<interval)){
+        int role=hb_cp_interval_role(interval,relative);
+        roles|=1u<<role;
+    }
+    return roles;
+}
+/* Special collections need harmonic roles for both voicing and Relative travel.
+   Return -1 when ordinary ordered scale degrees are appropriate. */
+static int hb_cp_special_scale_interval(unsigned relative,int degree){
+    static const int altered[7]={0,1,4,6,6,8,10};
+    static const int half_whole[7]={0,1,4,6,7,9,10};
+    static const int whole_tone[7]={0,2,4,6,8,8,10};
+    if(degree<0||degree>6)return -1;
+    if(relative==0x55bu)return altered[degree];
+    if(relative==0x6dbu)return half_whole[degree];
+    if(relative==0x555u)return whole_tone[degree];
+    return -1;
+}
+static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned chord,
+                       unsigned scale,int *output,unsigned *semantic){
+    unsigned detected_roles=hb_cp_detected_roles(root,chord);
+    int follows_detected=config.size==HB_CP_FOLLOW_DETECTED;
+    if(semantic)*semantic=0;
+    config.size=hb_cp_clamp(config.size,0,HB_CP_FORMS-1);
+    if(input<0)input=0;if(input>127)input=127;
+    if(config.mode==0){output[0]=input;return 1;}
+    int ordered[12],count=0,bass=input,tones[7];
+    if(config.mode==1){if(!scale)return 0;root=hb_cp_mod(input);}
+    else if(!chord)return 0;
+    if(follows_detected&&config.mode==2)config.size=0;
+    tones[0]=root;int degree=1;
+    for(int offset=1;offset<=24&&degree<7;offset++)
+        if(scale&(1u<<hb_cp_mod(root+offset)))tones[degree++]=hb_cp_mod(root+offset);
+    if(degree<7){static const int major[7]={0,2,4,5,7,9,11};for(int index=1;index<7;index++)tones[index]=hb_cp_mod(root+major[index]);}
+    unsigned relative_scale=0;for(int interval=0;interval<12;interval++)if(scale&(1u<<hb_cp_mod(root+interval)))relative_scale|=1u<<interval;
+    for(int index=0;index<7;index++){
+        int interval=hb_cp_special_scale_interval(relative_scale,index);
+        if(interval>=0)tones[index]=hb_cp_mod(root+interval);
+    }
+    /* Six-note symmetric collections have harmonic roles, not seven ordinal
+       degrees. Whole tone supplies #5/b7; augmented supplies #5/M7 where
+       present. On its other three roots there is no seventh: omit that voice. */
+    int symmetric_no_seventh=0;
+    if(relative_scale==0x555u||relative_scale==0x999u||relative_scale==0x333u){
+        tones[2]=hb_cp_mod(root+4);tones[4]=hb_cp_mod(root+8);
+        if(relative_scale&(1u<<11))tones[6]=hb_cp_mod(root+11);
+        else if(relative_scale&(1u<<10))tones[6]=hb_cp_mod(root+10);
+        else {tones[6]=root;symmetric_no_seventh=1;}
+    }
+    int recognized_seventh=config.mode==2&&
+        ((chord&(1u<<hb_cp_mod(root+9)))||(chord&(1u<<hb_cp_mod(root+10)))||
+         (chord&(1u<<hb_cp_mod(root+11))));
+    if(config.mode==2){
+        /* Preserve the recognized chord's defining third, fifth and seventh;
+           fill newly requested extensions from its parent scale. */
+        static const int roles[3]={2,4,6};
+        static const int choices[3][4]={{4,3,5,2},{7,6,8,-1},{10,11,-1,-1}};
+        for(int role=0;role<3;role++)for(int choice=0;choice<4;choice++){
+            int interval=choices[role][choice];
+            if(interval>=0&&(chord&(1u<<hb_cp_mod(root+interval)))){tones[roles[role]]=hb_cp_mod(root+interval);break;}
+        }
+        /* A diminished seventh is the ninth semitone, not a scale-derived b7.
+           Require the diminished triad so ordinary sixth chords stay sixths. */
+        unsigned diminished=(1u<<root)|(1u<<hb_cp_mod(root+3))|
+            (1u<<hb_cp_mod(root+6))|(1u<<hb_cp_mod(root+9));
+        if((chord&diminished)==diminished&&
+           !(chord&((1u<<hb_cp_mod(root+10))|(1u<<hb_cp_mod(root+11)))))
+            tones[6]=hb_cp_mod(root+9);
+    }
+    /* Quality overrides apply to Scale Root gestures. Chromatic keys use a
+       selectable triad/seventh family instead of an arbitrary rotated scale.
+       Parent-scale upper extensions remain available to Ninth/Add9 etc. */
+    if(config.mode==1||config.quality){
+        int quality=config.quality;
+        if(config.mode==1&&!quality&&!(scale&(1u<<hb_cp_mod(input)))){
+            if(config.chromatic_quality==6){
+                int target=input+1;
+                while(target<input+12&&!(scale&(1u<<hb_cp_mod(target))))target++;
+                quality=hb_cp_auto_leading_quality(target,scale);
+            }else quality=hb_cp_chromatic_quality(config.chromatic_quality);
+        }
+        if(quality){
+            static const int third[]={0,4,3,3,4,4,4,3,3,3,3,4,4};
+            static const int fifth[]={0,7,7,6,8,7,7,7,6,6,7,8,6};
+            static const int seventh[]={0,11,10,9,10,11,10,10,10,9,11,11,10};
+            tones[2]=hb_cp_mod(root+third[quality]);
+            tones[4]=hb_cp_mod(root+fifth[quality]);
+            tones[6]=hb_cp_mod(root+seventh[quality]);
+        }
+    }
+    /* Alter only extension roles after the defining quality is resolved.
+       Suspensions and detected explicit chord members remain intentional. */
+    if(config.extension_treatment&&config.size!=10&&config.size!=11){
+        unsigned protected=(1u<<tones[0])|(1u<<tones[2])|(1u<<tones[4])|(1u<<tones[6]);
+        if(config.mode==2)protected|=chord;
+        for(int role=1;role<=5;role+=2)
+            if(hb_tension_is_avoid(protected,tones[role]))tones[role]=hb_cp_mod(tones[role]+1);
+    }
+    /* Form: Auto, Power, Triad, Seventh, Ninth, Add9, Sixth, 6/9,
+       Eleventh, Thirteenth, Sus2, Sus4. Values are zero-based scale degrees. */
+    static const int forms[HB_CP_FORMS][7]={
+        {0,2,4,-1,-1,-1,-1},{0,4,-1,-1,-1,-1,-1},{0,2,4,-1,-1,-1,-1},
+        {0,2,4,6,-1,-1,-1},{0,2,4,6,1,-1,-1},{0,2,4,1,-1,-1,-1},
+        {0,2,4,5,-1,-1,-1},{0,2,4,5,1,-1,-1},{0,2,4,6,1,3,-1},
+        {0,2,4,6,1,3,5},{0,1,4,-1,-1,-1,-1},{0,3,4,-1,-1,-1,-1},
+        {0,2,6,-1,-1,-1,-1},{0,2,6,1,-1,-1,-1},{0,2,5,1,-1,-1,-1},
+        {2,6,-1,-1,-1,-1,-1},{2,6,1,-1,-1,-1,-1},
+        {-1,-1,-1,-1,-1,-1,-1},{0,-1,-1,-1,-1,-1,-1},
+        {0,2,-1,-1,-1,-1,-1},{0,6,-1,-1,-1,-1,-1}
+    };
+    unsigned selected=0;
+    if(follows_detected&&(config.mode==1||config.quality)){
+        static const int order[7]={0,2,4,6,1,3,5};
+        for(int index=0;index<7;index++){
+            int role=order[index];if(!(detected_roles&(1u<<role)))continue;
+            if(role==6&&symmetric_no_seventh&&!config.quality)continue;
+            int pitch=tones[role];
+            if(!(selected&(1u<<pitch))){ordered[count++]=pitch;selected|=1u<<pitch;}
+        }
+    }else if(config.mode==2&&config.size==0&&!config.quality){
+        static const int order[7]={0,2,4,6,1,3,5};
+        for(int index=0;index<7;index++){
+            int pitch=tones[order[index]];
+            if((chord&(1u<<pitch))&&!(selected&(1u<<pitch))){ordered[count++]=pitch;selected|=1u<<pitch;}
+        }
+        for(int interval=0;interval<12;interval++){
+            int pitch=hb_cp_mod(root+interval);
+            if((chord&(1u<<pitch))&&!(selected&(1u<<pitch))){ordered[count++]=pitch;selected|=1u<<pitch;}
+        }
+    }else for(int index=0;index<7;index++){
+        /* Auto on a recognized seventh keeps four voices when changing its
+           quality; an explicit form always chooses its own degree set. */
+        int form=config.size;
+        if(config.mode==2&&config.quality&&form==0){
+            form=recognized_seventh?3:2;
+        }
+        int role=forms[form][index];if(role<0)break;
+        if(role==6&&symmetric_no_seventh&&config.mode==1&&!config.quality)continue;
+        int pitch=tones[role];
+        if(!(selected&(1u<<pitch))){ordered[count++]=pitch;selected|=1u<<pitch;}
+    }
+    if(!count)return 0;
+    /* Omitted roots/fifths are voicing choices, not changes of chord identity.
+       Power keeps its scale-derived quality; suspensions remain suspensions. */
+    if(semantic){
+        *semantic=selected;
+        if(config.size==1||(config.size>=12&&config.size<HB_CP_FOLLOW_DETECTED)||config.size>=18)
+            *semantic|=(1u<<root)|(1u<<tones[2])|(1u<<tones[4]);
+
+    }
+    int inversion=0;
+    if(config.inversion>0&&config.inversion!=8){
+        inversion=(config.inversion-1)%count;
+        if(config.mode==1){
+            bass=input;
+            if(inversion)bass-=hb_cp_mod(root-ordered[inversion]);
+        }else bass=hb_cp_nearest(input,1u<<ordered[inversion]);
+    }else if(config.mode==2){
+        bass=hb_cp_nearest(input,selected);
+        for(int index=0;index<count;index++)if(ordered[index]==hb_cp_mod(bass))inversion=index;
+    }
+    int fifth=tones[4];
+    if(config.voicing==3){
+        /* Shell removes redundant fifths/extensions, but cannot discard the
+           explicitly selected bass. Sixth forms retain 6 when there is no 7. */
+        unsigned shell=(1u<<root)|(1u<<hb_cp_mod(bass));
+        if(selected&(1u<<tones[2]))shell|=1u<<tones[2];
+        else shell|=1u<<tones[4];
+        if(selected&(1u<<tones[6]))shell|=1u<<tones[6];
+        else if(selected&(1u<<tones[5]))shell|=1u<<tones[5];
+        int kept=0;
+        for(int index=0;index<count;index++)if(shell&(1u<<ordered[index]))ordered[kept++]=ordered[index];
+        count=kept;
+        for(int index=0;index<count;index++)if(ordered[index]==hb_cp_mod(bass))inversion=index;
+    }
+    for(int index=0;index<count;index++){
+        int pitch=ordered[(inversion+index)%count];
+        output[index]=bass+hb_cp_mod(pitch-hb_cp_mod(bass));
+        if(index>0&&config.voicing==1&&pitch!=root&&pitch!=fifth)output[index]+=12;
+        if(index>0&&config.voicing==2&&(index%2))output[index]+=12;
+    }
+    if(config.inversion==8)return hb_cp_top_note(output,count,input,root,fifth,config.voicing);
+    hb_cp_sort(output,count);
+    while(output[0]<0)for(int index=0;index<count;index++)output[index]+=12;
+    while(output[count-1]>127)for(int index=0;index<count;index++)output[index]-=12;
+    return output[0]>=0?count:0;
+}
+static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
+                       unsigned scale,int *output){
+    return hb_cp_voice_semantic(config,input,root,chord,scale,output,0);
+}
+static void hb_cp_defaults(hb_cp_config *config){
+    memset(config,0,sizeof(*config));config->rate=2;config->gate=1;config->phase=2;config->start=5;
+}
+static int hb_cp_enabled(const hb_chord_player *player){
+    return player->rhythm.pattern||hb_cp_mode(player)||hb_cp_playback(player);
+}
+static void hb_cp_clear(hb_chord_player *player){
+    hb_rg_reset(&player->rhythm);player->rhythm_serial=0;player->baked_started=0;memset(&player->baked_order,0,sizeof(player->baked_order));
+    memset(player->keys,0,sizeof(player->keys));
+    memset(player->retrigger,0,sizeof(player->retrigger));
+    player->running=0;player->flushing=1;player->order_state.step=0;
+    player->order_state.shuffle_count=player->order_state.shuffle_position=0;player->order_state.anchor_pending=0;player->anchor_harmony_valid=0;
+}
+static int hb_cp_held(const hb_chord_player *player){
+    int count=0;for(int key=0;key<HB_CP_KEYS;key++)count+=player->keys[key].used&&player->keys[key].held;
+    return count;
+}
+/* Toggle ownership by the original input key, independent of rendered pitch.
+   Shared rendered tones remain owned by any other retained input keys. */
+static int hb_cp_toggle_off_origin(hb_chord_player *player,int source,int channel,int origin){
+    if(hb_cp_settings(player)->latch!=2&&hb_cp_settings(player)->latch!=3&&hb_cp_settings(player)->latch!=5)return 0;
+    for(int index=0;index<HB_CP_KEYS;index++){
+        hb_cp_key *key=&player->keys[index];
+        if(key->used&&!key->release_end&&key->source==source&&key->channel==channel&&key->playback_origin==origin){
+            memset(key,0,sizeof(*key));
+            return 1;
+        }
+    }
+    return 0;
+}
+static int hb_cp_toggle_off(hb_chord_player *player,int source,int channel){return hb_cp_toggle_off_origin(player,source,channel,0);}
+static int hb_cp_on_origin(hb_chord_player *player,int source,int channel,int velocity,
+                    const int *notes,int count,int origin){
+    if(hb_cp_toggle_off_origin(player,source,channel,origin))return 1;
+    if(count<=0)return 1;
+    int released_source=0;
+    int held=0,other_origin=0;
+    for(int index=0;index<HB_CP_KEYS;index++)if(player->keys[index].used){
+        hb_cp_key *key=&player->keys[index];
+        if(key->playback_origin!=origin){other_origin=1;continue;}
+        held+=key->held;
+        if(key->source==source&&key->channel==channel&&key->release_end>0)released_source=1;
+    }
+    if(released_source&&hb_cp_settings(player)->phase!=1){player->running=0;player->order_state.step=0;}
+    if(hb_cp_settings(player)->latch==4||hb_cp_settings(player)->latch==5||((hb_cp_settings(player)->latch==1||hb_cp_settings(player)->latch==2)&&!held)){
+        /* A latched replacement changes the pitch pool, not the running clock.
+           Re-arming Auto here can postpone every division under rapid input. */
+        if(!player->rhythm.pattern&&hb_cp_playback(player)!=1&&!other_origin){
+            memcpy(player->retrigger,player->sounding,sizeof(player->retrigger));
+            player->running=0;player->order_state.step=0;
+        }
+        /* Latch replaces only its own input stream. Live changes must never
+           erase a clip's keys (or the reverse), including Toggle/Replace. */
+        for(int index=0;index<HB_CP_KEYS;index++)if(player->keys[index].playback_origin==origin){
+            hb_cp_key *previous=&player->keys[index];
+            if(previous->used&&!previous->rhythm_baked&&player->rhythm.active&&previous->rhythm_count&&
+               previous->rhythm_serial==player->rhythm_serial&&player->beat<player->rhythm.gate){
+                previous->held=0;previous->rhythm_release_at=player->rhythm.gate;
+            }else memset(previous,0,sizeof(*previous));
+        }
+    }
+    int slot=-1;
+    for(int index=0;index<HB_CP_KEYS;index++){
+        hb_cp_key *key=&player->keys[index];
+        if(key->used&&key->source==source&&key->channel==channel&&key->playback_origin==origin){slot=index;break;}
+        if(!key->used&&slot<0)slot=index;
+    }
+    /* A fresh strike takes priority over an old fading tail when all slots
+       are occupied. Never steal a physically held key. */
+    if(slot<0)for(int index=0;index<HB_CP_KEYS;index++)if(player->keys[index].playback_origin==origin&&!player->keys[index].held&&player->keys[index].release_end>0&&
+        (slot<0||player->keys[index].sequence<player->keys[slot].sequence))slot=index;
+    if(slot<0)return 0;
+    hb_cp_key *key=&player->keys[slot];
+    if(key->used&&key->release_end>0){
+        for(int voice=0;voice<key->count;voice++)player->retrigger[key->channel][key->notes[voice]]=1;
+        if(hb_cp_settings(player)->phase!=1){player->running=0;player->order_state.step=0;}
+    }
+    if(key->used&&!player->rhythm.pattern&&hb_cp_playback(player)!=1)for(int voice=0;voice<key->count;voice++){
+        int pitch=key->notes[voice],shared=0;
+        for(int other=0;other<HB_CP_KEYS;other++)if(other!=slot&&player->keys[other].used&&player->keys[other].channel==channel)
+            for(int tone=0;tone<player->keys[other].count;tone++)if(player->keys[other].notes[tone]==pitch)shared=1;
+        if(!shared)player->retrigger[channel][pitch]=1;
+    }
+    int retained_count=0,retained_notes[HB_CP_VOICES],retained_velocity=0;
+    if(key->used&&!key->rhythm_baked&&player->rhythm.active&&key->rhythm_serial==player->rhythm_serial&&player->beat<player->rhythm.gate){
+        retained_count=key->rhythm_count;retained_velocity=key->rhythm_velocity;
+        memcpy(retained_notes,key->rhythm_notes,(size_t)retained_count*sizeof(int));
+    }
+    memset(key,0,sizeof(*key));
+    key->rhythm_count=retained_count;key->rhythm_velocity=retained_velocity;key->rhythm_serial=player->rhythm_serial;
+    memcpy(key->rhythm_notes,retained_notes,(size_t)retained_count*sizeof(int));
+    key->used=key->held=key->fresh=1;key->source=source;key->channel=channel;key->playback_origin=origin;
+    key->played_pitch=source;key->root_pc=hb_cp_mod(source);key->velocity=velocity;key->count=count;key->sequence=++player->sequence;
+    for(int index=0;index<count;index++)key->notes[index]=notes[index];
+    return 1;
+}
+static int hb_cp_on(hb_chord_player *player,int source,int channel,int velocity,const int *notes,int count){
+    return hb_cp_on_origin(player,source,channel,velocity,notes,count,0);
+}
+static const char *HB_CP_RELEASE_ARP[]={"Arp Note 1/2","Arp Note 1","Arp Note 2","Arp Note 3","Arp Note 4","Arp Note 8","Arp Cycle 1/4","Arp Cycle 1/2","Arp Cycle 1","Arp Cycle 2","Arp Cycle 4"};
+static double hb_cp_release_beats(hb_chord_player *player);
+static void hb_cp_off_origin(hb_chord_player *player,int source,int channel,int origin){
+    for(int index=0;index<HB_CP_KEYS;index++){
+        hb_cp_key *key=&player->keys[index];
+        if(!key->used||key->source!=source||key->channel!=channel||key->playback_origin!=origin)continue;
+        if(key->release_end>0)continue; /* Duplicate OFF cannot extend a tail. */
+        int was_held=key->held;key->held=0;
+        if(key->rhythm_baked){key->used=0;continue;}
+        if(player->rhythm.pattern&&!key->rhythm_baked&&!hb_cp_settings(player)->latch&&
+           key->rhythm_serial==player->rhythm_serial&&key->rhythm_count&&player->beat<player->rhythm.gate){
+            key->rhythm_release_at=player->rhythm.gate;continue;
+        }
+        if(was_held&&player->repeat_override&&player->release_ms!=0&&(player->release_held||player->release_armed||player->release_latched)){
+            player->release_armed=0;player->release_used=1;
+            key->release_synced=player->release_ms<0;key->release_follow=player->release_follow_harmony;
+            key->release_start=key->release_synced?player->release_beats:player->seconds;
+            key->release_end=key->release_start+(key->release_synced?hb_cp_release_beats(player):player->release_ms/1000.0);
+            continue;
+        }
+        if(!hb_cp_settings(player)->latch){
+            key->used=0;
+            for(int voice=0;voice<key->count;voice++){
+                int pitch=key->notes[voice],shared=0;
+                for(int other=0;other<HB_CP_KEYS;other++)if(player->keys[other].used&&player->keys[other].channel==channel)
+                    for(int tone=0;tone<player->keys[other].count;tone++)if(player->keys[other].notes[tone]==pitch)shared=1;
+                if(!shared&&player->sounding[channel][pitch])player->retrigger[channel][pitch]=1;
+            }
+        }
+    }
+    if(!hb_cp_settings(player)->latch){
+        int any=0;for(int index=0;index<HB_CP_KEYS;index++)any|=player->keys[index].used;
+        if(!any){player->running=0;player->order_state.step=0;}
+    }
+}
+static void hb_cp_off(hb_chord_player *player,int source,int channel){hb_cp_off_origin(player,source,channel,0);}
+/* Emit a desired-state difference, OFFs first. Capacity exhaustion leaves the
+   remaining differences intact for the next tick, including panic/role changes.
+   Multiple owners sharing a pitch generate one ON and one final OFF. */
+static int hb_cp_diff(hb_chord_player *player,uint8_t desired[16][128],
+                      uint8_t output[][3],int lengths[],int capacity){
+    int emitted=0;unsigned channels=0;
+    for(int channel=0;channel<16;channel++)if(player->sounding_channels[channel])channels|=1u<<channel;
+    for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used)channels|=1u<<player->keys[key].channel;
+    for(int pass=0;pass<2;pass++)for(int channel=0;channel<16;channel++){
+    if(!(channels&(1u<<channel)))continue;
+    for(int note=0;note<128;note++){
+        int on=desired[channel][note]!=0,was=player->sounding[channel][note]!=0;
+        if(pass==0&&was&&player->retrigger[channel][note])on=0;
+        if(on==was||on!=pass)continue;
+        if(emitted>=capacity)return emitted;
+        output[emitted][0]=(uint8_t)((on?0x90:0x80)|channel);
+        output[emitted][1]=(uint8_t)note;output[emitted][2]=on?desired[channel][note]:0;
+        lengths[emitted++]=3;player->sounding[channel][note]=(uint8_t)on;
+        player->sounding_count+=on?1:-1;player->sounding_channels[channel]+=on?1:-1;player->retrigger[channel][note]=0;
+    }}
+    return emitted;
+}
+typedef struct {int key,voice,pitch,channel;} hb_cp_entry;
+static int hb_cp_entries_kind(hb_chord_player *player,hb_cp_entry *entries,int fresh,int baked){
+    int count=0;
+    uint8_t seen[16][128]={{0}};
+    for(int key=0;key<HB_CP_KEYS;key++){
+        hb_cp_key *owner=&player->keys[key];
+        if(!owner->used||owner->rhythm_baked!=baked||(fresh&&!owner->fresh)||(!baked&&owner->rhythm_release_at))continue;
+        for(int voice=0;voice<owner->count;voice++){
+            int octaves=hb_cp_playback(player)==1?hb_cp_clamp(owner->range,1,4):1;
+            for(int octave=0;octave<octaves;octave++){
+                int pitch=owner->notes[voice]+12*octave;
+                if(pitch>127)continue;
+                if(hb_cp_playback(player)==1){
+                    if(seen[owner->channel][pitch])continue;
+                    seen[owner->channel][pitch]=1;
+                }
+                entries[count++]=(hb_cp_entry){key,voice,pitch,owner->channel};
+            }
+        }
+    }
+    for(int index=1;index<count;index++){
+        hb_cp_entry entry=entries[index];int slot=index;
+        while(slot>0&&(hb_cp_settings(player)->order==3?player->keys[entries[slot-1].key].sequence>player->keys[entry.key].sequence:(hb_cp_settings(player)->order==1?entries[slot-1].pitch<entry.pitch:entries[slot-1].pitch>entry.pitch))){
+            entries[slot]=entries[slot-1];slot--;
+        }
+        entries[slot]=entry;
+    }
+    if(hb_cp_settings(player)->order==4&&fresh)for(int index=count-1;index>0;index--){
+        player->order_state.random=player->order_state.random*1664525u+1013904223u;
+        int other=(int)(player->order_state.random%(unsigned)(index+1));
+        hb_cp_entry temp=entries[index];entries[index]=entries[other];entries[other]=temp;
+    }
+    return count;
+}
+/* Duration of one rendered arp step, including cycle-length rates. */
+static int hb_cp_entries(hb_chord_player *player,hb_cp_entry *entries,int strum){
+    return hb_cp_entries_kind(player,entries,strum,0);
+}
+static double hb_cp_step_beats(hb_chord_player *player){
+    double rate=hb_cp_division(hb_cp_settings(player)->rate%9);
+    if(hb_cp_settings(player)->rate>=9){
+        hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
+        int count=hb_cp_entries(player,entries,0);
+        int cycle=hb_cp_settings(player)->order==2&&count>1?2*count-2:count;
+        if(cycle>0)rate/=cycle;
+    }
+    return rate;
+}
+/* Capture the current arp pattern duration at release; tempo remains live. */
+static double hb_cp_release_beats(hb_chord_player *player){
+    if(player->release_ms>=-9)return hb_cp_division(-player->release_ms-1);
+    static const double factors[]={0.5,1,2,3,4,8,0.25,0.5,1,2,4};
+    int index=hb_cp_clamp(-player->release_ms-10,0,10);
+    double duration=hb_cp_step_beats(player)*factors[index];
+    if(index>=6){
+        hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
+        int count=hb_cp_entries(player,entries,0);
+        int cycle=hb_cp_settings(player)->order==2&&count>1?2*count-2:count;
+        duration*=cycle>0?cycle:1;
+    }
+    return duration;
+}
+static double hb_cp_release_clock(const hb_chord_player *player,const hb_cp_key *key){return key->release_synced?player->release_beats:player->seconds;}
+static int hb_cp_release_velocity(const hb_chord_player *player,const hb_cp_key *key){
+    if(key->release_end<=0)return key->velocity;
+    double fraction=(key->release_end-hb_cp_release_clock(player,key))/(key->release_end-key->release_start);
+    return hb_cp_clamp((int)(key->velocity*fraction+0.5),1,key->velocity);
+}
+static hb_cp_entry hb_cp_select_order(hb_chord_player *player,hb_cp_entry *entries,int count,int cycle,int first,hb_cp_order_state *order,int armed){
+            int start_anchor=first||armed||order->anchor_pending;
+            if(hb_cp_settings(player)->start&&order->anchor_pending){order->step=0;order->anchor_pending=0;order->shuffle_count=0;}
+            int extreme=0;
+            if(hb_cp_settings(player)->start){
+                if(hb_cp_settings(player)->start>=5){
+                    unsigned newest=0;int target=entries[0].pitch;
+                    for(int index=0;index<count;index++){
+                        hb_cp_key *owner=&player->keys[entries[index].key];
+                        if(owner->sequence>newest){newest=owner->sequence;target=owner->played_pitch;}
+                    }
+                    int best=100000;
+                    for(int index=0;index<count;index++){
+                        int distance=entries[index].pitch-target;if(distance<0)distance=-distance;
+                        /* Prefer the played pitch class in the voiced pool;
+                           rootless voicings fall back to the nearest voice. */
+                        int score=distance+(hb_cp_mod(entries[index].pitch)!=hb_cp_mod(target)?1000:0);
+                        if(score<best){best=score;extreme=index;}
+                    }
+                }else for(int index=1;index<count;index++)
+                    if((hb_cp_settings(player)->start==1||hb_cp_settings(player)->start==3)?entries[index].pitch<entries[extreme].pitch:entries[index].pitch>entries[extreme].pitch)extreme=index;
+
+            }
+            int cycle_position=order->step%cycle;if(cycle_position<0)cycle_position+=cycle;
+            int ordinal=(cycle_position+(hb_cp_settings(player)->start?extreme:0))%cycle;
+            if(ordinal>=count)ordinal=cycle-ordinal;
+            if(hb_cp_settings(player)->order==4&&!armed){order->random=order->random*1664525u+1013904223u;ordinal=(int)(order->random%(unsigned)count);}
+            if(hb_cp_settings(player)->order>=5){
+                unsigned signature=2166136261u;
+                for(int index=0;index<count;index++)signature=(signature^(unsigned)(entries[index].pitch+128*entries[index].channel))*16777619u;
+                if(order->shuffle_count!=count||order->shuffle_signature!=signature||(hb_cp_settings(player)->start?!cycle_position:order->shuffle_position>=count)){
+                    order->shuffle_count=count;order->shuffle_position=0;order->shuffle_signature=signature;
+                    for(int index=0;index<count;index++)order->shuffle_order[index]=index;
+                    for(int index=count-1;index>0;index--){
+                        order->random=order->random*1664525u+1013904223u;
+                        int other=(int)(order->random%(unsigned)(index+1));
+                        int saved=order->shuffle_order[index];order->shuffle_order[index]=order->shuffle_order[other];order->shuffle_order[other]=saved;
+                    }
+                }
+                ordinal=order->shuffle_order[order->shuffle_position++];
+            }
+            if(hb_cp_settings(player)->start&&hb_cp_settings(player)->order==4){
+                if(!cycle_position)ordinal=extreme;
+                else if(cycle_position==1&&count>1&&ordinal==extreme)ordinal=(ordinal+1)%count;
+            }
+            if(hb_cp_settings(player)->start&&hb_cp_settings(player)->order>=5){
+                /* First-pinned Shuffle anchors only a new start/reanchor.
+                   Cycle-pinned Shuffle anchors every cycle. Swap rather than
+                   overwrite so each voice still occurs exactly once. */
+                if(start_anchor||hb_cp_settings(player)->order==6)
+                for(int index=0;index<count;index++)if(order->shuffle_order[index]==extreme){
+                    int saved=order->shuffle_order[0];order->shuffle_order[0]=extreme;order->shuffle_order[index]=saved;break;
+                }
+                ordinal=order->shuffle_order[cycle_position];
+            }
+            return entries[ordinal];
+}
+static hb_cp_entry hb_cp_select(hb_chord_player *player,hb_cp_entry *entries,int count,int cycle,int first){
+    return hb_cp_select_order(player,entries,count,cycle,first,&player->order_state,player->running==2);
+}
+static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],int capacity){
+    for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&player->keys[key].rhythm_release_at>0&&player->beat>=player->keys[key].rhythm_release_at)player->keys[key].used=0;
+    for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&player->keys[key].release_end>0&&hb_cp_release_clock(player,&player->keys[key])+1e-9>=player->keys[key].release_end)player->keys[key].used=0;
+    uint8_t desired[16][128];memset(desired,0,sizeof(desired));
+    if(player->flushing){
+        int emitted=hb_cp_diff(player,desired,output,lengths,capacity);
+        if(!player->sounding_count)player->flushing=0;
+        return emitted;
+    }
+    hb_cp_entry entries[HB_CP_KEYS*HB_CP_VOICES*4];
+    int total=hb_cp_entries(player,entries,0),baked_fresh=0;
+    hb_cp_entry baked[HB_CP_KEYS*HB_CP_VOICES*4];
+    int baked_count=hb_cp_entries_kind(player,baked,0,1);
+    for(int index=0;index<baked_count;index++)baked_fresh|=player->keys[baked[index].key].fresh;
+    if(baked_count){
+        int arp=hb_cp_playback(player)==1;
+        if(baked_fresh&&(!player->baked_started||player->beat!=player->baked_beat)){
+            int cycle=hb_cp_settings(player)->order==2&&baked_count>1?2*baked_count-2:baked_count;
+            hb_cp_entry chosen=baked[0];
+            if(arp){if(!player->baked_started)player->baked_order.step=hb_cp_settings(player)->start?0:-hb_cp_settings(player)->note_phase;chosen=hb_cp_select_order(player,baked,baked_count,cycle,!player->baked_started,&player->baked_order,0);player->baked_order.step=(player->baked_order.step+1)%cycle;}
+            for(int index=0;index<HB_CP_KEYS;index++)if(player->keys[index].rhythm_baked){
+                hb_cp_key *key=&player->keys[index];key->rhythm_count=0;
+                if(key->used&&arp&&index==chosen.key){key->rhythm_count=1;key->rhythm_notes[0]=chosen.pitch;}
+            }
+            player->baked_started=1;player->baked_beat=player->beat;
+        }
+        for(int index=0;index<HB_CP_KEYS;index++){
+            hb_cp_key *key=&player->keys[index];if(!key->used||!key->rhythm_baked)continue;
+            for(int voice=0;voice<(arp?key->rhythm_count:key->count);voice++){
+                int pitch=arp?key->rhythm_notes[voice]:key->notes[voice];
+                desired[key->channel][pitch]=(uint8_t)hb_cp_release_velocity(player,key);
+                if(key->fresh&&player->sounding[key->channel][pitch])player->retrigger[key->channel][pitch]=1;
+            }
+            key->fresh=0;
+        }
+    }
+    if(player->rhythm.pattern){
+        hb_rg_clock *r=&player->rhythm;
+        int count=0,first=!r->active;
+        for(int index=0;index<total;index++)if(!player->keys[entries[index].key].rhythm_baked&&!player->keys[entries[index].key].rhythm_release_at)entries[count++]=entries[index];
+        if(first)player->order_state.step=0;
+        int attack=count?hb_rg_advance(r,player->beat,1):-1;
+        if(!count&&(r->done==1||player->beat>=r->gate))hb_rg_reset(r);
+        int arp=hb_cp_playback(player)==1&&r->done!=2;
+        if(attack>=0){
+            hb_cp_entry chosen=entries[0];
+            if(arp){int cycle=hb_cp_settings(player)->order==2&&count>1?2*count-2:count;
+                chosen=hb_cp_select(player,entries,count,cycle,first);player->order_state.step=(player->order_state.step+1)%cycle;}
+            player->rhythm_serial++;
+            for(int index=0;index<HB_CP_KEYS;index++){
+                hb_cp_key *key=&player->keys[index];if(!key->used||key->rhythm_baked||key->rhythm_release_at)continue;
+                key->rhythm_serial=player->rhythm_serial;key->rhythm_count=0;key->rhythm_velocity=hb_cp_clamp(hb_cp_release_velocity(player,key)*r->velocity/100,1,127);
+                if(arp){if(index==chosen.key){key->rhythm_notes[0]=chosen.pitch;key->rhythm_count=1;}}
+                else {key->rhythm_count=key->count;memcpy(key->rhythm_notes,key->notes,(size_t)key->count*sizeof(int));}
+                for(int voice=0;voice<key->rhythm_count;voice++)if(player->sounding[key->channel][key->rhythm_notes[voice]])player->retrigger[key->channel][key->rhythm_notes[voice]]=1;
+            }
+            if(arp){player->arp_note=chosen.pitch;player->arp_channel=chosen.channel;}
+        }
+        if(r->active&&r->done!=1&&player->beat<r->gate)for(int index=0;index<HB_CP_KEYS;index++){
+            hb_cp_key *key=&player->keys[index];if(!key->used||key->rhythm_baked||key->rhythm_serial!=player->rhythm_serial)continue;
+            for(int voice=0;voice<key->rhythm_count;voice++)desired[key->channel][key->rhythm_notes[voice]]=(uint8_t)key->rhythm_velocity;
+        }
+    }else if(hb_cp_playback(player)==1){
+        int count=hb_cp_entries(player,entries,0);
+        int cycle=hb_cp_settings(player)->order==2&&count>1?2*count-2:count;
+        double rate=hb_cp_division(hb_cp_settings(player)->rate%9);
+        if(hb_cp_settings(player)->rate>=9&&cycle>0)rate/=cycle;
+        if(!count)player->running=0;
+        if(count&&!player->running&&hb_cp_settings(player)->phase==1){
+            player->order_state.step=0;
+            /* Rotate the ordered cycle to the newest gesture's actual root,
+               which is not necessarily the bass of an inverted voicing. */
+            unsigned newest=0;int root=-1;
+            for(int index=0;index<count;index++){
+                hb_cp_key *owner=&player->keys[entries[index].key];
+                if(hb_cp_mod(entries[index].pitch)==owner->root_pc&&owner->sequence>newest){
+                    newest=owner->sequence;root=index;
+                }
+            }
+            if(root>=0&&!hb_cp_settings(player)->start)player->order_state.step=root;
+            if(!hb_cp_settings(player)->start)player->order_state.step-=hb_cp_settings(player)->note_phase;
+            player->next_beat=(hb_cp_floor(player->beat/rate)+1.0)*rate;
+            player->running=2; /* Armed, no sounding note yet. */
+        }
+        if(count&&(!player->running||player->beat+1e-9>=player->next_beat)){
+            int first=!player->running;
+            if(first)player->order_state.step=hb_cp_settings(player)->start?0:-hb_cp_settings(player)->note_phase;
+            /* Preserve the first-hit anchor in Free, including late callbacks.
+               Other modes use transport grid after their opening note. */
+            double onset=first?player->beat:player->next_beat;
+            if(!first){
+                int missed=(int)hb_cp_floor((player->beat-onset+1e-9)/rate);
+                if(missed>0){onset+=missed*rate;player->order_state.step+=missed;}
+            }
+            hb_cp_entry entry=hb_cp_select(player,entries,count,cycle,first);
+            if(player->sounding[entry.channel][entry.pitch])player->retrigger[entry.channel][entry.pitch]=1;
+            player->arp_note=entry.pitch;player->arp_channel=entry.channel;
+            player->arp_velocity=hb_cp_release_velocity(player,&player->keys[entry.key]);
+            static const double gates[4]={0.25,0.5,0.75,0.9};
+            player->gate_beat=onset+rate*gates[hb_cp_settings(player)->gate];
+            player->next_beat=first&&hb_cp_settings(player)->phase==2?
+                (hb_cp_floor(player->beat/rate)+1.0)*rate:onset+rate;
+            player->order_state.step=(player->order_state.step+1)%cycle;
+            player->running=1;
+        }
+        if(player->running==1&&player->beat<player->gate_beat){
+            /* A replacement pool may no longer contain this already-emitted
+               latched hit. Let it finish its gate; use the new pool next step. */
+            if((hb_cp_settings(player)->latch==1||hb_cp_settings(player)->latch==4)&&count)
+                desired[player->arp_channel][player->arp_note]=(uint8_t)player->arp_velocity;
+            for(int index=0;index<count;index++)if(entries[index].pitch==player->arp_note&&entries[index].channel==player->arp_channel)
+                desired[player->arp_channel][player->arp_note]=(uint8_t)hb_cp_release_velocity(player,&player->keys[entries[index].key]);
+        }
+    }else{
+        int count=hb_cp_entries(player,entries,1);
+        double duration=hb_cp_playback(player)==2?(hb_cp_settings(player)->spread<0?
+            hb_cp_division(-hb_cp_settings(player)->spread-1):hb_cp_settings(player)->spread/1000.0):0.0;
+        double now=hb_cp_settings(player)->spread<0?player->beat:player->seconds;
+        for(int index=0;index<count;index++){
+            hb_cp_entry entry=entries[index];
+            player->keys[entry.key].due[entry.voice]=now+(count>1?duration*index/(count-1):0.0);
+        }
+        for(int key=0;key<HB_CP_KEYS;key++){
+            hb_cp_key *owner=&player->keys[key];if(!owner->used||owner->rhythm_baked)continue;
+            owner->fresh=0;
+            for(int voice=0;voice<owner->count;voice++){
+                if(now+1e-9>=owner->due[voice])owner->started|=1u<<voice;
+                if(owner->started&(1u<<voice))desired[owner->channel][owner->notes[voice]]=(uint8_t)owner->velocity;
+            }
+        }
+    }
+    return hb_cp_diff(player,desired,output,lengths,capacity);
+}
+#endif

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="766" height="228" viewBox="0 0 766 228">
+<title>Auto-chord trigger strum and cancellation</title>
+<g font-family="DejaVuSans" font-size="10" fill="#13283c">
+<text x="180" y="16">Time after buffered source ON releases (ms)</text>
+<path d="M180 33H740 M180 29V37 M320 29V37 M460 29V37 M600 29V37 M740 29V37" fill="none" stroke="#93a5b3"/>
+<text x="176" y="50">0</text><text x="312" y="50">50</text><text x="450" y="50">100</text><text x="590" y="50">150</text><text x="730" y="50">200</text>
+<text x="0" y="84">Cmaj7 gesture</text><rect x="180" y="69" width="336" height="20" fill="#007f83"/>
+<text x="185" y="83" fill="white">Construct C / E / G / B at release</text>
+<text x="0" y="122">Strummed notes</text>
+<path d="M180 116H516 M320 136H516 M460 156H516" fill="none" stroke="#2865ad" stroke-width="4"/>
+<text x="184" y="109">C</text><text x="324" y="129">E</text><text x="464" y="149">G</text>
+<path d="M600 173L608 181 M608 173L600 181" stroke="#c16a13" stroke-width="2"/><text x="615" y="181">B cancelled</text>
+<path d="M516 62V188" stroke="#c16a13"/><text x="483" y="205">OFF at 120 ms</text>
+<text x="0" y="226">Once + Momentary; 150 ms spread; source OFF releases C/E/G and cancels pending B.</text>
+</g></svg>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="766" height="234" viewBox="0 0 766 234">
+<title>Earliest eligible boundary wins</title>
+<text x="185.00" y="18.00" font-family="DejaVuSans" font-size="9" fill="#13283c">Time (ms) at 120 BPM</text>
+<line x1="185.00" y1="35.00" x2="750.00" y2="35.00" stroke="#93a5b3"/>
+<line x1="185.00" y1="31.00" x2="185.00" y2="39.00" stroke="#93a5b3"/>
+<text x="174.00" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1250</text>
+<line x1="326.25" y1="31.00" x2="326.25" y2="39.00" stroke="#93a5b3"/>
+<text x="315.25" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1500</text>
+<line x1="467.50" y1="31.00" x2="467.50" y2="39.00" stroke="#93a5b3"/>
+<text x="456.50" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">1750</text>
+<line x1="608.75" y1="31.00" x2="608.75" y2="39.00" stroke="#93a5b3"/>
+<text x="597.75" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">2000</text>
+<line x1="750.00" y1="31.00" x2="750.00" y2="39.00" stroke="#93a5b3"/>
+<text x="739.00" y="52.00" font-family="DejaVuSans" font-size="8" fill="#13283c">2250</text>
+<text x="0.00" y="89.00" font-family="DejaVuSans" font-size="10" fill="#13283c">A  Chord Grid only</text>
+<line x1="185.00" y1="85.00" x2="750.00" y2="85.00" stroke="#dfe7ed"/>
+<text x="0.00" y="144.00" font-family="DejaVuSans" font-size="10" fill="#13283c">B  Add Quant Grid 1/8</text>
+<line x1="185.00" y1="140.00" x2="750.00" y2="140.00" stroke="#dfe7ed"/>
+<text x="0.00" y="199.00" font-family="DejaVuSans" font-size="10" fill="#13283c">C  Outside window</text>
+<line x1="185.00" y1="195.00" x2="750.00" y2="195.00" stroke="#dfe7ed"/>
+<rect x="411.00" y="75.00" width="197.75" height="20" rx="3" fill="#c16a13"/>
+<text x="416.00" y="88.00" font-family="DejaVuSans" font-size="9" fill="white">window: 350 ms</text>
+<line x1="439.25" y1="113.00" x2="608.75" y2="113.00" stroke="#c16a13"/>
+<line x1="603.75" y1="110.00" x2="608.75" y2="113.00" stroke="#c16a13"/>
+<line x1="603.75" y1="116.00" x2="608.75" y2="113.00" stroke="#c16a13"/>
+<text x="442.25" y="106.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">300 ms</text>
+<circle cx="608.75" cy="113" r="3" fill="#2865ad"/>
+<text x="613.75" y="130.00" font-family="DejaVuSans" font-size="9" fill="#2865ad">D</text>
+<rect x="269.75" y="130.00" width="197.75" height="20" rx="3" fill="#c16a13"/>
+<text x="274.75" y="143.00" font-family="DejaVuSans" font-size="9" fill="white">window: 350 ms</text>
+<line x1="439.25" y1="168.00" x2="467.50" y2="168.00" stroke="#c16a13"/>
+<line x1="462.50" y1="165.00" x2="467.50" y2="168.00" stroke="#c16a13"/>
+<line x1="462.50" y1="171.00" x2="467.50" y2="168.00" stroke="#c16a13"/>
+<text x="442.25" y="161.00" font-family="DejaVuSans" font-size="9" fill="#c16a13">50 ms</text>
+<circle cx="467.50" cy="168" r="3" fill="#007f83"/>
+<text x="472.50" y="185.00" font-family="DejaVuSans" font-size="9" fill="#007f83">C: earlier quant point</text>
+<rect x="411.00" y="185.00" width="197.75" height="20" rx="3" fill="#c16a13"/>
+<text x="416.00" y="198.00" font-family="DejaVuSans" font-size="9" fill="white">Quant Grid Off</text>
+<circle cx="326.25" cy="195" r="3" fill="#007f83"/>
+<text x="331.25" y="212.00" font-family="DejaVuSans" font-size="9" fill="#007f83">immediate C</text>
+</svg>
