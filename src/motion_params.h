@@ -2,6 +2,7 @@ _Static_assert(__builtin_offsetof(hb_cp_config,extension_treatment)==16*sizeof(i
 #ifndef HB_MOTION_PARAMS_H
 #define HB_MOTION_PARAMS_H
 #include "motion_metadata.h"
+#include "field_params.h"
 /* The selected lane is an editor cursor. Holds are runtime-only, never state. */
 static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V (Dom)","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim","Live Key Center","Parallel Scale","Live Harmony Override","Override Harmony (Live + Recorded)","Secondary Fifth","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)","Recordable Key Center","Relative Key Center","Key Step Back","Key Return to Start","Clip Weave"};
 static const char *hb_mo_operation_name(int operation){return MO_OPERATIONS[operation==HB_MO_ABOVE?HB_MO_SECONDARY_II:operation];}
@@ -29,7 +30,9 @@ static const hb_motion_parameter MO_PARAMETERS[]={
     MO_FIELD(operation,0,65,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
-    MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM)
+    MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM),
+    MO_FIELD(field_target,0,2,0),MO_FIELD(field_low,-400,400,0),MO_FIELD(field_high,-400,400,0),
+    MO_FIELD(field_x,-1600,1600,0),MO_FIELD(field_y,-1600,1600,0),MO_FIELD(field_z,-1600,1600,0)
 };
 #undef MO_FIELD
 static int *hb_mo_field(hb_motion_lane *lane,int index){return (int *)((char *)lane+MO_PARAMETERS[index].offset);}
@@ -45,6 +48,7 @@ static int hb_mo_edit_label(const hb_motion_config *config,int lane,char *buffer
     return snprintf(buffer,(size_t)length,"%s %d: %s",group,number,name);
 }
 static int hb_mo_set(hb_motion_config *config,const char *key,const char *value){
+    if(hb_field_set(key,value))return 1;
     if(!strcmp(key,"motion_sequence_mask")){
         unsigned long long next=(unsigned)parse_i(value,0)&65535u;
         unsigned long long started=next&~config->sequence_held;
@@ -177,7 +181,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         }else if(!down)config->held&=~bit;
         return 1;
     }
-    for(int index=0;index<11;index++){
+    for(int index=0;index<(int)(sizeof(MO_PARAMETERS)/sizeof(*MO_PARAMETERS));index++){
         const hb_motion_parameter *spec=&MO_PARAMETERS[index];
         if(strcmp(key,spec->key))continue;
         int *field=hb_mo_field(&config->lanes[config->selected],index);
@@ -210,6 +214,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     return 0;
 }
 static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int length){
+    int field_result=hb_field_get(key,buffer,length);if(field_result>=0)return field_result;
     if(!strcmp(key,"motion_sequence_mask"))return snprintf(buffer,(size_t)length,"%llu",config->sequence_held);
     int assignment=hb_mo_slot_key(key,"motion_operation_");
     if(assignment>=0)return snprintf(buffer,(size_t)length,"%s",hb_mo_operation_name(config->lanes[assignment].operation));
@@ -328,6 +333,22 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         used+=snprintf(buffer+used,(size_t)(length-used),"]");
         return used>=length?-1:used;
     }
+    if(!strcmp(key,"motion_field_active")){
+        for(int index=0;index<16;index++)if(config->lanes[index].field_target&&hb_mo_clip_operation(config->lanes[index].operation))return snprintf(buffer,(size_t)length,"1");
+        return snprintf(buffer,(size_t)length,"0");
+    }
+    if(!strcmp(key,"motion_field_values")){
+        int used=snprintf(buffer,(size_t)length,"nfv1");
+        for(int index=0;index<16;index++){
+            const hb_motion_lane *lane=&config->lanes[index];
+            if(!lane->field_target||!hb_mo_clip_operation(lane->operation))continue;
+            int sample=hb_mo_round(hb_nf_mix(lane->field_low,lane->field_high,hb_nf_sample(lane->field_x*.01,lane->field_y*.01,lane->field_z*.01)));
+            if(lane->field_target==1)sample=hb_mo_clamp(sample,0,100);
+            else if(lane->operation==HB_MO_WEAVE)sample=hb_mo_clamp(sample,1,16);
+            if(used<0||used>=length)return -1;
+            used+=snprintf(buffer+used,(size_t)(length-used),";%d,%d,%d",index,lane->field_target,sample);
+        }return used<length?used:-1;
+    }
     if(!strcmp(key,"motion_clip_config")||!strcmp(key,"motion_grid_config")){
         int used=snprintf(buffer,(size_t)length,"mca1");
         for(int index=0;index<HB_MOTION_LANES;index++){
@@ -370,7 +391,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         int operation=config->lanes[config->selected].operation;
         return hb_mo_edit_label(config,config->selected,buffer,length);
     }
-    for(int index=0;index<11;index++)if(!strcmp(key,MO_PARAMETERS[index].key)){
+    for(int index=0;index<(int)(sizeof(MO_PARAMETERS)/sizeof(*MO_PARAMETERS));index++)if(!strcmp(key,MO_PARAMETERS[index].key)){
         int field=*hb_mo_field(&config->lanes[config->selected],index);
         if(index==2&&config->lanes[config->selected].operation==HB_MO_HARMONY)return snprintf(buffer,(size_t)length,"%s",field>=50?"Next":"Current");
         if(index==2&&config->lanes[config->selected].operation==HB_MO_CHORD_STATE)return snprintf(buffer,(size_t)length,"%s",MO_STATE_PRESETS[hb_mo_clamp(field,0,2)]);
@@ -384,6 +405,12 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     return -1;
 }
 static int hb_mo_save(hb_motion_config *config,char *buffer,int length,int used){
+    used=hb_field_save(buffer,length,used);
+    for(int index=0;index<HB_MOTION_LANES;index++){
+        hb_motion_lane *lane=&config->lanes[index];
+        if(lane->field_target&&used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),";nm1,%d,%d,%d,%d,%d,%d,%d",index,lane->field_target,lane->field_low,lane->field_high,lane->field_x,lane->field_y,lane->field_z);
+    }
+
     if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),";named1");
     if(used<0||used>=length)return used;
     if(g_hb_hold_ms!=350)used+=snprintf(buffer+used,(size_t)(length-used),";gt1,%d",g_hb_hold_ms);
@@ -521,3 +548,15 @@ static void hb_mo_restore(hb_motion_config *config,const char *state){
     }
 }
 #endif
+
+static void hb_field_mapping_restore(hb_motion_config *config,const char *state){
+    hb_field_restore(state);
+    const char *mapping=state;
+    while((mapping=strstr(mapping,";nm1,"))){
+        int index,target,low,high,x,y,z;
+        if(sscanf(mapping,";nm1,%d,%d,%d,%d,%d,%d,%d",&index,&target,&low,&high,&x,&y,&z)==7&&index>=0&&index<HB_MOTION_LANES&&target>=0&&target<=2&&low>=-400&&low<=400&&high>=-400&&high<=400&&x>=-1600&&x<=1600&&y>=-1600&&y<=1600&&z>=-1600&&z<=1600){
+            hb_motion_lane *lane=&config->lanes[index];lane->field_target=target;lane->field_low=low;lane->field_high=high;lane->field_x=x;lane->field_y=y;lane->field_z=z;
+        }mapping+=5;
+    }
+
+}

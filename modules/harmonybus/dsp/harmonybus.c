@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.282-dev.2"
+#define HB_VERSION "0.2.283-dev.1"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -505,7 +505,7 @@ static int hb_sync_conductor_from_monitor(Inst *instance){
     (void)generation;
     return changed;
 }
-static void ensure_init(void){if(g_init)return;memset(g_render_owners,0,sizeof(g_render_owners));hb_override_reset();hb_sc_reset();memset(&g_key_context,0,sizeof(g_key_context));g_key_armed=g_parallel_on=g_parallel_latch=g_parallel_manual=g_key_lane_parallel=0;g_parallel_scale=2;g_key_preview[0]=0;g_key_scale_mode=1;g_key_conductor_travel=3;g_key_settings_restored=0;g_key_follower_travel=0;hb_touch_defaults();g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_ar_bank_ready=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=7;g_bus.follower_scale=1;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
+static void ensure_init(void){if(g_init)return;hb_nf_reset();memset(g_render_owners,0,sizeof(g_render_owners));hb_override_reset();hb_sc_reset();memset(&g_key_context,0,sizeof(g_key_context));g_key_armed=g_parallel_on=g_parallel_latch=g_parallel_manual=g_key_lane_parallel=0;g_parallel_scale=2;g_key_preview[0]=0;g_key_scale_mode=1;g_key_conductor_travel=3;g_key_settings_restored=0;g_key_follower_travel=0;hb_touch_defaults();g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_ar_bank_ready=0;g_scale_restored=0;g_infer_cached_root=-1;g_scale_exceptions_restored=0;g_hb_hold_ms=350;g_hb_hold_restored=0;hb_pad_defaults();memset(g_humanize,0,sizeof(g_humanize));g_humanize_restored=0;g_conductor_block_ready=0;memset(&g_bus,0,sizeof(g_bus));g_bus.global_root_policy=2;hb_global_open();g_bus.sensor_sources=0;g_bus.chord_timescale=0;g_bus.stability=0;g_bus.chord_timing=0;g_bus.quant_timing=0;g_bus.anticipation=0;g_bus.boundary_buffer_ms=-3;g_buffer_restored=0;g_bus.analysis_release_ms=60;g_bus.follower_content_map=1;g_bus.follower_travel_map=7;g_bus.follower_scale=1;g_bus.approach_control=1;g_bus.approach_mode=0;g_bus.inference_window_ms=25;g_bus.context=0;g_bus.accidentals=0;g_bus.auto_spell_sharps=1;g_bus.auto_spell_locked=0;g_bus.clip_track=-1;g_bus.clip_slot=0;g_bus.clip_stage=0;g_bus.clip_context=1;g_bus.last_clock_status=-1;g_bus.last_clip_playhead=0.0;g_bus.have_last_clip_playhead=0;g_bus.next_predict=1;g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;g_lookahead_restored=0;g_bus.next_model_locked=0;g_bus.next_shift_active=0;g_bus.next_learning_count=0;g_bus.next_model_count=0;g_bus.next_last_playhead=0.0;g_bus.next_have_playhead=0;g_bus.next_learning_started=0;g_bus.next_learning_progress_beats=0.0;memset(&g_bus.observed_harmony,0,sizeof(g_bus.observed_harmony));g_bus.cache_rev=0;g_bus.sense_rev=0;g_bus.last_sense_count=0;g_bus.global_last_status=-1;g_bus.global_last_note=-1;g_bus.global_last_channel=-1;g_bus.global_last_instance=-1;g_bus.clip_loop_start=0.0;g_bus.clip_loop_end=4.0;for(int index=0;index<HB_MAX_INSTANCES;index++){memset(&g_pool[index],0,sizeof(g_pool[index]));g_pool[index].approach_pad_armed=1;for(int note=0;note<128;note++)g_pool[index].mapped[note]=-1;}g_init=1;}
 
 static char *hb_read_text_file(const char *path,long *size_out){
     FILE *file=fopen(path,"rb");if(!file)return 0;
@@ -5294,6 +5294,12 @@ static int hb_motion_pending_trigger(const Inst *instance){
 
 static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int capacity){
     Inst *instance=(Inst*)value;if(!instance)return 0;
+    /* One shared clock owner; never multiply motion by the instance count. */
+    int field_owner=0;while(field_owner<HB_MAX_INSTANCES&&!g_pool[field_owner].used)field_owner++;
+    if(field_owner<HB_MAX_INSTANCES&&instance==&g_pool[field_owner]&&frames>0&&sample_rate>0){
+        double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120;
+        hb_nf_advance((double)frames/sample_rate,bpm>0?bpm:120);
+    }
     hb_gesture_finish_use(instance);
     if(HB_SCOPED_TICK_SYNC&&g_conductor_block_ready)hb_auto_chord_repeat_sync(instance);
     else for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
@@ -6105,7 +6111,7 @@ static void hb_restore_state(Inst *instance,const char *state){
     hb_mo_repeat_cancel(&instance->motion_local,&instance->motion,1);
     hb_mo_repeat_cancel(&instance->motion_render,&instance->motion,1);hb_motion_flush_render(instance);
     if(!g_motion_settings_restored){
-        hb_mo_restore(&instance->motion,state);
+        hb_mo_restore(&instance->motion,state);hb_field_mapping_restore(&instance->motion,state);
         if(strstr(state,";m"))hb_motion_publish_settings(instance);
     }else {int host=instance->motion.host_capabilities;hb_mo_defaults(&instance->motion);instance->motion.host_capabilities=host;hb_motion_copy_settings(&instance->motion,&g_motion_settings);}
     instance->motion_local.enclosure_revision=0;instance->motion_local.performance_valid=0;
@@ -7502,6 +7508,7 @@ static void hb_reset_track_defaults(Inst *instance,int track){
 }
 static void set_param(void *value,const char *key,const char *parameter){
     Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
+    if(!strncmp(key,"field_",6)&&hb_field_set(key,parameter))return;
     if(!strncmp(key,"joint_pad_",10)){
         /* Reuse the normal control protocol without adopting existing notes.
            The UI addresses only root, melody and independently played bass. */

@@ -1,7 +1,7 @@
 name: Shared core candidate (no deployment)
 on:
   push:
-    branches: [work/conductor-surface-hardening]
+    branches: [work/conductor-surface-hardening, work/field-play]
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,6 +12,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Validate metadata
+        run: python3 scripts/verify_motion_metadata.py
       - name: Musical regression suites
         run: python3 scripts/run_native_suites.py --jobs 4
       - uses: actions/setup-node@v4
