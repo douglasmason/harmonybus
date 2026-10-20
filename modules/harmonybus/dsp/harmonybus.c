@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.282-dev.1"
+#define HB_VERSION "0.2.282-dev.2"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -5623,7 +5623,7 @@ if(hb_mo_set(&instance->motion,key,parameter)){
        ((instance->motion.gesture_once|hb_mo_pending_lanes(&instance->motion))&(1ULL<<next_lane))&&
        !(instance->motion.gesture_persistent&(1ULL<<next_lane))&&
        (instance->motion.lanes[next_lane].auto_off==1||instance->motion.lanes[next_lane].operation==HB_MO_HARMONY||
-        (instance->motion.lanes[next_lane].operation>=HB_MO_REPEAT&&instance->motion.lanes[next_lane].operation<=HB_MO_SPEED))&&
+        (hb_mo_clip_operation(instance->motion.lanes[next_lane].operation)))&&
        !(instance->next_touch_mask&(1ULL<<next_lane)))hb_next_touch_arm(instance,next_lane);
     instance->next_touch_mask&=(instance->motion.held|instance->motion.gesture_down|instance->motion.gesture_latched|hb_mo_pending_lanes(&instance->motion))&~instance->motion.gesture_persistent;
     if(!strncmp(key,"motion_",7)&&strncmp(key,"motion_gesture_",15)&&strncmp(key,"motion_hold_",12)&&
@@ -6879,7 +6879,7 @@ if(!strcmp(key,"motion_condition_status")){
     double beat=hb_motion_condition_position();
     const char *status="Ready";
     if(lane->operation==HB_MO_OFF)status="Off";
-    else if(lane->operation>=HB_MO_REPEAT&&lane->operation<=HB_MO_SPEED&&instance->motion.host_capabilities<2)status=instance->motion.host_capabilities?"Update Movy":"Requires Movy";
+    else if(hb_mo_clip_operation(lane->operation)&&instance->motion.host_capabilities<2)status=instance->motion.host_capabilities?"Update Movy":"Requires Movy";
     else if(hb_mo_enclosure_mask(lane->operation))status="Trigger";
     else if(instance->motion.held&(1u<<instance->motion.selected))status="Held";
     else if(instance->motion.bypass)status="Bypassed";

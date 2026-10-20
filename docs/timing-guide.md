@@ -1,4 +1,4 @@
-HarmonyBus 0.2.282-dev.1 preserves override bass inversions, adds on-demand source diagnostics and validates shared surface events. Development candidate; hardware acceptance pending.
+HarmonyBus 0.2.282-dev.2 preserves override bass inversions, adds on-demand source diagnostics and validates shared surface events. Development candidate; hardware acceptance pending.
 
 HarmonyBus 0.2.281 extracts the shared portable musical core without changing musical behavior. Preserves the 0.2.280 scale diagnostics, rhythm performance and Grid gates. Pair with Movy hbclean.202 for opt-in stock FM-1 USB MIDI input; no firmware update is required.
 
