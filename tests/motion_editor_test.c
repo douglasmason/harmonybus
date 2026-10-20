@@ -31,6 +31,8 @@ int main(void){
     assert(strstr(snapshot,",65,2,"));
     API.set_param(instance,"motion_amount","99");
     API.get_param(instance,"motion_amount",value,sizeof(value));assert(!strcmp(value,"16"));
+    API.set_param(instance,"motion_control_1","0");
+    API.get_param(instance,"motion_control_1",value,sizeof(value));assert(!strcmp(value,"1"));
     API.set_param(instance,"motion_host","");
     API.get_param(instance,"motion_punch",value,sizeof(value));assert(!strcmp(value,"Requires Movy"));
     API.destroy_instance(instance);
