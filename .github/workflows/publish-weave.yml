@@ -1,0 +1,23 @@
+name: Publish tested weave install point
+on:
+  push:
+    branches: [work/publish-weave-install]
+    paths: [.github/workflows/publish-weave.yml, scripts/publish_weave.py]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_COMMIT: d8a8ee1a0192e299dcdb7005e7f9393220c9fa4d
+      TESTED_RUN: '39455194843'
+      INSTALL_VERSION: 0.2.282-dev.2
+      PREVIOUS_VERSION: 0.2.281
+      ARTIFACT_NAME: comprehensive-release
+      ASSET_NAME: harmonybus-v0.2.282-dev.2-module.tar.gz
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tested bytes, publish release, and update installer
+        run: python3 scripts/publish_weave.py
