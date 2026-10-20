@@ -3,6 +3,7 @@ typedef struct {
     int active,pending;
     uint8_t held[2][128],eligible[2][128];
     uint16_t masks[2][128];
+    uint8_t bass[2][128]; /* Lowest resolved MIDI pitch, not lowest pitch class. */
     hb_harmony_t harmony,next;
     unsigned long long order,next_order,generation;
 } hb_override_owner;

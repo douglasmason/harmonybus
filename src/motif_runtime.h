@@ -96,7 +96,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
            Fit has a 1/64-note density floor even after very late triggers. */
         if(onset<now-1e-6||(step<phrase->anchor&&duration*fit<0.0625))continue;
         if(step==phrase->anchor&&event->count)key_anchor=onset;
-        int step_start=count,override_root=0,override_semantic=0;
+        int step_start=count,override_root=0,override_semantic=0,override_bass=128;
         unsigned override_mask=0;
         for(int voice=0;voice<event->count;voice++){
             int pitch=hb_mt_relative(event,event->notes[voice].pitch,anchor,target,scale);
@@ -160,6 +160,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
                 staged[count-1].intent_scale=phrase_key.approach_scale?scale:0;
                 if(generated==0)staged[count-1].trail_target=(unsigned short)((instance->role==0?hb_key_map(phrase_key,pitch):pitch)+1);
                 override_mask|=1u<<mod12(pitches[generated]);
+                if(pitches[generated]<override_bass)override_bass=pitches[generated];
             }
         }
         int owner_index=hb_override_index(instance);
@@ -170,6 +171,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
             staged[step_start].override_mask=override_mask;
             staged[step_start].override_root=override_root;
             staged[step_start].override_semantic=override_semantic;
+            staged[step_start].override_bass=override_bass;
             staged[step_start].override_generation=g_override[owner_index].generation;
         }
     }
@@ -297,7 +299,7 @@ static int hb_mt_emit(Inst *instance,hb_mt_scheduled *event,int on,uint8_t outpu
     if(on&&event->override_mask){
         int index=hb_override_index(instance);
         if(index>=0&&g_override[index].active&&g_override[index].generation==event->override_generation)
-            hb_override_offer(&g_override[index],event->override_mask,event->override_root,event->override_semantic);
+            hb_override_offer(&g_override[index],event->override_mask,event->override_root,event->override_semantic,event->override_bass);
     }
     int local_shared=0,render_shared=0;
     for(int index=0;index<HB_MT_SCHEDULE;index++){

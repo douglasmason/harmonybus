@@ -111,6 +111,68 @@ static void leading_tone_dominant(void){
     assert(mask==((1u<<7)|(1u<<10)|(1u<<1)|(1u<<4)));
     API.destroy_instance(source);
 }
+static void inversion_authority(void){
+    Inst *source=fixture(),*follower=API.create_instance("",0);
+    API.set_param(follower,"role","Follower");
+    hb_commit_observed_harmony(chord(2,1,0));
+    choose(source,HB_MO_HARMONY_OVERRIDE);
+    /* C/E: actual E below G and C, not pitch-class sorted C below E. */
+    int pitches[]={52,55,60};
+    g_override[0].eligible[0][60]=2;
+    hb_override_capture(source,60,1,0,pitches,3,(1u<<0)|(1u<<4)|(1u<<7));
+    hb_override_commit();
+    hb_harmony_t result=hb_render_harmony(follower);
+    assert(result.valid&&result.root_pc==0&&result.bass_pc==4);
+    assert(strstr(result.name,"/E"));
+    char snapshot[512];
+    assert(API.get_param(follower,"harmony_source_snapshot",snapshot,sizeof(snapshot))>0);
+    assert(strstr(snapshot,"\"source\":\"override\"")&&strstr(snapshot,"\"bass\":4"));
+    assert(strstr(snapshot,"\"observed_root\":2"));
+    unsigned long long order=g_override_order;
+    unsigned revision=follower->play_revision;
+    assert(API.get_param(follower,"harmony_source_snapshot",snapshot,sizeof(snapshot))>0);
+    assert(g_override_order==order&&follower->play_revision==revision);
+    assert(API.get_param(source,"harmony_source_snapshot",snapshot,sizeof(snapshot))>0);
+    assert(strstr(snapshot,"\"source\":\"conductor\"")); /* no self-feedback */
+    char short_buffer[8]="old";
+    assert(API.get_param(follower,"harmony_source_snapshot",short_buffer,sizeof(short_buffer))<0&&!short_buffer[0]);
+    /* A higher new gesture must not replace the bass of a held inversion. */
+    int upper=67;g_override[0].eligible[0][67]=2;
+    hb_override_capture(source,67,1,7,&upper,1,0);hb_override_commit();
+    assert(hb_render_harmony(follower).bass_pc==4);
+    /* Live and recorded owners keep independent bass registers. */
+    source->movy_playback=1;int low=43;g_override[0].eligible[1][43]=2;
+    hb_override_capture(source,43,1,7,&low,1,0);hb_override_commit();
+    assert(hb_render_harmony(follower).bass_pc==7);
+    hb_override_capture(source,43,0,0,0,0,0);source->movy_playback=0;
+    g_override[0].eligible[0][67]=2;
+    hb_override_capture(source,67,1,7,&upper,1,0);hb_override_commit();
+    assert(hb_render_harmony(follower).bass_pc==4);
+    release(source);
+    assert(hb_render_harmony(follower).root_pc==2);
+    assert(API.get_param(follower,"harmony_source_snapshot",snapshot,sizeof(snapshot))>0);
+    assert(strstr(snapshot,"\"source\":\"conductor\""));
+    API.destroy_instance(source);API.destroy_instance(follower);
+}
+static void motif_inversion_authority(void){
+    Inst *source=fixture(),*follower=API.create_instance("",0);
+    API.set_param(follower,"role","Follower");
+    source->travel_map=7;
+    hb_commit_observed_harmony(chord(2,1,0));
+    choose(source,HB_MO_LIVE_HARMONY_OVERRIDE);
+    hb_mt_phrase phrase={0};phrase.count=1;phrase.anchor=0;
+    phrase.events[0].count=3;phrase.events[0].duration=24;
+    phrase.events[0].notes[0]=(hb_mt_note){52,100};
+    phrase.events[0].notes[1]=(hb_mt_note){55,100};
+    phrase.events[0].notes[2]=(hb_mt_note){60,100};
+    position=0;
+    assert(hb_mt_schedule(source,&phrase,52,100,0,0,1,2,-1,0));
+    uint8_t output[64][3];int lengths[64];position=2;
+    hb_mt_tick(source,output,lengths,64);hb_override_commit();
+    hb_harmony_t result=hb_render_harmony(follower);
+    assert(result.valid&&result.root_pc==0&&result.bass_pc==4);
+    API.destroy_instance(source);API.destroy_instance(follower);position=0;
+}
 int main(void){
     Inst *first=fixture(),*second=API.create_instance("",0);
     API.set_param(second,"role","Follower");
@@ -156,6 +218,8 @@ int main(void){
     resolved_intent();
     scheduled_motif_intent();
     leading_tone_dominant();
+    inversion_authority();
+    motif_inversion_authority();
     puts("Harmony override: live/recorded ownership, overlap, underlying progression, lookahead, transpose and stop pass");
     return 0;
 }

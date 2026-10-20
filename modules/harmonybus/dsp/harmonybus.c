@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.281"
+#define HB_VERSION "0.2.282-dev.1"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -6579,6 +6579,25 @@ static hb_harmony_t hb_opening_harmony(void){
 }
 #include "../../../src/shared_context_runtime.h"
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+/* On-demand routing diagnostics for Remote UI/emulation. Read the production
+   resolver; never create a second state or poll from the audio tick. */
+if(!strcmp(key,"harmony_source_snapshot")){
+    hb_harmony_t authority={0},effective=hb_render_harmony(instance);
+    int overriding=hb_override_read(instance,&authority),pending=0,candidates=0;
+    for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_pool[index].role==1&&g_override[index].active){
+        pending+=g_override[index].pending!=0;candidates+=g_override[index].harmony.valid!=0;
+    }
+    int winner=overriding?g_override_winner:-1;
+    int written=snprintf(buffer,(size_t)length,
+        "{\"schema\":1,\"source\":\"%s\",\"owner\":%d,\"track\":%d,\"scope\":\"%s\",\"root\":%d,\"bass\":%d,\"observed_root\":%d,\"observed_bass\":%d,\"candidates\":%d,\"pending\":%d}",
+        overriding?"override":"conductor",winner,winner<0?-1:g_pool[winner].movy_track,
+        winner<0?"none":g_override[winner].active==1?"live":"input",
+        effective.valid?effective.root_pc:-1,effective.valid?effective.bass_pc:-1,
+        g_bus.observed_harmony.valid?g_bus.observed_harmony.root_pc:-1,
+        g_bus.observed_harmony.valid?g_bus.observed_harmony.bass_pc:-1,candidates,pending);
+    if(written<0||written>=length){buffer[0]=0;return -1;}
+    return written;
+}
 /* Final MIDI pitches only: cross-actor overlays must not re-render these through
    another actor's travel or feed them back into harmony inference. */
 if(!strcmp(key,"pad_output")){

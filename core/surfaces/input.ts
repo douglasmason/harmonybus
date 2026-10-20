@@ -18,7 +18,10 @@ export class SurfaceInput {
         this.serial = initialSerial;
     }
     enqueue(source: SurfaceSource, event: SurfaceEvent): boolean {
-        if (![0,1,2].includes(source) || !Object.values(event).every(Number.isInteger) ||
+        // Validate every required field explicitly. Object.values misses absent
+        // fields, allowing one malformed event to invalidate an entire batch.
+        if (![0,1,2].includes(source) || !event ||
+            ![event.track,event.status,event.note,event.pitch,event.value,event.shift,event.row,event.full].every(Number.isInteger) ||
             event.track < 0 || event.track > 15 || ![128,144,160].includes(event.status) ||
             event.note < 0 || event.note > 127 || event.pitch < 0 || event.pitch > 127 ||
             event.value < 0 || event.value > 127 || event.row < -1 || event.row > 3 ||
@@ -34,6 +37,7 @@ export class SurfaceInput {
         this.queue.push({ ...event, source, serial: ++this.serial }); return true;
     }
     release(source: SurfaceSource): void {
+        if (![0,1,2].includes(source)) return;
         this.queue = this.queue.filter(event => event.source !== source);
         this.fences[source] = ++this.serial;
     }
@@ -55,7 +59,8 @@ export class SurfaceInput {
 
 /** Stock-firmware MIDI keyboard adapter. No guessed FM1 CC, LED or SysEx protocol. */
 export function fm1NoteEvent(data: readonly number[], channel: number, track: number): SurfaceEvent | null {
-    if (data.length !== 3 || !data.every(Number.isInteger) || !Number.isInteger(channel) || channel < 0 || channel > 15) return null;
+    if (data.length !== 3 || ![data[0],data[1],data[2]].every(Number.isInteger) || !Number.isInteger(channel) || channel < 0 || channel > 15 ||
+        !Number.isInteger(track) || track < 0 || track > 15) return null;
     const [status,note,value] = data, kind = status & 240;
     if (status < 128 || status > 175 || (status & 15) !== channel || note < 0 || note > 127 ||
         value < 0 || value > 127 || ![128,144,160].includes(kind)) return null;
