@@ -42,7 +42,8 @@ def main() -> None:
         assert len(proof_files) == 1, proof_files
         proof: dict[str, Any] = json.loads(proof_files[0].read_text())
         assert proof['comprehensive'] is True and proof['version'] == version
-        assert proof['commit'] == source_commit and str(proof['run_id']) == run_id
+        source: dict[str, Any] = api(f'repos/{repository}/git/commits/{source_commit}')
+        assert proof['tree'] == source['tree']['sha'] and str(proof['run_id']) == run_id
         assert proof['files'][archive.name] == archive_digest
     else:
         assert (package_root / 'SHA256SUMS').read_text().split()[0] == archive_digest
