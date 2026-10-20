@@ -1,6 +1,0 @@
-cmake_minimum_required(VERSION 3.16)
-project(harmonybus_core VERSION 0.1.0 LANGUAGES C)
-add_library(harmonybus_core STATIC src/harmony_core.c)
-target_include_directories(harmonybus_core PUBLIC include)
-target_compile_features(harmonybus_core PUBLIC c_std_11)
-set_target_properties(harmonybus_core PROPERTIES POSITION_INDEPENDENT_CODE ON)

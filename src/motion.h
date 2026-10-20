@@ -574,7 +574,7 @@ static int hb_mo_value_at(const hb_motion_config *config,int index,double beat,d
     /* Recorded overrides returned above; the live lane can be read directly. */
     const hb_motion_lane *lane=&config->lanes[index];
     int held=((config->held|config->sequence_held)&(1ULL<<index))!=0;
-    double field_value=lane->field_target?hb_nf_mix(lane->field_low,lane->field_high,hb_nf_sample(lane->field_x*.01,lane->field_y*.01,lane->field_z*.01)):0;
+    double field_value=lane->field_target?hb_nf_mix(lane->field_low,lane->field_high,hb_nf_output(index,hb_nf_sample(lane->field_x*.01,lane->field_y*.01,lane->field_z*.01))):0;
     int probability=lane->field_target==1?hb_mo_clamp(hb_mo_round(field_value),0,100):lane->probability;
     if(!hb_mo_condition(config,index,condition_beat)||(!held&&!probability))return 0;
     double grid=hb_mo_grid(lane->grid),cycle=hb_mo_cycle(lane->cycle);

@@ -24,5 +24,23 @@ int main(void){
     hb_motion_config restored;hb_mo_defaults(&restored);hb_mo_restore(&restored,saved);hb_field_mapping_restore(&restored,saved);
     assert(restored.lanes[0].field_target==1&&restored.lanes[0].field_high==100);
     char snapshot[1024];double before=g_hb_field.position[0];assert(API.get_param(instance,"field_view",snapshot,sizeof(snapshot))>0);assert(g_hb_field.position[0]==before);
+    const char *held="fo1,2500,7500,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1";
+    const char *released="fo1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1";
+    API.set_param(instance,"field_outputs",held);hb_nf_advance(.01,120);
+    assert(fabs(hb_nf_output(0,.8)-.25)<1e-9&&fabs(hb_nf_output(1,.2)-.75)<1e-9);
+    API.set_param(instance,"field_outputs_remote","fo1,9000,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1");hb_nf_advance(.01,120);
+    assert(fabs(hb_nf_output(0,.8)-.9)<1e-9);
+    API.set_param(instance,"field_outputs",held);hb_nf_advance(.01,120);assert(fabs(hb_nf_output(0,.8)-.9)<1e-9);
+    API.set_param(instance,"field_outputs_remote",released);hb_nf_advance(.01,120);assert(fabs(hb_nf_output(0,.8)-.25)<1e-9);
+    API.set_param(instance,"field_outputs","fo1,8000");hb_nf_advance(.01,120);assert(fabs(hb_nf_output(0,.8)-.25)<1e-9);
+    API.set_param(instance,"motion_field_target","2");API.set_param(instance,"motion_field_low","0");API.set_param(instance,"motion_field_high","100");
+    assert(hb_mo_value(&instance->motion,0,0,0,&value)&&fabs(value-25)<1e-9);
+    API.set_param(instance,"field_glide","100");API.set_param(instance,"field_outputs",released);hb_nf_advance(.01,120);
+    assert(hb_nf_output(0,.8)>.25&&hb_nf_output(0,.8)<.8);
+    API.set_param(instance,"field_glide","0");API.set_param(instance,"field_outputs",held);
+    for(int index=0;index<20;index++)hb_nf_advance(.1,120);assert(hb_nf_output(0,.8)==.8);
+    API.set_param(instance,"field_display","1");API.set_param(instance,"field_orientation","1");
+    API.get_param(instance,"state",saved,sizeof(saved));assert(strstr(saved,";nv1,1,1,0")&&!strstr(saved,"fo1"));
+    before=g_hb_field.position[0];assert(API.get_param(instance,"field_outputs_view",snapshot,sizeof(snapshot))>0);assert(before==g_hb_field.position[0]);
     puts("field: deterministic continuity, stop/reverse/release, timeout, probability, persistence and read-only previews pass");
 }

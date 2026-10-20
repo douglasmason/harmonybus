@@ -24,8 +24,19 @@ typedef struct {
     int active;
 } hb_noise_field;
 static hb_noise_field g_hb_field={16,0,0,3,50,100,1,100,1,{0,0,0},1,1,1,1,0,0};
+typedef struct { double value,target,weight,lease; } hb_field_override;
+static hb_field_override g_hb_field_outputs[16];
+typedef struct { double target,lease; unsigned order; } hb_field_input;
+static hb_field_input g_hb_field_inputs[2][16];
+static unsigned g_hb_field_input_order;
+static int g_hb_field_view,g_hb_field_orientation,g_hb_field_bank;
 static int g_hb_field_restored;
-static void hb_nf_reset(void){hb_noise_field fresh={16,0,0,3,50,100,1,100,1,{0,0,0},1,1,1,1,0,0};g_hb_field=fresh;g_hb_field_restored=0;}
+/* Runtime-only overlays, shared by live and clip readers; never saved. */
+static double hb_nf_output(int index,double raw){
+    if(index<0||index>=16)return raw;
+    return hb_nf_mix(raw,g_hb_field_outputs[index].value,g_hb_field_outputs[index].weight);
+}
+static void hb_nf_reset(void){hb_noise_field fresh={16,0,0,3,50,100,1,100,1,{0,0,0},1,1,1,1,0,0};g_hb_field=fresh;g_hb_field_restored=0;memset(g_hb_field_outputs,0,sizeof(g_hb_field_outputs));memset(g_hb_field_inputs,0,sizeof(g_hb_field_inputs));g_hb_field_input_order=0;g_hb_field_view=g_hb_field_orientation=g_hb_field_bank=0;}
 static double hb_nf_sample(double x,double y,double z){
     const hb_noise_field *field=&g_hb_field;
     double scale=hb_nf_bound(field->scale*.01*field->zoom,.01,100),sum=0,weight=1,total=0;
@@ -42,6 +53,19 @@ static void hb_nf_advance(double seconds,double bpm){
     hb_noise_field *field=&g_hb_field;if(seconds<=0||seconds>1)return;
     if(field->lease>0){field->lease-=seconds;if(field->lease<=0){field->target_rate=field->target_zoom=1;}}
     double blend=field->glide?hb_nf_bound(seconds*1000/field->glide,0,1):1;
+    for(int index=0;index<16;index++){
+        hb_field_override *output=&g_hb_field_outputs[index];
+        hb_field_input *selected=0;
+        for(int source=0;source<2;source++){
+            hb_field_input *input=&g_hb_field_inputs[source][index];
+            input->lease=hb_nf_bound(input->lease-seconds,0,1.5);
+            if(input->lease>0&&(!selected||input->order>selected->order))selected=input;
+        }
+        output->lease=selected?selected->lease:0;
+        if(selected){output->target=selected->target;if(output->weight==0)output->value=output->target;}
+        output->weight=hb_nf_mix(output->weight,output->lease>0?1:0,blend);
+        output->value=hb_nf_mix(output->value,output->target,blend);
+    }
     field->rate=hb_nf_mix(field->rate,field->target_rate,blend);field->zoom=hb_nf_mix(field->zoom,field->target_zoom,blend);
     static const double directions[8][2]={{1,0},{.707106781,.707106781},{0,1},{-.707106781,.707106781},{-1,0},{-.707106781,-.707106781},{0,-1},{.707106781,-.707106781}};
     double advance=seconds*bpm/(60*4*field->speed)*field->rate;

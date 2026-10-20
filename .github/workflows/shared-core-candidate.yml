@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Remote output strip controls
+        run: node tests/field_web_test.mjs
       - name: Shared surface transport validation
         run: node --experimental-transform-types tests/surface_input_test.mjs
       - name: Differential portable core contract
