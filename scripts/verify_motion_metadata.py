@@ -14,7 +14,9 @@ def main() -> None:
                         str(root / 'tests/motion_metadata_dump.c'), str(root / 'src/harmony_core.c'), '-lm', '-o', str(executable)], check=True)
         output: str = subprocess.check_output([str(executable)], text=True)
     maps: list[dict] = [{parameter['key']: parameter for parameter in json.loads(line)} for line in output.splitlines()]
-    map_module: dict = json.loads((root / 'modules/harmonybus/module.json').read_text())
+    manifest: Path = root / 'modules/harmonybus/module.json'
+    assert manifest.stat().st_size < 65536, 'Schwung chain loader requires module.json below 64 KiB'
+    map_module: dict = json.loads(manifest.read_text())
     map_canonical: dict = {parameter['key']: parameter for parameter in map_module['capabilities']['chain_params']}
     for map_metadata in maps:
         assert len(map_metadata['motion_lane']['options']) == 51
