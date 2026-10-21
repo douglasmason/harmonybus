@@ -45,6 +45,15 @@ int main(void){
     memset(&g_motifs[0],0,sizeof(g_motifs[0]));hb_mt_choice_advance(instance,.01);
     assert(!instance->motif.choice.held&&!instance->motif.choice.latched);
     assert(hb_mt_choice_view(instance,slots,probabilities)==2);
+    /* A full scheduler must not leave an undrawn first tap active. */
+    instance->motif.tap_active=0;instance->motif.cancel=0;
+    for(int index=0;index<HB_MT_SCHEDULE;index++)instance->motif.events[index].used=1;
+    instance->motif.pending=HB_MT_SCHEDULE;
+    unsigned before=instance->motif.choice.draws;
+    assert(!hb_mt_choice_launch(instance,0,67,100,0));
+    assert(instance->motif.choice.draws==before&&!instance->motif.tap_active);
+    memset(instance->motif.events,0,sizeof(instance->motif.events));instance->motif.pending=0;
+    assert(hb_mt_choice_launch(instance,0,67,100,0));assert(instance->motif.choice.draws==before+1);
     API.destroy_instance(instance);
     puts("Motif probabilities: exact edits, leases, latch, release, phrase snapshots, previews and persistence passed");
 }

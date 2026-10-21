@@ -89,7 +89,7 @@ static int hb_mt_choice_launch(Inst *instance,int lane,int input,int velocity,in
     int succeeded=hb_mt_launch(instance,input,velocity,channel);
     editor->preset=old_preset;editor->selected=old_selected;
     if(succeeded){runtime->choice.draws++;runtime->choice.last_slot=slots[selected];}
-    else if(!runtime->pending)runtime->tap_active=0;
+    else runtime->tap_active=0; /* A failed first tap must retry as a new draw. */
     return succeeded;
 }
 #endif
