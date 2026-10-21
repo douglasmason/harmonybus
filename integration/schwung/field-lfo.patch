@@ -1,9 +1,9 @@
 diff --git a/src/host/field_source.h b/src/host/field_source.h
 new file mode 100644
-index 00000000..e293b3c8
+index 00000000..24ee8dac
 --- /dev/null
 +++ b/src/host/field_source.h
-@@ -0,0 +1,9 @@
+@@ -0,0 +1,11 @@
 +/* Optional process-wide field source. No host_api_v1_t ABI changes. */
 +#ifndef SCHWUNG_FIELD_SOURCE_H
 +#define SCHWUNG_FIELD_SOURCE_H
@@ -12,13 +12,15 @@ index 00000000..e293b3c8
 +#define LFO_FIELD_END (LFO_FIELD_FIRST + SCHWUNG_FIELD_CHANNELS)
 +typedef int (*schwung_field_publish_fn)(const void *owner, const float *values, int count);
 +typedef int (*schwung_field_read_fn)(int channel, float *value);
++void schwung_field_begin_block(void);
++typedef unsigned long long (*schwung_field_clock_fn)(void);
 +#endif
 diff --git a/src/host/field_source_runtime.h b/src/host/field_source_runtime.h
 new file mode 100644
-index 00000000..5abcd042
+index 00000000..c1f1d223
 --- /dev/null
 +++ b/src/host/field_source_runtime.h
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,71 @@
 +/* Include in exactly one host translation unit. Values, never plugin pointers,
 + * cross this boundary. Ownership is an opaque identity, never dereferenced.
 + * Single-word atomic samples keep readers wait-free, even during publication.
@@ -29,9 +31,20 @@ index 00000000..5abcd042
 +#include <stdint.h>
 +#include <time.h>
 +#include <math.h>
++static unsigned long long field_epoch;
++__attribute__((visibility("default")))
++unsigned long long schwung_field_clock_v1(void) { return __atomic_load_n(&field_epoch, __ATOMIC_RELAXED); }
 +static unsigned field_gate;
 +static const void *field_owner;
 +static uint64_t field_samples[SCHWUNG_FIELD_CHANNELS];
++static uint64_t field_pending[SCHWUNG_FIELD_CHANNELS];
++/* Commit once before any chain renders. Every assignment sees the same sample
++ * during a block, independent of the HB instance's position in the render order. */
++void schwung_field_begin_block(void) {
++    for (int channel=0; channel<SCHWUNG_FIELD_CHANNELS; channel++)
++        __atomic_store_n(&field_samples[channel], __atomic_load_n(&field_pending[channel], __ATOMIC_ACQUIRE), __ATOMIC_RELEASE);
++    __atomic_add_fetch(&field_epoch, 1, __ATOMIC_RELAXED);
++}
 +_Static_assert(__atomic_always_lock_free(8, 0), "Field samples require lock-free 64-bit atomics");
 +static uint64_t field_stamp_ms;
 +static uint64_t field_now_ms(void) {
@@ -48,8 +61,10 @@ index 00000000..5abcd042
 +    if (accepted) {
 +        if (!count) {
 +            field_owner = 0; field_stamp_ms = 0;
-+            for (int channel=0; channel<SCHWUNG_FIELD_CHANNELS; channel++)
++            for (int channel=0; channel<SCHWUNG_FIELD_CHANNELS; channel++) {
++                __atomic_store_n(&field_pending[channel], 0, __ATOMIC_RELEASE);
 +                __atomic_store_n(&field_samples[channel], 0, __ATOMIC_RELEASE);
++            }
 +        }
 +        else {
 +            field_owner = owner;
@@ -59,7 +74,7 @@ index 00000000..5abcd042
 +                union { float value; uint32_t bits; } sample;
 +                sample.value = !isfinite(value) ? 0.5f : fminf(1.0f, fmaxf(0.0f, value));
 +                uint64_t packed = ((uint64_t)(uint32_t)field_stamp_ms << 32) | sample.bits;
-+                __atomic_store_n(&field_samples[channel], packed, __ATOMIC_RELEASE);
++                __atomic_store_n(&field_pending[channel], packed, __ATOMIC_RELEASE);
 +            }
 +        }
 +    }
@@ -162,7 +177,7 @@ index afba9c7b..885a0efd 100644
  
  /* ============================================================================
 diff --git a/src/host/shadow_chain_mgmt.c b/src/host/shadow_chain_mgmt.c
-index 0b6075da..14340714 100644
+index 0b6075da..395e9477 100644
 --- a/src/host/shadow_chain_mgmt.c
 +++ b/src/host/shadow_chain_mgmt.c
 @@ -515,6 +515,8 @@ static int scene_host_view(const char *target, const char *param, char *buf, int
@@ -174,7 +189,26 @@ index 0b6075da..14340714 100644
  void chain_mgmt_init(const chain_mgmt_host_t *h) {
      host = *h;
      shadow_scene_host_bind(&scene_host_io);
-@@ -4572,6 +4574,8 @@ static int mfx_param_strip_suffix(const char *param_key,
+@@ -4569,13 +4571,31 @@ static int mfx_param_strip_suffix(const char *param_key,
+     return 1;
+ }
+ 
++static void mfx_lfo_clear_contribution(int index) {
++    lfo_state_t *lfo=&shadow_master_fx_lfos[index];
++    if (mfx_lfo_base_valid[index]) {
++        int slot=master_fx_route_target(lfo->target,MASTER_FX_SLOTS);
++        if (slot>=0 && slot<MASTER_FX_SLOTS) {
++            master_fx_slot_t *fx=&shadow_master_fx_slots[slot];
++            if (fx->instance && fx->api && fx->api->set_param) {
++                char value[32];snprintf(value,sizeof(value),"%.6f",mfx_lfo_base_value[index]);
++                fx->api->set_param(fx->instance,lfo->param,value);
++            }
++        }
++        mfx_lfo_base_valid[index]=0;
++    }
++    lfo->previous_valid=0;
++}
++
  void shadow_master_fx_lfo_tick(int frames) {
      static uint64_t last_emit_ms[MASTER_FX_LFO_COUNT] = {0};
      float sample_rate = 44100.0f;
@@ -183,7 +217,12 @@ index 0b6075da..14340714 100644
  
      for (int i = 0; i < MASTER_FX_LFO_COUNT; i++) {
          lfo_state_t *lfo = &shadow_master_fx_lfos[i];
-@@ -4629,7 +4633,15 @@ void shadow_master_fx_lfo_tick(int frames) {
+-        if (!lfo->enabled || lfo->target[0] == '\0' || lfo->param[0] == '\0') continue;
++        if (!lfo->enabled || lfo->target[0] == '\0' || lfo->param[0] == '\0') { mfx_lfo_clear_contribution(i); continue; }
+ 
+         /* Parse target: "fx<N>" for FX slots, "lfo1"/"lfo2" for the other LFO.
+          *
+@@ -4629,7 +4649,15 @@ void shadow_master_fx_lfo_tick(int frames) {
          /* Compute waveform with phase offset */
          double effective_phase = fmod(lfo->phase + (double)lfo->phase_offset, 1.0);
          float signal = lfo_compute_shape(lfo->shape, effective_phase, lfo);
@@ -199,7 +238,7 @@ index 0b6075da..14340714 100644
          /* Determine param min/max and type */
          float p_min = 0.0f, p_max = 1.0f;
          int p_is_float = 1;
-@@ -4722,6 +4734,7 @@ void shadow_master_fx_lfo_tick(int frames) {
+@@ -4722,6 +4750,7 @@ void shadow_master_fx_lfo_tick(int frames) {
              mod_signal = (signal + 1.0f) * 0.5f;
          }
  
@@ -207,7 +246,7 @@ index 0b6075da..14340714 100644
          float base = mfx_lfo_base_value[i];
          float range_span = p_max - p_min;
          float range_scale = lfo->bipolar ? (0.5f * range_span) : range_span;
-@@ -4749,6 +4762,7 @@ void shadow_master_fx_lfo_tick(int frames) {
+@@ -4749,6 +4778,7 @@ void shadow_master_fx_lfo_tick(int frames) {
              mfx->api->set_param(mfx->instance, lfo->param, mod_str);
          }
      }
@@ -215,15 +254,17 @@ index 0b6075da..14340714 100644
  }
  
  /* ============================================================================
-@@ -5892,6 +5906,7 @@ void shadow_inprocess_handle_param_request(void) {
+@@ -5892,7 +5922,9 @@ void shadow_inprocess_handle_param_request(void) {
                  /* A live turn on a field a scene drives: anchor it. */
                  if (scene_driven) shadow_scene_host_note_write(scene_t, lfo_param, shadow_param->value);
                  if (strcmp(lfo_param, "enabled") == 0) {
 +                    lfo->previous_valid = 0;
                      lfo->enabled = atoi(shadow_param->value);
++                    if (!lfo->enabled) mfx_lfo_clear_contribution(lfo_idx);
                      if (lfo->enabled) {
                          if (lfo->rate_hz < 0.1f) lfo->rate_hz = 1.0f;
-@@ -5900,6 +5915,7 @@ void shadow_inprocess_handle_param_request(void) {
+                         if (lfo->depth == 0.0f && !lfo->target[0] && !lfo->param[0]) {
+@@ -5900,6 +5932,7 @@ void shadow_inprocess_handle_param_request(void) {
                          }
                      }
                  } else if (strcmp(lfo_param, "shape") == 0) {
@@ -231,20 +272,20 @@ index 0b6075da..14340714 100644
                      lfo->shape = atoi(shadow_param->value);
                      if (lfo->shape < 0) lfo->shape = 0;
                      if (lfo->shape >= LFO_NUM_SHAPES) lfo->shape = LFO_NUM_SHAPES - 1;
-@@ -5925,10 +5941,12 @@ void shadow_inprocess_handle_param_request(void) {
+@@ -5925,10 +5958,12 @@ void shadow_inprocess_handle_param_request(void) {
                      if (lfo->phase_offset < 0.0f) lfo->phase_offset = 0.0f;
                      if (lfo->phase_offset > 1.0f) lfo->phase_offset = 1.0f;
                  } else if (strcmp(lfo_param, "target") == 0) {
-+                    lfo->previous_valid = 0;
++                    mfx_lfo_clear_contribution(lfo_idx);
                      strncpy(lfo->target, shadow_param->value, sizeof(lfo->target) - 1);
                      lfo->target[sizeof(lfo->target) - 1] = '\0';
                      mfx_lfo_base_valid[lfo_idx] = 0;  /* Re-snapshot base */
                  } else if (strcmp(lfo_param, "target_param") == 0) {
-+                    lfo->previous_valid = 0;
++                    mfx_lfo_clear_contribution(lfo_idx);
                      strncpy(lfo->param, shadow_param->value, sizeof(lfo->param) - 1);
                      lfo->param[sizeof(lfo->param) - 1] = '\0';
                      mfx_lfo_base_valid[lfo_idx] = 0;  /* Re-snapshot base */
-@@ -5943,7 +5961,9 @@ void shadow_inprocess_handle_param_request(void) {
+@@ -5943,7 +5978,9 @@ void shadow_inprocess_handle_param_request(void) {
                  shadow_param->result_len = 0;
              } else if (req_type == 2) {  /* GET */
                  char result[256] = {0};
@@ -369,6 +410,26 @@ index 35425168..807b21b0 100644
      g_host = host;
  
      if (host->api_version != MOVE_PLUGIN_API_VERSION) {
+diff --git a/src/schwung_shim.c b/src/schwung_shim.c
+index 38b06c7a..54f16297 100644
+--- a/src/schwung_shim.c
++++ b/src/schwung_shim.c
+@@ -69,6 +69,7 @@
+ #include "host/spi_tally.h"
+ #include "host/shadow_dbus.h"
+ #include "host/shadow_chain_mgmt.h"
++#include "host/field_source.h"
+ #include "host/shadow_scene_bus.h"
+ #include "host/shadow_link_audio.h"
+ #include "host/child_signals.h"
+@@ -6647,6 +6648,7 @@ static void xmos_log_slots(const char *tag, const uint8_t *midi_out,
+ 
+ static void shim_pre_transfer(void *ctx, uint8_t *shadow, int size)
+ {
++    schwung_field_begin_block();
+     (void)ctx;
+     (void)size;
+ 
 diff --git a/src/shadow/shadow_ui.js b/src/shadow/shadow_ui.js
 index e00fdf81..0d84a654 100644
 --- a/src/shadow/shadow_ui.js
@@ -420,3 +481,16 @@ index 78564c63..207c0de1 100644
      const shape = lfoShapeIdOf(name);
      const pad = 2;
      const x = rect.x + pad, w = rect.w - pad * 2;
+diff --git a/tests/host/test_chain_lfo_polarity_hooks.sh b/tests/host/test_chain_lfo_polarity_hooks.sh
+index 23e39236..ae5fb61a 100755
+--- a/tests/host/test_chain_lfo_polarity_hooks.sh
++++ b/tests/host/test_chain_lfo_polarity_hooks.sh
+@@ -29,7 +29,7 @@ if ! rg -q 'chain_mod_emit_value\(inst, source_id, lfo->target, lfo->param,' "$f
+   exit 1
+ fi
+ 
+-if ! rg -q 'signal, lfo->depth, 0.0f, lfo->bipolar, 1 /\*enabled\*/\);' "$file"; then
++if ! rg -q 'signal, lfo->depth, 0.0f, lfo->bipolar, source_valid\);' "$file"; then
+   echo "FAIL: slot LFO modulation emit does not forward polarity mode" >&2
+   exit 1
+ fi

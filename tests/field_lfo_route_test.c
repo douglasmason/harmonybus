@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "host/plugin_api_v1.h"
+#include "modules/chain/dsp/chain_internal.h"
 #include "host/field_source_runtime.h"
 static float get(plugin_api_v2_t *api,void *instance,const char *key){char text[128]={0};assert(api->get_param(instance,key,text,sizeof(text))>0);return strtof(text,0);}
 int main(int argc,char **argv){
@@ -19,7 +19,7 @@ int main(int argc,char **argv){
     api->set_param(instance,"lfo1:shape","6");api->set_param(instance,"lfo1:depth","0.5");
     api->set_param(instance,"lfo1:enabled","1");
     float values[16];for(int index=0;index<16;index++)values[index]=1;
-    assert(schwung_field_publish_v1(values,values,16));
+    assert(schwung_field_publish_v1(values,values,16));schwung_field_begin_block();
     int16_t pcm[256]={0};api->render_block(instance,pcm,128);
     float base=get(api,instance,"lfo2:depth");
     printf("LFO-to-LFO saved base after Field modulation: %.3f (expected 0.200)\n",base);
@@ -38,6 +38,14 @@ int main(int argc,char **argv){
     assert(fabsf(effective-.45f)<1e-5f);
     api->set_param(instance,"lfo1:enabled","0");api->render_block(instance,pcm,128);
     assert(fabsf(get(api,instance,"synth:gain:effective")-.2f)<1e-5f);
+    chain_instance_t *chain=instance;
+    chain->main_send_level[0]=40;
+    api->set_param(instance,"lfo1:target","buses");api->set_param(instance,"lfo1:target_param","main_send1");
+    api->set_param(instance,"lfo1:enabled","1");api->render_block(instance,pcm,128);
+    assert(chain->main_send_level[0]==40 && chain->main_send_mod[0]==32);
+    api->set_param(instance,"lfo1:enabled","0");api->render_block(instance,pcm,128);
+    assert(chain->main_send_level[0]==40 && chain->main_send_mod[0]==0);
+    puts("Field send modulation and disable preserve the send base");
     api->destroy_instance(instance);dlclose(handle);
     return fabsf(base-.2f)<1e-6f&&fabsf(disabled-.2f)<1e-6f?0:1;
 }

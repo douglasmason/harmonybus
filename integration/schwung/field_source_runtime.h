@@ -8,9 +8,20 @@
 #include <stdint.h>
 #include <time.h>
 #include <math.h>
+static unsigned long long field_epoch;
+__attribute__((visibility("default")))
+unsigned long long schwung_field_clock_v1(void) { return __atomic_load_n(&field_epoch, __ATOMIC_RELAXED); }
 static unsigned field_gate;
 static const void *field_owner;
 static uint64_t field_samples[SCHWUNG_FIELD_CHANNELS];
+static uint64_t field_pending[SCHWUNG_FIELD_CHANNELS];
+/* Commit once before any chain renders. Every assignment sees the same sample
+ * during a block, independent of the HB instance's position in the render order. */
+void schwung_field_begin_block(void) {
+    for (int channel=0; channel<SCHWUNG_FIELD_CHANNELS; channel++)
+        __atomic_store_n(&field_samples[channel], __atomic_load_n(&field_pending[channel], __ATOMIC_ACQUIRE), __ATOMIC_RELEASE);
+    __atomic_add_fetch(&field_epoch, 1, __ATOMIC_RELAXED);
+}
 _Static_assert(__atomic_always_lock_free(8, 0), "Field samples require lock-free 64-bit atomics");
 static uint64_t field_stamp_ms;
 static uint64_t field_now_ms(void) {
@@ -27,8 +38,10 @@ int schwung_field_publish_v1(const void *owner, const float *values, int count) 
     if (accepted) {
         if (!count) {
             field_owner = 0; field_stamp_ms = 0;
-            for (int channel=0; channel<SCHWUNG_FIELD_CHANNELS; channel++)
+            for (int channel=0; channel<SCHWUNG_FIELD_CHANNELS; channel++) {
+                __atomic_store_n(&field_pending[channel], 0, __ATOMIC_RELEASE);
                 __atomic_store_n(&field_samples[channel], 0, __ATOMIC_RELEASE);
+            }
         }
         else {
             field_owner = owner;
@@ -38,7 +51,7 @@ int schwung_field_publish_v1(const void *owner, const float *values, int count) 
                 union { float value; uint32_t bits; } sample;
                 sample.value = !isfinite(value) ? 0.5f : fminf(1.0f, fmaxf(0.0f, value));
                 uint64_t packed = ((uint64_t)(uint32_t)field_stamp_ms << 32) | sample.bits;
-                __atomic_store_n(&field_samples[channel], packed, __ATOMIC_RELEASE);
+                __atomic_store_n(&field_pending[channel], packed, __ATOMIC_RELEASE);
             }
         }
     }

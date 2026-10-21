@@ -28,3 +28,5 @@ cc -std=c11 -D_POSIX_C_SOURCE=200809L -rdynamic -I"$SCHWUNG_SOURCE/src" "$HB_SOU
 cc -std=c11 -I"$SCHWUNG_SOURCE/src" "$HB_SOURCE/tests/field_lfo_cross_test.c" -lm -o "$FIXTURE_ROOT/cross-test"
 "$FIXTURE_ROOT/cross-test"
 cc -std=gnu11 -fsyntax-only -I"$SCHWUNG_SOURCE/src" -I"$SCHWUNG_SOURCE/src/host" "$SCHWUNG_SOURCE/src/host/shadow_chain_mgmt.c"
+cc -w -std=gnu11 -O1 -ffunction-sections -fdata-sections -Wl,--gc-sections -I"$SCHWUNG_SOURCE/src" "$HB_SOURCE/tests/field_lfo_master_test.c" -lm -ldl -o "$FIXTURE_ROOT/master-test"
+"$FIXTURE_ROOT/master-test"

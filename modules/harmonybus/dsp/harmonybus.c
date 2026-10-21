@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.288"
+#define HB_VERSION "0.2.289"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -79,6 +79,8 @@ static const host_api_v1_t *g_host = 0;
 extern void *dlsym(void *, const char *);
 typedef int (*hb_field_publish_fn)(const void *, const float *, int);
 static hb_field_publish_fn g_field_publish;
+static unsigned long long (*g_field_clock)(void);
+static unsigned long long g_field_epoch_seen=~0ULL;
 static int g_field_source_owner;
 
 #define HB_MIDI_OUT_BYTES 80
@@ -5302,7 +5304,12 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
     Inst *instance=(Inst*)value;if(!instance)return 0;
     /* One shared clock owner; never multiply motion by the instance count. */
     int field_owner=0;while(field_owner<HB_MAX_INSTANCES&&!g_pool[field_owner].used)field_owner++;
-    if(field_owner<HB_MAX_INSTANCES&&instance==&g_pool[field_owner]&&frames>0&&sample_rate>0){
+    int advance_field=field_owner<HB_MAX_INSTANCES&&instance==&g_pool[field_owner];
+    if(g_field_clock&&frames>0&&sample_rate>0){
+        unsigned long long epoch=g_field_clock();
+        advance_field=__atomic_exchange_n(&g_field_epoch_seen,epoch,__ATOMIC_RELAXED)!=epoch;
+    }
+    if(advance_field&&frames>0&&sample_rate>0){
         double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120;
         hb_nf_advance((double)frames/sample_rate,bpm>0?bpm:120);
         if(g_field_publish){
@@ -7663,4 +7670,4 @@ static void set_param(void *value,const char *key,const char *parameter){
 }
 static midi_fx_api_v1_t API={MIDI_FX_API_VERSION,create_inst,destroy_inst,process,tick,set_param,get_param};
 __attribute__((visibility("default")))
-midi_fx_api_v1_t *move_midi_fx_init(const host_api_v1_t *host){g_field_publish=(hb_field_publish_fn)dlsym(0,"schwung_field_publish_v1");g_host=host;ensure_init();return &API;}
+midi_fx_api_v1_t *move_midi_fx_init(const host_api_v1_t *host){g_field_publish=(hb_field_publish_fn)dlsym(0,"schwung_field_publish_v1");g_field_clock=(unsigned long long(*)(void))dlsym(0,"schwung_field_clock_v1");g_host=host;ensure_init();return &API;}

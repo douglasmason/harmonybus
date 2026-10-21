@@ -13,17 +13,20 @@ Local oscillator rate, phase and retrigger do not affect a shared Field source.
 Movy offers Field choices only when the destination host reports support.
 
 HB publishes all sixteen effective outputs, including raw pad/pressure/knob
-holds and latches, from its existing field-clock owner. Exact motif probability
+holds and latches, once per host audio block, from whichever active HB instance ticks first. Exact motif probability
 overrides are not raw field outputs. Each channel is carried in one lock-free
 64-bit word with its timestamp. Readers neither allocate nor wait. Host-owned
 exports are resolved at module initialization; no host-API layout changes or
 per-chain context pointers are involved. Expired samples (250 ms) cease
 modulation. Destroying the final HB instance clears publication immediately.
 
-The existing field owner must continue receiving DSP ticks. Bypassing that
-owner currently stops field publication; this needs explicit validation and
-possibly owner handover before release. A second independently loaded HB image
-cannot publish over a live owner. Ordinary tracks share one loaded HB image.
+The host starts a new field epoch before every SPI audio block. Only the first
+active HB instance advances the field in that epoch; bypassing one instance
+therefore does not stop other instances. Samples published in a block become
+visible together at the next block boundary, giving every assignment the same
+channel value regardless of track render order. Bypassing all HB instances
+expires the last signal. A second independently loaded HB image cannot publish
+over a live owner; ordinary tracks share one loaded HB image.
 
 Slot synth/FX, sends, LFO-to-LFO and the separate master path consume the same
 source before applying their existing routing. Cross-LFO modulation now uses a
@@ -33,7 +36,7 @@ bug where depth 0.200 remained at 0.700 after modulation was disabled.
 
 Validated locally: HB publication/override/expiry/unload tests; real chain DSP
 synth base/effective values and disable; real chain cross-LFO base preservation;
-both cross-LFO directions and polarity; master translation-unit compilation;
-Movy TypeScript checking. Full host ARM build, complete musical regressions,
-master end-to-end routing, send behavior, UI behavior, performance and hardware
-validation remain release gates. This is not a published installable release.
+both cross-LFO directions and polarity; real master FX signal and disable/expiry restoration; send offset/disable;
+Movy TypeScript checking, browser build and logic tests. Full host ARM build,
+complete musical regressions, UI behavior, performance and hardware validation
+remain release gates. This is not a published installable release.
