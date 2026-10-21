@@ -62,5 +62,8 @@ int main(int argc,char **argv){
     cb->subplugin_host_api.mod_clear_source(cb,"other");tick(api,b);
     near(get(api,b,"fx1:gain:effective"),.2f);
     puts("PASS: audio FX routing and independent contributions survive Field disable");
-    api->destroy_instance(a);api->destroy_instance(b);dlclose(handle);return 0;
+    api->destroy_instance(a);api->destroy_instance(b);
+    /* Stock chain caches parameter-refresh scratch at library scope. Keep the
+       library loaded until exit, as the host does, so LSan sees those roots. */
+    return 0;
 }
