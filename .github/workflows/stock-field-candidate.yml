@@ -1,0 +1,30 @@
+name: Stock Schwung Field feasibility (no deployment)
+on:
+  push:
+    branches: [work/stock-field-mod, work/stock-field-install]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: charlesvestal/schwung
+          ref: a6f7ec9e5cf4d0df172a1dbc00b29d0b5eb67124
+          path: stock-schwung
+      - name: Real stock chain and HB routing tests
+        env:
+          CC: clang
+          TEST_CFLAGS: -g -fsanitize=address -fno-omit-frame-pointer
+        run: bash scripts/test_stock_field_host.sh "$PWD/stock-schwung"
+      - name: Compile experimental ARM module
+        run: |
+          clang --target=aarch64-linux-gnu -fuse-ld=lld -std=c11 -O2 -fPIC \
+            -fno-stack-protector -DHB_FREESTANDING \
+            -nostdlibinc -nostdlib -shared -Wl,--allow-shlib-undefined \
+            modules/harmonybus/dsp/harmonybus.c src/harmony_core.c \
+            -o /tmp/harmonybus-stock-field.so
+          file /tmp/harmonybus-stock-field.so | grep 'ARM aarch64'
