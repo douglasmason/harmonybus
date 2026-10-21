@@ -1,0 +1,23 @@
+name: Publish verified Field Choice installer
+on:
+  push:
+    branches: [work/publish-field-choice]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tested artifact and publish installer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_COMMIT: c31c4aa123a50b2a9b83d55b1487216f3a728b7f
+          TESTED_RUN: '39541699566'
+          INSTALL_VERSION: 0.2.288
+          PREVIOUS_VERSION: 0.2.287
+          ARTIFACT_NAME: harmonybus-core-candidate
+          ARTIFACT_FILE: harmonybus-v0.2.288-module.tar.gz
+          ASSET_NAME: harmonybus-v0.2.288-module.tar.gz
+        run: python3 scripts/publish_field.py
