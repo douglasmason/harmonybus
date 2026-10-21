@@ -48,6 +48,18 @@ static int hb_mo_edit_label(const hb_motion_config *config,int lane,char *buffer
     return snprintf(buffer,(size_t)length,"%s %d: %s",group,number,name);
 }
 static int hb_mo_set(hb_motion_config *config,const char *key,const char *value){
+    if(!strcmp(key,"motion_field_preset")){
+        if(config->selected<0||config->selected>=16)return 1;
+        int preset=!strcmp(value,"Velocity")?1:!strcmp(value,"Gate")?2:!strcmp(value,"Transpose")?3:0;
+        if(!preset)return 1;
+        hb_mo_set(config,"motion_operation",value);
+        hb_mo_set(config,"motion_pattern","0");hb_mo_set(config,"motion_offset","0");
+        hb_mo_set(config,"motion_probability","100");hb_mo_set(config,"motion_enabled","1");
+        hb_mo_set(config,"motion_evolve","1");hb_mo_set(config,"motion_field_target","2");
+        hb_mo_set(config,"motion_field_low",preset==1?"-25":preset==2?"25":"-12");
+        hb_mo_set(config,"motion_field_high",preset==1?"25":preset==2?"100":"12");
+        return 1;
+    }
     if(hb_field_set(key,value))return 1;
     if(!strcmp(key,"motion_sequence_mask")){
         unsigned long long next=(unsigned)parse_i(value,0)&65535u;
@@ -214,6 +226,30 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     return 0;
 }
 static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int length){
+    if(!strcmp(key,"motion_field_preset")){
+        const hb_motion_lane *lane=&config->lanes[config->selected];const char *preset="Custom";
+        if(lane->field_target==2&&lane->pattern==0&&lane->offset==0&&lane->enabled&&lane->evolve&&lane->probability==100){
+            if(lane->operation==HB_MO_VELOCITY&&lane->field_low==-25&&lane->field_high==25)preset="Velocity";
+            if(lane->operation==HB_MO_GATE&&lane->field_low==25&&lane->field_high==100)preset="Gate";
+            if(lane->operation==HB_MO_TRANSPOSE&&lane->field_low==-12&&lane->field_high==12)preset="Transpose";
+        }return snprintf(buffer,(size_t)length,"%s",preset);
+    }
+    if(!strcmp(key,"field_output_labels")){
+        int used=snprintf(buffer,(size_t)length,"fl1");
+        for(int index=0;index<16;index++){
+            const hb_motion_lane *lane=&config->lanes[index];
+            double raw=hb_nf_lane_sample(index,lane->field_x*.01,lane->field_y*.01,lane->field_z*.01);
+            int value=hb_mo_round(hb_nf_mix(lane->field_low,lane->field_high,hb_nf_output(index,raw)));
+            const char *name=hb_mo_operation_name(lane->operation),*short_name="Amt",*unit="";
+            if(lane->operation==HB_MO_VELOCITY){short_name="V";unit="%";}
+            else if(lane->operation==HB_MO_GATE){short_name="G";unit="%";}
+            else if(lane->operation==HB_MO_TRANSPOSE){short_name="Tr";unit="st";}
+            if(lane->field_target==1){short_name="P";unit="%";value=hb_mo_clamp(value,0,100);}
+            if(used<0||used>=length)return -1;
+            if(!lane->field_target)used+=snprintf(buffer+used,(size_t)(length-used),";--|Unmapped");
+            else used+=snprintf(buffer+used,(size_t)(length-used),";%s%d%s|%s %s %d%s%s",short_name,value,unit,name,lane->field_target==1?"chance":"amount",value,unit,config->bypass||!lane->enabled?" (off)":"");
+        }return used<length?used:-1;
+    }
     int field_result=hb_field_get(key,buffer,length);if(field_result>=0)return field_result;
     if(!strcmp(key,"motion_sequence_mask"))return snprintf(buffer,(size_t)length,"%llu",config->sequence_held);
     int assignment=hb_mo_slot_key(key,"motion_operation_");
