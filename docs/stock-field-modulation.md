@@ -1,63 +1,50 @@
-# Field modulation on stock Schwung: feasibility increment
+# Field sources with stock Schwung
 
-This branch keeps Schwung unchanged. It does not depend on the separate
-`work/field-lfo` custom-host experiment, modify release.json, or publish a release.
-The prototype is compiled only with `HB_STOCK_FIELD_MOD`; ordinary builds retain
-no routing UI, configuration, or runtime work from this experiment.
+HarmonyBus and Movy provide two Field modulation routes per Movy-hosted track
+without changing Schwung. In the existing LFO panel, select Field 1–16 from the
+Shape control, choose a synth or audio-effect parameter, and set depth/polarity.
+The channel's existing Field position and live output override supply its value.
+Rate, sync, phase and retrigger controls are hidden for Field sources because
+the shared Field controls their movement. Returning to a stock waveform restores
+those oscillator controls. Assignments persist with HB state and Movy's existing
+LFO state. Fresh and legacy sets default to stock oscillators.
 
-## Implemented
+## Supported boundary
 
-One experimental route per HB instance uses the existing host `mod_emit_value`
-and `mod_clear_source` callbacks. It samples the existing shared Field channel
-and its output override, then sends a normalized bipolar signal to the stock
-modulation engine. Depth and polarity use stock range scaling. No parameter
-values are directly overwritten. Each instance captures its own callback context
-at creation; the init/create handoff is thread-local. Source IDs distinguish HB
-instances, including multiple instances in one chain.
+Only Movy-hosted chains that receive the extended pre-render block message
+advertise the capability. Unmodified host-owned tracks and the master panel do
+not show Field sources. Supported destinations are the same chain's exposed
+synth and audio FX parameters; MIDI FX, sends and LFO-to-LFO are excluded.
+Installing HB alone does not expose this feature in stock Schwung's own LFO UI.
 
-Test-only parameter protocol:
+The same stock modulation API performs range scaling and preserves parameter
+bases. Per-instance callback ownership and unique route IDs isolate tracks and
+allow both Field routes to address one parameter independently. Disabling,
+retargeting, resetting or unloading removes only the corresponding contribution.
 
-- `field_mod_route = channel,depth,bipolar,target,param`
-- Channels 1–16; depth -10000 through 10000; bipolar 0 or 1.
-- Targets: same-chain `synth`, `fx1` through `fx8`.
-- Example: `1,5000,1,synth,gain`.
-- `field_mod_route = off` clears the source immediately.
-- State restore, performance reset, and instance destruction clear the route.
-- Routes are deliberately not persisted in this feasibility build.
+## Clock and bypass
 
-Missing callbacks disable emission. Invalid syntax leaves the prior route
-unchanged. A valid retarget clears the previous contribution first; an unknown
-parameter cannot leave its previous target modulated.
+Movy's existing conductor block message is extended with the chain's actual HB
+bypass flag. One allocation-free read observes stock-chain bypass because the
+stock host does not notify a bypassed MIDI effect. The first block message
+advances Field once; subsequent instances and their render ticks do not advance
+it again. Bypassed and idle chains still receive that message. Route service runs
+before parallel chain rendering, so tracks read the same Field time.
 
-## Reproduce
+Bypass clears contributions but retains assignments. Unbypass resumes them.
+The next block performs cleanup, including bypass changes received outside the
+LFO panel. There is no background thread or host ABI extension. A route restored
+without the managed block service remains dormant.
 
-Use unmodified Schwung v1.7.3, commit
-`a6f7ec9e5cf4d0df172a1dbc00b29d0b5eb67124`, as a source checkout:
+## Verification
 
-```sh
-bash scripts/test_stock_field_host.sh /path/to/schwung-v1.7.3
-```
+`bash scripts/test_stock_field_host.sh /path/to/schwung` compiles the real stock
+chain and HB DSP with synthetic synth/FX parameter probes. The source pin is
+Schwung v1.7.3, `a6f7ec9e5cf4d0df172a1dbc00b29d0b5eb67124`.
 
-The harness compiles the actual stock chain and actual HB DSP. Its only synthetic
-musical component is a parameter probe used as a synth and audio effect.
-Assertions cover Field output overrides, channel selection, depth, polarity,
-base preservation, user base edits during modulation, track isolation, invalid
-destination cleanup, disable, unload, audio FX routing, and coexistence with a
-second modulation source. The source checkout is not patched.
-
-## Confirmed limitation and next implementation boundary
-
-Stock chain bypass stops calling the MIDI FX tick without notifying the module
-or clearing its contributions. The test deliberately reproduces the resulting
-held modulation value. Explicit `off` still clears it while bypassed. Also, the
-existing shared Field clock uses the lowest allocated HB instance; bypassing
-that instance can stop Field evolution. This increment does not solve that
-pre-existing clock ownership limitation.
-
-Before enabling this in a release, integrate route lifecycle with Movy's own
-bypass/removal/track management, and establish a shared clock that survives
-bypass without multiplying Field speed by track count. Verify all bypass paths,
-including actions outside Movy's UI; do not promise universal bypass cleanup
-from a callback the stock host never invokes. Add target selection and persistence
-only after that behavior is settled. Master, sends, and LFO-to-LFO routing remain
-outside this prototype. No Move hardware has been tested or deployed.
+`stock_field_clock_test.c` verifies once-per-block time, bypass of both instances,
+owner removal, two-route state round trips and legacy state defaults. The Movy
+full-chain fixture verifies the real adapter, two simultaneous contributions,
+bypass/resume, unload/reload, state restoration and return to stock waveforms.
+UI tests cover capability gates, channels, target filtering and unused controls.
+These are software tests; no physical Move was deployed or tested.
