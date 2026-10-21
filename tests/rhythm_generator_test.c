@@ -102,6 +102,8 @@ static void pitch_material(void){
     hb_mt_phrase source={.count=5,.anchor=4};
     for(int k=0;k<5;k++){source.events[k].count=1;source.events[k].notes[0]=(hb_mt_note){60+k,100};source.events[k].duration=24;}
     source.events[1].kind=1;source.events[2].kind=2;
+    source.events[0].modifier=-1;source.events[3].secondary=2;
+    source.events[3].chord_mode=1;source.events[3].actions[0]=123;
     hb_rg_clock rhythm={.pattern=1,.span=2};hb_mt_phrase phrase;double gates[34];
     assert(hb_rg_motif(&source,&rhythm,4,&phrase,gates));
     hb_mc_plan clip={.count=5,.target_first=-1,.target_last=4};
@@ -111,6 +113,11 @@ static void pitch_material(void){
         int pitch=attacks%2?63:60;
         assert(clip.events[k].event.notes[0].pitch==pitch);
         assert(phrase.events[attacks].kind==0&&phrase.events[attacks].notes[0].pitch==pitch);attacks++;
+        const hb_mt_event *expected=&source.events[pitch==60?0:3];
+        assert(clip.events[k].event.modifier==expected->modifier);
+        assert(clip.events[k].event.secondary==expected->secondary);
+        assert(phrase.events[attacks-1].chord_mode==expected->chord_mode);
+        assert(phrase.events[attacks-1].actions[0]==expected->actions[0]);
     }
     assert(attacks==8&&phrase.events[phrase.anchor].notes[0].pitch==64);
 }

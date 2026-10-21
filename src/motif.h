@@ -40,7 +40,7 @@ typedef struct {
     hb_mt_phrase draft,undo;
 } hb_mt_recorder;
 typedef struct {double on,off;int pitch,velocity,channel,render,started,used;int pad_owner,pad_playback;
-    unsigned override_mask;int override_root,override_semantic;
+    unsigned override_mask;int override_root,override_semantic,override_bass;
     unsigned long long override_generation;
     unsigned short trail_target;
     unsigned short semantic_mask,intent_scale;

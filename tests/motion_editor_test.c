@@ -20,5 +20,20 @@ int main(void){
         for(int index=16;index<(int)sizeof(small);index++)assert(small[index]==0x55);
         puts(snapshot);
     }
+    API.set_param(instance,"motion_operation","Clip Weave");
+    API.set_param(instance,"motion_amount","2");
+    API.set_param(instance,"motion_enabled","On");
+    API.set_param(instance,"motion_every","2");
+    API.set_param(instance,"motion_from","2");
+    API.set_param(instance,"motion_through","2");
+    assert(HB_MO_WEAVE==65);
+    assert(API.get_param(instance,"motion_clip_config",snapshot,sizeof(snapshot))>0);
+    assert(strstr(snapshot,",65,2,"));
+    API.set_param(instance,"motion_amount","99");
+    API.get_param(instance,"motion_amount",value,sizeof(value));assert(!strcmp(value,"16"));
+    API.set_param(instance,"motion_control_1","0");
+    API.get_param(instance,"motion_control_1",value,sizeof(value));assert(!strcmp(value,"1"));
+    API.set_param(instance,"motion_host","");
+    API.get_param(instance,"motion_punch",value,sizeof(value));assert(!strcmp(value,"Requires Movy"));
     API.destroy_instance(instance);
 }

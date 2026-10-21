@@ -424,3 +424,31 @@ intent while chord voicings remain editable. Older recordings migrate without
 acquiring new cadence semantics. Current and lookahead pad previews run private
 note-renderer copies and use each generated gesture's gap collection; previews do
 not consume a cadence step.
+
+## Clip Weave (Movy candidate)
+
+Assign **Clip Weave** to a user operation lane. **Rhythm Track** (Amount on
+compact controls) selects track 1–16. The donor must have a playing clip;
+muting its audio does not remove its rhythm. The destination retains its pitches,
+velocities, chord groups, input roles and per-note recorded operations. Distinct
+stored donor attacks advance through the destination's distinct stored onset
+groups; simultaneous donor notes are one attack, using their longest gate.
+Donor rests remain rests. The donor loop repeats at the destination's clip speed.
+
+Hold/touch controls use the existing clip-operation priority. For even bars use
+Auto On, Cycle 1 Bar, Every 2, From 2, Through 2, Probability 100. Normal playback
+returns on odd bars. Complementary lanes can choose different donors. Pattern
+Alternate is not required. Manual operations take priority over automatic lanes.
+
+This first increment snapshots raw stored onsets and gates on activation or donor
+slot change. Notes outside either loop and suppressed newly recorded notes are
+excluded. Edits are picked up on the next activation. A resumed automatic weave
+starts a fresh snapshot after a manual interruption. Reciprocal borrowing reads
+original clips, not each other's generated output. Donor quantization, swing,
+humanization and trig conditions are not imported. Destination trig conditions
+and pitch rendering still apply; its timing transforms are replaced by the donor.
+
+Missing, stopped or empty donors fall back to normal playback. Stored notes,
+automation, loop boundaries and transport remain unchanged. Weave is runtime-only
+and disabled while recording the destination; it is not a recorded reader interval
+or an FM-1 firmware implementation. Release/stop use the existing gate cleanup.

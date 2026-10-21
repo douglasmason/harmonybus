@@ -14,7 +14,9 @@ def main() -> None:
                         str(root / 'tests/motion_metadata_dump.c'), str(root / 'src/harmony_core.c'), '-lm', '-o', str(executable)], check=True)
         output: str = subprocess.check_output([str(executable)], text=True)
     maps: list[dict] = [{parameter['key']: parameter for parameter in json.loads(line)} for line in output.splitlines()]
-    map_module: dict = json.loads((root / 'modules/harmonybus/module.json').read_text())
+    manifest: Path = root / 'modules/harmonybus/module.json'
+    assert manifest.stat().st_size < 65536, 'Schwung chain loader requires module.json below 64 KiB'
+    map_module: dict = json.loads(manifest.read_text())
     map_canonical: dict = {parameter['key']: parameter for parameter in map_module['capabilities']['chain_params']}
     for map_metadata in maps:
         assert len(map_metadata['motion_lane']['options']) == 51
@@ -24,8 +26,8 @@ def main() -> None:
             if not key.startswith('motion_control_') and key not in ('chord_edit_target','motion_lane','motion_auto_off','motion_touch_mode','motion_operation','motion_enabled','motion_offset','motion_from','motion_through'):
                 assert map_metadata[key] == parameter, key
     map_operation: dict = map_module['capabilities']['ui_hierarchy']['levels']['motion_operation']
-    assert len(map_operation['params']) == len(map_operation['knobs']) == 8
-    assert {parameter['key'] for parameter in map_operation['params']} == set(map_operation['knobs'])
+    assert len(map_operation['knobs']) == 8
+    assert not map_operation['params']  # Knob-only panel, like other leaf panels.
     for level_name, map_level in map_module['capabilities']['ui_hierarchy']['levels'].items():
         parameter_keys: set[str] = {parameter['key'] for parameter in map_level['params'] if 'key' in parameter}
         assert (not map_level['params'] and all(k in map_canonical for k in map_level['knobs'])) or parameter_keys == set(map_level['knobs']), f'{level_name}: unassigned parameters create overflow panels'
