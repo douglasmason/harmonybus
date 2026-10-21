@@ -45,8 +45,10 @@ function render(){
 function paint(){
  for(const slider of container.querySelectorAll('.slider')){
   const output=values[Number(slider.dataset.lane)];slider.setAttribute('aria-valuenow',String(Math.round(output.value*1000)/10));
-  slider.parentElement.firstChild.textContent=`Lane ${Number(slider.dataset.lane)+1}${output.latched?' · L':''}${output.target?'':' · unmapped'}`;
-  slider.parentElement.querySelector('.readout').textContent=(output.value*100).toFixed(1)+'%';
+  slider.parentElement.firstChild.textContent=`Lane ${Number(slider.dataset.lane)+1}${output.latched?' · L':''}${output.description?' · '+output.description:output.target?'':' · unmapped'}`;
+  slider.parentElement.firstChild.title=output.description||'';
+  slider.parentElement.querySelector('.readout').textContent=output.label&&output.target?output.label:(output.value*100).toFixed(1)+'%';
+  slider.setAttribute('aria-valuetext',output.description||`${(output.value*100).toFixed(1)}%`);
   [...slider.querySelectorAll('.cell')].forEach((cell,position)=>{const coverage=Math.max(0,1-Math.abs(output.value*7-position));cell.style.background=`rgb(0 ${Math.round(Math.pow(coverage,2.2)*255)} 0)`;});
   const marker=slider.querySelector('.marker');marker.style.opacity=Math.abs(output.raw-output.value)>.005?'.6':'0';
   marker.style.left=vertical?'3px':`${output.raw*100}%`;marker.style.bottom=vertical?`${output.raw*100}%`:'3px';
@@ -66,7 +68,9 @@ async function poll(){
  const blocked=numbers[54];let canceled=false;for(const lane of holds.keys())if(blocked&(1<<lane)){holds.delete(lane);canceled=true;}if(canceled)send();
  const nextVertical=numbers[1]===1,nextBank=numbers[2];const rebuild=nextVertical!==vertical||nextBank!==bankIndex;
  if(rebuild){release();vertical=nextVertical;bankIndex=nextBank;orientation.value=String(Number(vertical));bank.value=String(bankIndex);}
- values=values.map((_,lane)=>({raw:numbers[3+lane*3]/10000,value:numbers[4+lane*3]/10000,target:numbers[5+lane*3],latched:!!(numbers[52]&(1<<lane))}));
+ const labelRows=String(await api.getParam(prefix+'field_output_labels')).split(';');
+ const labels=labelRows[0]==='fl1'&&labelRows.length===17?labelRows.slice(1).map(row=>row.split('|')):[];
+ values=values.map((_,lane)=>({raw:numbers[3+lane*3]/10000,value:numbers[4+lane*3]/10000,target:numbers[5+lane*3],latched:!!(numbers[52]&(1<<lane)),label:labels[lane]?.[0],description:labels[lane]?.[1]}));
  if(rebuild)render();else paint();status.textContent=latchMode?'Connected · latch overrides':'Connected · momentary overrides';
  }catch(error){status.textContent=String(error.message||error);}finally{busy=false;}
 }

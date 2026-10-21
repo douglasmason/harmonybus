@@ -103,5 +103,25 @@ int main(void){
     memcpy(points,g_hb_field_points,sizeof(points));API.get_param(instance,"state",saved,sizeof(saved));assert(strstr(saved,";nfp1,1,234,65,9"));
     hb_nf_reset();hb_field_restore(saved);assert(!memcmp(points,g_hb_field_points,sizeof(points)));
     hb_nf_reset();hb_field_restore("legacy");assert(g_hb_field_distribution==0);
+    API.set_param(instance,"motion_lane","1");
+    const char *presets[]={"Velocity","Gate","Transpose"};
+    const int operations[]={HB_MO_VELOCITY,HB_MO_GATE,HB_MO_TRANSPOSE};
+    const int lows[]={-25,25,-12},highs[]={25,100,12};
+    for(int preset=0;preset<3;preset++){
+        API.set_param(instance,"motion_field_preset",presets[preset]);
+        hb_motion_lane *lane=&instance->motion.lanes[0];
+        assert(lane->operation==operations[preset]&&lane->enabled&&lane->evolve);
+        assert(lane->field_low==lows[preset]&&lane->field_high==highs[preset]&&lane->field_target==2&&lane->pattern==0&&lane->offset==0);
+        API.set_param(instance,"field_glide","0");API.set_param(instance,"field_outputs",held);hb_nf_advance(.01,120);
+        assert(hb_mo_value(&instance->motion,0,0,0,&value));
+        assert(fabs(value-(lows[preset]+.25*(highs[preset]-lows[preset])))<1e-9);
+        assert(API.get_param(instance,"field_output_labels",snapshot,sizeof(snapshot))>0);
+        assert(strstr(snapshot,presets[preset]));
+        API.get_param(instance,"motion_field_preset",snapshot,sizeof(snapshot));assert(!strcmp(snapshot,presets[preset]));
+    }
+    API.get_param(instance,"state",saved,sizeof(saved));
+    hb_mo_defaults(&restored);hb_mo_restore(&restored,saved);hb_field_mapping_restore(&restored,saved);
+    assert(restored.lanes[0].field_target==2&&restored.lanes[0].operation==HB_MO_TRANSPOSE);
+    unsigned revision=instance->motion.revision[0];API.set_param(instance,"motion_field_preset","Custom");assert(instance->motion.revision[0]==revision);
     puts("field: deterministic continuity, stop/reverse/release, timeout, probability, persistence and read-only previews pass");
 }
