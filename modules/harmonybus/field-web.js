@@ -20,7 +20,7 @@ function render(){
   slider.onpointerdown=event=>{if(event.button!==0)return;slider.setPointerCapture(event.pointerId);move(event);send();};
   slider.onpointermove=event=>{if(slider.hasPointerCapture(event.pointerId))move(event);};
   const end=()=>{holds.delete(lane);send();};slider.onpointerup=end;slider.onpointercancel=end;slider.onlostpointercapture=end;
-  slider.onkeydown=event=>{if(['ArrowLeft','ArrowDown','ArrowRight','ArrowUp'].includes(event.key)){event.preventDefault();holds.set(lane,bound((holds.get(lane)??values[lane].value)+(['ArrowLeft','ArrowDown'].includes(event.key)?-1:1)*(event.shiftKey?.001:.01)));dirty=true;}if(event.key==='Escape')end();};
+  slider.onkeydown=event=>{if(['ArrowLeft','ArrowDown','ArrowRight','ArrowUp'].includes(event.key)){event.preventDefault();holds.set(lane,bound((holds.get(lane)??values[lane].value)+(['ArrowLeft','ArrowDown'].includes(event.key)?-1:1)*(event.shiftKey?.001:.01)));send();}if(event.key==='Escape')end();};
   slider.onkeyup=event=>{if(event.key.startsWith('Arrow'))end();};slider.onblur=end;
   row.append(label,slider,readout);container.append(row);
  }paint();
