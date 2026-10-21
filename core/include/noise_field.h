@@ -26,9 +26,27 @@ typedef struct {
 static hb_noise_field g_hb_field={16,0,0,3,50,100,1,100,1,{0,0,0},1,1,1,1,0,0};
 typedef struct { double value,target,weight,lease; } hb_field_override;
 static hb_field_override g_hb_field_outputs[16];
-typedef struct { double target,lease; unsigned order; } hb_field_input;
+typedef struct { double target,lease; unsigned order; int blocked; } hb_field_input;
 static hb_field_input g_hb_field_inputs[2][16];
 static unsigned g_hb_field_input_order;
+static int g_hb_field_latch_mode;
+static unsigned g_hb_field_latched;
+static double g_hb_field_latch_values[16];
+/* A clear suppresses stale held frames until their source explicitly releases. */
+static void hb_nf_clear_outputs(int lane){
+    for(int index=0;index<16;index++)if(lane==16||index==lane){
+        g_hb_field_latched&=~(1u<<index);
+        for(int source=0;source<2;source++){
+            hb_field_input *input=&g_hb_field_inputs[source][index];
+            if(input->lease>0)input->blocked=1;
+            input->lease=0;
+        }
+    }
+}
+static unsigned hb_nf_blocked(int source){
+    unsigned mask=0;for(int index=0;index<16;index++)if(g_hb_field_inputs[source][index].blocked)mask|=1u<<index;
+    return mask;
+}
 static int g_hb_field_view,g_hb_field_orientation,g_hb_field_bank;
 static int g_hb_field_restored;
 /* Runtime-only overlays, shared by live and clip readers; never saved. */
@@ -36,7 +54,7 @@ static double hb_nf_output(int index,double raw){
     if(index<0||index>=16)return raw;
     return hb_nf_mix(raw,g_hb_field_outputs[index].value,g_hb_field_outputs[index].weight);
 }
-static void hb_nf_reset(void){hb_noise_field fresh={16,0,0,3,50,100,1,100,1,{0,0,0},1,1,1,1,0,0};g_hb_field=fresh;g_hb_field_restored=0;memset(g_hb_field_outputs,0,sizeof(g_hb_field_outputs));memset(g_hb_field_inputs,0,sizeof(g_hb_field_inputs));g_hb_field_input_order=0;g_hb_field_view=g_hb_field_orientation=g_hb_field_bank=0;}
+static void hb_nf_reset(void){hb_noise_field fresh={16,0,0,3,50,100,1,100,1,{0,0,0},1,1,1,1,0,0};g_hb_field=fresh;g_hb_field_restored=0;memset(g_hb_field_outputs,0,sizeof(g_hb_field_outputs));memset(g_hb_field_inputs,0,sizeof(g_hb_field_inputs));g_hb_field_input_order=0;g_hb_field_latch_mode=0;g_hb_field_latched=0;memset(g_hb_field_latch_values,0,sizeof(g_hb_field_latch_values));g_hb_field_view=g_hb_field_orientation=g_hb_field_bank=0;}
 static double hb_nf_sample(double x,double y,double z){
     const hb_noise_field *field=&g_hb_field;
     double scale=hb_nf_bound(field->scale*.01*field->zoom,.01,100),sum=0,weight=1,total=0;
@@ -63,7 +81,9 @@ static void hb_nf_advance(double seconds,double bpm){
         }
         output->lease=selected?selected->lease:0;
         if(selected){output->target=selected->target;if(output->weight==0)output->value=output->target;}
-        output->weight=hb_nf_mix(output->weight,output->lease>0?1:0,blend);
+        int latched=(g_hb_field_latched&(1u<<index))!=0;
+        if(!selected&&latched){output->target=g_hb_field_latch_values[index];if(output->weight==0)output->value=output->target;}
+        output->weight=hb_nf_mix(output->weight,selected||latched?1:0,blend);
         output->value=hb_nf_mix(output->value,output->target,blend);
     }
     field->rate=hb_nf_mix(field->rate,field->target_rate,blend);field->zoom=hb_nf_mix(field->zoom,field->target_zoom,blend);

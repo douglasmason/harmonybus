@@ -42,5 +42,29 @@ int main(void){
     API.set_param(instance,"field_display","1");API.set_param(instance,"field_orientation","1");
     API.get_param(instance,"state",saved,sizeof(saved));assert(strstr(saved,";nv1,1,1,0")&&!strstr(saved,"fo1"));
     before=g_hb_field.position[0];assert(API.get_param(instance,"field_outputs_view",snapshot,sizeof(snapshot))>0);assert(before==g_hb_field.position[0]);
+    API.set_param(instance,"field_override","1");API.set_param(instance,"field_glide","100");
+    API.set_param(instance,"field_outputs",held);hb_nf_advance(.01,120);
+    API.set_param(instance,"field_output_finish","0,0,9000");
+    assert(g_hb_field_latched&1u);assert(g_hb_field_latch_values[0]==.9);
+    API.set_param(instance,"field_outputs",released);
+    for(int index=0;index<40;index++)hb_nf_advance(.1,120);
+    assert(fabs(hb_nf_output(0,.1)-.9)<1e-9); /* target, not in-flight glide */
+    API.set_param(instance,"field_outputs",held); /* a new press replaces the latch */
+    assert(!(g_hb_field_latched&1u));
+    for(int index=0;index<20;index++)hb_nf_advance(.1,120);
+    assert(!g_hb_field_latched);API.set_param(instance,"field_output_finish","0,0,7500");assert(!g_hb_field_latched); /* timeout cannot latch */
+    API.set_param(instance,"field_outputs",held);
+    API.set_param(instance,"field_output_finish","0,0,2500");API.set_param(instance,"field_output_finish","0,1,7500");
+    assert(g_hb_field_latched==3);API.set_param(instance,"field_output_clear","0");assert(g_hb_field_latched==2);
+    API.set_param(instance,"field_outputs",held);API.set_param(instance,"field_output_clear","16");
+    assert(!g_hb_field_latched&&hb_nf_blocked(0)==3);
+    API.set_param(instance,"field_outputs",held);API.set_param(instance,"field_output_finish","0,0,5000");
+    assert(!g_hb_field_latched&&g_hb_field_inputs[0][0].lease==0); /* stale held frames cannot undo clear */
+    API.set_param(instance,"field_outputs",released);assert(hb_nf_blocked(0)==0);
+    API.set_param(instance,"field_outputs_remote",held);API.set_param(instance,"field_output_finish","1,1,7500");assert(g_hb_field_latched==2);
+    API.set_param(instance,"field_display","0");API.set_param(instance,"field_display","1");assert(g_hb_field_latched==2);
+    API.get_param(instance,"state",saved,sizeof(saved));assert(strstr(saved,";nl1,1")&&!strstr(saved,"fo1"));
+    assert(API.get_param(instance,"field_outputs_view2",snapshot,sizeof(snapshot))>0&&!strncmp(snapshot,"fo2,",4));
+    hb_field_restore(saved);assert(!g_hb_field_latched); /* load clears runtime latches */
     puts("field: deterministic continuity, stop/reverse/release, timeout, probability, persistence and read-only previews pass");
 }
