@@ -188,6 +188,24 @@ static void hb_mt_lane_begin(Inst *instance,int duplicate){
 }
 static int hb_mt_set(Inst *instance,const char *key,const char *value){
     if(strncmp(key,"motif_",6))return 0;
+    if(!strcmp(key,"motif_choice_edit")){
+        int slot,probability;char extra;
+        if(sscanf(value,"%d,%d%c",&slot,&probability,&extra)==2&&slot>=0&&slot<16&&probability>=0&&probability<=10000)
+            hb_mt_choice_edit(instance,slot,probability*.0001);
+        return 1;
+    }
+    if(!strcmp(key,"motif_choice_release")){
+        int slot,commit;char extra;
+        if(sscanf(value,"%d,%d%c",&slot,&commit,&extra)==2&&slot>=0&&slot<16&&(commit==0||commit==1))
+            hb_mt_choice_release(instance,1u<<slot,commit);
+        return 1;
+    }
+    if(!strcmp(key,"motif_choice_clear")){
+        int slot;char extra;
+        if(sscanf(value,"%d%c",&slot,&extra)==1&&slot>=0&&slot<=16)
+            hb_mt_choice_release(instance,slot==16?65535u:1u<<slot,0);
+        return 1;
+    }
     hb_mt_recorder *editor=&instance->motif.editor;
     if(!strcmp(value,"Off"))return 1;
     if(!strcmp(key,"motif_edit")){
@@ -280,6 +298,16 @@ static int hb_mt_set(Inst *instance,const char *key,const char *value){
 }
 static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
     hb_mt_recorder *editor=&instance->motif.editor;
+    if(!strcmp(key,"motif_choice_view")){
+        int slots[16];double probabilities[16];int count=hb_mt_choice_view(instance,slots,probabilities);
+        hb_mt_choice *choice=&instance->motif.choice;
+        int used=snprintf(buffer,(size_t)length,"mc1,%d,%d,%u,%u,%u",count,choice->last_slot,choice->draws,choice->held,choice->latched);
+        for(int index=0;index<count;index++){
+            if(used<0||used>=length)return -1;
+            used+=snprintf(buffer+used,(size_t)(length-used),";%d,%.9f",slots[index],probabilities[index]);
+        }
+        return used<length?used:-1;
+    }
     if(!strcmp(key,"motif_lane"))return snprintf(buffer,(size_t)length,"%d",editor->lane+1);
     if(!strcmp(key,"motif_edit"))return snprintf(buffer,(size_t)length,"%s",instance->motion.lanes[instance->motion.selected].operation==HB_MO_MOTIF?"Edit Motif":"Play Motif only");
     if(!strcmp(key,"motif_playback"))return snprintf(buffer,(size_t)length,"%s",HB_MT_PLAYBACK[editor->playback]);

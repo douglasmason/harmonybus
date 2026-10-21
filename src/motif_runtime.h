@@ -238,6 +238,8 @@ static int hb_mt_launch(Inst *instance,int input,int velocity,int channel){
     return 1;
 }
 
+#include "motif_choice.h"
+
 static int hb_mt_input(Inst *instance,const uint8_t *input,int length){
     if(length<3||instance->movy_playback||instance->role>=2)return 0;
     int kind=input[0]&0xf0,channel=input[0]&15,pitch=input[1]&127;
@@ -277,10 +279,10 @@ static int hb_mt_input(Inst *instance,const uint8_t *input,int length){
         }
         if(selected>=0){
             hb_motion_lane *lane=&instance->motion.lanes[selected];
-            if(lane->amount<1||lane->amount>=44){editor->error=10;return 0;}
+            if(lane->field_target!=3&&(lane->amount<1||lane->amount>=44)){editor->error=10;return 0;}
             hb_mt_lane_load(editor,lane);
             if(instance->motif.playback_lane!=selected){instance->motif.tap_active=0;instance->motif.playback_lane=selected;}
-            if(hb_mt_launch(instance,pitch,input[2],channel)){
+            if(hb_mt_choice_launch(instance,selected,pitch,input[2],channel)){
                 unsigned long long bit=1ULL<<selected;
                 instance->motion.gesture_used|=instance->motion.gesture_down&bit;
                 if(!instance->motif.tap_active&&(instance->motion.gesture_once&bit)&&!(instance->motion.gesture_persistent&bit))hb_mo_end_lanes(&instance->motion,bit);

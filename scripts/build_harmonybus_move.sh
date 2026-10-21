@@ -31,7 +31,7 @@ file "$OUT/harmonybus-monitor-dsp.so" | grep -q 'ARM aarch64'
 
 cp "$ROOT/modules/harmonybus/module.json" "$DIST_HB/module.json"
 cp "$ROOT/modules/harmonybus/canvas.js" "$DIST_HB/canvas.js"
-cp "$ROOT/modules/harmonybus/web_ui.html" "$ROOT/modules/harmonybus/field-web.js" "$DIST_HB/"
+cp "$ROOT/modules/harmonybus/web_ui.html" "$ROOT/modules/harmonybus/field-web.js" "$ROOT/modules/harmonybus/choice-web.js" "$DIST_HB/"
 cp "$OUT/harmonybus-dsp.so" "$DIST_HB/dsp.so"
 chmod +x "$DIST_HB/dsp.so"
 

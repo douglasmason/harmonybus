@@ -1,7 +1,7 @@
 name: Shared core candidate (no deployment)
 on:
   push:
-    branches: [work/conductor-surface-hardening, work/field-play, work/field-mappings]
+    branches: [work/conductor-surface-hardening, work/field-play, work/field-mappings, work/field-choice]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,7 +20,9 @@ jobs:
         with:
           node-version: 22
       - name: Remote output strip controls
-        run: node tests/field_web_test.mjs
+        run: |
+          node tests/field_web_test.mjs
+          node tests/choice_web_test.mjs
       - name: Shared surface transport validation
         run: node --experimental-transform-types tests/surface_input_test.mjs
       - name: Differential portable core contract

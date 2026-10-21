@@ -31,7 +31,7 @@ static const hb_motion_parameter MO_PARAMETERS[]={
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
     MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM),
-    MO_FIELD(field_target,0,2,0),MO_FIELD(field_low,-400,400,0),MO_FIELD(field_high,-400,400,0),
+    MO_FIELD(field_target,0,3,0),MO_FIELD(field_low,-400,400,0),MO_FIELD(field_high,-400,400,0),
     MO_FIELD(field_x,-1600,1600,0),MO_FIELD(field_y,-1600,1600,0),MO_FIELD(field_z,-1600,1600,0)
 };
 #undef MO_FIELD
@@ -247,6 +247,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
             if(lane->field_target==1){short_name="P";unit="%";value=hb_mo_clamp(value,0,100);}
             if(used<0||used>=length)return -1;
             if(!lane->field_target)used+=snprintf(buffer+used,(size_t)(length-used),";--|Unmapped");
+            else if(lane->field_target==3)used+=snprintf(buffer+used,(size_t)(length-used),";Choice|Weighted user motifs");
             else used+=snprintf(buffer+used,(size_t)(length-used),";%s%d%s|%s %s %d%s%s",short_name,value,unit,name,lane->field_target==1?"chance":"amount",value,unit,config->bypass||!lane->enabled?" (off)":"");
         }return used<length?used:-1;
     }
@@ -382,14 +383,14 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         return used<length?used:-1;
     }
     if(!strcmp(key,"motion_field_active")){
-        for(int index=0;index<16;index++)if(config->lanes[index].field_target&&hb_mo_clip_operation(config->lanes[index].operation))return snprintf(buffer,(size_t)length,"1");
+        for(int index=0;index<16;index++)if(config->lanes[index].field_target>0&&config->lanes[index].field_target<3&&hb_mo_clip_operation(config->lanes[index].operation))return snprintf(buffer,(size_t)length,"1");
         return snprintf(buffer,(size_t)length,"0");
     }
     if(!strcmp(key,"motion_field_values")){
         int used=snprintf(buffer,(size_t)length,"nfv1");
         for(int index=0;index<16;index++){
             const hb_motion_lane *lane=&config->lanes[index];
-            if(!lane->field_target||!hb_mo_clip_operation(lane->operation))continue;
+            if(!lane->field_target||lane->field_target==3||!hb_mo_clip_operation(lane->operation))continue;
             int sample=hb_mo_round(hb_nf_mix(lane->field_low,lane->field_high,hb_nf_output(index,hb_nf_lane_sample(index,lane->field_x*.01,lane->field_y*.01,lane->field_z*.01))));
             if(lane->field_target==1)sample=hb_mo_clamp(sample,0,100);
             else if(lane->operation==HB_MO_WEAVE)sample=hb_mo_clamp(sample,1,16);
@@ -602,7 +603,7 @@ static void hb_field_mapping_restore(hb_motion_config *config,const char *state)
     const char *mapping=state;
     while((mapping=strstr(mapping,";nm1,"))){
         int index,target,low,high,x,y,z;
-        if(sscanf(mapping,";nm1,%d,%d,%d,%d,%d,%d,%d",&index,&target,&low,&high,&x,&y,&z)==7&&index>=0&&index<HB_MOTION_LANES&&target>=0&&target<=2&&low>=-400&&low<=400&&high>=-400&&high<=400&&x>=-1600&&x<=1600&&y>=-1600&&y<=1600&&z>=-1600&&z<=1600){
+        if(sscanf(mapping,";nm1,%d,%d,%d,%d,%d,%d,%d",&index,&target,&low,&high,&x,&y,&z)==7&&index>=0&&index<HB_MOTION_LANES&&target>=0&&target<=3&&low>=-400&&low<=400&&high>=-400&&high<=400&&x>=-1600&&x<=1600&&y>=-1600&&y<=1600&&z>=-1600&&z<=1600){
             hb_motion_lane *lane=&config->lanes[index];lane->field_target=target;lane->field_low=low;lane->field_high=high;lane->field_x=x;lane->field_y=y;lane->field_z=z;
         }mapping+=5;
     }
