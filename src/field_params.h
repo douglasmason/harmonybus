@@ -58,7 +58,7 @@ static int hb_field_get(const char *key,char *buffer,int length){
 }
 static int hb_field_save(char *buffer,int length,int used){
     if(used<0||used>=length)return used;
-    used+=snprintf(buffer+used,(size_t)(length-used),";nv1,%d,%d,%d",g_hb_field_view,g_hb_field_orientation,g_hb_field_bank);
+    if(g_hb_field_view||g_hb_field_orientation||g_hb_field_bank)used+=snprintf(buffer+used,(size_t)(length-used),";nv1,%d,%d,%d",g_hb_field_view,g_hb_field_orientation,g_hb_field_bank);
     if(g_hb_field.speed==16&&g_hb_field.direction==0&&g_hb_field.depth==0&&g_hb_field.detail==3&&g_hb_field.roughness==50&&g_hb_field.scale==100&&g_hb_field.seed==1&&g_hb_field.glide==100&&g_hb_field.animation==1)return used;
     if(used<0||used>=length)return used;
     return used+snprintf(buffer+used,(size_t)(length-used),";nf1,%d,%d,%d,%d,%d,%d,%d,%d,%d",g_hb_field.speed,g_hb_field.direction,g_hb_field.depth,g_hb_field.detail,g_hb_field.roughness,g_hb_field.scale,g_hb_field.seed,g_hb_field.glide,g_hb_field.animation);
