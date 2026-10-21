@@ -19,6 +19,7 @@ int main(void){
     assert(b->field_mod[1].shape==6&&!strcmp(b->field_mod[1].target,"fx2"));
     API.set_param(b,"state","hb16,2,0,0,25,2,0,0,0,0,0,0,-1,-1,0,0,0,0,0,-3,60,0,0,1,0");
     assert(!b->field_mod[0].shape&&!b->field_mod[1].shape);
-    API.destroy_instance(b);assert(!g_field_managed_clock);
+    Inst *standalone=API.create_instance("",NULL);API.destroy_instance(b);assert(!g_field_managed_clock);
+    double before=g_hb_field.position[0];advance(standalone,3,64);assert(g_hb_field.position[0]>before);API.destroy_instance(standalone);
     puts("Field managed clock: one advance, bypass, removal, route persistence and legacy state pass");
 }
