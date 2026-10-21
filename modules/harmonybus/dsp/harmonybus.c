@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.287"
+#define HB_VERSION "0.2.288"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -5300,6 +5300,7 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
         double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120;
         hb_nf_advance((double)frames/sample_rate,bpm>0?bpm:120);
     }
+    hb_mt_choice_advance(instance,frames>0&&sample_rate>0?(double)frames/sample_rate:0);
     hb_gesture_finish_use(instance);
     if(HB_SCOPED_TICK_SYNC&&g_conductor_block_ready)hb_auto_chord_repeat_sync(instance);
     else for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
@@ -7637,7 +7638,7 @@ static void set_param(void *value,const char *key,const char *parameter){
             int valid=1;for(int field=0;field<4;field++)if(target_policy[field]<0||target_policy[field]>=HB_TARGET_COUNTS[field])valid=0;
             if(valid)memcpy(instance->target_scale_policy,target_policy,sizeof(target_policy));
         }
-        hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);hb_ml_restore(instance,parameter);hb_rr_restore(instance,parameter);hb_rg_restore(instance,parameter);hb_ar_restore(instance,parameter);hb_timeline_forget_track(instance);hb_timeline_restore(parameter);}
+        memset(&instance->motif.choice,0,sizeof(instance->motif.choice));instance->motif.choice.last_slot=-1;hb_role_restore(instance,parameter);hb_mt_restore(instance,parameter);hb_ml_restore(instance,parameter);hb_rr_restore(instance,parameter);hb_rg_restore(instance,parameter);hb_ar_restore(instance,parameter);hb_timeline_forget_track(instance);hb_timeline_restore(parameter);}
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used){g_pool[index].timeline_lane_cached=0;hb_role_sync(&g_pool[index]);}
     for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
     if(!strcmp(key,"role")||!strcmp(key,"track_role")){g_sc_dirty=1;hb_sc_resolve(instance);}

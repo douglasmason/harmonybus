@@ -4,7 +4,13 @@
 /* Bounded categorical distributions. No allocation, random state or UI state.
  * We expose all N probabilities; normalization leaves N-1 degrees of freedom.
  */
+#ifdef HB_FREESTANDING
+extern double fabs(double);
+#define hb_probability_finite(value) __builtin_isfinite(value)
+#else
 #include <math.h>
+#define hb_probability_finite(value) isfinite(value)
+#endif
 #define HB_PROBABILITY_MAX 16
 
 static inline int hb_probability_count(int count) {
@@ -19,7 +25,7 @@ static inline int hb_probability_normalize(const double *weights, int count,
     if (!weights || !result || !hb_probability_count(count)) return 0;
     double maximum = 0, sum = 0;
     for (int index = 0; index < count; index++) {
-        if (!isfinite(weights[index]) || weights[index] < 0) return 0;
+        if (!hb_probability_finite(weights[index]) || weights[index] < 0) return 0;
         if (weights[index] > maximum) maximum = weights[index];
     }
     if (maximum == 0) {
@@ -42,9 +48,9 @@ static inline int hb_probability_constrain(const double *weights, int count,
     double next[HB_PROBABILITY_MAX], maximum = 0, sum = 0, committed = 0;
     int free_count = 0;
     for (int index = 0; index < count; index++) {
-        if (!isfinite(weights[index]) || weights[index] < 0) return 0;
+        if (!hb_probability_finite(weights[index]) || weights[index] < 0) return 0;
         if (pinned & (1u << index)) {
-            if (!isfinite(values[index]) || values[index] < 0 || values[index] > 1) return 0;
+            if (!hb_probability_finite(values[index]) || values[index] < 0 || values[index] > 1) return 0;
             committed += values[index];
             next[index] = values[index];
         } else {
@@ -71,12 +77,12 @@ static inline int hb_probability_edit(const double *weights, int count,
                                       unsigned pinned, const double *values,
                                       int selected, double requested, double *result) {
     if (!values || !hb_probability_count(count) || selected < 0 || selected >= count ||
-        !isfinite(requested) || (pinned >> count)) return 0;
+        !hb_probability_finite(requested) || (pinned >> count)) return 0;
     double targets[HB_PROBABILITY_MAX], available = 1;
     for (int index = 0; index < count; index++) {
         targets[index] = values[index];
         if (index != selected && (pinned & (1u << index))) {
-            if (!isfinite(values[index]) || values[index] < 0 || values[index] > 1) return 0;
+            if (!hb_probability_finite(values[index]) || values[index] < 0 || values[index] > 1) return 0;
             available -= values[index];
         }
     }
@@ -94,7 +100,7 @@ static inline int hb_probability_edit(const double *weights, int count,
  * field distribution when releasing an override. */
 static inline int hb_probability_blend(const double *from, const double *to,
                                        int count, double amount, double *result) {
-    if (!from || !to || !result || !hb_probability_count(count) || !isfinite(amount)) return 0;
+    if (!from || !to || !result || !hb_probability_count(count) || !hb_probability_finite(amount)) return 0;
     double first[HB_PROBABILITY_MAX], second[HB_PROBABILITY_MAX];
     if (!hb_probability_normalize(from, count, first) || !hb_probability_normalize(to, count, second)) return 0;
     if (amount < 0) amount = 0;

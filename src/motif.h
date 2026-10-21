@@ -8,6 +8,13 @@
 #define HB_MT_VOICES 8
 #define HB_MT_QUEUE 8
 #define HB_MT_SCHEDULE 256
+#include "../core/include/probability.h"
+typedef struct {
+    unsigned held,latched,release_mask,draws,members;
+    int last_slot;
+    double seconds,release_at;
+    double values[16],expires[16],release_from[16];
+} hb_mt_choice;
 /* AUTO infers scale steps if both pitches belong to the captured collection;
    otherwise retains exact semitones. Explicit modifiers are stored separately. */
 enum { HB_MT_AUTO, HB_MT_CHROMATIC, HB_MT_SCALE };
@@ -48,6 +55,7 @@ typedef struct {double on,off;int pitch,velocity,channel,render,started,used;int
 } hb_mt_scheduled;
 typedef struct {
     hb_mt_recorder editor;
+    hb_mt_choice choice;
     int playback_lane;
     hb_mt_scheduled events[HB_MT_SCHEDULE];
     hb_mt_phrase tap_phrase;
@@ -253,6 +261,7 @@ static void hb_mt_pad_even(hb_mt_phrase *phrase,int rhythm,int placement){
 }
 static void hb_mt_init(hb_mt_runtime *runtime){
     memset(runtime,0,sizeof(*runtime));runtime->editor.recording=-1;
+    runtime->choice.last_slot=-1;
     runtime->playback_lane=-1;runtime->editor.lane=-1;runtime->editor.armed=-1;runtime->editor.duration=2;runtime->editor.arrival=2;
     runtime->editor.draft.anchor=-1;runtime->editor.tap_grid=1;
 }
