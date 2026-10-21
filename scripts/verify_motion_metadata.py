@@ -26,8 +26,8 @@ def main() -> None:
             if not key.startswith('motion_control_') and key not in ('chord_edit_target','motion_lane','motion_auto_off','motion_touch_mode','motion_operation','motion_enabled','motion_offset','motion_from','motion_through'):
                 assert map_metadata[key] == parameter, key
     map_operation: dict = map_module['capabilities']['ui_hierarchy']['levels']['motion_operation']
-    assert len(map_operation['params']) == len(map_operation['knobs']) == 8
-    assert {parameter['key'] for parameter in map_operation['params']} == set(map_operation['knobs'])
+    assert len(map_operation['knobs']) == 8
+    assert not map_operation['params']  # Knob-only panel, like other leaf panels.
     for level_name, map_level in map_module['capabilities']['ui_hierarchy']['levels'].items():
         parameter_keys: set[str] = {parameter['key'] for parameter in map_level['params'] if 'key' in parameter}
         assert (not map_level['params'] and all(k in map_canonical for k in map_level['knobs'])) or parameter_keys == set(map_level['knobs']), f'{level_name}: unassigned parameters create overflow panels'

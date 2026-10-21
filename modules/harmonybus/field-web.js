@@ -5,6 +5,16 @@ const api=window.schwungRemote,prefix=(api.component||'midi_fx1')+':';
 const container=document.getElementById('outputs'),orientation=document.getElementById('orientation'),bank=document.getElementById('bank'),count=document.getElementById('count'),status=document.getElementById('status'),override=document.getElementById('override');
 let values=Array.from({length:16},()=>({raw:.5,value:.5,target:0})),holds=new Map(),vertical=false,bankIndex=0,dirty=false,lastSend=0,busy=false,latchMode=false;
 const bound=value=>Math.max(0,Math.min(1,value));
+const placementKeys=['field_distribution','field_spread','field_randomness','field_placement_seed'];
+const placementControls=placementKeys.map(key=>document.getElementById(key));
+placementControls.forEach((control,index)=>{control.onchange=()=>{api.setParam(prefix+placementKeys[index],control.value);};});
+let placementBusy=false;
+async function pollPlacement(){
+ if(placementBusy||document.hidden)return;placementBusy=true;
+ try{const parts=String(await api.getParam(prefix+'field_placement_view')).split(',');
+ if(parts[0]==='nfp1'&&parts.length===5&&parts.slice(1).every(value=>Number.isFinite(Number(value))))placementControls.forEach((control,index)=>{if(document.activeElement!==control)control.value=parts[index+1];});
+ }finally{placementBusy=false;}
+}
 const send=()=>{api.setParam(prefix+'field_outputs_remote','fo1,'+values.map((_,lane)=>holds.has(lane)?Math.round(holds.get(lane)*10000):-1).join(','));lastSend=Date.now();dirty=false;};
 // Cancellation (blur/disconnect/layout) never creates a latch.
 const release=()=>{holds.clear();send();};
@@ -60,5 +70,5 @@ async function poll(){
  if(rebuild)render();else paint();status.textContent=latchMode?'Connected · latch overrides':'Connected · momentary overrides';
  }catch(error){status.textContent=String(error.message||error);}finally{busy=false;}
 }
-render();setInterval(poll,125);poll();
+render();setInterval(poll,125);poll();setInterval(()=>pollPlacement().catch(()=>{}),1000);pollPlacement().catch(()=>{});
 })();

@@ -9,12 +9,15 @@ static hb_field_param HB_FIELD_PARAMS[]={
  {"field_seed",&g_hb_field.seed,1,65535},{"field_glide",&g_hb_field.glide,0,1000},
  {"field_animation",&g_hb_field.animation,0,1},
  {"field_display",&g_hb_field_view,0,1},{"field_orientation",&g_hb_field_orientation,0,1},
- {"field_bank",&g_hb_field_bank,0,3},{"field_override",&g_hb_field_latch_mode,0,1}};
+ {"field_bank",&g_hb_field_bank,0,3},{"field_override",&g_hb_field_latch_mode,0,1},
+ {"field_distribution",&g_hb_field_distribution,0,3},{"field_spread",&g_hb_field_spread,0,1600},
+ {"field_randomness",&g_hb_field_randomness,0,100},{"field_placement_seed",&g_hb_field_placement_seed,1,65535}};
 static int hb_field_set(const char *key,const char *value){
     for(unsigned index=0;index<sizeof(HB_FIELD_PARAMS)/sizeof(*HB_FIELD_PARAMS);index++)if(!strcmp(key,HB_FIELD_PARAMS[index].key)){
         char *end=0;long number=strtol(value,&end,10);if(end==value||*end)return 1;
         *HB_FIELD_PARAMS[index].value=(int)hb_nf_bound(number,HB_FIELD_PARAMS[index].low,HB_FIELD_PARAMS[index].high);
         if(!strcmp(key,"field_override")&&!g_hb_field_latch_mode)g_hb_field_latched=0;
+        if(index>=13)hb_nf_place();
         return 1;
     }
     if(!strcmp(key,"field_output_clear")){
@@ -62,6 +65,7 @@ static int hb_field_set(const char *key,const char *value){
     return 0;
 }
 static int hb_field_get(const char *key,char *buffer,int length){
+    if(!strcmp(key,"field_placement_view"))return snprintf(buffer,(size_t)length,"nfp1,%d,%d,%d,%d",g_hb_field_distribution,g_hb_field_spread,g_hb_field_randomness,g_hb_field_placement_seed);
     for(unsigned index=0;index<sizeof(HB_FIELD_PARAMS)/sizeof(*HB_FIELD_PARAMS);index++)if(!strcmp(key,HB_FIELD_PARAMS[index].key))return snprintf(buffer,(size_t)length,"%d",*HB_FIELD_PARAMS[index].value);
     if(!strcmp(key,"field_view")){
         int used=snprintf(buffer,(size_t)length,"nf1,%.3f,%.3f",g_hb_field.rate,g_hb_field.zoom);
@@ -75,6 +79,8 @@ static int hb_field_get(const char *key,char *buffer,int length){
 }
 static int hb_field_save(char *buffer,int length,int used){
     if(used<0||used>=length)return used;
+    if(g_hb_field_distribution||g_hb_field_spread!=100||g_hb_field_randomness!=100||g_hb_field_placement_seed!=1)used+=snprintf(buffer+used,(size_t)(length-used),";nfp1,%d,%d,%d,%d",g_hb_field_distribution,g_hb_field_spread,g_hb_field_randomness,g_hb_field_placement_seed);
+    if(used<0||used>=length)return used;
     if(g_hb_field_latch_mode)used+=snprintf(buffer+used,(size_t)(length-used),";nl1,1");
     if(used<0||used>=length)return used;
     if(g_hb_field_view||g_hb_field_orientation||g_hb_field_bank)used+=snprintf(buffer+used,(size_t)(length-used),";nv1,%d,%d,%d",g_hb_field_view,g_hb_field_orientation,g_hb_field_bank);
@@ -86,6 +92,13 @@ static int hb_field_save(char *buffer,int length,int used){
 static void hb_field_restore(const char *state){
     hb_nf_clear_outputs(16);
     if(g_hb_field_restored)return;
+    g_hb_field_distribution=0;g_hb_field_spread=g_hb_field_randomness=100;g_hb_field_placement_seed=1;
+    const char *placement=strstr(state,";nfp1,");int distribution,spread,randomness,seed;
+    if(placement&&sscanf(placement,";nfp1,%d,%d,%d,%d",&distribution,&spread,&randomness,&seed)==4){
+        g_hb_field_distribution=(int)hb_nf_bound(distribution,0,3);g_hb_field_spread=(int)hb_nf_bound(spread,0,1600);
+        g_hb_field_randomness=(int)hb_nf_bound(randomness,0,100);g_hb_field_placement_seed=(int)hb_nf_bound(seed,1,65535);
+    }
+    hb_nf_place();
     g_hb_field_latch_mode=strstr(state,";nl1,1")!=0;
     const char *view=strstr(state,";nv1,");int display,orientation,bank;
     if(view&&sscanf(view,";nv1,%d,%d,%d",&display,&orientation,&bank)==3){
@@ -95,6 +108,6 @@ static void hb_field_restore(const char *state){
     if(cursor&&sscanf(cursor,";nf1,%d,%d,%d,%d,%d,%d,%d,%d,%d",values,values+1,values+2,values+3,values+4,values+5,values+6,values+7,values+8)==9){
         for(int index=0;index<9;index++){snprintf(text,sizeof(text),"%d",values[index]);hb_field_set(HB_FIELD_PARAMS[index].key,text);}g_hb_field_restored=1;
     }
-    if(view||g_hb_field_latch_mode)g_hb_field_restored=1;
+    if(view||placement||g_hb_field_latch_mode)g_hb_field_restored=1;
 }
 #endif

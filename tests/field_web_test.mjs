@@ -12,9 +12,9 @@ class Element {
  getBoundingClientRect(){return {left:0,top:0,width:100,height:100};}
  setPointerCapture(id){this.capture.add(id);}hasPointerCapture(id){return this.capture.has(id);}
 }
-const elements=Object.fromEntries(['outputs','orientation','bank','count','status','release','override'].map(key=>[key,new Element()]));elements.count.value='8';elements.orientation.value=elements.bank.value='0';
+const elements=Object.fromEntries(['outputs','orientation','bank','count','status','release','override','field_distribution','field_spread','field_randomness','field_placement_seed'].map(key=>[key,new Element()]));elements.count.value='8';elements.orientation.value=elements.bank.value='0';
 const writes=[],timers=[],events={};
-const api={component:'midi_fx1',setParam:(key,value)=>writes.push([key,value]),getParam:async()=> 'fo2,1,0,0,'+Array.from({length:16},()=>[5000,3500,1]).flat().join(',')+',1,1,0,0'};
+const api={component:'midi_fx1',setParam:(key,value)=>writes.push([key,value]),getParam:async(key)=> key.endsWith('field_placement_view')?'nfp1,2,250,75,9':'fo2,1,0,0,'+Array.from({length:16},()=>[5000,3500,1]).flat().join(',')+',1,1,0,0'};
 const context={window:{schwungRemote:api,addEventListener:(event,handler)=>events[event]=handler},document:{getElementById:key=>elements[key],createElement:()=>new Element(),hidden:false,addEventListener:(event,handler)=>events[event]=handler},setInterval:handler=>timers.push(handler),Date,Math,Number,String,Map,Array,Error};
 vm.runInNewContext(readFileSync(new URL('../modules/harmonybus/field-web.js',import.meta.url),'utf8'),context);
 await new Promise(resolve=>setImmediate(resolve));
@@ -30,3 +30,6 @@ assert(sliders[0].parentElement.firstChild.textContent.includes('L'));
 sliders[0].onpointerdown({button:0,pointerId:7,clientX:25,clientY:0});elements.release.onclick();
 sliders[0].onpointermove({pointerId:7,clientX:75,clientY:0});timers[0]();assert(frame().every(value=>value===-1),'cleared pointer cannot rearm until new press');
 console.log('Remote field sliders: bridge, simultaneous holds, independent release, disconnect cleanup, horizontal default and blended brightness pass');
+
+assert.equal(elements.field_distribution.value,'2');assert.equal(elements.field_spread.value,'250');
+elements.field_randomness.value='42';elements.field_randomness.onchange();assert.deepEqual(writes.at(-1),['midi_fx1:field_randomness','42']);

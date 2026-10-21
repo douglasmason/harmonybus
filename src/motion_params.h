@@ -338,7 +338,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         int used=snprintf(buffer,(size_t)length,"%s,%d,%d,%d",extended?"fo2":"fo1",g_hb_field_view,g_hb_field_orientation,g_hb_field_bank);
         for(int index=0;index<16;index++){
             const hb_motion_lane *lane=&config->lanes[index];
-            double raw=hb_nf_sample(lane->field_x*.01,lane->field_y*.01,lane->field_z*.01);
+            double raw=hb_nf_lane_sample(index,lane->field_x*.01,lane->field_y*.01,lane->field_z*.01);
             if(used<0||used>=length)return -1;
             used+=snprintf(buffer+used,(size_t)(length-used),",%d,%d,%d",(int)(raw*10000),(int)(hb_nf_output(index,raw)*10000),lane->field_target);
         }
@@ -354,7 +354,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         for(int index=0;index<16;index++){
             const hb_motion_lane *lane=&config->lanes[index];
             if(!lane->field_target||!hb_mo_clip_operation(lane->operation))continue;
-            int sample=hb_mo_round(hb_nf_mix(lane->field_low,lane->field_high,hb_nf_output(index,hb_nf_sample(lane->field_x*.01,lane->field_y*.01,lane->field_z*.01))));
+            int sample=hb_mo_round(hb_nf_mix(lane->field_low,lane->field_high,hb_nf_output(index,hb_nf_lane_sample(index,lane->field_x*.01,lane->field_y*.01,lane->field_z*.01))));
             if(lane->field_target==1)sample=hb_mo_clamp(sample,0,100);
             else if(lane->operation==HB_MO_WEAVE)sample=hb_mo_clamp(sample,1,16);
             if(used<0||used>=length)return -1;

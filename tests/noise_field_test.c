@@ -66,5 +66,42 @@ int main(void){
     API.get_param(instance,"state",saved,sizeof(saved));assert(strstr(saved,";nl1,1")&&!strstr(saved,"fo1"));
     assert(API.get_param(instance,"field_outputs_view2",snapshot,sizeof(snapshot))>0&&!strncmp(snapshot,"fo2,",4));
     hb_field_restore(saved);assert(!g_hb_field_latched); /* load clears runtime latches */
+    /* Placement remains fixed across time, view reads and field-seed changes. */
+    hb_nf_reset();double manual=hb_nf_sample(.2,.7,.3);
+    assert(manual==hb_nf_lane_sample(0,.2,.7,.3));
+    API.set_param(instance,"field_distribution","2");API.set_param(instance,"field_spread","250");
+    double points[16][3];memcpy(points,g_hb_field_points,sizeof(points));
+    for(int lane=0;lane<16;lane++){
+        double norm=0;for(int axis=0;axis<3;axis++)norm+=points[lane][axis]*points[lane][axis];
+        assert(fabs(norm-6.25)<1e-9);
+        assert(hb_nf_lane_sample(lane,12,13,14)==hb_nf_sample(points[lane][0],points[lane][1],points[lane][2]));
+    }
+    API.set_param(instance,"field_seed","99");hb_nf_advance(.1,120);
+    assert(!memcmp(points,g_hb_field_points,sizeof(points)));
+    API.set_param(instance,"field_placement_seed","2");assert(memcmp(points,g_hb_field_points,sizeof(points)));
+    API.set_param(instance,"field_placement_seed","1");assert(!memcmp(points,g_hb_field_points,sizeof(points)));
+    API.set_param(instance,"field_spread","0");
+    for(int lane=1;lane<16;lane++)assert(hb_nf_lane_sample(lane,0,0,0)==hb_nf_lane_sample(0,0,0,0));
+    API.set_param(instance,"field_spread","100");
+    for(int shape=1;shape<=3;shape++){
+        double radius_sum=0,axis_sum[3]={0},axis_squares[3]={0};int count=0;
+        g_hb_field_distribution=shape;
+        for(int seed=1;seed<=1024;seed++){
+            g_hb_field_placement_seed=seed;hb_nf_place();
+            for(int lane=0;lane<16;lane++){
+                double norm=0;for(int axis=0;axis<3;axis++){double coordinate=g_hb_field_points[lane][axis];assert(isfinite(coordinate));norm+=coordinate*coordinate;axis_sum[axis]+=coordinate;axis_squares[axis]+=coordinate*coordinate;}
+                if(shape<=2)assert(norm<=1.000000001);
+                radius_sum+=norm;count++;
+            }
+        }
+        double expected=shape==1?.6:1.;assert(fabs(radius_sum/count-expected)<.03);
+        for(int axis=0;axis<3;axis++){assert(fabs(axis_sum[axis]/count)<.02);assert(fabs(axis_squares[axis]/count-expected/3)<.02);}
+    }
+    API.set_param(instance,"field_distribution","1");API.set_param(instance,"field_randomness","0");
+    memcpy(points,g_hb_field_points,sizeof(points));API.set_param(instance,"field_placement_seed","9");assert(!memcmp(points,g_hb_field_points,sizeof(points)));
+    API.set_param(instance,"field_randomness","65");API.set_param(instance,"field_spread","234");
+    memcpy(points,g_hb_field_points,sizeof(points));API.get_param(instance,"state",saved,sizeof(saved));assert(strstr(saved,";nfp1,1,234,65,9"));
+    hb_nf_reset();hb_field_restore(saved);assert(!memcmp(points,g_hb_field_points,sizeof(points)));
+    hb_nf_reset();hb_field_restore("legacy");assert(g_hb_field_distribution==0);
     puts("field: deterministic continuity, stop/reverse/release, timeout, probability, persistence and read-only previews pass");
 }

@@ -1,5 +1,10 @@
 #ifndef HB_NOISE_FIELD_H
 #define HB_NOISE_FIELD_H
+#ifdef HB_FREESTANDING
+extern double sqrt(double),cos(double),sin(double),log(double),cbrt(double);
+#else
+#include <math.h>
+#endif
 /* Fixed-coordinate, seeded 3-D gradient noise. No allocation or mutable RNG. */
 static unsigned hb_nf_hash(unsigned value){value^=value>>16;value*=0x7feb352du;value^=value>>15;value*=0x846ca68bu;return value^(value>>16);}
 static double hb_nf_bound(double value,double low,double high){return value>=low?(value<=high?value:high):low;}
@@ -49,12 +54,42 @@ static unsigned hb_nf_blocked(int source){
 }
 static int g_hb_field_view,g_hb_field_orientation,g_hb_field_bank;
 static int g_hb_field_restored;
+/* Placement is independent of noise seed/time and cached on setting changes. */
+static int g_hb_field_distribution,g_hb_field_spread=100,g_hb_field_randomness=100,g_hb_field_placement_seed=1;
+static double g_hb_field_points[16][3];
+static double hb_nf_uniform(unsigned lane,unsigned dimension){
+    return (hb_nf_hash((unsigned)g_hb_field_placement_seed^hb_nf_hash(lane+101u)^hb_nf_hash(dimension+701u))+.5)/4294967296.;
+}
+static double hb_nf_stratified(int lane,int axis){return (((lane*(axis*4+3)+axis*5)%16)+.5)/16;}
+static void hb_nf_place(void){
+    const double tau=6.283185307179586,randomness=g_hb_field_randomness*.01,spread=g_hb_field_spread*.01;
+    for(int lane=0;lane<16;lane++){
+        double regular_z=1-2*(lane+.5)/16,regular_angle=lane*2.399963229728653;
+        double random_z=1-2*hb_nf_uniform(lane,0),random_angle=tau*hb_nf_uniform(lane,1);
+        double regular_radius=sqrt(1-regular_z*regular_z),random_radius=sqrt(1-random_z*random_z);
+        double direction[3]={hb_nf_mix(regular_radius*cos(regular_angle),random_radius*cos(random_angle),randomness),hb_nf_mix(regular_radius*sin(regular_angle),random_radius*sin(random_angle),randomness),hb_nf_mix(regular_z,random_z,randomness)};
+        double norm=sqrt(direction[0]*direction[0]+direction[1]*direction[1]+direction[2]*direction[2]);
+        if(norm<1e-12){direction[0]=1;direction[1]=direction[2]=0;norm=1;}
+        /* A permuted stratification avoids coupling radius to polar latitude. */
+        double quantile=hb_nf_mix(((lane*7)%16+.5)/16,hb_nf_uniform(lane,2),randomness);
+        double radius=g_hb_field_distribution==1?cbrt(quantile):1;
+        for(int axis=0;axis<3;axis++){
+            double coordinate=direction[axis]/norm*radius;
+            if(g_hb_field_distribution==3){
+                double gaussian=sqrt(-2*log(hb_nf_uniform(lane,3+axis*2)))*cos(tau*hb_nf_uniform(lane,4+axis*2))/sqrt(3.);
+                double regular=sqrt(-2*log(hb_nf_stratified(lane,axis)))*cos(tau*hb_nf_stratified(lane,axis+3))/sqrt(3.);
+                coordinate=hb_nf_mix(regular,gaussian,randomness);
+            }
+            g_hb_field_points[lane][axis]=spread*coordinate;
+        }
+    }
+}
 /* Runtime-only overlays, shared by live and clip readers; never saved. */
 static double hb_nf_output(int index,double raw){
     if(index<0||index>=16)return raw;
     return hb_nf_mix(raw,g_hb_field_outputs[index].value,g_hb_field_outputs[index].weight);
 }
-static void hb_nf_reset(void){hb_noise_field fresh={16,0,0,3,50,100,1,100,1,{0,0,0},1,1,1,1,0,0};g_hb_field=fresh;g_hb_field_restored=0;memset(g_hb_field_outputs,0,sizeof(g_hb_field_outputs));memset(g_hb_field_inputs,0,sizeof(g_hb_field_inputs));g_hb_field_input_order=0;g_hb_field_latch_mode=0;g_hb_field_latched=0;memset(g_hb_field_latch_values,0,sizeof(g_hb_field_latch_values));g_hb_field_view=g_hb_field_orientation=g_hb_field_bank=0;}
+static void hb_nf_reset(void){hb_noise_field fresh={16,0,0,3,50,100,1,100,1,{0,0,0},1,1,1,1,0,0};g_hb_field=fresh;g_hb_field_restored=0;memset(g_hb_field_outputs,0,sizeof(g_hb_field_outputs));memset(g_hb_field_inputs,0,sizeof(g_hb_field_inputs));g_hb_field_input_order=0;g_hb_field_latch_mode=0;g_hb_field_latched=0;memset(g_hb_field_latch_values,0,sizeof(g_hb_field_latch_values));g_hb_field_view=g_hb_field_orientation=g_hb_field_bank=0;g_hb_field_distribution=0;g_hb_field_spread=g_hb_field_randomness=100;g_hb_field_placement_seed=1;hb_nf_place();}
 static double hb_nf_sample(double x,double y,double z){
     const hb_noise_field *field=&g_hb_field;
     double scale=hb_nf_bound(field->scale*.01*field->zoom,.01,100),sum=0,weight=1,total=0;
@@ -64,6 +99,10 @@ static double hb_nf_sample(double x,double y,double z){
         x=x*2+.173;y=y*2+.317;z=z*2+.113;weight*=field->roughness*.01;
     }
     return hb_nf_bound(.5+.5*sum/(total?total:1),0,1);
+}
+static double hb_nf_lane_sample(int lane,double x,double y,double z){
+    if(g_hb_field_distribution&&lane>=0&&lane<16){const double *point=g_hb_field_points[lane];return hb_nf_sample(point[0],point[1],point[2]);}
+    return hb_nf_sample(x,y,z);
 }
 /* Audio clock owner advances once per block. Display reads never advance time.
    Expiring live gestures protects against a disconnected surface or UI crash. */
