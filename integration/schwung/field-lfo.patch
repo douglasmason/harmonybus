@@ -1,0 +1,422 @@
+diff --git a/src/host/field_source.h b/src/host/field_source.h
+new file mode 100644
+index 00000000..e293b3c8
+--- /dev/null
++++ b/src/host/field_source.h
+@@ -0,0 +1,9 @@
++/* Optional process-wide field source. No host_api_v1_t ABI changes. */
++#ifndef SCHWUNG_FIELD_SOURCE_H
++#define SCHWUNG_FIELD_SOURCE_H
++#define SCHWUNG_FIELD_CHANNELS 16
++#define LFO_FIELD_FIRST 6
++#define LFO_FIELD_END (LFO_FIELD_FIRST + SCHWUNG_FIELD_CHANNELS)
++typedef int (*schwung_field_publish_fn)(const void *owner, const float *values, int count);
++typedef int (*schwung_field_read_fn)(int channel, float *value);
++#endif
+diff --git a/src/host/field_source_runtime.h b/src/host/field_source_runtime.h
+new file mode 100644
+index 00000000..5abcd042
+--- /dev/null
++++ b/src/host/field_source_runtime.h
+@@ -0,0 +1,58 @@
++/* Include in exactly one host translation unit. Values, never plugin pointers,
++ * cross this boundary. Ownership is an opaque identity, never dereferenced.
++ * Single-word atomic samples keep readers wait-free, even during publication.
++ * Each word carries its own expiry timestamp; no torn value/time pairs. */
++#ifndef SCHWUNG_FIELD_SOURCE_RUNTIME_H
++#define SCHWUNG_FIELD_SOURCE_RUNTIME_H
++#include "field_source.h"
++#include <stdint.h>
++#include <time.h>
++#include <math.h>
++static unsigned field_gate;
++static const void *field_owner;
++static uint64_t field_samples[SCHWUNG_FIELD_CHANNELS];
++_Static_assert(__atomic_always_lock_free(8, 0), "Field samples require lock-free 64-bit atomics");
++static uint64_t field_stamp_ms;
++static uint64_t field_now_ms(void) {
++    struct timespec stamp;
++    clock_gettime(CLOCK_MONOTONIC, &stamp);
++    return (uint64_t)stamp.tv_sec * 1000 + (uint64_t)stamp.tv_nsec / 1000000;
++}
++__attribute__((visibility("default")))
++int schwung_field_publish_v1(const void *owner, const float *values, int count) {
++    if (!owner || (count != 0 && (count != SCHWUNG_FIELD_CHANNELS || !values))) return 0;
++    if (__atomic_exchange_n(&field_gate, 1, __ATOMIC_ACQUIRE)) return 0;
++    int accepted = !field_owner || field_owner == owner ||
++        (count && field_now_ms() - field_stamp_ms > 250);
++    if (accepted) {
++        if (!count) {
++            field_owner = 0; field_stamp_ms = 0;
++            for (int channel=0; channel<SCHWUNG_FIELD_CHANNELS; channel++)
++                __atomic_store_n(&field_samples[channel], 0, __ATOMIC_RELEASE);
++        }
++        else {
++            field_owner = owner;
++            field_stamp_ms = field_now_ms();
++            for (int channel = 0; channel < SCHWUNG_FIELD_CHANNELS; channel++) {
++                float value = values[channel];
++                union { float value; uint32_t bits; } sample;
++                sample.value = !isfinite(value) ? 0.5f : fminf(1.0f, fmaxf(0.0f, value));
++                uint64_t packed = ((uint64_t)(uint32_t)field_stamp_ms << 32) | sample.bits;
++                __atomic_store_n(&field_samples[channel], packed, __ATOMIC_RELEASE);
++            }
++        }
++    }
++    __atomic_store_n(&field_gate, 0, __ATOMIC_RELEASE);
++    return accepted;
++}
++__attribute__((visibility("default")))
++int schwung_field_read_v1(int channel, float *value) {
++    if (!value || channel < 0 || channel >= SCHWUNG_FIELD_CHANNELS) return 0;
++    uint64_t packed=__atomic_load_n(&field_samples[channel], __ATOMIC_ACQUIRE);
++    if (!packed || (uint32_t)((uint32_t)field_now_ms()-(uint32_t)(packed>>32))>250) return 0;
++    union { float value; uint32_t bits; } sample;
++    sample.bits=(uint32_t)packed;
++    *value=sample.value*2.0f-1.0f;
++    return 1;
++}
++#endif
+diff --git a/src/host/lfo_common.h b/src/host/lfo_common.h
+index afba9c7b..885a0efd 100644
+--- a/src/host/lfo_common.h
++++ b/src/host/lfo_common.h
+@@ -6,6 +6,7 @@
+ 
+ #include <math.h>
+ #include <stdint.h>
++#include <string.h>
+ 
+ /* M_PI is hidden by glibc <math.h> under strict -std=c11 (exposed on macOS
+  * unconditionally). This header is compiled standalone by unit tests, so
+@@ -26,7 +27,7 @@
+ #define LFO_SHAPE_SQUARE 3
+ #define LFO_SHAPE_SH     4
+ #define LFO_SHAPE_SWISHY 5
+-#define LFO_NUM_SHAPES   6
++#define LFO_NUM_SHAPES   22
+ 
+ /* ============================================================================
+  * LFO State
+@@ -51,9 +52,52 @@ typedef struct {
+     float drunk_target;   /* Swishy: interpolation target value */
+     int drunk_init;       /* Swishy: initialized flag */
+     int retrigger;        /* Reset phase on first note-on of new phrase */
++    float previous_signal; /* Runtime-only cross-LFO contribution. */
++    int previous_valid;
+     int held_count;       /* Number of currently held notes (for retrigger) */
+ } lfo_state_t;
+ 
++/* Evaluate cross-LFO modulation from the previous block. User parameters stay
++ * bases between ticks, so save, undo, scenes, disable and retarget cannot bake
++ * modulation into a setting. The one-block delay also makes cyclic routes
++ * independent of slot iteration order. */
++static inline void lfo_cross_begin(lfo_state_t *lfos, float base[LFO_COUNT][3]) {
++    for (int index=0; index<LFO_COUNT; index++) {
++        base[index][0]=lfos[index].depth;
++        base[index][1]=lfos[index].rate_hz;
++        base[index][2]=lfos[index].phase_offset;
++    }
++    for (int index=0; index<LFO_COUNT; index++) {
++        lfo_state_t *source=&lfos[index];
++        if (!source->enabled || !source->previous_valid ||
++            source->target[0]!='l' || source->target[1]!='f' || source->target[2]!='o' ||
++            source->target[3]<'1' || source->target[3]>'2' || source->target[4]) continue;
++        int target=source->target[3]-'1';
++        if (target==index) continue;
++        int field=-1;
++        if (!strcmp(source->param,"depth")) field=0;
++        else if (!strcmp(source->param,"rate_hz")) field=1;
++        else if (!strcmp(source->param,"phase_offset")) field=2;
++        if (field<0) continue;
++        float minimum=field==0?-1.0f:field==1?0.1f:0.0f;
++        float maximum=field==1?20.0f:1.0f;
++        float signal=source->bipolar?source->previous_signal:(source->previous_signal+1.0f)*0.5f;
++        float scale=(maximum-minimum)*(source->bipolar?0.5f:1.0f);
++        float value=base[target][field]+signal*base[index][0]*scale;
++        value=fminf(maximum,fmaxf(minimum,value));
++        if (field==0) lfos[target].depth=value;
++        else if (field==1) lfos[target].rate_hz=value;
++        else lfos[target].phase_offset=value;
++    }
++}
++static inline void lfo_cross_end(lfo_state_t *lfos, const float base[LFO_COUNT][3]) {
++    for (int index=0; index<LFO_COUNT; index++) {
++        lfos[index].depth=base[index][0];
++        lfos[index].rate_hz=base[index][1];
++        lfos[index].phase_offset=base[index][2];
++    }
++}
++
+ /* Process a MIDI message for retrigger: reset phase on first note-on of a phrase */
+ static inline void lfo_process_midi(lfo_state_t *lfos, const uint8_t *msg, int len) {
+     if (len < 3) return;
+@@ -143,7 +187,8 @@ static inline int lfo_migrate_division_index(int old_idx) {
+ }
+ 
+ __attribute__((unused)) static const char *lfo_shape_names[LFO_NUM_SHAPES] = {
+-    "sine", "tri", "saw", "square", "s&h", "swishy"
++    "sine", "tri", "saw", "square", "s&h", "swishy",
++    "field1", "field2", "field3", "field4", "field5", "field6", "field7", "field8", "field9", "field10", "field11", "field12", "field13", "field14", "field15", "field16"
+ };
+ 
+ /* ============================================================================
+diff --git a/src/host/shadow_chain_mgmt.c b/src/host/shadow_chain_mgmt.c
+index 0b6075da..14340714 100644
+--- a/src/host/shadow_chain_mgmt.c
++++ b/src/host/shadow_chain_mgmt.c
+@@ -515,6 +515,8 @@ static int scene_host_view(const char *target, const char *param, char *buf, int
+                                       : snprintf(buf, len, "%d", (int)lroundf(v));
+ }
+ 
++#include "field_source_runtime.h"
++
+ void chain_mgmt_init(const chain_mgmt_host_t *h) {
+     host = *h;
+     shadow_scene_host_bind(&scene_host_io);
+@@ -4572,6 +4574,8 @@ static int mfx_param_strip_suffix(const char *param_key,
+ void shadow_master_fx_lfo_tick(int frames) {
+     static uint64_t last_emit_ms[MASTER_FX_LFO_COUNT] = {0};
+     float sample_rate = 44100.0f;
++    float cross_base[LFO_COUNT][3];
++    lfo_cross_begin(shadow_master_fx_lfos, cross_base);
+ 
+     for (int i = 0; i < MASTER_FX_LFO_COUNT; i++) {
+         lfo_state_t *lfo = &shadow_master_fx_lfos[i];
+@@ -4629,7 +4633,15 @@ void shadow_master_fx_lfo_tick(int frames) {
+         /* Compute waveform with phase offset */
+         double effective_phase = fmod(lfo->phase + (double)lfo->phase_offset, 1.0);
+         float signal = lfo_compute_shape(lfo->shape, effective_phase, lfo);
++        int source_valid = 1;
++        if (lfo->shape >= LFO_FIELD_FIRST)
++            source_valid = schwung_field_read_v1(lfo->shape - LFO_FIELD_FIRST, &signal);
+ 
++        if (target_lfo >= 0) {
++            lfo->previous_signal = signal;
++            lfo->previous_valid = source_valid;
++            continue;
++        }
+         /* Determine param min/max and type */
+         float p_min = 0.0f, p_max = 1.0f;
+         int p_is_float = 1;
+@@ -4722,6 +4734,7 @@ void shadow_master_fx_lfo_tick(int frames) {
+             mod_signal = (signal + 1.0f) * 0.5f;
+         }
+ 
++        if (!source_valid) mod_signal = 0.0f;
+         float base = mfx_lfo_base_value[i];
+         float range_span = p_max - p_min;
+         float range_scale = lfo->bipolar ? (0.5f * range_span) : range_span;
+@@ -4749,6 +4762,7 @@ void shadow_master_fx_lfo_tick(int frames) {
+             mfx->api->set_param(mfx->instance, lfo->param, mod_str);
+         }
+     }
++    lfo_cross_end(shadow_master_fx_lfos, cross_base);
+ }
+ 
+ /* ============================================================================
+@@ -5892,6 +5906,7 @@ void shadow_inprocess_handle_param_request(void) {
+                 /* A live turn on a field a scene drives: anchor it. */
+                 if (scene_driven) shadow_scene_host_note_write(scene_t, lfo_param, shadow_param->value);
+                 if (strcmp(lfo_param, "enabled") == 0) {
++                    lfo->previous_valid = 0;
+                     lfo->enabled = atoi(shadow_param->value);
+                     if (lfo->enabled) {
+                         if (lfo->rate_hz < 0.1f) lfo->rate_hz = 1.0f;
+@@ -5900,6 +5915,7 @@ void shadow_inprocess_handle_param_request(void) {
+                         }
+                     }
+                 } else if (strcmp(lfo_param, "shape") == 0) {
++                    lfo->previous_valid = 0;
+                     lfo->shape = atoi(shadow_param->value);
+                     if (lfo->shape < 0) lfo->shape = 0;
+                     if (lfo->shape >= LFO_NUM_SHAPES) lfo->shape = LFO_NUM_SHAPES - 1;
+@@ -5925,10 +5941,12 @@ void shadow_inprocess_handle_param_request(void) {
+                     if (lfo->phase_offset < 0.0f) lfo->phase_offset = 0.0f;
+                     if (lfo->phase_offset > 1.0f) lfo->phase_offset = 1.0f;
+                 } else if (strcmp(lfo_param, "target") == 0) {
++                    lfo->previous_valid = 0;
+                     strncpy(lfo->target, shadow_param->value, sizeof(lfo->target) - 1);
+                     lfo->target[sizeof(lfo->target) - 1] = '\0';
+                     mfx_lfo_base_valid[lfo_idx] = 0;  /* Re-snapshot base */
+                 } else if (strcmp(lfo_param, "target_param") == 0) {
++                    lfo->previous_valid = 0;
+                     strncpy(lfo->param, shadow_param->value, sizeof(lfo->param) - 1);
+                     lfo->param[sizeof(lfo->param) - 1] = '\0';
+                     mfx_lfo_base_valid[lfo_idx] = 0;  /* Re-snapshot base */
+@@ -5943,7 +5961,9 @@ void shadow_inprocess_handle_param_request(void) {
+                 shadow_param->result_len = 0;
+             } else if (req_type == 2) {  /* GET */
+                 char result[256] = {0};
+-                if (strcmp(lfo_param, "enabled") == 0) {
++                if (strcmp(lfo_param, "field_source_version") == 0) {
++                    snprintf(result, sizeof(result), "1");
++                } else if (strcmp(lfo_param, "enabled") == 0) {
+                     snprintf(result, sizeof(result), "%d", lfo->enabled);
+                 } else if (strcmp(lfo_param, "shape") == 0) {
+                     snprintf(result, sizeof(result), "%d", lfo->shape);
+diff --git a/src/modules/chain/dsp/chain_host.c b/src/modules/chain/dsp/chain_host.c
+index 35425168..807b21b0 100644
+--- a/src/modules/chain/dsp/chain_host.c
++++ b/src/modules/chain/dsp/chain_host.c
+@@ -16,6 +16,8 @@
+ #include <errno.h>
+ #include "chain_internal.h"
+ #include "host/split_voices_parse.h"
++#include "host/field_source.h"
++static schwung_field_read_fn field_read;
+ 
+ 
+ /* ============================================================================
+@@ -804,6 +806,8 @@ static void v2_set_param_impl(void *instance, const char *key, const char *val)
+         int lfo_idx = (key[3] == '1') ? 0 : 1;
+         lfo_state_t *lfo = &inst->lfos[lfo_idx];
+         const char *subkey = key + 5;
++        if (!strcmp(subkey,"target") || !strcmp(subkey,"target_param") ||
++            !strcmp(subkey,"shape") || !strcmp(subkey,"enabled")) lfo->previous_valid=0;
+         char source_id[8];
+         snprintf(source_id, sizeof(source_id), "lfo%d", lfo_idx + 1);
+ 
+@@ -1219,6 +1223,8 @@ static int v2_get_param_impl(void *instance, const char *key, char *buf, int buf
+ 
+         if (strcmp(subkey, "enabled") == 0)
+             return snprintf(buf, buf_len, "%d", lfo->enabled);
++        if (strcmp(subkey, "field_source_version") == 0)
++            return snprintf(buf, buf_len, "%d", field_read ? 1 : 0);
+         if (strcmp(subkey, "active") == 0)
+             return snprintf(buf, buf_len, "%d", lfo->active);
+         if (strcmp(subkey, "shape") == 0)
+@@ -1687,6 +1693,8 @@ static const slot_lfo_param_meta_t slot_lfo_param_meta[] = {
+ static void lfo_tick(chain_instance_t *inst, int frames) {
+     if (!inst) return;
+     chain_scene_tick(inst);  /* a morph replaces the base; LFOs sum on top */
++    float cross_base[LFO_COUNT][3];
++    lfo_cross_begin(inst->lfos, cross_base);
+     float sample_rate = (float)(inst->host ? inst->host->sample_rate : MOVE_SAMPLE_RATE);
+ 
+     /*
+@@ -1731,6 +1739,10 @@ static void lfo_tick(chain_instance_t *inst, int frames) {
+         /* Compute waveform with phase offset */
+         double effective_phase = fmod(lfo->phase + (double)lfo->phase_offset, 1.0);
+         float signal = lfo_compute_shape(lfo->shape, effective_phase, lfo);
++        int source_valid = 1;
++        if (lfo->shape >= LFO_FIELD_FIRST)
++            source_valid = field_read && field_read(lfo->shape - LFO_FIELD_FIRST, &signal);
++        if (!source_valid) signal = 0.0f;
+ 
+         /* Check for LFO-to-LFO targeting: "lfo1" or "lfo2" */
+         int target_lfo = -1;
+@@ -1764,50 +1776,18 @@ static void lfo_tick(chain_instance_t *inst, int frames) {
+         }
+ 
+         if (target_lfo >= 0 && target_lfo != i) {
+-            /* LFO-to-LFO: directly modify target LFO's param */
+-            lfo_state_t *tgt = &inst->lfos[target_lfo];
+-            const slot_lfo_param_meta_t *meta = NULL;
+-            for (int j = 0; j < SLOT_LFO_PARAM_META_COUNT; j++) {
+-                if (strcmp(slot_lfo_param_meta[j].key, lfo->param) == 0) {
+-                    meta = &slot_lfo_param_meta[j];
+-                    break;
+-                }
+-            }
+-            if (!meta) continue;
+-
+-            /* Read current value for base */
+-            float cur;
+-            if (strcmp(lfo->param, "depth") == 0) cur = tgt->depth;
+-            else if (strcmp(lfo->param, "rate_hz") == 0) cur = tgt->rate_hz;
+-            else if (strcmp(lfo->param, "phase_offset") == 0) cur = tgt->phase_offset;
+-            else continue;
+-
+-            /* Use base from lfo_base_values if not yet snapshotted.
+-             * We store base in inst->lfo_base_values[i] and track validity
+-             * with inst->lfo_base_valid[i]. */
+-            if (!inst->lfo_base_valid[i]) {
+-                inst->lfo_base_values[i] = cur;
+-                inst->lfo_base_valid[i] = 1;
+-            }
+-
+-            float base = inst->lfo_base_values[i];
+-            float half_range = (meta->max_val - meta->min_val) / 2.0f;
+-            float modulated = base + signal * lfo->depth * half_range;
+-            if (modulated < meta->min_val) modulated = meta->min_val;
+-            if (modulated > meta->max_val) modulated = meta->max_val;
+-
+-            if (strcmp(lfo->param, "depth") == 0) tgt->depth = modulated;
+-            else if (strcmp(lfo->param, "rate_hz") == 0) tgt->rate_hz = modulated;
+-            else if (strcmp(lfo->param, "phase_offset") == 0) tgt->phase_offset = modulated;
++            lfo->previous_signal = signal;
++            lfo->previous_valid = source_valid;
+         } else if (target_lfo < 0) {
+             /* Normal FX/synth target: emit modulation via existing runtime */
+             char source_id[8];
+             snprintf(source_id, sizeof(source_id), "lfo%d", i + 1);
+             chain_mod_emit_value(inst, source_id, lfo->target, lfo->param,
+-                                 signal, lfo->depth, 0.0f, lfo->bipolar, 1 /*enabled*/);
++                                 signal, lfo->depth, 0.0f, lfo->bipolar, source_valid);
+         }
+         /* target_lfo == i: self-targeting, skip */
+     }
++    lfo_cross_end(inst->lfos, cross_base);
+ }
+ 
+ /* V2 render_block handler */
+@@ -2134,6 +2114,7 @@ static plugin_api_v2_t g_plugin_api_v2 = {
+ 
+ /* V2 Entry Point */
+ plugin_api_v2_t* move_plugin_init_v2(const host_api_v1_t *host) {
++    field_read = (schwung_field_read_fn)dlsym(RTLD_DEFAULT, "schwung_field_read_v1");
+     g_host = host;
+ 
+     if (host->api_version != MOVE_PLUGIN_API_VERSION) {
+diff --git a/src/shadow/shadow_ui.js b/src/shadow/shadow_ui.js
+index e00fdf81..0d84a654 100644
+--- a/src/shadow/shadow_ui.js
++++ b/src/shadow/shadow_ui.js
+@@ -5911,7 +5911,7 @@ let lfoCtx = null;  /* Active LFO context: { lfoIdx, getParam, setParam, getTarg
+ let selectedLfoItem = 0;
+ let editingLfoValue = false;
+ 
+-const LFO_SHAPES = ["Sine", "Tri", "Saw", "Square", "S&H", "Swishy"];
++const LFO_SHAPES = ["Sine", "Tri", "Saw", "Square", "S&H", "Swishy", "Field 1", "Field 2", "Field 3", "Field 4", "Field 5", "Field 6", "Field 7", "Field 8", "Field 9", "Field 10", "Field 11", "Field 12", "Field 13", "Field 14", "Field 15", "Field 16"];
+ const LFO_DIVISIONS = [
+     "16bar", "15bar", "14bar", "13bar", "12bar", "11bar", "10bar", "9bar",
+     "8bar", "7bar", "6bar", "5bar", "4bar", "3bar", "2bar",
+diff --git a/src/shared/param_pages/lfo_page.mjs b/src/shared/param_pages/lfo_page.mjs
+index 684542d9..7034a646 100644
+--- a/src/shared/param_pages/lfo_page.mjs
++++ b/src/shared/param_pages/lfo_page.mjs
+@@ -35,8 +35,8 @@
+  * header read "BI" and "THR", which tells you nothing you could not already
+  * see in the cell.
+  */
+-export const LFO_SHAPES = ["Sine", "Triangle", "Saw", "Square", "S&H", "Swishy"];
+-export const LFO_SHAPES_SHORT = ["SIN", "TRI", "SAW", "SQR", "S&H", "SWY"];
++export const LFO_SHAPES = ["Sine", "Triangle", "Saw", "Square", "S&H", "Swishy", "Field 1", "Field 2", "Field 3", "Field 4", "Field 5", "Field 6", "Field 7", "Field 8", "Field 9", "Field 10", "Field 11", "Field 12", "Field 13", "Field 14", "Field 15", "Field 16"];
++export const LFO_SHAPES_SHORT = ["SIN", "TRI", "SAW", "SQR", "S&H", "SWY", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "F13", "F14", "F15", "F16"];
+ export const LFO_DIVISIONS = [
+     "16 bar", "15 bar", "14 bar", "13 bar", "12 bar", "11 bar", "10 bar", "9 bar",
+     "8 bar", "7 bar", "6 bar", "5 bar", "4 bar", "3 bar", "2 bar",
+diff --git a/src/shared/param_pages/viz_draw.mjs b/src/shared/param_pages/viz_draw.mjs
+index 78564c63..207c0de1 100644
+--- a/src/shared/param_pages/viz_draw.mjs
++++ b/src/shared/param_pages/viz_draw.mjs
+@@ -992,7 +992,9 @@ export function drawLfo(ctx, rect, roles, values, metaIndex) {
+     const { topY, botY, midY, amp: fullAmp } = band(rect);
+     const spanW = xEnd - x0;
+ 
+-    const shape = lfoShapeIdOf(optionText(metaIndex, roles.shape, values));
++    const sourceName = optionText(metaIndex, roles.shape, values);
++    if (/^field\s*\d+$/i.test(sourceName)) return; // Shared nonperiodic source has no oscillator silhouette.
++    const shape = lfoShapeIdOf(sourceName);
+     const rateFrac = lfoRateFrac(metaIndex, roles.rate, values);
+     const phase = roles.phase ? frac(metaIndex, roles.phase, values) : 0;
+ 
+@@ -1228,6 +1230,7 @@ const WAVE_QUANTUM_ROWS = { 1: 4 };   /* shape id -> cycle travel, in units of `
+ 
+ export function drawWaveform(ctx, rect, key, values, metaIndex, anim, nowMs) {
+     const name = optionText(metaIndex, key, values);
++    if (/^field\s*\d+$/i.test(name)) return;
+     const shape = lfoShapeIdOf(name);
+     const pad = 2;
+     const x = rect.x + pad, w = rect.w - pad * 2;

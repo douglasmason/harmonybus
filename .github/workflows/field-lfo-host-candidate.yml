@@ -1,0 +1,40 @@
+name: Field LFO host candidate (no deployment)
+on:
+  push:
+    branches: [work/field-lfo]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare pinned host source
+        run: |
+          git clone https://github.com/charlesvestal/schwung.git schwung
+          git -C schwung checkout 586aebd4367952384e1b447e8e3a2fd627974ec8
+          git -C schwung submodule update --init --recursive
+          git -C schwung apply ../integration/schwung/field-lfo.patch
+          printf '1.7.3.hbfield.1\n' > schwung/src/host/version.txt
+      - name: Real chain routing and shared cross-LFO regression tests
+        run: bash scripts/test_field_lfo_host.sh schwung
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: Build complete host package
+        working-directory: schwung
+        run: |
+          scripts/build-manager.sh
+          docker build -t field-lfo-builder .
+          docker run --rm -v "$PWD:/build" field-lfo-builder
+          file build/schwung-shim.so build/modules/chain/dsp.so
+          nm -D build/schwung-shim.so | grep schwung_field_publish_v1
+          nm -D build/schwung-shim.so | grep schwung_field_read_v1
+          sha256sum schwung.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: field-lfo-host-candidate
+          path: |
+            schwung/schwung.tar.gz
+            schwung/SHA256SUMS

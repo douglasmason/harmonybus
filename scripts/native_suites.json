@@ -604,5 +604,12 @@
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/noise_field_test.c src/harmony_core.c -lm -o /tmp/noise_field_test",
       "/tmp/noise_field_test"
     ]
+  },
+  {
+    "name": "field_source_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -rdynamic tests/field_source_test.c src/harmony_core.c -lm -ldl -o /tmp/field_source_test",
+      "/tmp/field_source_test"
+    ]
   }
 ]

@@ -1,7 +1,7 @@
 name: Shared core candidate (no deployment)
 on:
   push:
-    branches: [work/conductor-surface-hardening, work/field-play, work/field-mappings, work/field-choice]
+    branches: [work/conductor-surface-hardening, work/field-play, work/field-mappings, work/field-choice, work/field-lfo]
   workflow_dispatch:
 permissions:
   contents: read

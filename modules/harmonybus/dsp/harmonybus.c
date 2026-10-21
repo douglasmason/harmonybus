@@ -75,6 +75,12 @@ struct host_api_v1 {
     double (*get_beat_position)(void);
 };
 static const host_api_v1_t *g_host = 0;
+/* Optional host-owned signal bridge; no per-chain host context is retained. */
+extern void *dlsym(void *, const char *);
+typedef int (*hb_field_publish_fn)(const void *, const float *, int);
+static hb_field_publish_fn g_field_publish;
+static int g_field_source_owner;
+
 #define HB_MIDI_OUT_BYTES 80
 
 #define HB_MAX_INSTANCES 16
@@ -4081,7 +4087,7 @@ if(instance){
     hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);
     hb_receiver_remove_source(instance);
     instance->used=0;
-}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;hb_nf_reset();memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_ar_bank_ready=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(1);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_rg_ready=g_rg_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
+}for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;if(g_field_publish)g_field_publish(&g_field_source_owner,0,0);hb_nf_reset();memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_ar_bank_ready=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(1);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_rg_ready=g_rg_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
     /* Movy delivers each private chain on channel 1; Receive selects bus
@@ -5299,6 +5305,15 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
     if(field_owner<HB_MAX_INSTANCES&&instance==&g_pool[field_owner]&&frames>0&&sample_rate>0){
         double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120;
         hb_nf_advance((double)frames/sample_rate,bpm>0?bpm:120);
+        if(g_field_publish){
+            float values[16];
+            for(int channel=0;channel<16;channel++){
+                const hb_motion_lane *lane=&instance->motion.lanes[channel];
+                double raw=hb_nf_lane_sample(channel,lane->field_x*.01,lane->field_y*.01,lane->field_z*.01);
+                values[channel]=(float)hb_nf_output(channel,raw);
+            }
+            g_field_publish(&g_field_source_owner,values,16);
+        }
     }
     hb_mt_choice_advance(instance,frames>0&&sample_rate>0?(double)frames/sample_rate:0);
     hb_gesture_finish_use(instance);
@@ -7648,4 +7663,4 @@ static void set_param(void *value,const char *key,const char *parameter){
 }
 static midi_fx_api_v1_t API={MIDI_FX_API_VERSION,create_inst,destroy_inst,process,tick,set_param,get_param};
 __attribute__((visibility("default")))
-midi_fx_api_v1_t *move_midi_fx_init(const host_api_v1_t *host){g_host=host;ensure_init();return &API;}
+midi_fx_api_v1_t *move_midi_fx_init(const host_api_v1_t *host){g_field_publish=(hb_field_publish_fn)dlsym(0,"schwung_field_publish_v1");g_host=host;ensure_init();return &API;}
