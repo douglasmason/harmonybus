@@ -19,7 +19,7 @@ jobs:
       ARTIFACT_NAME: harmonybus-core-candidate
       ARTIFACT_FILE: harmonybus-v0.2.290-module.tar.gz
       ASSET_NAME: harmonybus-v0.2.290-module.tar.gz
-      RELEASE_NOTES: "Additive Field LFO callback delivery status with no Schwung host changes. Preserves active/capability compatibility. Five simulated minutes across 16 chains and 32 routes validate overrides, rejection recovery, bypass, enable/disable and neutral readouts under the real stock chain; ASAN, native suites and ARM build verified. Pair with Movy226 for the overview status/freshness display. No physical device deployment."
+      RELEASE_NOTES: "Additive Field LFO callback delivery status with no Schwung host changes. Preserves active/capability compatibility. Five simulated minutes across 16 chains and 32 routes validate overrides, rejection recovery, bypass, enable/disable and neutral readouts under the real stock chain; ASAN, native suites and ARM build verified. Pair with Movy230 for the overview status/freshness display. No physical device deployment."
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/publish_field_status.py
