@@ -1,7 +1,7 @@
 name: Stock Schwung Field feasibility (no deployment)
 on:
   push:
-    branches: [work/stock-field-mod, work/stock-field-install]
+    branches: [feature/field-route-status-20261022, work/stock-field-mod, work/stock-field-install]
   workflow_dispatch:
 permissions:
   contents: read

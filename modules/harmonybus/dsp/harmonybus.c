@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.289"
+#define HB_VERSION "0.2.290"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -84,7 +84,7 @@ typedef struct {
     void (*clear)(void *,const char *);
     void *ctx;
     char source[32],target[32],param[64];
-    int enabled,shape,depth,bipolar,status;
+    int enabled,shape,depth,bipolar,status,bypassed;
 } hb_stock_field_route;
 #define HB_MIDI_OUT_BYTES 80
 

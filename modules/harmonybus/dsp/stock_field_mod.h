@@ -3,6 +3,7 @@
 static void hb_stock_field_clear(Inst *instance){
     for(int i=0;i<2;i++){hb_stock_field_route *r=&instance->field_mod[i];
         if(r->clear&&r->ctx)r->clear(r->ctx,r->source);
+        r->status=0;
     }
 }
 static int hb_stock_field_key(const char *key,const char **sub){
@@ -21,6 +22,7 @@ static int hb_stock_field_set(Inst *instance,const char *key,const char *value){
     const char *sub=0;int i=hb_stock_field_key(key,&sub);if(i<0)return 0;
     hb_stock_field_route *r=&instance->field_mod[i];
     if(r->clear&&r->ctx)r->clear(r->ctx,r->source);
+    r->status=0;
     if(!strcmp(sub,"shape")){int v=parse_i(value,0);r->shape=v>=6&&v<22?v:0;}
     else if(!strcmp(sub,"enabled"))r->enabled=parse_i(value,0)!=0;
     else if(!strcmp(sub,"polarity"))r->bipolar=parse_i(value,0)!=0;
@@ -39,22 +41,30 @@ static int hb_stock_field_get(Inst *instance,const char *key,char *buffer,int le
     if(!strcmp(sub,"depth"))return snprintf(buffer,length,"%.4f",r->depth*.0001);
     if(!strcmp(sub,"target"))return snprintf(buffer,length,"%s",r->target);
     if(!strcmp(sub,"target_param"))return snprintf(buffer,length,"%s",r->param);
+    if(!strcmp(sub,"status")){
+        const char *status=!r->shape?"inactive":!r->enabled?"disabled":
+            !r->target[0]||!r->param[0]?"unassigned":
+            !instance->field_managed||!r->emit||!r->clear||!r->ctx?"unmanaged":
+            r->bypassed?"bypassed":r->status>0?"applied":r->status<0?"rejected":"pending";
+        return snprintf(buffer,length,"%s",status);
+    }
     if(!strcmp(sub,"active"))return snprintf(buffer,length,"%d",r->shape&&r->enabled&&r->target[0]&&r->param[0]);
     return -1;
 }
 static void hb_stock_field_service(Inst *instance,int bypassed){
     for(int i=0;i<2;i++){
         hb_stock_field_route *r=&instance->field_mod[i];
+        r->bypassed=bypassed!=0;
         if(!r->shape||!r->enabled||bypassed||!r->target[0]||!r->param[0]){
-            if(r->status&&r->clear&&r->ctx)r->clear(r->ctx,r->source);
+            if(r->status>0&&r->clear&&r->ctx)r->clear(r->ctx,r->source);
             r->status=0;continue;
         }
-        if(!r->emit||!r->clear||!r->ctx)continue;
+        if(!r->emit||!r->clear||!r->ctx){r->status=0;continue;}
         int channel=r->shape-6;const hb_motion_lane *lane=&instance->motion.lanes[channel];
         double raw=hb_nf_lane_sample(channel,lane->field_x*.01,lane->field_y*.01,lane->field_z*.01);
         float signal=(float)(2*hb_nf_output(channel,raw)-1);
         int result=r->emit(r->ctx,r->source,r->target,r->param,signal,r->depth*.0001f,0,r->bipolar,1);
-        r->status=result>=0?1:0;
+        r->status=result>=0?1:-1;
         if(result<0)r->clear(r->ctx,r->source);
     }
 }
