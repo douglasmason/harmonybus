@@ -1,0 +1,25 @@
+name: Publish verified Field route status
+on:
+  push:
+    branches: [work/publish-field-status-290]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_COMMIT: 7712c10508623392dc6d91dc34842f1bdf8a4aa0
+      TESTED_RUN: '39729007264'
+      SECOND_TESTED_RUN: '39729007191'
+      INTEGRATED_BASE: b907f48b0d6d24598c4b903e4d2e59e9b759ec38
+      INSTALL_VERSION: 0.2.290
+      PREVIOUS_VERSION: 0.2.289
+      ARTIFACT_NAME: harmonybus-core-candidate
+      ARTIFACT_FILE: harmonybus-v0.2.290-module.tar.gz
+      ASSET_NAME: harmonybus-v0.2.290-module.tar.gz
+      RELEASE_NOTES: "Additive Field LFO callback delivery status with no Schwung host changes. Preserves active/capability compatibility. Five simulated minutes across 16 chains and 32 routes validate overrides, rejection recovery, bypass, enable/disable and neutral readouts under the real stock chain; ASAN, native suites and ARM build verified. Pair with Movy226 for the overview status/freshness display. No physical device deployment."
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/publish_field_status.py
