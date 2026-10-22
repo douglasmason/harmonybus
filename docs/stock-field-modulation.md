@@ -48,3 +48,24 @@ full-chain fixture verifies the real adapter, two simultaneous contributions,
 bypass/resume, unload/reload, state restoration and return to stock waveforms.
 UI tests cover capability gates, channels, target filtering and unused controls.
 These are software tests; no physical Move was deployed or tested.
+
+## Delivery status (HB 290)
+
+`field_lfo1:status` / `field_lfo2:status` are additive read-only values:
+`inactive`, `disabled`, `unassigned`, `unmanaged`, `bypassed`, `pending`,
+`applied`, or `rejected`. The existing `active` configuration getter and
+`field_mod_version=1` remain unchanged for old consumers.
+
+Applied means the stock modulation callback accepted the most recently serviced
+contribution, including zero depth; it does not guarantee audible change or an
+unbypassed destination FX. Rejected means the callback declined it (for example,
+a removed parameter or unavailable target); it does not invent a more specific
+reason than the host supplies. Parameter edits clear the previous contribution
+and status immediately; service on the next pre-render block resolves Pending.
+HB bypass status reflects the last managed heartbeat. These are transient
+observations, not saved state, and polling never services routes or advances time.
+
+The real unmodified stock-chain fixture exercises five simulated minutes across
+16 chains / 32 routes, changing output overrides, bypass, enable and invalid
+parameter routing, checking summed values and rejection recovery. This is
+software evidence, not a physical Move latency or crackle measurement.
