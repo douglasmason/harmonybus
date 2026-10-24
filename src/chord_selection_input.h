@@ -1,5 +1,5 @@
-/* Included after the ordinary conductor/recording helpers. Selection owns
-   semantic evidence only. The comp actor retains every sounding-note owner. */
+/* Selection supplies explicit harmony to the existing conductor player.
+   Render Off retains silent harmony control for independently triggered followers. */
 static hb_harmony_t hb_selection_decode(unsigned long long word,int note){
     hb_harmony_t result={0};if(!hb_selection_word(word))return result;
     int root=mod12(note+g_bus.global_transpose);uint8_t notes[12];int count=0;
@@ -160,6 +160,15 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
     key->root_pc=harmony.root_pc;key->semantic_mask=harmony.pitch_mask;key->selection_bass=harmony.bass_pc;
     key->intent_kind=harmony.intent_kind;key->intent_target=harmony.intent_target;key->intent_scale=harmony.intent_scale;key->intent_minor=harmony.intent_minor;
     key->sequence=++instance->player.sequence;
+    if(instance->render_channel>=0){
+        hb_cp_config config=hb_chord_config_at(instance,note,hb_motion_position(instance),hb_motion_condition_position());
+        config.mode=2; /* Voice the selected harmony, never the preceding bus chord. */
+        key->count=hb_cp_voice_semantic(config,note+g_bus.global_transpose,harmony.root_pc,
+            harmony.pitch_mask,harmony.intent_scale,key->notes,0);
+        for(int voice=0;voice<key->count;voice++)key->notes[voice]=hb_key_pitch(instance,key->notes[voice]);
+        key->velocity=input[2];key->fresh=1;key->played_pitch=note;
+        instance->player.render_channel=instance->render_channel;
+    }
     instance->dirty=instance->conductor_note_on_pending=1;instance->frames_since_change=0;
     if(!origin&&instance->action_count<64){
         int queued=(instance->action_head+instance->action_count)%64;

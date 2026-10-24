@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.292"
+#define HB_VERSION "0.2.293"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -5062,7 +5062,7 @@ static int tick_core(void *value,int frames,int sample_rate,uint8_t output[][3],
     }
     if(instance->role!=0)return 0;
     if(!g_conductor_block_ready)hb_tick_conductor(instance,frames,sample_rate);
-    if(hb_cp_enabled(&instance->player)){
+    if(hb_cp_enabled(&instance->player)||hb_selected_harmony(instance).valid||player->sounding_count){
         player->render_channel=instance->render_channel;
         return hb_player_tick(instance,output,lengths,max_output);
     }
