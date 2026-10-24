@@ -16,7 +16,7 @@ typedef struct {
     int extension_treatment; /* 0 derived, 1 raise avoid extensions */
 } hb_cp_config;
 typedef struct {
-    int used, held, source, channel, velocity, count, fresh, root_pc, recordable, played_pitch;
+    int selection, selection_bass; int used, held, source, channel, velocity, count, fresh, root_pc, recordable, played_pitch;
     int intent_kind,intent_target,intent_minor;unsigned intent_scale,gap_mask;
     unsigned sequence, harmony_mask, harmony_sequence, semantic_mask;
     hb_cp_config onset_config;
@@ -37,7 +37,7 @@ typedef struct {
 } hb_cp_order_state;
 typedef struct {
     hb_cp_order_state order_state,baked_order;
-    int baked_started;double baked_beat;unsigned rhythm_serial;
+    int hold_arp_gate;int baked_started;double baked_beat;unsigned rhythm_serial;
     hb_rg_clock rhythm;
     hb_cp_config config;
     int state_override;hb_cp_config state_config;
@@ -435,6 +435,7 @@ static void hb_cp_off_origin(hb_chord_player *player,int source,int channel,int 
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
         if(!key->used||key->source!=source||key->channel!=channel||key->playback_origin!=origin)continue;
+        if(key->selection){memset(key,0,sizeof(*key));continue;}
         if(key->release_end>0)continue; /* Duplicate OFF cannot extend a tail. */
         int was_held=key->held;key->held=0;
         if(key->rhythm_baked){key->used=0;continue;}
@@ -616,6 +617,7 @@ static hb_cp_entry hb_cp_select(hb_chord_player *player,hb_cp_entry *entries,int
     return hb_cp_select_order(player,entries,count,cycle,first,&player->order_state,player->running==2);
 }
 static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],int capacity){
+    if(player->beat>=player->gate_beat)player->hold_arp_gate=0;
     for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&player->keys[key].rhythm_release_at>0&&player->beat>=player->keys[key].rhythm_release_at)player->keys[key].used=0;
     for(int key=0;key<HB_CP_KEYS;key++)if(player->keys[key].used&&player->keys[key].release_end>0&&hb_cp_release_clock(player,&player->keys[key])+1e-9>=player->keys[key].release_end)player->keys[key].used=0;
     uint8_t desired[16][128];memset(desired,0,sizeof(desired));
@@ -723,7 +725,7 @@ static int hb_cp_tick(hb_chord_player *player,uint8_t output[][3],int lengths[],
         if(player->running==1&&player->beat<player->gate_beat){
             /* A replacement pool may no longer contain this already-emitted
                latched hit. Let it finish its gate; use the new pool next step. */
-            if((hb_cp_settings(player)->latch==1||hb_cp_settings(player)->latch==4)&&count)
+            if((player->hold_arp_gate||hb_cp_settings(player)->latch==1||hb_cp_settings(player)->latch==4)&&count)
                 desired[player->arp_channel][player->arp_note]=(uint8_t)player->arp_velocity;
             for(int index=0;index<count;index++)if(entries[index].pitch==player->arp_note&&entries[index].channel==player->arp_channel)
                 desired[player->arp_channel][player->arp_note]=(uint8_t)hb_cp_release_velocity(player,&player->keys[entries[index].key]);

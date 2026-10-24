@@ -1,0 +1,57 @@
+name: Chord Play verification and release
+on:
+  push:
+    branches: [main, work/chord-play-20261024]
+    paths: [src/chord_selection.h, src/chord_selection_input.h, src/chord_player.h, modules/harmonybus/dsp/harmonybus.c, tests/chord_selection_test.c, tests/chord_selection_comping_test.c, .github/workflows/chord-play.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: chord-play-${{ github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  verify-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Full native regressions
+        run: python3 scripts/run_native_suites.py --jobs 4
+      - name: Build ARM modules
+        run: |
+          bash scripts/build_harmonybus_move.sh
+          cd dist
+          sha256sum harmonybus-v0.2.291-module.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: harmonybus-chord-play-291
+          path: |
+            dist/harmonybus-v0.2.291-module.tar.gz
+            dist/SHA256SUMS
+      - name: Publish verified main package and advance installer last
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.2.291 >/dev/null 2>&1; then exit 0; fi
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+          python3 -c 'import json; assert json.load(open("release.json"))["version"]=="0.2.290"'
+          gh release create v0.2.291 dist/harmonybus-v0.2.291-module.tar.gz dist/SHA256SUMS --target "$GITHUB_SHA" --title 'HarmonyBus 0.2.291 — Chord Play' --notes-file docs/chord-play.md
+          mkdir verified-upload
+          gh release download v0.2.291 --dir verified-upload --pattern harmonybus-v0.2.291-module.tar.gz
+          (cd verified-upload && sha256sum -c ../dist/SHA256SUMS)
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+          git switch -C installer-pointer origin/main
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path: Path = Path('release.json')
+          assert json.loads(path.read_text())['version']=='0.2.290'
+          path.write_text(json.dumps({'version':'0.2.291','download_url':'https://github.com/douglasmason/harmonybus/releases/download/v0.2.291/harmonybus-v0.2.291-module.tar.gz'},indent=2)+'\n')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add release.json
+          git commit -m 'Publish verified Chord Play 0.2.291 [skip ci]'
+          git push origin HEAD:main
