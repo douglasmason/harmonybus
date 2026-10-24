@@ -16,6 +16,7 @@ typedef struct {
     int extension_treatment; /* 0 derived, 1 raise avoid extensions */
 } hb_cp_config;
 typedef struct {
+    unsigned long long selection_word;
     int selection, selection_bass; int used, held, source, channel, velocity, count, fresh, root_pc, recordable, played_pitch;
     int intent_kind,intent_target,intent_minor;unsigned intent_scale,gap_mask;
     unsigned sequence, harmony_mask, harmony_sequence, semantic_mask;

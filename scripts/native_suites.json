@@ -625,5 +625,12 @@
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -fsanitize=undefined -fno-sanitize-recover=all tests/chord_selection_comping_test.c src/harmony_core.c -lm -o /tmp/chord_selection_comping_test",
       "/tmp/chord_selection_comping_test"
     ]
+  },
+  {
+    "name": "chord_intent_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -fsanitize=undefined -fno-sanitize-recover=all tests/chord_intent_test.c src/harmony_core.c -lm -o /tmp/chord_intent_test",
+      "/tmp/chord_intent_test"
+    ]
   }
 ]
