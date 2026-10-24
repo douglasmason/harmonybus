@@ -15,6 +15,8 @@ extern "C" {
 
 /* Generated chords may carry exact semantic tones beyond a named template. */
 #define HB_HARMONY_EXPLICIT_TONES 256
+#define HB_HARMONY_FIXED_SCALE 512 /* Recorded selection retains its resolved collection and native intent. */
+#define HB_HARMONY_FLAGS (HB_HARMONY_EXPLICIT_TONES|HB_HARMONY_FIXED_SCALE)
 typedef struct {
     int valid;
     int root_pc;

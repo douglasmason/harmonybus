@@ -56,11 +56,12 @@ static int hb_context_destination(Inst *instance,hb_harmony_t harmony,int *minor
     *minor_out=minor;return destination;
 }
 static unsigned hb_local_output_scale_resolved(Inst *instance,hb_harmony_t harmony,int *source){
+    if((harmony.chord_index&HB_HARMONY_FIXED_SCALE)&&harmony.intent_scale)return hb_scale_resolved(harmony.intent_scale,HB_SCALE_RECORDED,source);
     if(harmony.intent_kind>=8&&harmony.intent_kind<=10){
         unsigned dominant=hb_dominant_scale_mask(instance,harmony,harmony.intent_target);
         if(dominant)return hb_scale_resolved(hb_accommodate_chord(dominant,harmony,harmony.intent_target),hb_dominant_origin(instance,harmony.intent_minor),source);
     }
-    if(harmony.intent_kind==7&&harmony.intent_scale)return hb_scale_resolved(hb_accommodate_chord(harmony.intent_scale,harmony,harmony.intent_target),HB_SCALE_EXPLICIT,source);
+    if((harmony.intent_kind==7||(harmony.chord_index&HB_HARMONY_FIXED_SCALE))&&harmony.intent_scale)return hb_scale_resolved(hb_accommodate_chord(harmony.intent_scale,harmony,harmony.intent_target),HB_SCALE_EXPLICIT,source);
     unsigned local=hb_local_recipe(instance,harmony);
     if(hb_policy_value(instance,HB_P_GAP)==2&&harmony.intent_kind==6&&harmony.intent_scale&&!(hb_harmony_chord_mask(harmony)&~harmony.intent_scale))
         return hb_scale_resolved(hb_accommodate_chord(harmony.intent_scale,harmony,harmony.intent_target),HB_SCALE_RECORDED,source);

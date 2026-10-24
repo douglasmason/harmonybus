@@ -1,15 +1,18 @@
 #define main ignored_chord_player_main
 #include "chord_player_test.c"
 #undef main
+static int functional;
 static void select_harmony(Inst *conductor,int root){
     char text[80];snprintf(text,sizeof(text),"%d,1,0,1,0,1,12",root);
+    if(functional)snprintf(text,sizeof(text),"0,0,3,3,0,1,12,3,%d",root?4:0);
     API.set_param(conductor,"hb_movy_input_chord",text);
+    if(functional)root=conductor->selection_note-60;
     uint8_t message[3]={0x90,(uint8_t)(60+root),100};
     assert(API.process_midi(conductor,message,3,output,lengths,64)==0);
     hb_tick_conductor(conductor,128,48000);
     assert(hb_render_harmony(conductor).root_pc==root);
 }
-int main(void){
+static void run(void){
     Inst *comp=fixture(),*conductor=API.create_instance("",0);
     API.set_param(conductor,"role","Conductor");API.set_param(conductor,"render_channel","Off");
     API.set_param(comp,"chord_mode","Conductor Chord");
@@ -29,5 +32,7 @@ int main(void){
     assert(attacks==1&&comp->player.next_beat==next+0.25);
     midi(comp,0,60);advance(comp,0,64);assert(!comp->player.sounding_count);
     API.destroy_instance(comp);API.destroy_instance(conductor);
-    puts("Chord Play comping: independent attacks, unchanged arp phase, held gate and next-chord pool pass");
+}
+int main(void){run();functional=1;run();
+    puts("Chord Play literal/functional comping: independent attacks, unchanged arp phase, held gate and next-chord pool pass");
 }

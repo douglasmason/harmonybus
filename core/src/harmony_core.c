@@ -274,7 +274,7 @@ hb_harmony_t hb_transpose_harmony(hb_harmony_t harmony,int semitones) {
     uint16_t intent=0;for(int pitch=0;pitch<12;pitch++)if(harmony.intent_scale&BIT(pitch))intent|=BIT(mod12(pitch+semitones));harmony.intent_scale=intent;
     uint16_t detected=0;for(int pc=0;pc<12;pc++)if(harmony.detected_mask&BIT(pc))detected|=BIT(mod12(pc+semitones));harmony.detected_mask=detected;
     uint16_t mask=0;for(int pitch_class=0;pitch_class<12;pitch_class++)if(harmony.pitch_mask&BIT(pitch_class))mask|=BIT(mod12(pitch_class+semitones));harmony.pitch_mask=mask;
-    int template_index=harmony.chord_index&~HB_HARMONY_EXPLICIT_TONES;
+    int template_index=harmony.chord_index&~HB_HARMONY_FLAGS;
     if(template_index>=0&&template_index<template_count){snprintf(harmony.name,sizeof(harmony.name),"%s%s%s",hb_pc_name(harmony.root_pc),templates[template_index].suffix,(harmony.chord_index&HB_HARMONY_EXPLICIT_TONES)?"+":"");
         if(harmony.bass_pc!=harmony.root_pc){size_t used=strlen(harmony.name);snprintf(harmony.name+used,sizeof(harmony.name)-used,"/%s",hb_pc_name(harmony.bass_pc));}}
     return harmony;
