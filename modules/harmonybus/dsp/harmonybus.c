@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.293"
+#define HB_VERSION "0.2.294"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -269,7 +269,7 @@ typedef struct { int count; hb_surface_sample samples[108]; } hb_surface_frame_c
 typedef struct {
     hb_stock_field_route field_mod[2];
     int field_managed;
-int selection_bank[16][9],selection_bank_valid; unsigned long long selection_pending; int selection_note; hb_harmony_t opening_selection; int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_tonic,key_scale,key_input_consumed; int key_action,key_shift,key_return_after,key_pending_action; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[2][16][128]; int chord_pair_owner[2][16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; int motif_load[6],motif_load_last; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
+int selection_bank[21][9],selection_bank_valid; double selection_until; unsigned selection_serial; unsigned long long selection_pending; int selection_note; hb_harmony_t opening_selection; int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_tonic,key_scale,key_input_consumed; int key_action,key_shift,key_return_after,key_pending_action; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[2][16][128]; int chord_pair_owner[2][16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; int motif_load[6],motif_load_last; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 hb_follower_voice follower_voices[HB_FOLLOWER_VOICES];
 hb_input_intent follower_queue_input[64];
 uint8_t follower_input_held[2][128];
@@ -394,6 +394,15 @@ static uint16_t g_render_owners[16][128];
 #include "../../../src/harmony_override.h"
 #include "../../../src/chord_selection.h"
 static hb_harmony_t hb_selected_harmony(const Inst *instance);
+static hb_harmony_t hb_selection_decode(unsigned long long word,int note);
+static unsigned g_selection_serial;
+static hb_harmony_t hb_live_selection(const Inst *instance){
+    for(int index=0;index<HB_CP_KEYS;index++){
+        const hb_cp_key *key=&instance->player.keys[index];
+        if(key->used&&key->selection&&!key->playback_origin)return hb_selection_decode(key->selection_word,key->source);
+    }
+    return (hb_harmony_t){0};
+}
 static int g_touch_lanes[9]={1,2,3,4,13,14,15,16,5},g_touch_restored;
 static void hb_touch_publish(const int *lanes){
     memcpy(g_touch_lanes,lanes,sizeof(g_touch_lanes));g_touch_restored=1;
@@ -1823,26 +1832,50 @@ static void hb_next_touch_arm(Inst *instance,int lane){
         if(nearest<1e98)instance->next_touch_until=instance->next_touch_started+nearest;
     }
 }
+/* A live selection replaces only this recorded chord interval. It never
+   becomes evidence for the learned clip or its future transitions. */
+static hb_harmony_t hb_live_current(void){
+    hb_harmony_t result={0};unsigned serial=0;
+    for(int index=0;index<HB_MAX_INSTANCES;index++){
+        Inst *owner=&g_pool[index];if(!owner->used||owner->role!=0||!owner->selection_serial)continue;
+        if(owner->selection_until>0&&hb_current_beat()>=owner->selection_until)continue;
+        hb_harmony_t harmony=hb_live_selection(owner);
+        if(harmony.valid&&owner->selection_serial>=serial){result=harmony;serial=owner->selection_serial;}
+    }
+    return result;
+}
+static void hb_expire_live_selection(Inst *instance){
+    if(instance->selection_until<=0||hb_current_beat()<instance->selection_until)return;
+    for(int index=0;index<HB_CP_KEYS;index++){
+        hb_cp_key *key=&instance->player.keys[index];
+        if(key->used&&key->selection&&!key->playback_origin)memset(key,0,sizeof(*key));
+    }
+    instance->selection_until=0;instance->selection_serial=0;instance->dirty=1;
+    hb_next_apply_effective(hb_clip_playhead());
+}
 static hb_harmony_t hb_render_harmony(Inst *instance){
     hb_harmony_t override;if(hb_override_read(instance,&override))return override;
+    hb_harmony_t live=hb_live_current();
     hb_harmony_t harmony=instance->render_harmony_active?instance->render_harmony:bus_read();
-    if(!instance->render_harmony_active&&hb_render_shift_ready_for(instance)){
+    if(live.valid&&!instance->render_harmony_active)harmony=live;
+    if(!instance->render_harmony_active&&(!live.valid||hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING)&&hb_render_shift_ready_for(instance)){
         int event=hb_next_model_event_for_phase_for(instance,hb_next_phase(hb_clip_playhead()),1);
-        if(event>=0)harmony=g_bus.next_model[event].harmony;
+        int current=hb_next_model_event_for_phase_for(instance,hb_next_phase(hb_clip_playhead()),0);
+        if(event>=0&&(!live.valid||event!=current))harmony=g_bus.next_model[event].harmony;
     }
     for(int lane=0;lane<HB_MOTION_LANES;lane++){
         if(hb_mo_operation(&instance->motion,lane)!=HB_MO_HARMONY||!hb_mo_lane_active(&instance->motion,lane))continue;
         if((instance->next_touch_mask&(1ULL<<lane))&&!(instance->motion.gesture_persistent&(1ULL<<lane))&&hb_next_touch_expired(instance))continue;
         double choice;
         if(!hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&choice))continue;
-        harmony=g_bus.observed_harmony;
-        if(hb_harmony_knowledge_ready_for(instance)){
+        harmony=live.valid?live:g_bus.observed_harmony;
+        if((!live.valid||hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING)&&hb_harmony_knowledge_ready_for(instance)){
             double phase=hb_next_phase(hb_clip_playhead());
             int wants_next=choice>=50.0;
             /* An explicit Next operation selects the next observed transition,
                independently of the automatic lookahead/anticipation window. */
             int event=wants_next?hb_next_upcoming_event(phase):hb_next_model_event_for_phase_for(instance,phase,0);
-            if(event>=0)harmony=g_bus.next_model[event].harmony;
+            if(event>=0&&(!live.valid||wants_next))harmony=g_bus.next_model[event].harmony;
         }
     }
     return harmony;
@@ -4608,6 +4641,7 @@ if(!hb_queue_follower_event(instance,note,length>=3?input[2]:0,is_on,input_chann
 }
 return 0;}
 static int hb_tick_conductor(Inst *instance,int frames,int sample_rate){
+    hb_expire_live_selection(instance);
     int release_expired=0;
     int physical_held=0;
     for(int note=0;note<128;note++){
@@ -4699,6 +4733,10 @@ static int hb_tick_conductor(Inst *instance,int frames,int sample_rate){
         }
     }
 
+    if(hb_live_selection(instance).valid){
+        instance->candidate_frames=0;instance->candidate_harmony=(hb_harmony_t){0};
+        return 0;
+    }
     /* Dwell time must advance continuously, not only on MIDI changes. */
     instance->committed_frames+=frames;
 
@@ -6632,6 +6670,7 @@ static hb_harmony_t hb_opening_harmony(void){
 #include "../../../src/shared_context_runtime.h"
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
 if(!strcmp(key,"hb_chord_bank_snapshot"))return hb_selection_bank_snapshot(instance,buffer,length);
+if(!strcmp(key,"hb_chord_active"))return snprintf(buffer,(size_t)length,"%d",hb_live_selection(instance).valid!=0);
 if(!strcmp(key,"hb_chord_note"))return snprintf(buffer,(size_t)length,"%d",instance->selection_pending?instance->selection_note:-1);
 if(!strcmp(key,"hb_chord_prepared"))return snprintf(buffer,(size_t)length,"%d",hb_selection_word(instance->selection_pending));
 int field_result=hb_stock_field_get(instance,key,buffer,length);if(field_result>=0)return field_result;
@@ -7131,12 +7170,14 @@ if(!strcmp(key,"play_bypass")){static const char *options[]={"Off","On"};return 
 if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
     /* Read-only preview of current conductor and effective rendering harmony.
        Never queue a note, consume an approach, or advance the learned model. */
-    hb_harmony_t opening=hb_opening_harmony();
+    hb_harmony_t live=hb_live_current();
+    hb_harmony_t opening=live.valid?(hb_harmony_t){0}:hb_opening_harmony();
     hb_harmony_t current=opening.valid?opening:g_bus.observed_harmony;
     hb_harmony_t effective=opening.valid?opening:hb_render_harmony(instance);
     hb_harmony_t lookahead=effective;
-    int ready=!opening.valid&&hb_render_shift_ready_for(instance);
-    int known=!opening.valid&&hb_harmony_knowledge_ready_for(instance);
+    int timeline_allowed=!live.valid||hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;
+    int ready=timeline_allowed&&!opening.valid&&hb_render_shift_ready_for(instance);
+    int known=timeline_allowed&&!opening.valid&&hb_harmony_knowledge_ready_for(instance);
     double playhead=hb_clip_playhead(),display_phase=hb_next_phase(playhead);
     /* Current and full-next share one learned phase, even at Lookahead Off.
        Live inference may still be settling when the timeline crosses a chord. */
@@ -7158,6 +7199,12 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
         }
         int event=hb_next_model_event_for_phase_for(instance,phase,1);
         if(event>=0)effective=g_bus.next_model[event].harmony;
+    }
+    if(live.valid){
+        current=live;
+        int unshifted=hb_next_model_event_for_phase_for(instance,display_phase,0);
+        int shifted=hb_next_model_event_for_phase_for(instance,display_phase,1);
+        if(!ready||unshifted==shifted)effective=lookahead=live;
     }
     /* Full preview uses the next observed loop event, independently of the
        render offset. It never changes effective harmony or playback timing. */

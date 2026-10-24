@@ -32,7 +32,7 @@ static hb_harmony_t hb_selected_harmony(const Inst *instance){
 /* Read-only resolution shared by live selection and the sixteen-slot display.
    Fields: root, quality, form, scale policy, tonic, scale, bass, intent, degree. */
 static int hb_selection_fields(const int *fields){
-    static const int limits[]={11,12,16,3,11,19,12,11,6};
+    static const int limits[]={11,12,16,3,11,19,12,13,6};
     for(int index=0;index<9;index++)if(fields[index]<0||fields[index]>limits[index])return 0;
     return fields[5]>=1;
 }
@@ -60,7 +60,15 @@ static unsigned long long hb_selection_resolve(Inst *instance,const int *fields,
     int target=mod12(parent_root+hb_nth_scale_interval_from_root(reference,parent_root,fields[8]));
     int kind=7,minor=0,scale_root=parent_root;
     hb_cp_config config={0};config.mode=1;config.quality=quality;config.size=form;
-    if(intent){
+    if(intent>=12){
+        /* Resolve scale families here, alongside Motif's shared key context. */
+        int parent_minor=!!(reference&(1u<<mod12(parent_root+3)))&&!(reference&(1u<<mod12(parent_root+4)));
+        collection=hb_explicit_scale_mask(parent_root,intent==13||!parent_minor?2:1);
+        root=mod12(parent_root+hb_nth_scale_interval_from_root(collection,parent_root,fields[8]));
+        target=parent_root;kind=7;minor=intent==13||!parent_minor;
+        config.quality=quality?quality:intent==13?6:0;
+        if(intent==13&&!config.size)config.size=3;
+    }else if(intent){
         static const int secondary[]={0,3,15,2,12,0,16,17,0,0,0,0};
         hb_cadence_step borrowed={{0},intent==8?3:intent==9?4:intent==10?6:7,HB_CAD_BORROWED,0};
         hb_approach_result approach=hb_resolve_chord_approach(instance,60+target,reference,config,(hb_harmony_t){0},secondary[intent],intent>=8?&borrowed:0,intent==5?3:0,0);
@@ -95,15 +103,16 @@ static void hb_selection_prepare(Inst *instance,const char *parameter){
     instance->selection_pending=hb_selection_resolve(instance,fields,&instance->selection_note);
 }
 static void hb_selection_bank_set(Inst *instance,const char *parameter){
-    int slots[16][9];const char *cursor=parameter;
-    for(int index=0;index<16;index++){
+    int slots[21][9],count=0;const char *cursor=parameter;
+    while(*cursor&&count<21){
         const char *end=strchr(cursor,';');size_t size=end?(size_t)(end-cursor):strlen(cursor);char text[128];
-        if(size>=sizeof(text)||(index<15&&!end)||(index==15&&end))return;
+        if(size>=sizeof(text))return;
         memcpy(text,cursor,size);text[size]=0;
-        if(!hb_selection_parse(text,slots[index],1))return;
+        if(!hb_selection_parse(text,slots[count++],1))return;
         cursor=end?end+1:cursor+size;
     }
-    memcpy(instance->selection_bank,slots,sizeof(slots));instance->selection_bank_valid=1;
+    if(*cursor||(count!=16&&count!=21))return;
+    memcpy(instance->selection_bank,slots,(size_t)count*sizeof(slots[0]));instance->selection_bank_valid=count;
 }
 static int hb_selection_family(hb_harmony_t harmony){
     unsigned mask=hb_transpose_mask(hb_harmony_chord_mask(harmony),-harmony.root_pc);
@@ -118,9 +127,10 @@ static int hb_selection_bank_snapshot(Inst *instance,char *buffer,int length){
     if(instance->role!=0||!instance->selection_bank_valid)return snprintf(buffer,(size_t)length,"--");
     int root=0;unsigned reference=hb_transpose_mask(hb_selection_reference(instance,&root),g_bus.global_transpose);
     hb_key_context context=hb_key_for(instance);if(context.active)reference=context.target_mask;
-    hb_harmony_t active=hb_key_harmony(instance,hb_render_harmony(instance));
+    hb_harmony_t current=hb_live_current();
+    hb_harmony_t active=hb_key_harmony(instance,current.valid?current:hb_render_harmony(instance));
     int used=snprintf(buffer,(size_t)length,"cb1|%u|%d,%u,%u,%d,%d,%d",reference,active.valid?active.root_pc:-1,hb_harmony_chord_mask(active),active.intent_scale,active.intent_kind,active.intent_target,active.bass_pc);
-    for(int index=0;index<16;index++){
+    for(int index=0;index<instance->selection_bank_valid;index++){
         int note=0;unsigned long long word=hb_selection_resolve(instance,instance->selection_bank[index],&note);
         hb_harmony_t harmony=hb_key_harmony(instance,hb_selection_decode(word,note));unsigned mask=hb_harmony_chord_mask(harmony);
         if(used<0||used>=length)return -1;
@@ -139,7 +149,7 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
             hb_cp_key *key=&instance->player.keys[index];
             if(key->used&&key->selection&&key->source==note&&key->channel==channel&&key->playback_origin==origin){memset(key,0,sizeof(*key));found=1;}
         }
-        if(found)instance->dirty=1;return found;
+        if(found){instance->dirty=1;if(!origin){instance->selection_serial=0;instance->selection_until=0;hb_next_apply_effective(hb_clip_playhead());}}return found;
     }
     unsigned long long word=origin&&instance->recorded_action_valid[note]&&hb_selection_actions(instance->recorded_actions[note])?
         instance->recorded_actions[note][0]:!origin&&instance->selection_note==note?instance->selection_pending:0;
@@ -147,10 +157,20 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
     instance->selection_pending=0;
     /* Recorded selections remain silent even if their clip is moved to a follower. */
     if(instance->role!=0)return 1;
+    if(!origin){
+        instance->selection_serial=++g_selection_serial;instance->selection_until=0;
+        if(hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING&&g_bus.next_model_locked){
+            double phase=hb_next_phase(hb_clip_playhead());int next=hb_next_upcoming_event(phase);
+            if(next>=0){double distance=g_bus.next_model[next].phase-phase;
+                if(distance<=0)distance+=hb_next_loop_length();
+                instance->selection_until=hb_current_beat()+distance;
+            }
+        }
+    }
     int slot=-1;
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&instance->player.keys[index];
-        if(key->used&&key->selection&&key->playback_origin==origin)memset(key,0,sizeof(*key));
+        if(key->used&&key->selection)memset(key,0,sizeof(*key));
         if(!key->used&&slot<0)slot=index;
     }
     if(slot<0)return 1;
@@ -160,6 +180,7 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
     key->root_pc=harmony.root_pc;key->semantic_mask=harmony.pitch_mask;key->selection_bass=harmony.bass_pc;
     key->intent_kind=harmony.intent_kind;key->intent_target=harmony.intent_target;key->intent_scale=harmony.intent_scale;key->intent_minor=harmony.intent_minor;
     key->sequence=++instance->player.sequence;
+    if(!origin)hb_effective_write(harmony);
     if(instance->render_channel>=0){
         hb_cp_config config=hb_chord_config_at(instance,note,hb_motion_position(instance),hb_motion_condition_position());
         config.mode=2; /* Voice the selected harmony, never the preceding bus chord. */

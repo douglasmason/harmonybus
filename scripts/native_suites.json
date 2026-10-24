@@ -632,5 +632,19 @@
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -fsanitize=undefined -fno-sanitize-recover=all tests/chord_intent_test.c src/harmony_core.c -lm -o /tmp/chord_intent_test",
       "/tmp/chord_intent_test"
     ]
+  },
+  {
+    "name": "chord_banks_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -fsanitize=undefined -fno-sanitize-recover=all tests/chord_banks_test.c src/harmony_core.c -lm -o /tmp/chord_banks_test",
+      "/tmp/chord_banks_test"
+    ]
+  },
+  {
+    "name": "chord_live_override_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -fsanitize=undefined -fno-sanitize-recover=all tests/chord_live_override_test.c src/harmony_core.c -lm -o /tmp/chord_live_override_test",
+      "/tmp/chord_live_override_test"
+    ]
   }
 ]
