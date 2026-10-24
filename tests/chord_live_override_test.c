@@ -32,6 +32,9 @@ int main(void){
     assert(sscanf(buffer,"%u,%u,%u,%d",&current,&effective,&scale,&ready)==4);
     assert(current==0x424&&effective==0x424&&!ready);
     assert(hb_selection_input(conductor,off,3));assert(!hb_live_current().valid);
+    choose(conductor);conductor->movy_playback=1;
+    uint8_t recorded[]={0x90,67,100};assert(!hb_selection_input(conductor,recorded,3));
+    assert(!hb_live_current().valid);conductor->movy_playback=0;
     API.destroy_instance(conductor);API.destroy_instance(follower);
     puts("Live chord overrides current only; recorded lookahead survives; stopped selection and Off pass");
 }

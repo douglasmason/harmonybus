@@ -153,7 +153,18 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
     }
     unsigned long long word=origin&&instance->recorded_action_valid[note]&&hb_selection_actions(instance->recorded_actions[note])?
         instance->recorded_actions[note][0]:!origin&&instance->selection_note==note?instance->selection_pending:0;
-    if(!hb_selection_word(word))return 0;
+    if(!hb_selection_word(word)){
+        // A recorded chord onset also ends an audition before a loop is learned.
+        if(origin&&instance->role==0&&hb_live_selection(instance).valid){
+            for(int index=0;index<HB_CP_KEYS;index++){
+                hb_cp_key *key=&instance->player.keys[index];
+                if(key->used&&key->selection&&!key->playback_origin)memset(key,0,sizeof(*key));
+            }
+            instance->selection_serial=0;instance->selection_until=0;instance->dirty=1;
+            hb_next_apply_effective(hb_clip_playhead());
+        }
+        return 0;
+    }
     instance->selection_pending=0;
     /* Recorded selections remain silent even if their clip is moved to a follower. */
     if(instance->role!=0)return 1;
@@ -170,7 +181,7 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
     int slot=-1;
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&instance->player.keys[index];
-        if(key->used&&key->selection)memset(key,0,sizeof(*key));
+        if(key->used&&(key->selection||(!origin&&key->playback_origin)))memset(key,0,sizeof(*key));
         if(!key->used&&slot<0)slot=index;
     }
     if(slot<0)return 1;
