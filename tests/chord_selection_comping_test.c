@@ -1,0 +1,33 @@
+#define main ignored_chord_player_main
+#include "chord_player_test.c"
+#undef main
+static void select_harmony(Inst *conductor,int root){
+    char text[80];snprintf(text,sizeof(text),"%d,1,0,1,0,1,12",root);
+    API.set_param(conductor,"hb_movy_input_chord",text);
+    uint8_t message[3]={0x90,(uint8_t)(60+root),100};
+    assert(API.process_midi(conductor,message,3,output,lengths,64)==0);
+    hb_tick_conductor(conductor,128,48000);
+    assert(hb_render_harmony(conductor).root_pc==root);
+}
+int main(void){
+    Inst *comp=fixture(),*conductor=API.create_instance("",0);
+    API.set_param(conductor,"role","Conductor");API.set_param(conductor,"render_channel","Off");
+    API.set_param(comp,"chord_mode","Conductor Chord");
+    API.set_param(comp,"arp_playback","Repeat Arp");
+    select_harmony(conductor,0);
+    assert(advance(comp,0,64)==0); /* Selecting harmony never starts the comp actor. */
+    midi(comp,1,60);assert(advance(comp,0,64)==1);
+    int held=comp->player.arp_note;double next=comp->player.next_beat,gate=comp->player.gate_beat;
+    assert(comp->retrigger_held==0);
+    position=gate/2;select_harmony(conductor,1);
+    assert(advance(comp,0,64)==0); /* Keep the existing gate even though C is not in Db. */
+    assert(comp->player.arp_note==held&&comp->player.next_beat==next);
+    position=next;int count=advance(comp,0,64),attacks=0;
+    for(int index=0;index<count;index++)if(output[index][0]==0x90){
+        attacks++;assert(hb_harmony_chord_mask(hb_render_harmony(comp))&(1u<<(output[index][1]%12)));
+    }
+    assert(attacks==1&&comp->player.next_beat==next+0.25);
+    midi(comp,0,60);advance(comp,0,64);assert(!comp->player.sounding_count);
+    API.destroy_instance(comp);API.destroy_instance(conductor);
+    puts("Chord Play comping: independent attacks, unchanged arp phase, held gate and next-chord pool pass");
+}

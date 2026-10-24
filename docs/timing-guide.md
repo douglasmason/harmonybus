@@ -1,3 +1,5 @@
+HarmonyBus 0.2.291 adds silent conductor chord selections with recorded chord/scale snapshots. Comping keeps its existing source rhythm and arp phase. Pair with Movy hbclean.234 for Chord Play and HB Settings.
+
 HarmonyBus 0.2.282-dev.2 preserves override bass inversions, adds on-demand source diagnostics and validates shared surface events. Development candidate; hardware acceptance pending.
 
 HarmonyBus 0.2.281 extracts the shared portable musical core without changing musical behavior. Preserves the 0.2.280 scale diagnostics, rhythm performance and Grid gates. Pair with Movy hbclean.202 for opt-in stock FM-1 USB MIDI input; no firmware update is required.
