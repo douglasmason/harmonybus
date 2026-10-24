@@ -4857,7 +4857,8 @@ static int hb_tick_conductor(Inst *instance,int frames,int sample_rate){
     }
 
     if(hb_same_harmony(candidate,committed)){
-        if(hb_harmony_detected_mask(candidate)!=hb_harmony_detected_mask(committed))
+        if(hb_harmony_detected_mask(candidate)!=hb_harmony_detected_mask(committed)||
+           (selected.valid&&!hb_harmony_equal_effective(candidate,committed)))
             hb_commit_observed_harmony(candidate);
         hb_timeline_observe(instance,candidate);
         instance->candidate_frames=0;

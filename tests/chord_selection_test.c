@@ -43,6 +43,12 @@ assert(harmony.valid&&harmony.root_pc==roots[test]&&harmony.intent_kind==7);
     API.set_param(conductor,"hb_opening_preview",opening);
     hb_harmony_t preview=hb_opening_harmony();
     assert(preview.valid&&preview.root_pc==10&&preview.intent_scale==replay.intent_scale);
+    /* Identical chord tones with a different parent are still a new selection. */
+    API.set_param(conductor,"hb_movy_input_chord","0,1,0,2,0,1,12");event(conductor,60,1);
+    assert(hb_render_harmony(conductor).intent_scale==hb_explicit_scale_mask(0,1));
+    API.set_param(conductor,"hb_movy_input_chord","0,1,0,2,0,5,12");event(conductor,60,1);
+    assert(hb_render_harmony(conductor).intent_scale==hb_explicit_scale_mask(0,5));
+    event(conductor,60,0);
     /* An invalid command cannot reuse the last prepared selection. */
     API.set_param(conductor,"hb_movy_input_chord","12,1,0,1,0,1,12");assert(!conductor->selection_pending);
     API.destroy_instance(conductor);
