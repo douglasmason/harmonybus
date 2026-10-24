@@ -30,7 +30,9 @@ int main(void){
         event(conductor,note,0);
     }
     hb_harmony_t frozen=hb_selection_decode(dominant,62);
-    API.set_param(conductor,"secondary_scale","Whole Tone");
+    char old_policy[64];API.get_param(conductor,"dominant_scale",old_policy,sizeof(old_policy));
+    API.set_param(conductor,"dominant_scale","Whole Tone");
+    API.get_param(conductor,"dominant_scale",buffer,sizeof(buffer));assert(!strcmp(buffer,"Whole Tone"));
     assert(hb_parent_chord_scale(conductor,frozen,0,0xab5,0)==frozen.intent_scale);
     assert(hb_local_output_scale_resolved(conductor,frozen,0)==frozen.intent_scale);
     API.set_param(conductor,"hb_movy_actions",dominant_recording);assert(conductor->recorded_action_valid[62]);
@@ -51,6 +53,7 @@ int main(void){
     char mixed[4096];int mixed_size=snprintf(mixed,sizeof(mixed),"63");
     for(int index=0;index<=HB_MOTION_LANES;index++)mixed_size+=snprintf(mixed+mixed_size,sizeof(mixed)-mixed_size,",%llx",index==0?dominant:index==1?1ULL:0ULL);
     API.set_param(conductor,"hb_movy_actions",mixed);assert(!conductor->recorded_action_valid[63]);
+    API.set_param(conductor,"dominant_scale",old_policy);
     char bank[2048];int used=0;
     for(int index=0;index<16;index++)used+=snprintf(bank+used,sizeof(bank)-used,"%s%s",index?";":"",commands[index%5]);
     API.set_param(conductor,"hb_chord_bank",bank);
@@ -70,9 +73,26 @@ int main(void){
     assert(hb_harmony_chord_mask(explicit_harmony)&~0xab5u); /* G major accommodation must not hide D7's F#. */
     assert(!(hb_harmony_chord_mask(explicit_harmony)&~explicit_harmony.intent_scale));
     int old=conductor->selection_bank[0][7];API.set_param(conductor,"hb_chord_bank","bad");assert(conductor->selection_bank[0][7]==old);
+    g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=2,.source_mask=0xab5,.target_mask=hb_transpose_mask(0xab5,2)};
+    API.set_param(conductor,"hb_movy_input_chord",commands[1]);
+    assert(conductor->selection_note==62); /* Source-key identity is recorded. */
+    hb_harmony_t key_selected=hb_selection_decode(conductor->selection_pending,conductor->selection_note);
+    hb_harmony_t key_output=hb_key_harmony(conductor,key_selected);
+    assert(key_output.root_pc==4&&key_output.intent_target==9);
+    assert(hb_harmony_chord_mask(key_output)==hb_transpose_mask(0x245,2));
+    API.get_param(conductor,"hb_chord_bank_snapshot",buffer,sizeof(buffer));
+    unsigned display_reference=0;assert(sscanf(buffer,"cb1|%u",&display_reference)==1&&display_reference==g_key_context.target_mask);
+    slot=strchr(buffer,'|');slot=strchr(slot+1,'|');slot=strchr(slot+1,'|');slot=strchr(slot+1,'|');
+    int display_root=-1;assert(sscanf(slot+1,"%d",&display_root)==1&&display_root==4);
+    g_key_context=(hb_key_context){0};
     API.set_param(conductor,"follower_explicit_root","D");
     API.set_param(conductor,"hb_movy_input_chord",commands[1]);
     assert(conductor->selection_note==64); /* V/V moves with the reference key. */
+    hb_set_master_transpose(2);assert(g_bus.global_transpose==2);
+    API.set_param(conductor,"hb_movy_input_chord",commands[1]);assert(conductor->selection_note==64);
+    key_selected=hb_selection_decode(conductor->selection_pending,conductor->selection_note);
+    assert(key_selected.root_pc==6&&key_selected.intent_target==11); /* Master transpose also applies once. */
+    hb_set_master_transpose(0);
     API.destroy_instance(conductor);
     puts("Chord intent: shared families, exact tones, destination, frozen scale, atomic snapshots and key-relative targets pass");
 }

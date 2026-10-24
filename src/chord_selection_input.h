@@ -49,7 +49,8 @@ static unsigned hb_selection_reference(Inst *instance,int *root){
     *root=0;hb_resolve_follower_reference_root(instance,root);
     unsigned parent=hb_follower_input_scale(instance,*root);
     hb_key_context context=hb_key_for(instance);
-    if(context.active){*root=mod12(context.target_root-g_bus.global_transpose);parent=hb_transpose_mask(context.target_mask,-g_bus.global_transpose);}
+    /* Definitions stay in the source key; the shared render key map applies once. */
+    if(context.active){*root=mod12(context.source_root-g_bus.global_transpose);parent=hb_transpose_mask(context.source_mask,-g_bus.global_transpose);}
     return parent;
 }
 static unsigned long long hb_selection_resolve(Inst *instance,const int *fields,int *source_note){
@@ -116,11 +117,12 @@ static int hb_selection_family(hb_harmony_t harmony){
 static int hb_selection_bank_snapshot(Inst *instance,char *buffer,int length){
     if(instance->role!=0||!instance->selection_bank_valid)return snprintf(buffer,(size_t)length,"--");
     int root=0;unsigned reference=hb_transpose_mask(hb_selection_reference(instance,&root),g_bus.global_transpose);
-    hb_harmony_t active=hb_render_harmony(instance);
+    hb_key_context context=hb_key_for(instance);if(context.active)reference=context.target_mask;
+    hb_harmony_t active=hb_key_harmony(instance,hb_render_harmony(instance));
     int used=snprintf(buffer,(size_t)length,"cb1|%u|%d,%u,%u,%d,%d,%d",reference,active.valid?active.root_pc:-1,hb_harmony_chord_mask(active),active.intent_scale,active.intent_kind,active.intent_target,active.bass_pc);
     for(int index=0;index<16;index++){
         int note=0;unsigned long long word=hb_selection_resolve(instance,instance->selection_bank[index],&note);
-        hb_harmony_t harmony=hb_selection_decode(word,note);unsigned mask=hb_harmony_chord_mask(harmony);
+        hb_harmony_t harmony=hb_key_harmony(instance,hb_selection_decode(word,note));unsigned mask=hb_harmony_chord_mask(harmony);
         if(used<0||used>=length)return -1;
         used+=snprintf(buffer+used,(size_t)(length-used),"|%d,%u,%u,%d,%d,%d,%d,%d,%s",harmony.valid?harmony.root_pc:-1,mask,harmony.intent_scale,harmony.intent_kind,harmony.intent_target,harmony.bass_pc,hb_selection_family(harmony),!!(mask&~reference),harmony.name);
     }
