@@ -48,7 +48,8 @@ int main(void){
     assert(hb_harmony_chord_mask(shifted)==hb_transpose_mask(0x245,2));
     unsigned long long actions[HB_MOTION_LANES+1]={0};actions[0]=dominant;
     assert(hb_selection_actions(actions));actions[1]=1;assert(!hb_selection_actions(actions));actions[1]=0;
-    assert(!hb_selection_word(dominant|(1ULL<<46)));
+    assert(hb_selection_word(dominant|HB_SELECTION_REGISTER));
+    assert(!hb_selection_word(dominant|(1ULL<<47)));
     assert(!hb_selection_word((dominant&~(15ULL<<41))|(15ULL<<41)));
     char mixed[4096];int mixed_size=snprintf(mixed,sizeof(mixed),"63");
     for(int index=0;index<=HB_MOTION_LANES;index++)mixed_size+=snprintf(mixed+mixed_size,sizeof(mixed)-mixed_size,",%llx",index==0?dominant:index==1?1ULL:0ULL);

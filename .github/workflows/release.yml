@@ -248,7 +248,8 @@ jobs:
         run: |
           mkdir -p /tmp/reference
           git show 30397ae7eb876500fcb5d4794252e3e1da7c8064:src/harmony_core.c > /tmp/reference/harmony_core.c
-          git show 30397ae7eb876500fcb5d4794252e3e1da7c8064:src/harmony_core.h > /tmp/reference/harmony_core.h
+          # Compare algorithms under the current data layout, not a retired ABI.
+          cp core/include/harmony_core.h /tmp/reference/harmony_core.h
           cc -O2 -shared -fPIC /tmp/reference/harmony_core.c -o /tmp/reference/core.so
           cc -O2 tests/core_parity_test.c core/src/harmony_core.c -ldl -o /tmp/parity
           /tmp/parity /tmp/reference/core.so
@@ -269,7 +270,7 @@ jobs:
       - name: Publish release
         # 0.2.295 and 0.2.296 are published by chord-play.yml after checksum/main verification.
         # Keep comprehensive checks here, without replacing that verified asset.
-        if: steps.plan.outputs.publish == 'true' && env.VERSION != '0.2.295' && env.VERSION != '0.2.296'
+        if: steps.plan.outputs.publish == 'true' && env.VERSION != '0.2.295' && env.VERSION != '0.2.296' && env.VERSION != '0.2.297'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -287,7 +288,7 @@ jobs:
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
       - name: Update Module Store metadata
-        if: steps.plan.outputs.publish == 'true' && env.VERSION != '0.2.295' && env.VERSION != '0.2.296'
+        if: steps.plan.outputs.publish == 'true' && env.VERSION != '0.2.295' && env.VERSION != '0.2.296' && env.VERSION != '0.2.297'
         run: |
           python3 - <<'PY'
           import json, os

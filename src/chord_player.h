@@ -14,10 +14,11 @@ typedef struct {
     int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread, phase;
     int quality, chromatic_quality, note_phase, clear_harmony, start;
     int extension_treatment; /* 0 derived, 1 raise avoid extensions */
+    int register_octaves;
 } hb_cp_config;
 typedef struct {
     unsigned long long selection_word;
-    int selection, selection_bass; int used, held, source, channel, velocity, count, fresh, root_pc, recordable, played_pitch;
+    int selection, selection_bass, selection_pitch; int used, held, source, channel, velocity, count, fresh, root_pc, recordable, played_pitch;
     int intent_kind,intent_target,intent_minor;unsigned intent_scale,gap_mask;
     unsigned sequence, harmony_mask, harmony_sequence, semantic_mask;
     hb_cp_config onset_config;
@@ -166,6 +167,7 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
     config.size=hb_cp_clamp(config.size,0,HB_CP_FORMS-1);
     if(input<0)input=0;if(input>127)input=127;
     if(config.mode==0){output[0]=input;return 1;}
+    input=hb_cp_clamp(input+12*config.register_octaves,0,127);
     int ordered[12],count=0,bass=input,tones[7];
     if(config.mode==1){if(!scale)return 0;root=hb_cp_mod(input);}
     else if(!chord)return 0;
