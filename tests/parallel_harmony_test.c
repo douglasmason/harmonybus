@@ -49,6 +49,8 @@ static void run(const char *name,const int roots[4],const int qualities[4],int t
         API.set_param(i,"next_lookahead","1/4");
         for(int edge=0;edge<3;edge++){
             position=event*4+(edge==0?2.99:edge==1?3.01:4.0);
+            // The actual conductor commits the new chord at its boundary.
+            if(edge==2)g_bus.observed_harmony=harmonies[(event+1)%4];
             hb_next_apply_effective(position);
             hb_harmony_t render=hb_render_harmony(i);
             int expected=(event+(edge>0))%4;

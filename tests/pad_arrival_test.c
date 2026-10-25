@@ -102,8 +102,8 @@ static void arrival_membership(void){
     API.destroy_instance(instance);
 }
 
-/* Poll while the live detector is old, intermediate, and finally settled.
-   A locked timeline must advance both display halves in one frame. */
+/* Poll while the accepted conductor is old, intermediate, and settled.
+   Current follows that authority; prediction remains on the learned timeline. */
 static void boundary_frames(void){
     Inst *instance=fixture();hb_set_shared_follower_scale(1);
     instance->next_predict=1;instance->next_anti_buffer_ms=0;
@@ -132,8 +132,9 @@ static void boundary_frames(void){
                 assert(sscanf(view,"%u,%u,%u,%d,%u",&current,&effective,&scale,&ready,&future)==5);
                 const char *full=strstr(view,"|full1,");int known;unsigned next;
                 assert(full&&sscanf(full,"|full1,%d,%u",&known,&next)==2&&known);
-                if(current!=masks[current_index]||next!=masks[1-current_index]){
-                    fprintf(stderr,"boundary frame mismatch travel=%d shift=%d wrap=%d tick=%d detector=%d current=%u/%u next=%u/%u\n",travel,shift,wrap,tick,detector,current,masks[current_index],next,masks[1-current_index]);
+                unsigned accepted=current_inputs_for(instance,g_bus.observed_harmony);
+                if(current!=accepted||next!=masks[1-current_index]){
+                    fprintf(stderr,"boundary frame mismatch travel=%d shift=%d wrap=%d tick=%d detector=%d current=%u/%u next=%u/%u\n",travel,shift,wrap,tick,detector,current,accepted,next,masks[1-current_index]);
                     assert(0);
                 }
             }

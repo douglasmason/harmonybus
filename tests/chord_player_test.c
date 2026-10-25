@@ -1293,6 +1293,9 @@ static void pad_harmony_snapshot(void){
         uint8_t c[3]={60,64,67},d[3]={62,66,69};
         g_bus.next_model[0].phase=0;g_bus.next_model[0].harmony=hb_infer_harmony(c,3);
         g_bus.next_model[1].phase=2;g_bus.next_model[1].harmony=hb_infer_harmony(d,3);
+        /* Current follows the accepted conductor; the model only supplies
+           lookahead/effective timing. Simulate the accepted boundary here. */
+        g_bus.observed_harmony=g_bus.next_model[late?1:0].harmony;
         position=late?2.6:1.3;hb_next_apply_effective(hb_clip_playhead());
         instance->approach_pad_armed=HB_APPROACH_CHROM_BELOW;
         Inst before=*instance;unsigned sequence=g_bus.seq;
