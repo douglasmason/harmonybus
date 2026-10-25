@@ -4,6 +4,7 @@
 
 int main(void){
     Inst *instance=fixture();char text[65536],state[65536],before[8192],after[8192];
+    API.get_param(instance,"motion_host_version",text,sizeof(text));assert(!strcmp(text,"3"));
     API.set_param(instance,"motion_host","movy-clip-v2");
     API.get_param(instance,"chain_params",text,sizeof(text));assert(!strstr(text,"Drum Fill"));
     API.set_param(instance,"motion_host","movy-clip-v3");

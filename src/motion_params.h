@@ -228,6 +228,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     return 0;
 }
 static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int length){
+    if(!strcmp(key,"motion_host_version"))return snprintf(buffer,(size_t)length,"3");
     if(!strcmp(key,"motion_field_preset")){
         const hb_motion_lane *lane=&config->lanes[config->selected];const char *preset="Custom";
         if(lane->field_target==2&&lane->pattern==0&&lane->offset==0&&lane->enabled&&lane->evolve&&lane->probability==100){

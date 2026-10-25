@@ -6,4 +6,4 @@ Adds a bounded harmony-status snapshot for Movy's Harmony & Pads page: Current, 
 
 Current pad colors now follow the accepted conductor chord. Previously a learned timeline could replace that color before the audible chord changed, causing apparent disagreement until the clip loop restarted. Effective and lookahead colors retain their separate rendering and prediction meanings.
 
-Older hosts keep their existing operation choices. Saved operation IDs remain unchanged; Drum Fill appends ID 66.
+Older hosts keep their existing operation choices. A read-only host-version probe lets Movy negotiate the new protocol without disabling automatic clip operations in older modules. Saved operation IDs remain unchanged; Drum Fill appends ID 66.
