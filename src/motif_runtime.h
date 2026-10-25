@@ -3,6 +3,7 @@
    semantic relationships have already been resolved against the anchor. */
 static hb_harmony_t hb_mt_harmony_at(Inst *instance,double arrival,double now){
     hb_harmony_t override;if(hb_override_read(instance,&override))return override;
+    if(hb_cq_owner())return hb_cq_at(instance,arrival,0);
     hb_harmony_t harmony=bus_read();
     if(hb_harmony_knowledge_ready_for(instance)){
         double phase=hb_next_phase(hb_clip_playhead()+arrival-now);
@@ -15,6 +16,7 @@ static double hb_mt_arrival(Inst *instance,double now){
     int choice=instance->motif.editor.arrival;
     if(!choice)return now;
     if(choice==3){
+        if(hb_cq_owner())return g_chord_queue.running&&g_chord_queue.count?g_chord_queue.pending[0].at:-1;
         if(!hb_harmony_knowledge_ready_for(instance))return -1;
         double phase=hb_next_phase(hb_clip_playhead());int index=hb_next_upcoming_event(phase);
         if(index<0)return -1;

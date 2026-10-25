@@ -143,6 +143,7 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
     int type=input[0]&240,note=input[1]&127,channel=input[0]&15,origin=instance->movy_playback!=0;
     int on=type==144&&input[2],off=type==128||(type==144&&!input[2]);
     if(!on&&!off)return 0;
+    if(origin&&hb_cq_owned(instance))return 1; /* Queued live authority survives recorded onsets/off edges. */
     if(off){
         int found=0;
         for(int index=0;index<HB_CP_KEYS;index++){
@@ -170,7 +171,7 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
     if(instance->role!=0)return 1;
     if(!origin){
         instance->selection_serial=++g_selection_serial;instance->selection_until=0;
-        if(hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING&&g_bus.next_model_locked){
+        if(!hb_cq_owned(instance)&&hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING&&g_bus.next_model_locked){
             double phase=hb_next_phase(hb_clip_playhead());int next=hb_next_upcoming_event(phase);
             if(next>=0){double distance=g_bus.next_model[next].phase-phase;
                 if(distance<=0)distance+=hb_next_loop_length();
