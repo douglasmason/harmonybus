@@ -10,6 +10,7 @@ extern int snprintf(char *, size_t, const char *, ...);
 extern int sscanf(const char *, const char *, ...);
 extern void *memset(void *, int, size_t);
 extern void *memcpy(void *, const void *, size_t);
+extern void *memmove(void *, const void *, size_t);
 extern int memcmp(const void *, const void *, size_t);
 extern size_t strlen(const char *);
 extern int strcmp(const char *, const char *);

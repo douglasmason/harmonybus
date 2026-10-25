@@ -14,13 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Full native regressions
-        run: python3 scripts/run_native_suites.py --jobs 4
       - name: Build ARM modules
         run: |
           bash scripts/build_harmonybus_move.sh
           cd dist
           sha256sum harmonybus-v0.2.295-module.tar.gz > SHA256SUMS
+      - name: Full native regressions
+        run: python3 scripts/run_native_suites.py --jobs 4
       - uses: actions/upload-artifact@v4
         with:
           name: harmonybus-chord-play-295
