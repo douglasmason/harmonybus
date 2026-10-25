@@ -134,7 +134,10 @@ static int hb_selection_bank_snapshot(Inst *instance,char *buffer,int length){
         int note=0;unsigned long long word=hb_selection_resolve(instance,instance->selection_bank[index],&note);
         hb_harmony_t harmony=hb_key_harmony(instance,hb_selection_decode(word,note));unsigned mask=hb_harmony_chord_mask(harmony);
         if(used<0||used>=length)return -1;
-        used+=snprintf(buffer+used,(size_t)(length-used),"|%d,%u,%u,%d,%d,%d,%d,%d,%s",harmony.valid?harmony.root_pc:-1,mask,harmony.intent_scale,harmony.intent_kind,harmony.intent_target,harmony.bass_pc,hb_selection_family(harmony),!!(mask&~reference),harmony.name);
+        int queued=0;
+        if(hb_cq_owned(instance))for(int pending=0;pending<g_chord_queue.count;pending++)
+            if(g_chord_queue.pending[pending].word==word&&g_chord_queue.pending[pending].note==note){queued=1;break;}
+        used+=snprintf(buffer+used,(size_t)(length-used),"|%d,%u,%u,%d,%d,%d,%d,%d,%s,%d",harmony.valid?harmony.root_pc:-1,mask,harmony.intent_scale,harmony.intent_kind,harmony.intent_target,harmony.bass_pc,hb_selection_family(harmony),!!(mask&~reference),harmony.name,queued);
     }
     return used<length?used:-1;
 }

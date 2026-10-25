@@ -269,7 +269,7 @@ jobs:
       - name: Publish release
         # 0.2.295 and 0.2.296 are published by chord-play.yml after checksum/main verification.
         # Keep comprehensive checks here, without replacing that verified asset.
-        if: steps.plan.outputs.publish == 'true' && env.VERSION != '0.2.295' && env.VERSION != '0.2.296'
+        if: steps.plan.outputs.publish == 'true' && env.VERSION != '0.2.295' && env.VERSION != '0.2.296' && env.VERSION != '0.2.297'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -287,7 +287,7 @@ jobs:
           test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
 
       - name: Update Module Store metadata
-        if: steps.plan.outputs.publish == 'true' && env.VERSION != '0.2.295' && env.VERSION != '0.2.296'
+        if: steps.plan.outputs.publish == 'true' && env.VERSION != '0.2.295' && env.VERSION != '0.2.296' && env.VERSION != '0.2.297'
         run: |
           python3 - <<'PY'
           import json, os
