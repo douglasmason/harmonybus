@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.295"
+#define HB_VERSION "0.2.296"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -6944,6 +6944,24 @@ if(!strcmp(key,"follower_input_context")){
     return snprintf(buffer,(size_t)length,"fic1,%d,%d,%u",root,hb_follower_input_scale_index(instance,root),mask);
 }
 
+/* A bounded, read-only inspection of the same harmony and color settings.
+   One host read publishes all fields together; never advances the model. */
+if(!strcmp(key,"current_harmony")){
+    hb_harmony_t current=hb_live_current();
+    return hb_format_harmony(buffer,length,current.valid?current:g_bus.observed_harmony);
+}
+if(!strcmp(key,"harmony_status_snapshot")){
+    const char *keys[]={"current_harmony","final_harmony","next_harmony","next_model","pad_display","next_lookahead","pad_pulse_rate","pad_next_pulse"};
+    int used=snprintf(buffer,(size_t)length,"dp1");
+    for(int field=0;field<8;field++){
+        if(used<0||used+1>=length)return -1;
+        buffer[used++]='|';
+        int count=get_param(value,keys[field],buffer+used,length-used);
+        if(count<0||count>=length-used)return -1;
+        used+=count;
+    }
+    return used;
+}
 if(!strcmp(key,"harmony_snapshot")){
     hb_capture_harmony_display(instance);
     return snprintf(buffer,(size_t)length,"hp1|%s|%s|%s|%s",instance->harmony_display[0],
@@ -7198,12 +7216,9 @@ if(!strcmp(key,"pad_harmony")||!strcmp(key,"pad_render")){
     int ready=timeline_allowed&&!opening.valid&&hb_render_shift_ready_for(instance);
     int known=timeline_allowed&&!opening.valid&&hb_harmony_knowledge_ready_for(instance);
     double playhead=hb_clip_playhead(),display_phase=hb_next_phase(playhead);
-    /* Current and full-next share one learned phase, even at Lookahead Off.
-       Live inference may still be settling when the timeline crosses a chord. */
-    if(known){
-        int current_event=hb_next_model_event_for_phase_for(instance,display_phase,0);
-        if(current_event>=0)current=g_bus.next_model[current_event].harmony;
-    }
+    /* Current is the accepted conductor harmony. A learned timeline may be
+       ahead of (or stale relative to) an audible change: it owns prediction,
+       never the Current color. Effective retains the actual render policy. */
     if(ready){
         double now=hb_current_beat();
         double phase=display_phase;
