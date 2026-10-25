@@ -4,7 +4,7 @@
 #define HB_CQ_HISTORY 65
 typedef struct { unsigned long long word; int note; double at; } hb_cq_event;
 typedef struct {
-    int owner, count, history_count, seed, waiting, cycle_count, running, timing, anticipation, result;
+    int owner, count, history_count, seed, waiting, phrase_ready, cycle_count, running, timing, anticipation, result;
     double last_beat;
     hb_cq_event pending[HB_CQ_CAPACITY], cycle[HB_CQ_CAPACITY], history[HB_CQ_HISTORY];
 } hb_chord_queue;
@@ -17,6 +17,8 @@ static Inst *hb_cq_owner(void){
 static int hb_cq_ready(void){return hb_cq_owner()&&!g_chord_queue.waiting&&g_chord_queue.count>0;}
 static void hb_cq_clear(Inst *instance){if(!instance||hb_cq_owned(instance))memset(&g_chord_queue,0,sizeof(g_chord_queue));}
 static int hb_selection_parse(const char *parameter,int *fields,int bank);
+static int hb_selection_parse_register(const char *parameter,int *fields,int *range);
+static unsigned long long hb_selection_with_register(unsigned long long word,int *note,int range);
 static unsigned long long hb_selection_resolve(Inst *instance,const int *fields,int *source_note);
 static double hb_cq_next_boundary(double after){
     double grid=hb_chord_grid_beats();
@@ -56,10 +58,10 @@ static void hb_cq_sync(void){
     }
     int armed=0;
     if(hb_cq_owner()->chord_queue_loop&&g_chord_queue.waiting&&!g_chord_queue.count&&g_chord_queue.cycle_count){hb_cq_repeat(now);armed=1;}
-    if(g_chord_queue.waiting&&g_chord_queue.count>=hb_cq_owner()->chord_queue_depth){
+    if(g_chord_queue.waiting&&g_chord_queue.count>0&&g_chord_queue.count>=hb_cq_owner()->chord_queue_depth&&(hb_cq_owner()->chord_queue_depth>0||g_chord_queue.phrase_ready)){
         g_chord_queue.cycle_count=g_chord_queue.count;
         memcpy(g_chord_queue.cycle,g_chord_queue.pending,(size_t)g_chord_queue.count*sizeof(hb_cq_event));
-        g_chord_queue.waiting=0;armed=1;
+        g_chord_queue.waiting=0;g_chord_queue.phrase_ready=0;armed=1;
         if(!running&&g_chord_queue.seed)g_chord_queue.pending[0].at=now;
     }
     if(running&&!g_chord_queue.waiting&&(armed||!g_chord_queue.running||g_chord_queue.timing!=g_bus.chord_timing||g_chord_queue.anticipation!=g_bus.anticipation))hb_cq_schedule(now);
@@ -67,9 +69,9 @@ static void hb_cq_sync(void){
     g_chord_queue.timing=g_bus.chord_timing;g_chord_queue.anticipation=g_bus.anticipation;
 }
 static void hb_cq_enqueue(Inst *instance,const char *parameter){
-    int fields[9],note=0;
-    if(instance->role!=0||!hb_selection_parse(parameter,fields,0))return;
-    unsigned long long word=hb_selection_resolve(instance,fields,&note);if(!word)return;
+    int fields[9],note=0,range=0;
+    if(instance->role!=0||!hb_selection_parse_register(parameter,fields,&range))return;
+    unsigned long long word=hb_selection_resolve(instance,fields,&note);if(!word)return;word=hb_selection_with_register(word,&note,range);
     if(hb_cq_owner()&&!hb_cq_owned(instance))return;
     if(!hb_cq_owner()){
         hb_cq_clear(0);g_chord_queue.owner=(int)(instance-g_pool)+1;

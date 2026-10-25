@@ -11,6 +11,7 @@ static hb_harmony_t hb_selection_decode(unsigned long long word,int note){
     result.bass_pc=mod12(root+((word>>24)&15));result.intent_kind=7;
     result.intent_target=mod12(root+((word>>28)&15));
     result.intent_scale=hb_transpose_mask((word>>12)&4095u,root);
+    result.register_valid=(word&HB_SELECTION_REGISTER)?2:1;result.register_octaves=(word&HB_SELECTION_REGISTER)?note/12-5:hb_conductor_register();
     result.intent_minor=hb_target_minor(result.intent_scale,result.intent_target);
     if(hb_selection_has_intent(word)){
         result.chord_index|=HB_HARMONY_FIXED_SCALE;result.intent_kind=(word>>37)&15;
@@ -27,7 +28,7 @@ static hb_harmony_t hb_selected_harmony(const Inst *instance){
            (key->playback_origin==winner->playback_origin&&key->sequence>winner->sequence))winner=key;
     }
     if(!winner)return (hb_harmony_t){0};
-    return hb_selection_decode(winner->selection_word,winner->source);
+    return hb_selection_decode(winner->selection_word,winner->selection_pitch);
 }
 /* Read-only resolution shared by live selection and the sixteen-slot display.
    Fields: root, quality, form, scale policy, tonic, scale, bass, intent, degree. */
@@ -44,6 +45,19 @@ static int hb_selection_parse(const char *parameter,int *fields,int bank){
         fields[7]=fields[8]=0;
     }
     return hb_selection_fields(fields);
+}
+/* Optional final field: 0 inherits; 1..7 select -3..+3 octaves. */
+static int hb_selection_parse_register(const char *parameter,int *fields,int *range){
+    int values[10];char extra;
+    if(sscanf(parameter,"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d%c",values,values+1,values+2,values+3,values+4,values+5,values+6,values+7,values+8,values+9,&extra)==10){
+        if(!hb_selection_fields(values)||values[9]<0||values[9]>7)return 0;
+        memcpy(fields,values,9*sizeof(int));*range=values[9];return 1;
+    }
+    *range=0;return hb_selection_parse(parameter,fields,0);
+}
+static unsigned long long hb_selection_with_register(unsigned long long word,int *note,int range){
+    if(range){word|=HB_SELECTION_REGISTER;*note+=12*(range-4);}
+    return word;
 }
 static unsigned hb_selection_reference(Inst *instance,int *root){
     *root=0;hb_resolve_follower_reference_root(instance,root);
@@ -98,9 +112,10 @@ static unsigned long long hb_selection_resolve(Inst *instance,const int *fields,
     *source_note=60+root;return hb_selection_word(word)?word:0;
 }
 static void hb_selection_prepare(Inst *instance,const char *parameter){
-    int fields[9];instance->selection_pending=0;
-    if(instance->role!=0||!hb_selection_parse(parameter,fields,0))return;
-    instance->selection_pending=hb_selection_resolve(instance,fields,&instance->selection_note);
+    int fields[9],range=0;instance->selection_pending=0;
+    if(instance->role!=0||!hb_selection_parse_register(parameter,fields,&range))return;
+    unsigned long long word=hb_selection_resolve(instance,fields,&instance->selection_note);
+    instance->selection_pending=word?hb_selection_with_register(word,&instance->selection_note,range):0;
 }
 static void hb_selection_bank_set(Inst *instance,const char *parameter){
     int slots[21][9],count=0;const char *cursor=parameter;
@@ -136,7 +151,7 @@ static int hb_selection_bank_snapshot(Inst *instance,char *buffer,int length){
         if(used<0||used>=length)return -1;
         int queued=0;
         if(hb_cq_owned(instance))for(int pending=0;pending<g_chord_queue.count;pending++)
-            if(g_chord_queue.pending[pending].word==word&&g_chord_queue.pending[pending].note==note){queued=1;break;}
+            if((g_chord_queue.pending[pending].word&~HB_SELECTION_REGISTER)==word&&mod12(g_chord_queue.pending[pending].note)==mod12(note)){queued=1;break;}
         used+=snprintf(buffer+used,(size_t)(length-used),"|%d,%u,%u,%d,%d,%d,%d,%d,%s,%d",harmony.valid?harmony.root_pc:-1,mask,harmony.intent_scale,harmony.intent_kind,harmony.intent_target,harmony.bass_pc,hb_selection_family(harmony),!!(mask&~reference),harmony.name,queued);
     }
     return used<length?used:-1;
@@ -191,14 +206,14 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
     if(slot<0)return 1;
     hb_harmony_t harmony=hb_selection_decode(word,note);
     hb_cp_key *key=&instance->player.keys[slot];memset(key,0,sizeof(*key));
-    key->selection_word=word;key->used=key->held=key->selection=1;key->source=note;key->channel=channel;key->playback_origin=origin;
+    key->selection_word=word;key->selection_pitch=note;key->used=key->held=key->selection=1;key->source=note;key->channel=channel;key->playback_origin=origin;
     key->root_pc=harmony.root_pc;key->semantic_mask=harmony.pitch_mask;key->selection_bass=harmony.bass_pc;
     key->intent_kind=harmony.intent_kind;key->intent_target=harmony.intent_target;key->intent_scale=harmony.intent_scale;key->intent_minor=harmony.intent_minor;
     key->sequence=++instance->player.sequence;
     if(!origin)hb_effective_write(harmony);
     if(instance->render_channel>=0){
         hb_cp_config config=hb_chord_config_at(instance,note,hb_motion_position(instance),hb_motion_condition_position());
-        config.mode=2; /* Voice the selected harmony, never the preceding bus chord. */
+        config.mode=2;if(word&HB_SELECTION_REGISTER)config.register_octaves=0;key->onset_config=config; /* Voice the selected harmony, never the preceding bus chord. */
         key->count=hb_cp_voice_semantic(config,note+g_bus.global_transpose,harmony.root_pc,
             harmony.pitch_mask,harmony.intent_scale,key->notes,0);
         for(int voice=0;voice<key->count;voice++)key->notes[voice]=hb_key_pitch(instance,key->notes[voice]);

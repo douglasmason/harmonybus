@@ -121,6 +121,14 @@ int main(void){
     position=40;assert(!take(conductor)&&g_chord_queue.waiting&&hb_live_selection(conductor).root_pc==5);
     API.set_param(conductor,"chord_queue_end","Loop");assert(!take(conductor)&&g_chord_queue.pending[0].at==44);
     API.set_param(conductor,"hb_chord_queue","off");assert(!hb_cq_owner());
+    /* Gesture depth arms only when the shared touch phrase commits. */
+    API.set_param(conductor,"chord_queue_end","Hold");API.set_param(conductor,"chord_queue_depth","Touch Phrase");
+    running=0;held=-1;choose(conductor,0);choose(conductor,7);assert(!take(conductor)&&g_chord_queue.waiting);
+    API.set_param(conductor,"hb_chord_queue","commit");assert(take(conductor)&&g_chord_queue.count==1);
+    running=1;position=0;assert(!take(conductor));position=4;assert(take(conductor));
+    choose(conductor,5);position=8;assert(!take(conductor)&&g_chord_queue.waiting);
+    API.set_param(conductor,"hb_chord_queue","commit");assert(!take(conductor)&&g_chord_queue.pending[0].at==12);
+    position=12;assert(take(conductor));API.set_param(conductor,"hb_chord_queue","off");
     API.destroy_instance(conductor);API.destroy_instance(follower);
     puts("Queued chords: seed, grid/anticipation, stopped preload, lookahead/late, motif arrival, empty hold, capacity, recorded isolation and lifecycle pass");
 }

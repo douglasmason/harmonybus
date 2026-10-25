@@ -2,7 +2,7 @@ name: Chord Play verification and release
 on:
   push:
     branches: [main, work/chord-queue-depth]
-    paths: [tests/**, src/motion.h, src/motion_params.h, tests/performance_controls_test.c, docs/chord-queue.md, src/chord_queue.h, src/motif_runtime.h, tests/chord_queue_test.c, core/include/harmony_core.h, core/src/harmony_core.c, src/scale_context.h, src/clip_timeline_cache.h, modules/harmonybus/module.json, scripts/native_suites.json, docs/chord-play.md, tests/chord_intent_test.c, src/chord_selection.h, src/chord_selection_input.h, src/chord_player.h, modules/harmonybus/dsp/harmonybus.c, tests/chord_selection_test.c, tests/chord_selection_comping_test.c, .github/workflows/chord-play.yml]
+    paths: [tests/**, src/motion.h, src/motion_params.h, tests/performance_controls_test.c, docs/chord-queue.md, src/chord_queue.h, src/chord_register.h, src/motif_runtime.h, tests/chord_queue_test.c, core/include/harmony_core.h, core/src/harmony_core.c, src/scale_context.h, src/clip_timeline_cache.h, modules/harmonybus/module.json, scripts/native_suites.json, docs/chord-play.md, tests/chord_intent_test.c, src/chord_selection.h, src/chord_selection_input.h, src/chord_player.h, modules/harmonybus/dsp/harmonybus.c, tests/chord_selection_test.c, tests/chord_selection_comping_test.c, .github/workflows/chord-play.yml]
   workflow_dispatch:
 permissions:
   contents: write
