@@ -8,6 +8,52 @@ static void fail(const char *label, const char *message) {
     exit(1);
 }
 
+static void expect_chord_scale_families(void) {
+    const struct {
+        const char *name;
+        int intervals[12];
+        int count;
+        hb_harmony_family_t family;
+    } cases[] = {
+        {"Ionian", {0,2,4,5,7,9,11}, 7, HB_FAMILY_MAJOR},
+        {"Dorian", {0,2,3,5,7,9,10}, 7, HB_FAMILY_MINOR},
+        {"Phrygian", {0,1,3,5,7,8,10}, 7, HB_FAMILY_MINOR},
+        {"Lydian", {0,2,4,6,7,9,11}, 7, HB_FAMILY_MAJOR},
+        {"Mixolydian", {0,2,4,5,7,9,10}, 7, HB_FAMILY_DOMINANT},
+        {"Aeolian", {0,2,3,5,7,8,10}, 7, HB_FAMILY_MINOR},
+        {"Locrian", {0,1,3,5,6,8,10}, 7, HB_FAMILY_DIMINISHED},
+        {"Melodic minor", {0,2,3,5,7,9,11}, 7, HB_FAMILY_MINOR},
+        {"Dorian b2", {0,1,3,5,7,9,10}, 7, HB_FAMILY_MINOR},
+        {"Lydian augmented", {0,2,4,6,8,9,11}, 7, HB_FAMILY_AUGMENTED},
+        {"Lydian dominant", {0,2,4,6,7,9,10}, 7, HB_FAMILY_DOMINANT},
+        {"Mixolydian b6", {0,2,4,5,7,8,10}, 7, HB_FAMILY_DOMINANT},
+        {"Locrian natural 2", {0,2,3,5,6,8,10}, 7, HB_FAMILY_DIMINISHED},
+        {"Altered", {0,1,3,4,6,8,10}, 7, HB_FAMILY_AUGMENTED},
+        {"Harmonic minor", {0,2,3,5,7,8,11}, 7, HB_FAMILY_MINOR},
+        {"Phrygian dominant", {0,1,4,5,7,8,10}, 7, HB_FAMILY_DOMINANT},
+        {"Harmonic major", {0,2,4,5,7,8,11}, 7, HB_FAMILY_MAJOR},
+        {"Whole tone", {0,2,4,6,8,10}, 6, HB_FAMILY_AUGMENTED},
+        {"Major flat fifth", {0,2,4,6,9,10}, 6, HB_FAMILY_DISSONANT},
+        {"Minor altered fifth", {0,2,3,5,8,10}, 6, HB_FAMILY_DISSONANT},
+        {"Half-whole diminished", {0,1,3,4,6,7,9,10}, 8, HB_FAMILY_DOMINANT},
+        {"Whole-half diminished", {0,2,3,5,6,8,9,11}, 8, HB_FAMILY_DIMINISHED},
+        {"Chromatic", {0,1,2,3,4,5,6,7,8,9,10,11}, 12, HB_FAMILY_UNKNOWN},
+        {"Both thirds without dominant foundation", {0,3,4,7,11}, 5, HB_FAMILY_UNKNOWN},
+        {"Missing root", {2,4,7,9,10}, 5, HB_FAMILY_UNKNOWN},
+        {"Unknown scale", {0}, 0, HB_FAMILY_UNKNOWN},
+        {"Insufficient collection", {0,7}, 2, HB_FAMILY_UNKNOWN}
+    };
+    for (unsigned case_index = 0; case_index < sizeof(cases)/sizeof(cases[0]); case_index++) {
+        for (int transpose = 0; transpose < 12; transpose++) {
+            uint16_t collection = 0;
+            for (int interval = 0; interval < cases[case_index].count; interval++)
+                collection |= (uint16_t)(1u << ((cases[case_index].intervals[interval] + transpose) % 12));
+            if (hb_chord_scale_family(transpose, collection) != cases[case_index].family)
+                fail(cases[case_index].name, "incorrect implied family after transposition");
+        }
+    }
+}
+
 static void expect_harmony(
     const char *label,
     const uint8_t *notes,
@@ -102,6 +148,7 @@ static void expect_contextual_transposed_family(
 }
 
 int main(void) {
+    expect_chord_scale_families();
     /* Generalized classifier properties across every chromatic root.
        These guard whole families of cases instead of one hand-picked key. */
     const uint8_t prop_major_root[] = {48, 52, 55};

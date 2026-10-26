@@ -30,6 +30,22 @@ typedef struct {
     int register_valid,register_octaves; /* Conductor performance default; pitch classes stay unchanged. */
 } hb_harmony_t;
 
+/* Contextual character is derived separately from the expressed chord/voicing.
+   Values also identify Chord Play's native color families. */
+typedef enum {
+    HB_FAMILY_UNKNOWN = 0,
+    HB_FAMILY_MAJOR = 1,
+    HB_FAMILY_MINOR = 2,
+    HB_FAMILY_DOMINANT = 3,
+    HB_FAMILY_DIMINISHED = 4,
+    HB_FAMILY_AUGMENTED = 5,
+    HB_FAMILY_DISSONANT = 6 /* Other resolved altered 1-3-5 foundations. */
+} hb_harmony_family_t;
+
+/* Pass the resolved available-note collection, in absolute pitch classes.
+   Does not infer a parent, change chord quality, or add voiced notes. */
+hb_harmony_family_t hb_chord_scale_family(int root_pc, uint16_t chord_scale);
+
 typedef enum {
     HB_MAP_TRANSPOSE = 0,
     HB_MAP_CHORD = 1,

@@ -16,6 +16,10 @@ int main(void){
             unsigned mask=hb_transpose_mask(hb_harmony_chord_mask(harmony),-roots[degree]);
             if(bank==2)assert(mask==0x491); /* Every blues chord is a dominant seventh. */
             if(bank==1&&degree==0)assert(mask==(minor?0x91:0x89));
+            const int major_families[]={1,2,2,1,3,2,4},minor_families[]={2,4,1,2,2,1,3};
+            int expected_family=bank==2?HB_FAMILY_DOMINANT:
+                ((bank==0?minor:!minor)?minor_families:major_families)[degree];
+            assert(hb_selection_family(harmony)==expected_family);
         }
     }
     API.destroy_instance(conductor);puts("Relative home/parallel/blues banks follow parent major/minor quality");

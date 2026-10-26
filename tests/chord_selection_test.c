@@ -7,7 +7,30 @@ static void event(Inst *instance,int pitch,int on){
     g_conductor_block_ready=0;
     assert(API.tick(instance,24000,48000,output,lengths,256)==0);
 }
+static void contextual_colors(void){
+    /* Parent context owns hue for every expression, without rewriting notes. */
+    const unsigned forms[]={0x81,0x85,0xa1,0x91,0x89,0x811,0x410,0x448};
+    const int roots[]={0,2,7},families[]={1,2,3};
+    for(int transpose=0;transpose<12;transpose++)for(int root=0;root<3;root++)for(int form=0;form<8;form++){
+        hb_harmony_t harmony={.valid=1,.root_pc=mod12(roots[root]+transpose),.chord_index=HB_HARMONY_EXPLICIT_TONES,
+            .pitch_mask=hb_transpose_mask(forms[form],roots[root]+transpose),.intent_scale=hb_transpose_mask(0xab5,transpose)};
+        hb_harmony_t before=harmony;assert(hb_selection_family(harmony)==families[root]);
+        assert(!memcmp(&before,&harmony,sizeof(harmony)));
+    }
+    hb_harmony_t harmony={.valid=1,.root_pc=7,.chord_index=HB_HARMONY_EXPLICIT_TONES,.pitch_mask=hb_transpose_mask(0x91,7),.intent_scale=0xab5};
+    assert(hb_selection_family(harmony)==3); /* G triad in C. */
+    harmony.pitch_mask|=1u<<6;assert(hb_selection_family(harmony)==3); /* Expression alone does not change context. */
+    harmony.intent_scale=hb_transpose_mask(0xab5,7);assert(hb_selection_family(harmony)==1); /* G major parent. */
+    harmony.root_pc=0;harmony.pitch_mask=0x489;harmony.intent_scale=0xab5;assert(hb_selection_family(harmony)==1);
+    harmony.intent_scale=hb_transpose_mask(0xab5,-11);assert(hb_selection_family(harmony)==4);
+    harmony.intent_scale=0x555;assert(hb_selection_family(harmony)==HB_FAMILY_AUGMENTED); /* Altered 1-3-5 takes precedence over b7. */
+    harmony.intent_scale=0xb35;assert(hb_selection_family(harmony)==5); /* C augmented in A harmonic minor. */
+    harmony.pitch_mask=0x81;harmony.intent_scale=4095;assert(hb_selection_family(harmony)==0);
+    harmony.pitch_mask=0xa1;assert(hb_selection_family(harmony)==0); /* Unknown parent stays neutral. */
+    harmony.valid=0;assert(hb_selection_family(harmony)==0);
+}
 int main(void){
+    contextual_colors();
     Inst *conductor=fixture();API.set_param(conductor,"role","Conductor");
     hb_set_shared_follower_scale(1);
     /* Internal pitch/scale flags are not chord quality, and cannot hide bass. */
