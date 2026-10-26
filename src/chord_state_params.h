@@ -8,7 +8,7 @@ static const hb_cs_parameter HB_CS_PARAMETERS[]={
     CS_PARAM("chord_quality",quality,CP_CHORD_QUALITY,13,0,12),
     CS_PARAM("chromatic_quality",chromatic_quality,CP_CHROMATIC_QUALITY,7,0,6),
     CS_PARAM("chord_inversion",inversion,CP_CHORD_INVERSION,9,0,8),
-    CS_PARAM("chord_voicing",voicing,CP_CHORD_VOICING,4,0,3),
+    CS_PARAM("chord_voicing",voicing,CP_CHORD_VOICING,5,0,4),
     CS_PARAM("arp_playback",playback,CP_ARP_PLAYBACK,3,0,2),
     CS_PARAM("arp_hold",latch,CP_ARP_HOLD,6,0,5),
     CS_PARAM("arp_order",order,CP_ARP_ORDER,7,0,6),

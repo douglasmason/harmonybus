@@ -14,7 +14,7 @@ typedef struct {
     int mode, size, inversion, voicing, playback, latch, order, rate, gate, spread, phase;
     int quality, chromatic_quality, note_phase, clear_harmony, start;
     int extension_treatment; /* 0 derived, 1 raise avoid extensions */
-    int register_octaves;
+    int register_octaves,top_note; /* 0 keeps normal inversion; otherwise MIDI ceiling + 1. */
 } hb_cp_config;
 typedef struct {
     unsigned long long selection_word;
@@ -82,6 +82,14 @@ static void hb_cp_sort(int *notes,int count){
         notes[slot]=pitch;
     }
 }
+/* Keep the upper voicing intact. Add only the nearest root below its bass. */
+static int hb_cp_root_below(int *notes,int count,int root){
+    if(!count||count>=HB_CP_VOICES||hb_cp_mod(notes[0])==hb_cp_mod(root))return count;
+    int bass=notes[0]-hb_cp_mod(notes[0]-root);
+    if(bass<0)return count;
+    memmove(notes+1,notes,(size_t)count*sizeof(*notes));notes[0]=bass;
+    return count+1;
+}
 /* Played Top Note fixes the melody register. Repack selected pitch classes below it,
    retaining an outside melody note without substituting it for a chord tone.
    At the MIDI floor omit unavailable lower voices instead of moving melody. */
@@ -105,7 +113,16 @@ static int hb_cp_top_note(int *notes,int count,int top,int root,int fifth,int vo
     for(int index=0;index<kept;index++)if(notes[index]>=0)notes[available++]=notes[index];
     notes[available++]=top;
     hb_cp_sort(notes,available);
-    return available;
+    return voicing==4?hb_cp_root_below(notes,available,root):available;
+}
+/* A range ceiling chooses an existing chord tone, including after key mapping. */
+static int hb_cp_range_top(int *notes,int count,int ceiling,int root,int voicing){
+    unsigned voiced=0;for(int index=0;index<count;index++)voiced|=1u<<hb_cp_mod(notes[index]);
+    int top=hb_cp_clamp(ceiling,0,127);
+    while(top>=0&&!(voiced&(1u<<hb_cp_mod(top))))top--;
+    int fifth=hb_cp_mod(root+7);
+    if(!(voiced&(1u<<fifth)))fifth=voiced&(1u<<hb_cp_mod(root+6))?hb_cp_mod(root+6):voiced&(1u<<hb_cp_mod(root+8))?hb_cp_mod(root+8):fifth;
+    return top<0?0:hb_cp_top_note(notes,count,top,root,fifth,voicing);
 }
 /* Inversion: Auto, Root, First through Sixth. Auto is From Key for
    Conductor Chord and root position for Scale Root. Preserve the chosen bass
@@ -323,11 +340,13 @@ static int hb_cp_voice_semantic(hb_cp_config config,int input,int root,unsigned 
         if(index>0&&config.voicing==1&&pitch!=root&&pitch!=fifth)output[index]+=12;
         if(index>0&&config.voicing==2&&(index%2))output[index]+=12;
     }
+    if(config.top_note)return hb_cp_range_top(output,count,config.top_note-1,root,config.voicing);
     if(config.inversion==8)return hb_cp_top_note(output,count,input,root,fifth,config.voicing);
     hb_cp_sort(output,count);
     while(output[0]<0)for(int index=0;index<count;index++)output[index]+=12;
     while(output[count-1]>127)for(int index=0;index<count;index++)output[index]-=12;
-    return output[0]>=0?count:0;
+    if(output[0]<0)return 0;
+    return config.voicing==4?hb_cp_root_below(output,count,root):count;
 }
 static int hb_cp_voice(hb_cp_config config,int input,int root,unsigned chord,
                        unsigned scale,int *output){
