@@ -1,7 +1,7 @@
 name: Chord Play verification and release
 on:
   push:
-    branches: [main, work/audible-chord-range]
+    branches: [main, work/chord-loop-footer]
     paths: [tests/**, src/motion.h, src/motion_params.h, tests/performance_controls_test.c, docs/chord-queue.md, src/chord_queue.h, src/chord_register.h, src/motif_runtime.h, tests/chord_queue_test.c, core/include/harmony_core.h, core/src/harmony_core.c, src/scale_context.h, src/clip_timeline_cache.h, modules/harmonybus/module.json, scripts/native_suites.json, docs/chord-play.md, tests/chord_intent_test.c, src/chord_selection.h, src/chord_selection_input.h, src/chord_player.h, modules/harmonybus/dsp/harmonybus.c, tests/chord_selection_test.c, tests/chord_selection_comping_test.c, .github/workflows/chord-play.yml]
   workflow_dispatch:
 permissions:
@@ -18,27 +18,27 @@ jobs:
         run: |
           bash scripts/build_harmonybus_move.sh
           cd dist
-          sha256sum harmonybus-v0.2.298-module.tar.gz > SHA256SUMS
+          sha256sum harmonybus-v0.2.300-module.tar.gz > SHA256SUMS
       - name: Full native regressions
         run: python3 scripts/run_native_suites.py --jobs 4
       - uses: actions/upload-artifact@v4
         with:
-          name: harmonybus-range-298
+          name: harmonybus-loop-300
           path: |
-            dist/harmonybus-v0.2.298-module.tar.gz
+            dist/harmonybus-v0.2.300-module.tar.gz
             dist/SHA256SUMS
       - name: Publish verified main package and advance installer last
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.2.298 >/dev/null 2>&1; then exit 0; fi
+          if gh release view v0.2.300 >/dev/null 2>&1; then exit 0; fi
           git fetch origin main
           test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
-          python3 -c 'import json; assert json.load(open("release.json"))["version"]=="0.2.297"'
-          gh release create v0.2.298 dist/harmonybus-v0.2.298-module.tar.gz dist/SHA256SUMS --target "$GITHUB_SHA" --title 'HarmonyBus 0.2.298 — Immediate audible chord range' --notes-file docs/chord-range.md
+          python3 -c 'import json; assert json.load(open("release.json"))["version"]=="0.2.299"'
+          gh release create v0.2.300 dist/harmonybus-v0.2.300-module.tar.gz dist/SHA256SUMS --target "$GITHUB_SHA" --title 'HarmonyBus 0.2.300 — Chord loop and automatic touch phrases' --notes-file docs/chord-loop.md
           mkdir verified-upload
-          gh release download v0.2.298 --dir verified-upload --pattern harmonybus-v0.2.298-module.tar.gz
+          gh release download v0.2.300 --dir verified-upload --pattern harmonybus-v0.2.300-module.tar.gz
           (cd verified-upload && sha256sum -c ../dist/SHA256SUMS)
           git fetch origin main
           test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
@@ -47,11 +47,11 @@ jobs:
           import json
           from pathlib import Path
           path: Path = Path('release.json')
-          assert json.loads(path.read_text())['version']=='0.2.297'
-          path.write_text(json.dumps({'version':'0.2.298','download_url':'https://github.com/douglasmason/harmonybus/releases/download/v0.2.298/harmonybus-v0.2.298-module.tar.gz'},indent=2)+'\n')
+          assert json.loads(path.read_text())['version']=='0.2.299'
+          path.write_text(json.dumps({'version':'0.2.300','download_url':'https://github.com/douglasmason/harmonybus/releases/download/v0.2.300/harmonybus-v0.2.300-module.tar.gz'},indent=2)+'\n')
           PY
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add release.json
-          git commit -m 'Publish verified Chord Play 0.2.298 [skip ci]'
+          git commit -m 'Publish verified Chord Play 0.2.300 [skip ci]'
           git push origin HEAD:main

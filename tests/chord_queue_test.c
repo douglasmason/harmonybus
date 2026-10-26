@@ -16,6 +16,14 @@ static void choose(Inst *conductor,int root){
     char buffer[64];snprintf(buffer,sizeof(buffer),"%d,1,0,1,0,1,12",root);
     API.set_param(conductor,"hb_chord_queue",buffer);
 }
+static void snapshot(Inst *conductor,const char *tail){
+    char buffer[1024];hb_chord_queue before=g_chord_queue;
+    hb_cq_status(conductor,buffer,sizeof(buffer));
+    assert(strlen(buffer)>=strlen(tail));assert(!strcmp(buffer+strlen(buffer)-strlen(tail),tail));
+    assert(!memcmp(&before,&g_chord_queue,sizeof(before)));
+    char tiny[4]={0,0,0,99};int full=hb_cq_status(conductor,tiny,3);
+    assert(full==(int)strlen(buffer)&&tiny[2]==0&&tiny[3]==99);
+}
 int main(void){
     Inst *follower=fixture();host.get_clock_status=queue_clock;host.get_beat_position=queue_beat;position=0;running=0;
     Inst *conductor=API.create_instance("",0);API.set_param(conductor,"role","Conductor");
@@ -129,6 +137,31 @@ int main(void){
     choose(conductor,5);position=8;assert(!take(conductor)&&g_chord_queue.waiting);
     API.set_param(conductor,"hb_chord_queue","commit");assert(!take(conductor)&&g_chord_queue.pending[0].at==12);
     position=12;assert(take(conductor));API.set_param(conductor,"hb_chord_queue","off");
+    /* Separate taps obey depth; overlapping release commits below it, and
+       even depth one cannot start partway through a held entry gesture. */
+    API.set_param(conductor,"chord_queue_depth","4");running=0;position=0;held=-1;
+    API.set_param(conductor,"hb_chord_queue","begin");choose(conductor,0);
+    assert(!take(conductor));API.set_param(conductor,"hb_chord_queue","end");
+    assert(!take(conductor)&&g_chord_queue.waiting);
+    API.set_param(conductor,"hb_chord_queue","begin");choose(conductor,7);
+    assert(!take(conductor));API.set_param(conductor,"hb_chord_queue","commit");
+    assert(take(conductor)&&g_chord_queue.count==1);
+    API.set_param(conductor,"hb_chord_queue","off");
+    API.set_param(conductor,"chord_queue_depth","1");API.set_param(conductor,"chord_queue_end","Loop");
+    API.set_param(conductor,"hb_chord_queue","begin");choose(conductor,0);choose(conductor,0);
+    assert(!take(conductor)&&g_chord_queue.waiting);
+    snapshot(conductor,"|-1|2|C|C");
+    API.set_param(conductor,"hb_chord_queue","commit");assert(take(conductor));
+    snapshot(conductor,"|0|2|C|C");running=1;assert(!take(conductor));
+    position=4;assert(take(conductor));snapshot(conductor,"|1|2|C|C");
+    /* Appending after the last chord keeps the real cursor until next take. */
+    choose(conductor,5);snapshot(conductor,"|1|3|C|C|F");
+    position=8;assert(take(conductor));snapshot(conductor,"|0|3|C|C|F");
+    position=12;assert(take(conductor));snapshot(conductor,"|1|3|C|C|F");
+    position=16;assert(take(conductor));snapshot(conductor,"|2|3|C|C|F");
+    /* Status reads at a future boundary cannot advance either queue or cursor. */
+    position=20;snapshot(conductor,"|2|3|C|C|F");assert(take(conductor));snapshot(conductor,"|0|3|C|C|F");
+    running=0;assert(!take(conductor));API.get_param(conductor,"hb_chord_queue_status",buffer,sizeof(buffer));assert(!strcmp(buffer,"--"));
     API.destroy_instance(conductor);API.destroy_instance(follower);
     puts("Queued chords: seed, grid/anticipation, stopped preload, lookahead/late, motif arrival, empty hold, capacity, recorded isolation and lifecycle pass");
 }

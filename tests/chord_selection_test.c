@@ -10,6 +10,17 @@ static void event(Inst *instance,int pitch,int on){
 int main(void){
     Inst *conductor=fixture();API.set_param(conductor,"role","Conductor");
     hb_set_shared_follower_scale(1);
+    /* Internal pitch/scale flags are not chord quality, and cannot hide bass. */
+    hb_harmony_t named={.valid=1,.root_pc=0,.bass_pc=0};char label[32];
+    const int kinds[]={0,1,5,6,9,10,11};
+    const char *labels[]={"C","Cm","Cdim","Caug","CM7","C7","Cm7"};
+    for(int kind=0;kind<7;kind++)for(int flags=0;flags<4;flags++){
+        named.chord_index=kinds[kind]|((flags&1)?HB_HARMONY_EXPLICIT_TONES:0)|((flags&2)?HB_HARMONY_FIXED_SCALE:0);
+        hb_format_harmony(label,sizeof(label),named);assert(!strcmp(label,labels[kind]));
+    }
+    named.chord_index=0|HB_HARMONY_FLAGS;named.bass_pc=4;
+    hb_format_harmony(label,sizeof(label),named);assert(!strcmp(label,"C/E"));
+    named.valid=0;hb_format_harmony(label,sizeof(label),named);assert(!strcmp(label,"--"));
     const int roots[]={10,10,3,8},qualities[]={1,6,1,1};
     const int scales[]={6,13,3,8};
     char parameter[128],recorded[4096],payload[4096],opening[4096];

@@ -1,3 +1,5 @@
+HarmonyBus 0.2.300 fixes chord labels, exposes the ordered live queue and recognizes overlapping touch phrases automatically with Movy hbclean.260. Numeric depth is the start/refill threshold; the final release commits an overlapping phrase regardless of that threshold. Existing playback keeps its clock. Includes the merged Euclidean Fill rhythm editor. See [Chord loop and entry](chord-loop.md).
+
 HarmonyBus 0.2.299 adds Euclidean Fill to the existing shared rhythm User 1–4 slots. Edit draft steps (1–16), hits and rotation, inspect the non-destructive pattern preview, and explicitly Apply to change attack/rest positions while preserving accent/gate controls. Playback continues through the existing clock, chord/arp logic and harmonic travel. No Movy update is required. See [Euclidean Fill](euclidean-rhythm.md).
 
 HarmonyBus 0.2.298 adds queued Chord Play with grid/anticipation timing, follower lookahead, and shared motif Next Chord destinations. The final chord holds when the queue empties. Pair with Movy hbclean.250 for queued controls and conductor activation recording. See [Chord Play](chord-play.md).
