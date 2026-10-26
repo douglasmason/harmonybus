@@ -122,4 +122,69 @@ static void pitch_material(void){
     assert(attacks==8&&phrase.events[phrase.anchor].notes[0].pitch==64);
 }
 
-int main(void){patterns();playback();fills();ownership();gate_transitions();written_arp();pitch_material();puts("Rhythm generation: patterns, bounded clock, held-note gates, shared edits, state, clip and target fills pass");}
+
+static void euclidean_fill(void){
+    /* Exact cyclic spacing, zero/all hits, and rotation for 1..16 divisions. */
+    for(int length=1;length<=HB_RG_STEPS;length++)for(int hits=0;hits<=length;hits++)
+    for(int rotation=0;rotation<HB_RG_STEPS;rotation++){
+        hb_rg_pattern pattern={.count=length};
+        for(int index=0;index<length;index++)
+            pattern.steps[index]=(hb_rg_step){2,(unsigned char)(60+index),(unsigned char)(20+index)};
+        hb_rg_euclidean_fill(&pattern,length,hits,rotation);
+        int attack_count=0,positions[HB_RG_STEPS];
+        for(int index=0;index<length;index++){
+            assert(pattern.steps[index].kind<=1);
+            assert(pattern.steps[index].accent==60+index&&pattern.steps[index].gate==20+index);
+            if(pattern.steps[index].kind)positions[attack_count++]=index;
+        }
+        assert(attack_count==hits);
+        if(hits>0&&hits<length)for(int index=0;index<hits;index++){
+            int next=positions[(index+1)%hits]+(index+1==hits?length:0);
+            int distance=next-positions[index];
+            assert(distance==length/hits||distance==(length+hits-1)/hits);
+        }
+    }
+    Inst *instance=fixture();
+    char value[128];
+    API.set_param(instance,"rhythm_gen_edit","3");
+    API.set_param(instance,"rhythm_gen_step","2");
+    API.set_param(instance,"rhythm_gen_euclid_steps","8");
+    API.set_param(instance,"rhythm_gen_euclid_hits","3");
+    API.set_param(instance,"rhythm_gen_euclid_rotation","1");
+    assert(API.get_param(instance,"rhythm_gen_euclid_preview",value,sizeof(value))>0);
+    assert(!strcmp(value,".X..X..X"));
+    API.set_param(instance,"rhythm_gen_euclid_steps","13");
+    assert(g_rg_users[2].count==8); /* changing draft length must not edit live slots */
+    API.set_param(instance,"rhythm_gen_euclid_steps","8");
+    /* Changes remain a harmless preview until Apply is explicitly selected. */
+    API.get_param(instance,"rhythm_gen_kind",value,sizeof(value));
+    assert(!strcmp(value,"Attack"));
+    API.set_param(instance,"rhythm_gen_euclid_apply","Apply");
+    API.get_param(instance,"rhythm_gen_euclid_apply",value,sizeof(value));
+    assert(!strcmp(value,"Ready")); /* one shot; can be applied again */
+    API.get_param(instance,"rhythm_gen_kind",value,sizeof(value));
+    assert(!strcmp(value,"Attack"));
+    API.set_param(instance,"rhythm_gen_step","1");
+    API.get_param(instance,"rhythm_gen_kind",value,sizeof(value));
+    assert(!strcmp(value,"Rest"));
+    API.get_param(instance,"rhythm_gen_accent",value,sizeof(value));
+    assert(!strcmp(value,"100")); /* nonrhythmic expression is unchanged */
+    /* User pattern is shared across tracks, and state persists on reload. */
+    Inst *other=API.create_instance("",0);
+    API.set_param(other,"rhythm_gen_edit","3");
+    API.set_param(other,"rhythm_gen_step","1");
+    API.get_param(other,"rhythm_gen_kind",value,sizeof(value));
+    assert(!strcmp(value,"Rest"));
+    char saved[16384];assert(API.get_param(instance,"state",saved,sizeof(saved))>0);
+    assert(strstr(saved,";eg1,8,3,1"));
+    API.set_param(instance,"rhythm_gen_euclid_hits","0");
+    API.get_param(instance,"rhythm_gen_euclid_preview",value,sizeof(value));
+    assert(!strcmp(value,"........"));
+    API.set_param(instance,"state",saved);
+    API.get_param(instance,"rhythm_gen_euclid_steps",value,sizeof(value));assert(!strcmp(value,"8"));
+    API.get_param(instance,"rhythm_gen_euclid_hits",value,sizeof(value));assert(!strcmp(value,"3"));
+    API.get_param(instance,"rhythm_gen_euclid_rotation",value,sizeof(value));assert(!strcmp(value,"1"));
+    API.destroy_instance(other);API.destroy_instance(instance);
+}
+
+int main(void){patterns();playback();fills();ownership();gate_transitions();written_arp();pitch_material();euclidean_fill();puts("Rhythm generation: patterns, bounded clock, shared edits, Euclidean fill, state, clip and target fills pass");}
