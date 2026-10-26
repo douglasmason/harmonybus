@@ -11,7 +11,8 @@ static hb_harmony_t hb_selection_decode(unsigned long long word,int note){
     result.bass_pc=mod12(root+((word>>24)&15));result.intent_kind=7;
     result.intent_target=mod12(root+((word>>28)&15));
     result.intent_scale=hb_transpose_mask((word>>12)&4095u,root);
-    result.register_valid=(word&HB_SELECTION_REGISTER)?2:1;result.register_octaves=(word&HB_SELECTION_REGISTER)?note/12-5:hb_conductor_register();
+    result.register_valid=(word&HB_SELECTION_REGISTER)?2:1;
+    result.register_octaves=hb_selection_top(word)>=0?1000+hb_selection_top(word):(word&HB_SELECTION_REGISTER)?note/12-5:hb_conductor_register();
     result.intent_minor=hb_target_minor(result.intent_scale,result.intent_target);
     if(hb_selection_has_intent(word)){
         result.chord_index|=HB_HARMONY_FIXED_SCALE;result.intent_kind=(word>>37)&15;
@@ -46,16 +47,18 @@ static int hb_selection_parse(const char *parameter,int *fields,int bank){
     }
     return hb_selection_fields(fields);
 }
-/* Optional final field: 0 inherits; 1..7 select -3..+3 octaves. */
+/* Optional final field: 0 inherits; 1..7 select -3..+3 octaves; 8..135 select MIDI top 0..127. */
 static int hb_selection_parse_register(const char *parameter,int *fields,int *range){
     int values[10];char extra;
     if(sscanf(parameter,"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d%c",values,values+1,values+2,values+3,values+4,values+5,values+6,values+7,values+8,values+9,&extra)==10){
-        if(!hb_selection_fields(values)||values[9]<0||values[9]>7)return 0;
+        if(!hb_selection_fields(values)||values[9]<0||values[9]>135)return 0;
         memcpy(fields,values,9*sizeof(int));*range=values[9];return 1;
     }
     *range=0;return hb_selection_parse(parameter,fields,0);
 }
 static unsigned long long hb_selection_with_register(unsigned long long word,int *note,int range){
+    if(range>=8)return (word&0x0000ffffffffffffULL)|0xc900000000000000ULL|
+        ((unsigned long long)hb_selection_has_intent(word)<<55)|((unsigned long long)(range-8)<<48)|HB_SELECTION_REGISTER;
     if(range){word|=HB_SELECTION_REGISTER;*note+=12*(range-4);}
     return word;
 }
@@ -134,6 +137,18 @@ static int hb_selection_family(hb_harmony_t harmony){
        ordinary chord name and semantic tones remain independent of its hue. */
     return harmony.valid?hb_chord_scale_family(harmony.root_pc,harmony.intent_scale):HB_FAMILY_UNKNOWN;
 }
+static hb_harmony_t hb_selection_preview(Inst *instance,int index,unsigned long long word,int note){
+    hb_selection_preview_cache *cached=&instance->selection_preview[index];
+    if(cached->word!=word||cached->note!=note||cached->transpose!=g_bus.global_transpose){
+        cached->decoded=hb_selection_decode(word,note);
+        cached->word=word;cached->note=note;cached->transpose=g_bus.global_transpose;
+    }
+    hb_harmony_t harmony=cached->decoded;
+    /* Range and spelling can change without changing the immutable chord word. */
+    harmony.register_octaves=hb_selection_top(word)>=0?1000+hb_selection_top(word):(word&HB_SELECTION_REGISTER)?note/12-5:hb_conductor_register();
+    hb_format_harmony(harmony.name,sizeof(harmony.name),harmony);
+    return hb_key_harmony_cached(instance,harmony,&cached->key);
+}
 static int hb_selection_bank_snapshot(Inst *instance,char *buffer,int length){
     if(instance->role!=0||!instance->selection_bank_valid)return snprintf(buffer,(size_t)length,"--");
     int root=0;unsigned reference=hb_transpose_mask(hb_selection_reference(instance,&root),g_bus.global_transpose);
@@ -143,11 +158,11 @@ static int hb_selection_bank_snapshot(Inst *instance,char *buffer,int length){
     int used=snprintf(buffer,(size_t)length,"cb1|%u|%d,%u,%u,%d,%d,%d",reference,active.valid?active.root_pc:-1,hb_harmony_chord_mask(active),active.intent_scale,active.intent_kind,active.intent_target,active.bass_pc);
     for(int index=0;index<instance->selection_bank_valid;index++){
         int note=0;unsigned long long word=hb_selection_resolve(instance,instance->selection_bank[index],&note);
-        hb_harmony_t harmony=hb_key_harmony(instance,hb_selection_decode(word,note));unsigned mask=hb_harmony_chord_mask(harmony);
+        hb_harmony_t harmony=hb_selection_preview(instance,index,word,note);unsigned mask=hb_harmony_chord_mask(harmony);
         if(used<0||used>=length)return -1;
         int queued=0;
         if(hb_cq_owned(instance))for(int pending=0;pending<g_chord_queue.count;pending++)
-            if((g_chord_queue.pending[pending].word&~HB_SELECTION_REGISTER)==word&&mod12(g_chord_queue.pending[pending].note)==mod12(note)){queued=1;break;}
+            if((hb_selection_base_word(g_chord_queue.pending[pending].word)&~HB_SELECTION_REGISTER)==word&&mod12(g_chord_queue.pending[pending].note)==mod12(note)){queued=1;break;}
         used+=snprintf(buffer+used,(size_t)(length-used),"|%d,%u,%u,%d,%d,%d,%d,%d,%s,%d",harmony.valid?harmony.root_pc:-1,mask,harmony.intent_scale,harmony.intent_kind,harmony.intent_target,harmony.bass_pc,hb_selection_family(harmony),!!(mask&~reference),harmony.name,queued);
     }
     return used<length?used:-1;
@@ -209,10 +224,13 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
     if(!origin)hb_effective_write(harmony);
     if(instance->render_channel>=0){
         hb_cp_config config=hb_chord_config_at(instance,note,hb_motion_position(instance),hb_motion_condition_position());
-        config.mode=2;if(word&HB_SELECTION_REGISTER)config.register_octaves=0;key->onset_config=config; /* Voice the selected harmony, never the preceding bus chord. */
+        config.mode=2;
+        if(word&HB_SELECTION_REGISTER){config.register_octaves=0;config.top_note=hb_selection_top(word)+1;}
+        key->onset_config=config; /* Voice the selected harmony, never the preceding bus chord. */
         key->count=hb_cp_voice_semantic(config,note+g_bus.global_transpose,harmony.root_pc,
             harmony.pitch_mask,harmony.intent_scale,key->notes,0);
         for(int voice=0;voice<key->count;voice++)key->notes[voice]=hb_key_pitch(instance,key->notes[voice]);
+        if(config.top_note)key->count=hb_cp_range_top(key->notes,key->count,config.top_note-1,mod12(hb_key_pitch(instance,60+harmony.root_pc)),config.voicing);
         key->velocity=input[2];key->fresh=1;key->played_pitch=note;
         instance->player.render_channel=instance->render_channel;
     }

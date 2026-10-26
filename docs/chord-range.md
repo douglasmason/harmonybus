@@ -1,9 +1,9 @@
-# Audible chord range — HarmonyBus 0.2.298
+# Chord range and display isolation
 
-Range edits now retune the currently sounding chord on the next processing tick, including a comp track whose Retrigger Held setting is Off. The conductor's range is published before inherited follower ranges are resolved. An explicit comp range still overrides the conductor default. Raw melody remains unchanged.
+HarmonyBus 0.2.301 supports a chosen top chord tone through the existing Played Top Note voicing routine. Legacy octave ranges and saved selections retain their meaning; new top ranges are carried by versioned selection descriptors without changing their original note owner. Held selections and generated follower chords retune without adding queued attacks or restarting arp timing. Key mapping preserves the selected top ceiling.
 
-Existing note ownership supplies the release and replacement notes. This does not enqueue or record another chord, consume the next queued chord, or reset the current arp/rhythm gate or division. An unchanged range emits nothing. Releasing the original input still releases the retuned notes.
+Chord-bank display reads cache each of the 21 slot decodes and key transformations separately from the musical transformation cache. This removes repeat display work during sustained playback. Desktop measurements show lower polling cost; they do not establish that Move crackles are fixed.
 
-Movy 258 sends each range encoder increment immediately. Turning knob 8 keeps the existing protection against accidental Harmony Off; a deliberate tap still turns harmony off. Chord-specific overrides, global defaults and Shift+touch reset keep their previous meanings.
+Validation covers cold/warm display parity across scales, transposes and key policies; successive audible inversions; key changes; original note releases; arp phase and gates; save/load; descriptor validation; and existing native regressions. The Movy integration additionally checks queued recording and replay through the production Rust/native chain.
 
-Native regressions inspect the emitted MIDI for conductor and comp rendering, held arpeggio retuning, inherited/explicit ranges, no-op changes and release ownership. Existing queue and full native suites remain release gates.
+Voicing adds Root Below alongside the existing choices. It adds the nearest root below the lowest voice only when that voice is not already the root. Upper notes and the selected or played top remain unchanged. It does not add another octave to a root-position voicing. At the MIDI floor, it omits an unavailable lower root. Existing saved voicing values and defaults retain their meanings.
