@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.298"
+#define HB_VERSION "0.2.299"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -4017,13 +4017,12 @@ static const char *hb_pc_display(int pc,hb_harmony_t context){
 }
 static const char *hb_quality_suffix(int chord_index){
     static const char *suffix[]={"","m","5","s2","s4","dim","aug","6","m6","M7","7","m7","mM7","m7b5","dim7","a9","ma9","M9","9","m9","11","m11","13","6/9","m6/9","m(b6,9)","7#5","M7#5","9#5","M9#5","7b5","9b5","mMaj9","7sus4","9sus4","7sus2","M7b5","m9b5","7b9","7#9","7#5b9","7#5#9"};
-    chord_index&=~HB_HARMONY_EXPLICIT_TONES;
+    chord_index&=~HB_HARMONY_FLAGS;
     return (chord_index>=0&&chord_index<(int)(sizeof(suffix)/sizeof(suffix[0])))?suffix[chord_index]:"";
 }
 static int hb_format_harmony(char *buffer,int length,hb_harmony_t harmony){
     if(!harmony.valid)return snprintf(buffer,(size_t)length,"--");
     if(harmony.chord_index<0)return snprintf(buffer,(size_t)length,"%s?",hb_pc_display(harmony.root_pc,harmony));
-    if(harmony.chord_index&HB_HARMONY_EXPLICIT_TONES)return snprintf(buffer,(size_t)length,"%s%s+",hb_pc_display(harmony.root_pc,harmony),hb_quality_suffix(harmony.chord_index));
     if(harmony.bass_pc!=harmony.root_pc)return snprintf(buffer,(size_t)length,"%s%s/%s",hb_pc_display(harmony.root_pc,harmony),hb_quality_suffix(harmony.chord_index),hb_pc_display(harmony.bass_pc,harmony));
     return snprintf(buffer,(size_t)length,"%s%s",hb_pc_display(harmony.root_pc,harmony),hb_quality_suffix(harmony.chord_index));
 }
@@ -5952,7 +5951,7 @@ if(!strcmp(key,"hb_chord_range")){hb_selection_range_edit(instance,parameter);re
 if(!strcmp(key,"chord_register")){instance->chord_register=!strcmp(parameter,"Conductor")?99:hb_cp_clamp(parse_i(parameter,instance->chord_register==99?0:instance->chord_register),-3,3);hb_register_refresh();return;}
 if(!strcmp(key,"chord_queue_end")){instance->chord_queue_loop=!strcmp(parameter,"Loop");return;}
 if(!strcmp(key,"chord_queue_depth")){instance->chord_queue_depth=!strcmp(parameter,"Touch Phrase")?0:hb_cp_clamp(parse_i(parameter,instance->chord_queue_depth),1,HB_CQ_CAPACITY);return;}
-if(!strcmp(key,"hb_chord_queue")){if(!strcmp(parameter,"off"))hb_cq_clear(instance);else if(!strcmp(parameter,"commit")){if(hb_cq_owned(instance)&&g_chord_queue.waiting&&g_chord_queue.count)g_chord_queue.phrase_ready=1;}else hb_cq_enqueue(instance,parameter);return;}
+if(!strcmp(key,"hb_chord_queue")){if(!strcmp(parameter,"off"))hb_cq_clear(instance);else if(!strcmp(parameter,"begin"))hb_cq_begin(instance);else if(!strcmp(parameter,"commit")||!strcmp(parameter,"end")){if(hb_cq_owned(instance)){g_chord_queue.phrase_held=0;if(!strcmp(parameter,"commit")&&g_chord_queue.waiting&&g_chord_queue.count)g_chord_queue.phrase_ready=1;}}else hb_cq_enqueue(instance,parameter);return;}
 if(!strcmp(key,"hb_movy_input_chord")){hb_selection_prepare(instance,parameter);return;}
 if(!strcmp(key,"hb_movy_input_approach")){
     int note=-1,shift=0,row=3;char trailing;int fields=sscanf(parameter,"%d,%d,%d%c",&note,&shift,&row,&trailing);
