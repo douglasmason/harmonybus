@@ -4,7 +4,6 @@ _Static_assert(__builtin_offsetof(hb_cp_config,extension_treatment)==16*sizeof(i
 #include "motion_metadata.h"
 #include "field_params.h"
 /* The selected lane is an editor cursor. Holds are runtime-only, never state. */
-static const char *MO_OPERATIONS[]={"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V (Dom)","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim","Live Key Center","Parallel Scale","Live Harmony Override","Override Harmony (Live + Recorded)","Secondary Fifth","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)","Recordable Key Center","Relative Key Center","Key Step Back","Key Return to Start","Clip Weave","Drum Fill"};
 static const char *hb_mo_operation_name(int operation){return MO_OPERATIONS[operation==HB_MO_ABOVE?HB_MO_SECONDARY_II:operation];}
 static const char *MO_CHORD_ARP[]={"Chord Only / Release","Both / Release","Arp Only / Release","Chord Only / Press","Both / Press","Arp Only / Press"};
 static const char *MO_STATE_PRESETS[]={"Custom","Scale Degree Burst","Current Harmony Burst"};
@@ -27,7 +26,7 @@ static const char *MO_RANDOM[]={"Repeat","Evolve"};
 typedef struct { const char *key; size_t offset; int low,high; const char *const *options; } hb_motion_parameter;
 #define MO_FIELD(name,low,high,options) {"motion_" #name,__builtin_offsetof(hb_motion_lane,name),low,high,options}
 static const hb_motion_parameter MO_PARAMETERS[]={
-    MO_FIELD(operation,0,66,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
+    MO_FIELD(operation,0,HB_MO_OPERATION_COUNT-1,MO_OPERATIONS),MO_FIELD(pattern,0,6,MO_PATTERNS),
     MO_FIELD(amount,-400,400,0),MO_FIELD(offset,-400,400,0),MO_FIELD(enabled,0,1,MO_SWITCH),
     MO_FIELD(grid,0,8,MO_GRIDS),MO_FIELD(cycle,0,6,MO_CYCLES),MO_FIELD(phase,-64,64,0),
     MO_FIELD(probability,0,100,0),MO_FIELD(group,0,1,MO_GROUPS),MO_FIELD(evolve,0,1,MO_RANDOM),
@@ -198,7 +197,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         const hb_motion_parameter *spec=&MO_PARAMETERS[index];
         if(strcmp(key,spec->key))continue;
         int *field=hb_mo_field(&config->lanes[config->selected],index);
-        if(index==0){if(!strcmp(value,"Key Center"))value="Live Key Center";if(!strcmp(value,"Chrom Below")||!strcmp(value,"Chromatic Below")||!strcmp(value,"Secondary LT")||!strcmp(value,"CCB"))value="Connector Below";else if(!strcmp(value,"Chrom Above")||!strcmp(value,"Chromatic Above")||!strcmp(value,"CCA"))value="Connector Above";else if(!strcmp(value,"Tritone V")||!strcmp(value,"TTS"))value="Tritone Sub";else if(!strcmp(value,"LT"))value="Leading Tone";}
+        if(index==0){if(!strcmp(value,"Key Center"))value="Live Key Center";value=hb_ro_canonical_name(value);}
         int parsed;
         if(index==2&&config->lanes[config->selected].operation==HB_MO_HARMONY)parsed=!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,*field),0,100);
         else if(index==2&&config->lanes[config->selected].operation==HB_MO_MOTIF)parsed=enum_index(value,MO_MOTIFS,44,hb_mo_clamp(*field,0,43));

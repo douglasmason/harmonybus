@@ -1,0 +1,660 @@
+{
+  "operations": [
+    {
+      "id": 0,
+      "symbol": "HB_MO_OFF",
+      "name": "Off"
+    },
+    {
+      "id": 1,
+      "symbol": "HB_MO_VELOCITY",
+      "name": "Velocity"
+    },
+    {
+      "id": 2,
+      "symbol": "HB_MO_PAN",
+      "name": "Pan"
+    },
+    {
+      "id": 3,
+      "symbol": "HB_MO_OCTAVE",
+      "name": "Octave"
+    },
+    {
+      "id": 4,
+      "symbol": "HB_MO_ROTATE",
+      "name": "Rotate"
+    },
+    {
+      "id": 5,
+      "symbol": "HB_MO_GATE",
+      "name": "Gate"
+    },
+    {
+      "id": 6,
+      "symbol": "HB_MO_SKIP",
+      "name": "Skip"
+    },
+    {
+      "id": 7,
+      "symbol": "HB_MO_HARMONY",
+      "name": "Harmony"
+    },
+    {
+      "id": 8,
+      "symbol": "HB_MO_BELOW",
+      "name": "Connector Below",
+      "relative": {
+        "choice": 0,
+        "token": 1,
+        "role": 0,
+        "modifier": -1,
+        "semitones": -1,
+        "degree": -1,
+        "quality": -1,
+        "short": "CCB",
+        "group": "Connectors",
+        "aliases": [
+          "Chrom Below",
+          "Chromatic Below",
+          "Secondary LT",
+          "CCB"
+        ],
+        "connector_above": false,
+        "trigger_index": 0,
+        "menu_order": 0
+      }
+    },
+    {
+      "id": 9,
+      "symbol": "HB_MO_ABOVE",
+      "name": "Scale Above",
+      "relative": {
+        "choice": 2,
+        "token": 3,
+        "role": 0,
+        "modifier": 1,
+        "semitones": 0,
+        "degree": 1,
+        "quality": 0,
+        "short": "Up",
+        "group": "Connectors",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 1,
+        "menu_order": 2
+      }
+    },
+    {
+      "id": 10,
+      "symbol": "HB_MO_ENCLOSE_AB",
+      "name": "Enclose Above Below"
+    },
+    {
+      "id": 11,
+      "symbol": "HB_MO_ENCLOSE_BA",
+      "name": "Enclose Below Above"
+    },
+    {
+      "id": 12,
+      "symbol": "HB_MO_REPEAT",
+      "name": "Clip Repeat"
+    },
+    {
+      "id": 13,
+      "symbol": "HB_MO_REVERSE",
+      "name": "Clip Reverse"
+    },
+    {
+      "id": 14,
+      "symbol": "HB_MO_TIME_SHIFT",
+      "name": "Clip Time Shift"
+    },
+    {
+      "id": 15,
+      "symbol": "HB_MO_SPEED",
+      "name": "Clip Speed"
+    },
+    {
+      "id": 16,
+      "symbol": "HB_MO_TRANSPOSE",
+      "name": "Transpose"
+    },
+    {
+      "id": 17,
+      "symbol": "HB_MO_RATCHET",
+      "name": "Ratchet"
+    },
+    {
+      "id": 18,
+      "symbol": "HB_MO_ECHO",
+      "name": "MIDI Echo"
+    },
+    {
+      "id": 19,
+      "symbol": "HB_MO_CHORD_FORM",
+      "name": "Chord Form"
+    },
+    {
+      "id": 20,
+      "symbol": "HB_MO_AUTO_CHORD_REPEAT",
+      "name": "Auto Chord Repeat"
+    },
+    {
+      "id": 21,
+      "symbol": "HB_MO_SECONDARY_II",
+      "name": "Secondary II",
+      "relative": {
+        "choice": 3,
+        "token": 4,
+        "role": 1,
+        "modifier": 0,
+        "semitones": 0,
+        "degree": 1,
+        "quality": 0,
+        "short": "ii",
+        "group": "Parent Secondaries",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 2,
+        "menu_order": 3
+      }
+    },
+    {
+      "id": 22,
+      "symbol": "HB_MO_SECONDARY_V",
+      "name": "Secondary V (Dom)",
+      "relative": {
+        "choice": 4,
+        "token": 5,
+        "role": 2,
+        "modifier": 0,
+        "semitones": -5,
+        "degree": -1,
+        "quality": 6,
+        "short": "V",
+        "group": "Dominant Approach",
+        "aliases": [
+          "Secondary V"
+        ],
+        "connector_above": false,
+        "trigger_index": 3,
+        "menu_order": 12
+      }
+    },
+    {
+      "id": 23,
+      "symbol": "HB_MO_SECONDARY_VI",
+      "name": "Secondary VI",
+      "relative": {
+        "choice": 5,
+        "token": 6,
+        "role": 4,
+        "modifier": 0,
+        "semitones": -12,
+        "degree": 5,
+        "quality": 0,
+        "short": "vi",
+        "group": "Parent Secondaries",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 4,
+        "menu_order": 7
+      }
+    },
+    {
+      "id": 24,
+      "symbol": "HB_MO_BACKDOOR_II",
+      "name": "Backdoor II",
+      "relative": {
+        "choice": 6,
+        "token": 7,
+        "role": 5,
+        "modifier": 0,
+        "semitones": 5,
+        "degree": -1,
+        "quality": 7,
+        "short": "iv",
+        "group": "Substitutions",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 5,
+        "menu_order": 15
+      }
+    },
+    {
+      "id": 25,
+      "symbol": "HB_MO_BACKDOOR_V",
+      "name": "Backdoor V",
+      "relative": {
+        "choice": 7,
+        "token": 8,
+        "role": 6,
+        "modifier": 0,
+        "semitones": -2,
+        "degree": -1,
+        "quality": 6,
+        "short": "bVII",
+        "group": "Substitutions",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 6,
+        "menu_order": 16
+      }
+    },
+    {
+      "id": 26,
+      "symbol": "HB_MO_CHROM_ABOVE",
+      "name": "Connector Above",
+      "relative": {
+        "choice": 1,
+        "token": 2,
+        "role": 0,
+        "modifier": 2,
+        "semitones": 1,
+        "degree": -1,
+        "quality": -1,
+        "short": "CCA",
+        "group": "Connectors",
+        "aliases": [
+          "Chrom Above",
+          "Chromatic Above",
+          "CCA",
+          "Upper Chromatic Approach",
+          "UCA"
+        ],
+        "connector_above": true,
+        "trigger_index": 7,
+        "menu_order": 1
+      }
+    },
+    {
+      "id": 27,
+      "symbol": "HB_MO_TRITONE_II",
+      "name": "Tritone II",
+      "relative": {
+        "choice": 8,
+        "token": 9,
+        "role": 7,
+        "modifier": 0,
+        "semitones": -4,
+        "degree": -1,
+        "quality": 7,
+        "short": "iiT",
+        "group": "Substitutions",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 8,
+        "menu_order": 17
+      }
+    },
+    {
+      "id": 28,
+      "symbol": "HB_MO_CADENCE_II_V",
+      "name": "II-V-Target"
+    },
+    {
+      "id": 29,
+      "symbol": "HB_MO_CADENCE_BACKDOOR",
+      "name": "Backdoor II-V-Target"
+    },
+    {
+      "id": 30,
+      "symbol": "HB_MO_CADENCE_TRITONE",
+      "name": "Tritone II-V-Target"
+    },
+    {
+      "id": 31,
+      "symbol": "HB_MO_TRITONE_V",
+      "name": "Tritone Sub",
+      "relative": {
+        "choice": 9,
+        "token": 10,
+        "role": 0,
+        "modifier": 2,
+        "semitones": 1,
+        "degree": -1,
+        "quality": 6,
+        "short": "TTS",
+        "group": "Substitutions",
+        "aliases": [
+          "Tritone V",
+          "TTS"
+        ],
+        "connector_above": false,
+        "trigger_index": 9,
+        "menu_order": 18
+      }
+    },
+    {
+      "id": 32,
+      "symbol": "HB_MO_SECONDARY_III",
+      "name": "Secondary III",
+      "relative": {
+        "choice": 10,
+        "token": 11,
+        "role": 8,
+        "modifier": 0,
+        "semitones": 0,
+        "degree": 2,
+        "quality": 0,
+        "short": "iii",
+        "group": "Parent Secondaries",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 10,
+        "menu_order": 4
+      }
+    },
+    {
+      "id": 33,
+      "symbol": "HB_MO_SECONDARY_IV",
+      "name": "Secondary IV",
+      "relative": {
+        "choice": 11,
+        "token": 12,
+        "role": 9,
+        "modifier": 0,
+        "semitones": 0,
+        "degree": 3,
+        "quality": 0,
+        "short": "IV",
+        "group": "Parent Secondaries",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 11,
+        "menu_order": 5
+      }
+    },
+    {
+      "id": 34,
+      "symbol": "HB_MO_SECONDARY_VII",
+      "name": "Secondary VII",
+      "relative": {
+        "choice": 12,
+        "token": 13,
+        "role": 10,
+        "modifier": 0,
+        "semitones": -12,
+        "degree": 6,
+        "quality": 0,
+        "short": "vii",
+        "group": "Parent Secondaries",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 12,
+        "menu_order": 8
+      }
+    },
+    {
+      "id": 35,
+      "symbol": "HB_MO_MIXED_FIRST",
+      "name": "bVI-bVII-I"
+    },
+    {
+      "id": 36,
+      "symbol": "HB_MO_MIXED_1",
+      "name": "bVI-V-I"
+    },
+    {
+      "id": 37,
+      "symbol": "HB_MO_MIXED_2",
+      "name": "bIII-IV-I"
+    },
+    {
+      "id": 38,
+      "symbol": "HB_MO_MIXED_3",
+      "name": "vi-V-I"
+    },
+    {
+      "id": 39,
+      "symbol": "HB_MO_MIXED_4",
+      "name": "iii-vi-ii-V-I"
+    },
+    {
+      "id": 40,
+      "symbol": "HB_MO_MIXED_5",
+      "name": "IV-iv-I"
+    },
+    {
+      "id": 41,
+      "symbol": "HB_MO_MIXED_6",
+      "name": "ii halfdim-V-i"
+    },
+    {
+      "id": 42,
+      "symbol": "HB_MO_MIXED_7",
+      "name": "I-VI7-ii-V-I"
+    },
+    {
+      "id": 43,
+      "symbol": "HB_MO_MIXED_8",
+      "name": "V/V-V-I"
+    },
+    {
+      "id": 44,
+      "symbol": "HB_MO_MIXED_9",
+      "name": "ii/V-V/V-V-I"
+    },
+    {
+      "id": 45,
+      "symbol": "HB_MO_MIXED_10",
+      "name": "V/ii-ii-V-I"
+    },
+    {
+      "id": 46,
+      "symbol": "HB_MO_MIXED_11",
+      "name": "V/vi-vi-ii-V-I"
+    },
+    {
+      "id": 47,
+      "symbol": "HB_MO_MIXED_12",
+      "name": "vii dim/V-V-I"
+    },
+    {
+      "id": 48,
+      "symbol": "HB_MO_MIXED_13",
+      "name": "III7-VI7-II7-V7-I"
+    },
+    {
+      "id": 49,
+      "symbol": "HB_MO_MOTIF",
+      "name": "Play Motif"
+    },
+    {
+      "id": 50,
+      "symbol": "HB_MO_CHORD_STATE",
+      "name": "Chord/Arp State"
+    },
+    {
+      "id": 51,
+      "symbol": "HB_MO_LEADING_TONE",
+      "name": "Leading Tone",
+      "relative": {
+        "choice": 29,
+        "token": 14,
+        "role": 12,
+        "modifier": 0,
+        "semitones": -1,
+        "degree": -1,
+        "quality": 9,
+        "short": "LT",
+        "group": "Dominant Approach",
+        "aliases": [
+          "LT"
+        ],
+        "connector_above": false,
+        "trigger_index": 13,
+        "menu_order": 13
+      }
+    },
+    {
+      "id": 52,
+      "symbol": "HB_MO_UPPER_DIM",
+      "name": "Upper Dim",
+      "relative": {
+        "choice": 30,
+        "token": 60,
+        "role": 13,
+        "modifier": 0,
+        "semitones": 1,
+        "degree": -1,
+        "quality": 9,
+        "short": "UD",
+        "group": "Dominant Approach",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 14,
+        "menu_order": 14
+      }
+    },
+    {
+      "id": 53,
+      "symbol": "HB_MO_KEY_CENTER",
+      "name": "Live Key Center"
+    },
+    {
+      "id": 54,
+      "symbol": "HB_MO_PARALLEL_SCALE",
+      "name": "Parallel Scale"
+    },
+    {
+      "id": 55,
+      "symbol": "HB_MO_LIVE_HARMONY_OVERRIDE",
+      "name": "Live Harmony Override"
+    },
+    {
+      "id": 56,
+      "symbol": "HB_MO_HARMONY_OVERRIDE",
+      "name": "Override Harmony (Live + Recorded)"
+    },
+    {
+      "id": 57,
+      "symbol": "HB_MO_SECONDARY_FIFTH",
+      "name": "Secondary Fifth",
+      "relative": {
+        "choice": 31,
+        "token": 61,
+        "role": 14,
+        "modifier": 0,
+        "semitones": -12,
+        "degree": 4,
+        "quality": 0,
+        "short": "5th",
+        "group": "Parent Secondaries",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 15,
+        "menu_order": 6
+      }
+    },
+    {
+      "id": 58,
+      "symbol": "HB_MO_SECONDARY_II_DOM",
+      "name": "Secondary II (Dom)",
+      "relative": {
+        "choice": 32,
+        "token": 62,
+        "role": 15,
+        "modifier": 0,
+        "semitones": 0,
+        "degree": 1,
+        "quality": 0,
+        "short": "iiD",
+        "group": "Dominant Approach",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 16,
+        "menu_order": 9
+      }
+    },
+    {
+      "id": 59,
+      "symbol": "HB_MO_SECONDARY_IV_DOM",
+      "name": "Secondary IV (Dom)",
+      "relative": {
+        "choice": 33,
+        "token": 63,
+        "role": 16,
+        "modifier": 0,
+        "semitones": 0,
+        "degree": 3,
+        "quality": 0,
+        "short": "ivD",
+        "group": "Dominant Approach",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 17,
+        "menu_order": 10
+      }
+    },
+    {
+      "id": 60,
+      "symbol": "HB_MO_SECONDARY_VI_DOM",
+      "name": "Secondary VI (Dom)",
+      "relative": {
+        "choice": 34,
+        "token": 59,
+        "role": 17,
+        "modifier": 0,
+        "semitones": -12,
+        "degree": 5,
+        "quality": 0,
+        "short": "viD",
+        "group": "Dominant Approach",
+        "aliases": [],
+        "connector_above": false,
+        "trigger_index": 18,
+        "menu_order": 11
+      }
+    },
+    {
+      "id": 61,
+      "symbol": "HB_MO_RECORD_KEY",
+      "name": "Recordable Key Center"
+    },
+    {
+      "id": 62,
+      "symbol": "HB_MO_RELATIVE_KEY",
+      "name": "Relative Key Center"
+    },
+    {
+      "id": 63,
+      "symbol": "HB_MO_KEY_BACK",
+      "name": "Key Step Back"
+    },
+    {
+      "id": 64,
+      "symbol": "HB_MO_KEY_RETURN",
+      "name": "Key Return to Start"
+    },
+    {
+      "id": 65,
+      "symbol": "HB_MO_WEAVE",
+      "name": "Clip Weave"
+    },
+    {
+      "id": 66,
+      "symbol": "HB_MO_DRUM_FILL",
+      "name": "Drum Fill"
+    }
+  ],
+  "selectors": [
+    {
+      "name": "Smart Below",
+      "short": "S Below",
+      "choice": 35,
+      "token": 4096,
+      "preferred": "HB_MO_LEADING_TONE",
+      "alternate": "HB_MO_UPPER_DIM"
+    },
+    {
+      "name": "Smart Above",
+      "short": "S Above",
+      "choice": 36,
+      "token": 4097,
+      "preferred": "HB_MO_UPPER_DIM",
+      "alternate": "HB_MO_LEADING_TONE"
+    }
+  ]
+}

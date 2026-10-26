@@ -11,10 +11,7 @@
 #define HB_MOTION_OWNERS 512
 #define HB_MOTION_QUEUE 2048
 #define HB_MOTION_BURSTS 128
-enum { HB_MO_OFF, HB_MO_VELOCITY, HB_MO_PAN, HB_MO_OCTAVE, HB_MO_ROTATE,
-       HB_MO_GATE, HB_MO_SKIP, HB_MO_HARMONY, HB_MO_BELOW, HB_MO_ABOVE,
-       HB_MO_ENCLOSE_AB, HB_MO_ENCLOSE_BA, HB_MO_REPEAT, HB_MO_REVERSE,
-       HB_MO_TIME_SHIFT, HB_MO_SPEED, HB_MO_TRANSPOSE, HB_MO_RATCHET, HB_MO_ECHO, HB_MO_CHORD_FORM, HB_MO_AUTO_CHORD_REPEAT, HB_MO_SECONDARY_II, HB_MO_SECONDARY_V, HB_MO_SECONDARY_VI, HB_MO_BACKDOOR_II, HB_MO_BACKDOOR_V, HB_MO_CHROM_ABOVE, HB_MO_TRITONE_II, HB_MO_CADENCE_II_V, HB_MO_CADENCE_BACKDOOR, HB_MO_CADENCE_TRITONE, HB_MO_TRITONE_V, HB_MO_SECONDARY_III, HB_MO_SECONDARY_IV, HB_MO_SECONDARY_VII, HB_MO_MIXED_FIRST, HB_MO_MIXED_LAST=HB_MO_MIXED_FIRST+13, HB_MO_MOTIF, HB_MO_CHORD_STATE, HB_MO_LEADING_TONE, HB_MO_UPPER_DIM, HB_MO_KEY_CENTER, HB_MO_PARALLEL_SCALE, HB_MO_LIVE_HARMONY_OVERRIDE, HB_MO_HARMONY_OVERRIDE, HB_MO_SECONDARY_FIFTH, HB_MO_SECONDARY_II_DOM, HB_MO_SECONDARY_IV_DOM, HB_MO_SECONDARY_VI_DOM, HB_MO_RECORD_KEY, HB_MO_RELATIVE_KEY, HB_MO_KEY_BACK, HB_MO_KEY_RETURN, HB_MO_WEAVE, HB_MO_DRUM_FILL };
+#include "relative_operations.h"
 static int hb_mo_clip_operation(int operation){return (operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED)||operation==HB_MO_WEAVE;}
 #include "cadences.h"
 static int hb_mo_mixed(int operation){return operation>=HB_MO_MIXED_FIRST&&operation<=HB_MO_MIXED_LAST;}
@@ -90,7 +87,7 @@ static unsigned long long hb_mo_recorded_word(const hb_motion_config *config,int
 static int hb_mo_word_operation(unsigned long long word){return (int)(((word>>32)&31)|((word>>46)&32));}
 static unsigned long long hb_mo_operation_word(int operation){return ((unsigned long long)(operation&31)<<32)|((unsigned long long)(operation&32)<<46);}
 static int hb_mo_has_scale_mode(int operation){return hb_mo_mixed(operation)||operation==HB_MO_SECONDARY_FIFTH||operation==HB_MO_SECONDARY_II||operation==HB_MO_SECONDARY_III||operation==HB_MO_SECONDARY_IV||operation==HB_MO_SECONDARY_VI||operation==HB_MO_SECONDARY_VII||operation==HB_MO_CADENCE_II_V;}
-static int hb_mo_role(int operation){return operation==HB_MO_SECONDARY_II_DOM?15:operation==HB_MO_SECONDARY_IV_DOM?16:operation==HB_MO_SECONDARY_VI_DOM?17:operation==HB_MO_SECONDARY_FIFTH?14:operation==HB_MO_SECONDARY_II?1:operation==HB_MO_SECONDARY_V?2:operation==HB_MO_SECONDARY_VI?4:operation==HB_MO_BACKDOOR_II?5:operation==HB_MO_BACKDOOR_V?6:operation==HB_MO_TRITONE_II?7:operation==HB_MO_SECONDARY_III?8:operation==HB_MO_SECONDARY_IV?9:operation==HB_MO_SECONDARY_VII?10:operation==HB_MO_LEADING_TONE?12:operation==HB_MO_UPPER_DIM?13:0;}
+static int hb_mo_role(int operation){const hb_ro_definition *definition=hb_ro_motion(operation);return definition?definition->role:0;}
 /* Most render probes only need the operation tag. Avoid copying the full
    lane (including chord-state settings) for every inactive operation scan. */
 static int hb_mo_operation(const hb_motion_config *config,int index){
@@ -127,10 +124,10 @@ static int hb_mo_lane_active(const hb_motion_config *config,int index){
 static int hb_mo_enabled(const hb_motion_config *config){if(config->events[HB_MOTION_LANES]||(config->event_override&&config->event_override[HB_MOTION_LANES])||config->pitch_held||config->enclosure||config->gesture_down)return 1;for(int index=0;index<HB_MOTION_LANES;index++)if(hb_mo_lane_active(config,index))return 1;return 0;}
 /* One ordered pending sequence is shared by knob and step gestures. */
 static unsigned hb_mo_trigger_bit(int operation){
-    return operation==HB_MO_BELOW?1:operation==HB_MO_ABOVE?2:
-        operation==HB_MO_SECONDARY_II?4:operation==HB_MO_SECONDARY_V?8:operation==HB_MO_SECONDARY_VI?16:operation==HB_MO_BACKDOOR_II?32:operation==HB_MO_BACKDOOR_V?64:operation==HB_MO_CHROM_ABOVE?128:operation==HB_MO_TRITONE_II?256:operation==HB_MO_TRITONE_V?512:operation==HB_MO_SECONDARY_III?1024:operation==HB_MO_SECONDARY_IV?2048:operation==HB_MO_SECONDARY_VII?4096:operation==HB_MO_LEADING_TONE?8192:operation==HB_MO_UPPER_DIM?16384:operation==HB_MO_SECONDARY_FIFTH?32768:operation==HB_MO_SECONDARY_II_DOM?65536:operation==HB_MO_SECONDARY_IV_DOM?131072:operation==HB_MO_SECONDARY_VI_DOM?262144:0;
+    const hb_ro_definition *definition=hb_ro_motion(operation);
+    return definition?1u<<definition->trigger_index:0;
 }
-static int hb_mo_tap_index(unsigned bit){return bit==262144?18:bit==131072?17:bit==65536?16:bit==32768?15:bit==16384?14:bit==8192?13:bit==4096?12:bit==2048?11:bit==1024?10:bit==512?9:bit==256?8:bit==128?7:bit==64?6:bit==32?5:bit==16?4:bit==8?3:bit==4?2:bit==2?1:0;}
+static int hb_mo_tap_index(unsigned bit){int index=hb_ro_trigger_index(bit);return index<0?0:index;}
 static int hb_mo_sequence(unsigned mask,int first){
     if(mask&524272)return 13;
     return mask==5?(first==4?9:10):mask==10?(first==2?11:12):
@@ -394,10 +391,10 @@ static unsigned hb_mo_held_trigger(hb_motion_config *config){
     return selected;
 }
 static int hb_mo_held_modifier(hb_motion_config *config){
-    unsigned trigger=hb_mo_held_trigger(config);return trigger==1?-1:trigger==2?1:(trigger==128||trigger==512)?2:0;
+    const hb_ro_definition *definition=hb_ro_trigger(hb_mo_held_trigger(config));return definition?definition->modifier:0;
 }
 static int hb_mo_held_secondary(hb_motion_config *config){
-    unsigned trigger=hb_mo_held_trigger(config);return trigger==65536?15:trigger==131072?16:trigger==262144?17:trigger==32768?14:trigger==4?1:trigger==8?2:trigger==16?4:trigger==32?5:trigger==64?6:trigger==256?7:trigger==1024?8:trigger==2048?9:trigger==8192?12:trigger==16384?13:trigger==4096?10:0;
+    const hb_ro_definition *definition=hb_ro_trigger(hb_mo_held_trigger(config));return definition?definition->role:0;
 }
 /* Bits 0-1: pitch approach; 2-3: piano alias; 4-6: secondary II/V/target/VI.
    Bit 7 is output-only: chord construction already applied pitch approaches. */
@@ -528,8 +525,9 @@ static void hb_mo_input(hb_motion_config *config,int pitch,double beat,double gr
             int step=config->enclosure_step++;
             int count=hb_mo_sequence_count(config);
             unsigned trigger=hb_mo_sequence_trigger(config,step);
-            modifier=trigger==1?-1:trigger==2?1:(trigger==128||trigger==512)?2:0;
-            secondary=trigger==65536?15:trigger==131072?16:trigger==262144?17:trigger==32768?14:trigger==4?1:trigger==8?2:trigger==16?4:trigger==32?5:trigger==64?6:trigger==256?7:trigger==1024?8:trigger==2048?9:trigger==8192?12:trigger==16384?13:trigger==4096?10:step>=count&&(config->tap_mask&524284)?3:0;
+            const hb_ro_definition *definition=hb_ro_trigger(trigger);
+            modifier=definition?definition->modifier:0;
+            secondary=definition&&definition->role?definition->role:step>=count&&(config->tap_mask&524284)?3:0;
             flags=hb_mo_source_flags(config,trigger);
             config->tap_started=1;
             if(count==1||config->enclosure_step>=count+1){

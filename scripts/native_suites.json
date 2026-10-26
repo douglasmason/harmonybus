@@ -688,5 +688,13 @@
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_top_range_test.c src/harmony_core.c -lm -o /tmp/chord_top_range_test",
       "/tmp/chord_top_range_test"
     ]
+  },
+  {
+    "name": "relative_operations_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/relative_operations_test.c src/harmony_core.c -lm -o /tmp/relative_operations_test",
+      "/tmp/relative_operations_test",
+      "python3 scripts/build_operation_catalog.py --check"
+    ]
   }
 ]

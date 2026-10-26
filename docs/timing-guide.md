@@ -1,3 +1,5 @@
+HarmonyBus 0.2.303 adds Smart Below / Smart Above bank selectors and shared relative-operation definitions. See [relative operations](relative-operations.md).
+
 HarmonyBus 0.2.302 derives Chord Play quality hues from the resolved chord scale, independently of voiced form. See [implied quality](implied-quality.md).
 
 HarmonyBus 0.2.300 fixes chord labels, exposes the ordered live queue and recognizes overlapping touch phrases automatically with Movy hbclean.260. Numeric depth is the start/refill threshold; the final release commits an overlapping phrase regardless of that threshold. Existing playback keeps its clock. Includes the merged Euclidean Fill rhythm editor. See [Chord loop and entry](chord-loop.md).
