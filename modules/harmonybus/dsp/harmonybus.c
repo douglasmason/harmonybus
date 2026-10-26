@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.302"
+#define HB_VERSION "0.2.303"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2851,10 +2851,10 @@ static int hb_current_target_diminished(Inst *instance,unsigned scale,int target
 }
 static int hb_relative_approach_offset(int role,int target,unsigned scale){
     if(role==2&&hb_target_diminished(scale,target))return -1;
-    if(role==15)role=1;else if(role==16)role=9;else if(role==17)role=4;
-    return role==14?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),4)-12:role==12?-1:role==13?1:role==11?2:role==1?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),1):role==8?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),2):role==9?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),3):role==10?hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),6)-12:role==2?-5:role==4?
-        hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),5)-12:
-        role==5?5:role==6?-2:role==7?-4:0;
+    if(role==11)return 2; /* Legacy fixed-whole-step II recordings. */
+    const hb_ro_definition *definition=hb_ro_role(role);
+    return definition?definition->semitones+(definition->degree>=0?
+        hb_nth_scale_interval_from_root((uint16_t)scale,mod12(target),definition->degree):0):0;
 }
 static int hb_context_approach_offset(Inst *instance,int role,int target,unsigned scale){
     if(role==2)return hb_current_target_diminished(instance,scale,target)?-1:-5;
@@ -2964,6 +2964,22 @@ static int hb_map_follower_note_now(Inst *instance,int source_note){
         while(rendered<0)rendered+=12;while(rendered>127)rendered-=12;
     }
     return rendered;
+}
+/* Smart bank IDs are resolved once to a stable existing relative operation.
+   The same selector is used by live input, motif capture and pad preview. */
+static unsigned hb_resolve_live_approach(Inst *instance,int source,unsigned token){
+    const hb_ro_definition *definition=hb_ro_token(token);
+    if(!definition||!definition->preferred_token)return token;
+    unsigned short previous=instance->approach_rows.tokens[source];
+    instance->approach_rows.tokens[source]=(unsigned short)token;
+    int target=instance->role==1?hb_map_follower_note_unoperated(instance,source):source+g_bus.global_transpose;
+    instance->approach_rows.tokens[source]=previous;
+    hb_harmony_t harmony=hb_key_harmony(instance,hb_render_harmony(instance));
+    int parent_root=0;hb_resolve_follower_reference_root(instance,&parent_root);
+    unsigned scale=hb_parent_chord_scale(instance,harmony,parent_root,hb_follower_input_scale(instance,parent_root),g_bus.global_transpose);
+    scale=hb_key_approach_scale(instance,target,scale);
+    if(instance->role==0){target=hb_key_pitch(instance,target);scale=hb_key_mask(hb_key_for(instance),scale);}
+    return hb_ro_resolve_selector(token,target,scale);
 }
 static int hb_active_approach(const Inst *instance){
     if(!instance)return HB_APPROACH_OFF;
@@ -3078,7 +3094,7 @@ static hb_approach_result hb_resolve_chord_approach(Inst *instance,int target_no
             intent_target=mod12(result.destination);intent_minor=result.minor;intent_kind=(cadence->kind==HB_CAD_DOMINANT||cadence->kind==HB_CAD_MINOR_DOMINANT)?(result.quality==9?3:2):cadence->kind==HB_CAD_LEADING?3:1;
             if(cadence->kind==HB_CAD_TARGET&&pad_approach)config.quality=config.chromatic_quality==6?hb_cp_auto_leading_quality(target_note+1,target_scale):hb_cp_chromatic_quality(config.chromatic_quality);
         }else if(secondary==12||secondary==13){
-            root_note=target_note+(secondary==12?-1:1);config.quality=9;
+            root_note=target_note+hb_ro_role(secondary)->semitones;config.quality=hb_ro_role(secondary)->quality;
             intent_kind=secondary==12?3:5;
             if(secondary==12){
                 intent_minor=hb_target_minor(target_scale,target_note);
@@ -3100,7 +3116,7 @@ static hb_approach_result hb_resolve_chord_approach(Inst *instance,int target_no
             /* II/VI/target stack the actual parent collection. V retains its
                dominant function while taking extensions from that collection. */
             if(secondary==7)target_scale=hb_explicit_scale_mask(mod12(root_note),3); /* substitute ii: Dorian */
-            config.quality=secondary==2||secondary==6?6:secondary==5||secondary==7?7:0;
+            config.quality=hb_ro_role(secondary)?hb_ro_role(secondary)->quality:0;
             if(hb_target_simple_chord(instance)&&secondary!=2&&secondary!=3){
                 int third=hb_nth_scale_interval_from_root((uint16_t)target_scale,mod12(root_note),2);
                 int fifth=hb_nth_scale_interval_from_root((uint16_t)target_scale,mod12(root_note),4);
@@ -4493,6 +4509,13 @@ static void hb_auto_chord_repeat_sync(Inst *instance){
     if(active)hb_adopt_physical_targets(instance);
 }
 static void hb_capture_input_intent(Inst *instance,int note,unsigned long long *actions){
+    if(instance->motif.editor.recording>=0&&!instance->movy_playback){
+        int spatial=instance->movy_pad_pending==note+1&&hb_approach_pad_enabled(instance);
+        instance->movy_pad_shift[note]=spatial?instance->movy_pad_pending_shift:0;
+        int row=spatial?(instance->approach_rows.pending_row<0?3:instance->approach_rows.pending_row):-1;
+        unsigned token=(spatial||instance->approach_rows.enabled)?hb_ar_live_peek(&instance->approach_rows,row):0;
+        instance->approach_rows.tokens[note]=hb_resolve_live_approach(instance,note,token);
+    }
     hb_mo_capture(&instance->motion,hb_motion_position(instance),hb_motion_condition_position(),note,actions);
     actions[HB_MOTION_LANES]|=hb_ar_alias_word(instance->movy_pad_shift[note]);
     if(instance->approach_rows.tokens[note]){
@@ -4563,7 +4586,7 @@ if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note
         instance->movy_pad_shift[note]=instance->movy_pad_pending_shift;
     if(!instance->movy_playback&&(instance->approach_rows.enabled||instance->movy_pad_shift[note])){
         int row=instance->movy_pad_shift[note]?(instance->approach_rows.pending_row<0?3:instance->approach_rows.pending_row):-1;
-        instance->approach_rows.tokens[note]=hb_ar_live_peek(&instance->approach_rows,row);if(instance->approach_rows.tokens[note])hb_ar_live_advance(&instance->approach_rows,row);
+        instance->approach_rows.tokens[note]=hb_resolve_live_approach(instance,note,hb_ar_live_peek(&instance->approach_rows,row));if(instance->approach_rows.tokens[note])hb_ar_live_advance(&instance->approach_rows,row);
     }
     instance->movy_pad_pending=0;instance->approach_rows.pending_row=-1;
 }int input_channel=input[0]&0x0F;if(instance->role==2)return pass(input,length,output,lengths,max_output);if(!hb_source_channel_matches(instance,input_channel))return pass(input,length,output,lengths,max_output);if(is_on){
@@ -6550,8 +6573,8 @@ static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
         preview->movy_pad_shift[source_note]?preview->approach_rows.preview_row:-1,
         preview->movy_pad_shift[source_note]);
     if((preview->approach_rows.enabled||preview->movy_pad_shift[source_note])&&hb_ar_live_peek(&preview->approach_rows,preview->movy_pad_shift[source_note]?preview->approach_rows.preview_row:-1)){
-        unsigned token=hb_ar_live_peek(&preview->approach_rows,preview->movy_pad_shift[source_note]?preview->approach_rows.preview_row:-1);preview->approach_rows.tokens[source_note]=token;
-        if((token&63)>=15&&(token&63)!=60)return hb_ar_preview(preview,source_note,token,root_only,output_low,output_high);
+        unsigned token=hb_resolve_live_approach(preview,source_note,hb_ar_live_peek(&preview->approach_rows,preview->movy_pad_shift[source_note]?preview->approach_rows.preview_row:-1));preview->approach_rows.tokens[source_note]=token;
+        if(!hb_ro_token(token))return hb_ar_preview(preview,source_note,token,root_only,output_low,output_high);
         preview->motion.events[HB_MOTION_LANES]=(preview->motion.events[HB_MOTION_LANES]&~0x573ULL)|hb_ar_intent(token);
     }else preview->approach_rows.tokens[source_note]=0;
     if(follower_single)hb_player_note_on_config(preview,source_note,0,100,&config);

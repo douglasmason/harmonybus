@@ -18,10 +18,7 @@ static int hb_ar_slot(const char *key,const char *prefix,int count){
 }
 static int hb_ar_set_local(Inst *instance,const char *key,const char *value){
     hb_ar_state *state=&instance->approach_rows;
-    if(!strcmp(value,"Secondary LT")||!strcmp(value,"Chromatic Below")||!strcmp(value,"Chrom Below")||!strcmp(value,"CCB"))value="Connector Below";
-    else if(!strcmp(value,"Chromatic Above")||!strcmp(value,"Chrom Above")||!strcmp(value,"CCA"))value="Connector Above";
-    else if(!strcmp(value,"Tritone V")||!strcmp(value,"TTS"))value="Tritone Sub";
-    else if(!strcmp(value,"LT"))value="Leading Tone";
+    value=hb_ro_canonical_name(value);
     if(!strcmp(key,"approach_motif_latch")){
         if(hb_ar_spatial_layout(instance))return 1;
         int on=!strcmp(value,"On")||!strcmp(value,"1");
@@ -47,12 +44,12 @@ static int hb_ar_set_local(Inst *instance,const char *key,const char *value){
         return 1;
     }
     int slot=hb_ar_slot(key,"approach_knob_",8);
-    if(slot>=0){state->knobs[slot]=enum_index(!strcmp(value,"Chromatic Below")||!strcmp(value,"Chrom Below")?"Secondary LT":value,HB_AR_NAMES,35,state->knobs[slot]);
+    if(slot>=0){state->knobs[slot]=enum_index(value,HB_AR_NAMES,HB_AR_CHOICE_COUNT,state->knobs[slot]);
         int choice=state->knobs[slot];state->bank[slot]=(choice<13||choice>=29)?-(choice+1):state->bank[choice-13];
         for(int index=0;index<state->count;index++)if(state->order_slot[index]==slot){state->order[index]=hb_ar_code(state,slot);state->event=0;}
         return 1;}
     slot=hb_ar_slot(key,"approach_bank_",16);
-    if(slot>=0){int parsed=enum_index(value,MO_MOTIFS+1,43,-1);if(parsed>=0)state->bank[slot]=parsed+1;else for(int choice=0;choice<35;choice++)if((choice<13||choice>=29)&&choice!=2&&!strcmp(value,hb_ar_name(choice))){state->bank[slot]=-(choice+1);break;}state->sequence_cursor=state->sequence_event=state->row_event=0;for(int row=0;row<3;row++)if(state->row_slots[row]==slot)state->row_steps[row]=0;for(int index=0;index<state->count;index++)if(state->order_slot[index]==slot){state->order[index]=hb_ar_code(state,slot);state->event=0;}return 1;}
+    if(slot>=0){int parsed=enum_index(value,MO_MOTIFS+1,43,-1);if(parsed>=0)state->bank[slot]=parsed+1;else for(int choice=0;choice<HB_AR_CHOICE_COUNT;choice++)if((choice<13||choice>=29)&&choice!=2&&!strcmp(value,hb_ar_name(choice))){state->bank[slot]=-(choice+1);break;}state->sequence_cursor=state->sequence_event=state->row_event=0;for(int row=0;row<3;row++)if(state->row_slots[row]==slot)state->row_steps[row]=0;for(int index=0;index<state->count;index++)if(state->order_slot[index]==slot){state->order[index]=hb_ar_code(state,slot);state->event=0;}return 1;}
     int row_knob=hb_ar_slot(key,"approach_touch_",16);
     if(row_knob>=0&&hb_ar_spatial_layout(instance)){
         unsigned bit=1u<<row_knob;
@@ -109,8 +106,8 @@ static void hb_ar_step_label(int code,int step,const hb_mt_phrase *phrase,char *
         snprintf(label,(size_t)length,"%.*s",count,start);return;
     }
     if(phrase){snprintf(label,(size_t)length,phrase->events[step].kind==1?"Rest":"U%d.%d",code-34,step+1);return;}
-    static const char *names[]={"","CCB","CCA","Up","ii","V","vi","iv","bVII","iiT","TTS","iii","IV","vii","LT"};
-    snprintf(label,(size_t)length,"%s",code==62?"iiD":code==63?"ivD":code==59?"viD":code==61?"5th":code==60?"UD":code>0&&code<15?names[code]:"?");
+    const hb_ro_definition *definition=hb_ro_token((unsigned)code);
+    snprintf(label,(size_t)length,"%s",definition?definition->short_name:"?");
 }
 static int hb_ar_sequence_view(Inst *instance,char *buffer,int length){
     hb_ar_state *state=&instance->approach_rows;
@@ -125,7 +122,7 @@ static int hb_ar_sequence_view(Inst *instance,char *buffer,int length){
         if(spatial&&!single&&end>1)end=1;
         for(int event=0;event<end;event++){
             if(entry==(spatial?state->sequence_cursor:state->cursor)&&event==(spatial?state->sequence_event:state->event))selected=count;
-            int token_code=tokens[event]&63,step=(tokens[event]>>6)&31;
+            int token_code=hb_ro_token(tokens[event])?(int)tokens[event]:(int)(tokens[event]&63),step=(tokens[event]>>6)&31;
             hb_mt_phrase builtin;const hb_mt_phrase *phrase=hb_ar_phrase(token_code,&builtin);
             hb_ar_step_label(token_code,step,phrase,labels[count++],24);
         }
@@ -178,10 +175,10 @@ static void hb_ar_restore(Inst *instance,const char *source){
     hb_ar_state restored=instance->approach_rows;int count=25;
     for(int index=0;index<count;index++){
         if(*cursor++!=',')return;char *end;long value=strtol(cursor,&end,10);if(end==cursor)return;cursor=end;
-        if(index<8){if(value<0||value>=35)return;restored.knobs[index]=(int)value;}
-        else if(index<24){if(value==0||(value< -13&&(value> -30||value< -35))||value>43)return;restored.bank[index-8]=(int)value;}
+        if(index<8){if(value<0||value>=HB_AR_CHOICE_COUNT)return;restored.knobs[index]=(int)value;}
+        else if(index<24){if(value==0||(value< -13&&(value> -30||value< -HB_AR_CHOICE_COUNT))||value>43)return;restored.bank[index-8]=(int)value;}
         else if(index==24){if(value<1||value>8)return;restored.count=(int)value;count+=value;}
-        else{if(value<1||value>63)return;restored.order[index-25]=(int)value;}
+        else{if(value<1||value>65535||(value>63&&!hb_ro_token((unsigned)value)))return;restored.order[index-25]=(int)value;}
     }
     if(*cursor&&*cursor!=';')return;restored.down=restored.knob_down=restored.step_down=restored.selected=0;for(int index=0;index<8;index++)restored.order_slot[index]=-1;restored.cursor=restored.event=0;restored.bank_armed=-1;
     const char *extra=strstr(source,";ar2,");
