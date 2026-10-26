@@ -1,4 +1,4 @@
-# Chord loop and automatic touch phrases — 0.2.299
+# Chord loop and automatic touch phrases — 0.2.300
 
 Pair with Movy hbclean.260. Chord names no longer expose the internal explicit-tone flag as a trailing plus. Minor, diminished, augmented, extended and slash chords retain their musical names.
 
