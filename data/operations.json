@@ -61,7 +61,8 @@
           "CCB"
         ],
         "connector_above": false,
-        "trigger_index": 0
+        "trigger_index": 0,
+        "menu_order": 0
       }
     },
     {
@@ -80,7 +81,8 @@
         "group": "Connectors",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 1
+        "trigger_index": 1,
+        "menu_order": 2
       }
     },
     {
@@ -154,7 +156,8 @@
         "group": "Parent Secondaries",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 2
+        "trigger_index": 2,
+        "menu_order": 3
       }
     },
     {
@@ -175,7 +178,8 @@
           "Secondary V"
         ],
         "connector_above": false,
-        "trigger_index": 3
+        "trigger_index": 3,
+        "menu_order": 12
       }
     },
     {
@@ -194,7 +198,8 @@
         "group": "Parent Secondaries",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 4
+        "trigger_index": 4,
+        "menu_order": 7
       }
     },
     {
@@ -213,7 +218,8 @@
         "group": "Substitutions",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 5
+        "trigger_index": 5,
+        "menu_order": 15
       }
     },
     {
@@ -232,7 +238,8 @@
         "group": "Substitutions",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 6
+        "trigger_index": 6,
+        "menu_order": 16
       }
     },
     {
@@ -257,7 +264,8 @@
           "UCA"
         ],
         "connector_above": true,
-        "trigger_index": 7
+        "trigger_index": 7,
+        "menu_order": 1
       }
     },
     {
@@ -276,7 +284,8 @@
         "group": "Substitutions",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 8
+        "trigger_index": 8,
+        "menu_order": 17
       }
     },
     {
@@ -313,7 +322,8 @@
           "TTS"
         ],
         "connector_above": false,
-        "trigger_index": 9
+        "trigger_index": 9,
+        "menu_order": 18
       }
     },
     {
@@ -332,7 +342,8 @@
         "group": "Parent Secondaries",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 10
+        "trigger_index": 10,
+        "menu_order": 4
       }
     },
     {
@@ -351,7 +362,8 @@
         "group": "Parent Secondaries",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 11
+        "trigger_index": 11,
+        "menu_order": 5
       }
     },
     {
@@ -370,7 +382,8 @@
         "group": "Parent Secondaries",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 12
+        "trigger_index": 12,
+        "menu_order": 8
       }
     },
     {
@@ -471,7 +484,8 @@
           "LT"
         ],
         "connector_above": false,
-        "trigger_index": 13
+        "trigger_index": 13,
+        "menu_order": 13
       }
     },
     {
@@ -490,7 +504,8 @@
         "group": "Dominant Approach",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 14
+        "trigger_index": 14,
+        "menu_order": 14
       }
     },
     {
@@ -529,7 +544,8 @@
         "group": "Parent Secondaries",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 15
+        "trigger_index": 15,
+        "menu_order": 6
       }
     },
     {
@@ -548,7 +564,8 @@
         "group": "Dominant Approach",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 16
+        "trigger_index": 16,
+        "menu_order": 9
       }
     },
     {
@@ -567,7 +584,8 @@
         "group": "Dominant Approach",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 17
+        "trigger_index": 17,
+        "menu_order": 10
       }
     },
     {
@@ -586,7 +604,8 @@
         "group": "Dominant Approach",
         "aliases": [],
         "connector_above": false,
-        "trigger_index": 18
+        "trigger_index": 18,
+        "menu_order": 11
       }
     },
     {

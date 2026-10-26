@@ -20,7 +20,7 @@ def render_catalog(map_catalog: dict[str, Any]) -> tuple[str, str]:
         dict(operation['relative'], name=operation['name'], motion=operation['id'])
         for operation in operations if 'relative' in operation
     ]
-    for field in ('choice', 'token', 'trigger_index'):
+    for field in ('choice', 'token', 'trigger_index', 'menu_order'):
         assert len({relative[field] for relative in relatives}) == len(relatives)
     assert all(0 < relative['token'] < 64 for relative in relatives)
     assert len({item['choice'] for item in relatives + selectors}) == len(relatives + selectors)
@@ -84,10 +84,10 @@ def render_catalog(map_catalog: dict[str, Any]) -> tuple[str, str]:
             header.append('    {' + json.dumps(alias) + ',' + json.dumps(relative['name']) + '},')
     header.extend(['};', '#endif', ''])
 
-    # Numeric choice ordering preserves the existing native assignment contract.
+    # Presentation order is independent of the preserved numeric assignment IDs.
     menu: list[dict[str, Any]] = [
         {field: relative[field] for field in ('name', 'short', 'group', 'choice', 'token', 'motion')}
-        for relative in sorted(relatives, key=lambda item: item['choice']) if relative['choice'] != 2
+        for relative in sorted(relatives, key=lambda item: item['menu_order']) if relative['choice'] != 2
     ]
     menu.extend(dict(name=item['name'], short=item['short'], group='Smart Approaches',
                      choice=item['choice'], token=item['token'], motion=-1) for item in selectors)
