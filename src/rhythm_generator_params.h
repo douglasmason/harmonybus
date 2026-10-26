@@ -5,17 +5,18 @@ static int hb_rg_set(Inst *i,const char *key,const char *value){
     else if(!strcmp(key,"rhythm_gen_mode")){r->mode=enum_index(value,HB_RG_MODES,3,r->mode);hb_rg_reset(r);}
     else if(!strcmp(key,"rhythm_gen_span")){static const char *spans[]={"1 Beat","2 Beats","1 Bar","2 Bars","4 Bars"};r->span=enum_index(value,spans,5,r->span);hb_rg_reset(r);}
     else if(!strcmp(key,"rhythm_gen_source")){r->source=!strcmp(value,"Target");}
-    else if(!strcmp(key,"rhythm_gen_edit")){if(n>=1&&n<=4)r->edit=n-1;}
+    else if(!strcmp(key,"rhythm_gen_edit")){if(n>=1&&n<=4){r->edit=n-1;r->euclid_steps=g_rg_users[r->edit].count;}}
     else if(!strcmp(key,"rhythm_gen_step")){if(n>=1&&n<=16)r->cell=n-1;}
     else if(!strcmp(key,"rhythm_gen_length")){if(n>=1&&n<=16)g_rg_users[r->edit].count=n;g_rg_restored=1;}
     else if(!strcmp(key,"rhythm_gen_kind")){static const char *k[]={"Rest","Attack","Tie"};g_rg_users[r->edit].steps[r->cell].kind=enum_index(value,k,3,1);g_rg_restored=1;}
     else if(!strcmp(key,"rhythm_gen_accent")){if(n>=1&&n<=127)g_rg_users[r->edit].steps[r->cell].accent=n;g_rg_restored=1;}
     else if(!strcmp(key,"rhythm_gen_gate")){if(n>=1&&n<=100)g_rg_users[r->edit].steps[r->cell].gate=n;g_rg_restored=1;}
+    else if(!strcmp(key,"rhythm_gen_euclid_steps")){if(n>=1&&n<=HB_RG_STEPS)r->euclid_steps=n;}
     else if(!strcmp(key,"rhythm_gen_euclid_hits")){if(n>=0&&n<=HB_RG_STEPS)r->euclid_hits=n;}
     else if(!strcmp(key,"rhythm_gen_euclid_rotation")){if(n>=0&&n<HB_RG_STEPS)r->euclid_rotation=n;}
     else if(!strcmp(key,"rhythm_gen_euclid_apply")){
         if(!strcmp(value,"Apply")){
-            hb_rg_euclidean_fill(&g_rg_users[r->edit],r->euclid_hits,r->euclid_rotation);
+            hb_rg_euclidean_fill(&g_rg_users[r->edit],r->euclid_steps,r->euclid_hits,r->euclid_rotation);
             g_rg_restored=1;
         }
     }
@@ -34,15 +35,15 @@ static int hb_rg_param(Inst *i,const char *key,char *b,int length){
     if(!strcmp(key,"rhythm_gen_kind")){static const char *k[]={"Rest","Attack","Tie"};return snprintf(b,(size_t)length,"%s",k[step.kind]);}
     if(!strcmp(key,"rhythm_gen_accent"))return snprintf(b,(size_t)length,"%d",step.accent);
     if(!strcmp(key,"rhythm_gen_gate"))return snprintf(b,(size_t)length,"%d",step.gate);
+    if(!strcmp(key,"rhythm_gen_euclid_steps"))return snprintf(b,(size_t)length,"%d",r->euclid_steps);
     if(!strcmp(key,"rhythm_gen_euclid_hits"))return snprintf(b,(size_t)length,"%d",r->euclid_hits);
     if(!strcmp(key,"rhythm_gen_euclid_rotation"))return snprintf(b,(size_t)length,"%d",r->euclid_rotation);
     if(!strcmp(key,"rhythm_gen_euclid_apply"))return snprintf(b,(size_t)length,"Ready");
     if(!strcmp(key,"rhythm_gen_euclid_preview")){
-        hb_rg_pattern *pattern=&g_rg_users[r->edit];
         char preview[HB_RG_STEPS+1];
-        for(int index=0;index<pattern->count;index++)
-            preview[index]=hb_rg_euclidean_at(index,pattern->count,r->euclid_hits,r->euclid_rotation)?'X':'.';
-        preview[pattern->count]=0;
+        for(int index=0;index<r->euclid_steps;index++)
+            preview[index]=hb_rg_euclidean_at(index,r->euclid_steps,r->euclid_hits,r->euclid_rotation)?'X':'.';
+        preview[r->euclid_steps]=0;
         return snprintf(b,(size_t)length,"%s",preview);
     }
     return -1;
@@ -54,7 +55,7 @@ static int hb_rg_save(Inst *i,char *b,int length,int used){
         if(used>=0&&used<length)used+=snprintf(b+used,(size_t)(length-used),",%d",g_rg_users[u].count);
         for(int k=0;k<16;k++){hb_rg_step s=g_rg_users[u].steps[k];if(used>=0&&used<length)used+=snprintf(b+used,(size_t)(length-used),",%d,%d,%d",s.kind,s.accent,s.gate);}
     }
-    if(used>=0&&used<length)used+=snprintf(b+used,(size_t)(length-used),";eg1,%d,%d",r->euclid_hits,r->euclid_rotation);
+    if(used>=0&&used<length)used+=snprintf(b+used,(size_t)(length-used),";eg1,%d,%d,%d",r->euclid_steps,r->euclid_hits,r->euclid_rotation);
     return used>=length?-1:used;
 }
 static void hb_rg_restore(Inst *i,const char *state){
@@ -69,11 +70,12 @@ static void hb_rg_restore(Inst *i,const char *state){
     hb_rg_euclid_init(r);
     const char *euclid=strstr(state,";eg1,");
     if(euclid){
-        int hits,rotation,used=0;
-        if(sscanf(euclid,";eg1,%d,%d%n",&hits,&rotation,&used)==2&&used>0&&
+        int steps,hits,rotation,used=0;
+        if(sscanf(euclid,";eg1,%d,%d,%d%n",&steps,&hits,&rotation,&used)==3&&used>0&&
            (euclid[used]==0||euclid[used]==';')&&
-           hits>=0&&hits<=HB_RG_STEPS&&rotation>=0&&rotation<HB_RG_STEPS){
-            r->euclid_hits=hits;r->euclid_rotation=rotation;
+           steps>=1&&steps<=HB_RG_STEPS&&hits>=0&&hits<=HB_RG_STEPS&&
+           rotation>=0&&rotation<HB_RG_STEPS){
+            r->euclid_steps=steps;r->euclid_hits=hits;r->euclid_rotation=rotation;
         }
     }
 }
