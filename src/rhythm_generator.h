@@ -14,10 +14,11 @@ static int hb_rg_euclidean_at(int step,int length,int hits,int rotation){
     return hits>0&&((offset*hits)%length)<hits;
 }
 /* Only attack/rest membership changes: preserve the slot's accents and gates. */
-static void hb_rg_euclidean_fill(hb_rg_pattern *pattern,int hits,int rotation){
-    if(pattern->count<1||pattern->count>HB_RG_STEPS)return;
-    for(int step=0;step<pattern->count;step++)
-        pattern->steps[step].kind=hb_rg_euclidean_at(step,pattern->count,hits,rotation)?1:0;
+static void hb_rg_euclidean_fill(hb_rg_pattern *pattern,int steps,int hits,int rotation){
+    if(steps<1||steps>HB_RG_STEPS)return;
+    pattern->count=steps;
+    for(int step=0;step<steps;step++)
+        pattern->steps[step].kind=hb_rg_euclidean_at(step,steps,hits,rotation)?1:0;
 }
 static hb_rg_pattern g_rg_users[HB_RG_USERS];
 static int g_rg_ready,g_rg_restored;
@@ -39,10 +40,11 @@ static double hb_rg_gate(const hb_rg_pattern *p,int step){
     for(int k=step+1;k<p->count&&p->steps[k].kind==2;k++)length=(k-step)+p->steps[k].gate/100.0;
     return length;
 }
-typedef struct {int pattern,mode,span,source,edit,cell;int active,index,done;double start,end,gate;int velocity;hb_rg_pattern plan;int euclid_hits,euclid_rotation,euclid_ready;} hb_rg_clock;
+typedef struct {int pattern,mode,span,source,edit,cell;int active,index,done;double start,end,gate;int velocity;hb_rg_pattern plan;int euclid_steps,euclid_hits,euclid_rotation,euclid_ready;} hb_rg_clock;
 static void hb_rg_euclid_init(hb_rg_clock *clock){
     if(clock->euclid_ready)return;
-    clock->euclid_ready=1;clock->euclid_hits=3;clock->euclid_rotation=0;
+    clock->euclid_ready=1;clock->euclid_steps=g_rg_users[clock->edit].count;
+    clock->euclid_hits=3;clock->euclid_rotation=0;
 }
 static double hb_rg_span(const hb_rg_clock *r){return (double)(1<<r->span);}
 static void hb_rg_reset(hb_rg_clock *r){r->active=r->done=0;r->index=-1;r->gate=0;}
