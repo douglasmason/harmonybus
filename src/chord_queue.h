@@ -175,7 +175,7 @@ static int hb_cq_status(Inst *instance,char *buffer,int length){
         if(!cycle&&current.valid&&index==0)harmony=current;
         else {hb_cq_event event=cycle?g_chord_queue.cycle[index]:g_chord_queue.pending[index-(current.valid?1:0)];harmony=hb_key_harmony(instance,hb_selection_decode(event.word,event.note));}
         int available=used<length?length-used:0;
-        used+=snprintf(available?buffer+used:NULL,(size_t)available,"|%s",harmony.valid?harmony.name:"--");
+        used+=snprintf(available?buffer+used:0,(size_t)available,"|%s",harmony.valid?harmony.name:"--");
     }
     return used;
 }
