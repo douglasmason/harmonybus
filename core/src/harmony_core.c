@@ -57,6 +57,32 @@ static uint16_t rotate_to_root(uint16_t mask,int root) {
     uint16_t output=0; for(int pitch_class=0;pitch_class<12;++pitch_class) if(mask&BIT(pitch_class)) output|=BIT(mod12(pitch_class-root)); return output;
 }
 static int popcount12(uint16_t value) { int count=0; for(int index=0;index<12;index++) if(value&BIT(index)) count++; return count; }
+hb_harmony_family_t hb_chord_scale_family(int root_pc, uint16_t chord_scale) {
+    uint16_t relative_scale = rotate_to_root(chord_scale, root_pc);
+    if (!(relative_scale & BIT(0)) || popcount12(relative_scale) <= 2)
+        return HB_FAMILY_UNKNOWN;
+    int has_major_third = !!(relative_scale & BIT(4));
+    int has_minor_third = !!(relative_scale & BIT(3));
+    int dominant_foundation = has_major_third && (relative_scale & BIT(10)) && !(relative_scale & BIT(11));
+    /* A dominant third/seventh can identify b3 as #9; otherwise both thirds
+       leave the collection ambiguous. */
+    if (has_minor_third && has_major_third && !dominant_foundation)
+        return HB_FAMILY_UNKNOWN;
+    /* Dissonance in 1-3-5 takes precedence over the seventh. A #4 or b6
+       alongside the perfect fifth remains an extension, not a replacement. */
+    if (!(relative_scale & BIT(7))) {
+        if (has_minor_third && !has_major_third && (relative_scale & BIT(6)))
+            return HB_FAMILY_DIMINISHED;
+        if (has_major_third && (relative_scale & BIT(8)))
+            return HB_FAMILY_AUGMENTED;
+        if ((has_major_third || has_minor_third) && (relative_scale & (BIT(6)|BIT(8))))
+            return HB_FAMILY_DISSONANT;
+    }
+    if (dominant_foundation) return HB_FAMILY_DOMINANT;
+    if (has_minor_third) return HB_FAMILY_MINOR;
+    if (has_major_third) return HB_FAMILY_MAJOR;
+    return HB_FAMILY_UNKNOWN;
+}
 hb_harmony_t hb_infer_harmony(const uint8_t *notes,int note_count) {
     hb_harmony_t result; memset(&result,0,sizeof(result)); result.chord_index=-1; strcpy(result.name,"--");
     if(!notes||note_count<=0)return result;

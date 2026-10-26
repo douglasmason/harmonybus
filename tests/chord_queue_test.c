@@ -35,6 +35,12 @@ int main(void){
     API.set_param(follower,"next_lookahead","1/4");API.set_param(follower,"next_anti_buffer_ms","0 ms");
     position=2.9;assert(hb_render_harmony(follower).root_pc==0);
     position=3;assert(hb_render_harmony(follower).root_pc==7);
+    /* Enabling or changing lookahead during the first pass uses the queue,
+       without a learned clip model or another traversal. */
+    API.set_param(follower,"next_predict","Off");assert(hb_render_harmony(follower).root_pc==0);
+    API.set_param(follower,"next_predict","On");assert(hb_render_harmony(follower).root_pc==7);
+    API.set_param(follower,"next_lookahead","Off");assert(hb_render_harmony(follower).root_pc==0);
+    API.set_param(follower,"next_lookahead","1/4");assert(hb_render_harmony(follower).root_pc==7);
     assert(hb_live_selection(conductor).root_pc==0);assert(g_bus.next_model_count==0);
     assert(hb_next_effective_boundary_for(follower,2.5)==3);
     assert(hb_mt_harmony_at(conductor,4,3).root_pc==7);
@@ -117,6 +123,12 @@ int main(void){
     API.set_param(conductor,"chord_queue_end","Loop");API.set_param(conductor,"chord_queue_depth","2");
     running=0;held=-1;choose(conductor,0);assert(!take(conductor));choose(conductor,7);assert(take(conductor));
     running=1;position=0;assert(!take(conductor));
+    assert(hb_cq_next().root_pc==7&&hb_harmony_knowledge_ready_for(follower));
+    API.get_param(follower,"pad_harmony",buffer,sizeof(buffer));
+    assert(sscanf(buffer,"%u,%u,%u,%d",&current,&effective,&scale,&ready)==4&&ready);
+    position=3;API.set_param(follower,"next_predict","Off");assert(hb_render_harmony(follower).root_pc==0);
+    API.set_param(follower,"next_predict","On");assert(hb_render_harmony(follower).root_pc==7);
+    assert(g_bus.next_model_count==0); /* Still before the loop's first wrap. */
     position=4;assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
     assert(g_chord_queue.count==2&&!g_chord_queue.waiting&&g_chord_queue.pending[0].at==8);
     position=7;assert(hb_render_harmony(follower).root_pc==0);

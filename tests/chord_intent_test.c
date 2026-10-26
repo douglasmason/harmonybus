@@ -62,7 +62,8 @@ int main(void){
     int count=API.get_param(conductor,"hb_chord_bank_snapshot",buffer,sizeof(buffer));
     assert(count>0&&strstr(buffer,"cb1|2741|")&&conductor->selection_pending==pending);
     char *slot=strchr(buffer,'|');slot=strchr(slot+1,'|');slot=strchr(slot+1,'|');
-    int families[]={2,3,4,3,1},chromatic[]={0,1,1,1,1};
+    /* Borrowed bVII is a major triad but its local chord scale implies b7. */
+    int families[]={2,3,4,3,3},chromatic[]={0,1,1,1,1};
     for(int index=0;index<5;index++){
         int slot_root,slot_kind,slot_target,slot_bass,family,outside;unsigned mask,scale;
         assert(sscanf(slot+1,"%d,%u,%u,%d,%d,%d,%d,%d",&slot_root,&mask,&scale,&slot_kind,&slot_target,&slot_bass,&family,&outside)==8);

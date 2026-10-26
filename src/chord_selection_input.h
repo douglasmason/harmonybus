@@ -130,13 +130,9 @@ static void hb_selection_bank_set(Inst *instance,const char *parameter){
     memcpy(instance->selection_bank,slots,(size_t)count*sizeof(slots[0]));instance->selection_bank_valid=count;
 }
 static int hb_selection_family(hb_harmony_t harmony){
-    unsigned mask=hb_transpose_mask(hb_harmony_chord_mask(harmony),-harmony.root_pc);
-    if(__builtin_popcount(mask)<=2)return 0;
-    if((mask&1024)&&((mask&16)||(!(mask&8)&&(mask&(4|32)))))return 3;
-    if((mask&8)&&(mask&64)&&!(mask&128))return 4;
-    if((mask&16)&&(mask&256)&&!(mask&128))return 5;
-    if(mask&8)return 2;if(mask&16)return 1;
-    return mask&(4|32)?6:0;
+    /* Selection descriptors already carry the resolved chord scale. The
+       ordinary chord name and semantic tones remain independent of its hue. */
+    return harmony.valid?hb_chord_scale_family(harmony.root_pc,harmony.intent_scale):HB_FAMILY_UNKNOWN;
 }
 static int hb_selection_bank_snapshot(Inst *instance,char *buffer,int length){
     if(instance->role!=0||!instance->selection_bank_valid)return snprintf(buffer,(size_t)length,"--");
