@@ -6,16 +6,16 @@ Euclidean Fill creates an evenly distributed attack pattern in **one of the four
 
 1. In **Rhythm Pattern Edit**, choose **Edit Pattern** (User 1–4).
 2. Open its nested **Euclidean Fill** panel.
-3. Set **Pattern Length** to 1–16 divisions, **Euclid Hits** to 0–16 and **Euclid Rotate** to 0–15. The effective number of hits is bounded by the selected length; rotation wraps by the selected length.
-4. Read **Euclid Preview**. `X` is an attack; `.` is a rest. The preview does not edit the pattern or trigger notes.
+3. Set draft **Euclid Steps** to 1–16 divisions, **Euclid Hits** to 0–16 and **Euclid Rotate** to 0–15. The effective number of hits is bounded by the selected length; rotation wraps by the selected length.
+4. Read **Euclid Preview**. `X` is an attack; `.` is a rest. All three draft controls and the preview leave the existing pattern untouched and trigger no notes.
 5. Select **Apply** on **Fill Pattern** to replace only the chosen slot's attack/rest positions. Fill Pattern immediately reads back **Ready**, allowing another explicit application.
 6. Select User 1–4 on the existing **Rhythm Generate** or Joint Play actor rhythm panel to use the result.
 
 Zero rotation starts with an attack when Hits > 0. Increasing rotation moves the attacks later. As an example, 3 of 8 at rotation 1 previews `.X..X..X`. Zero hits makes all rests; hits >= length makes all attacks.
 
-The operation changes only each active step's **Attack/Rest** status. Existing accent and gate values are preserved; a pre-existing Tie step at a generated rest becomes Rest and at a generated hit becomes Attack. The slot's chosen length is retained. Unused steps beyond the length are left untouched.
+The operation changes only each active step's **Attack/Rest** status. Existing accent and gate values are preserved; a pre-existing Tie step at a generated rest becomes Rest and at a generated hit becomes Attack. On Apply, the slot length becomes Euclid Steps. Unused steps beyond the new length are left untouched.
 
-Changes are shared globally in the same way as manual User rhythm edits. The pattern is saved through the existing `rg1` state; the generator's draft Hits and Rotate values use an optional `eg1` suffix, preserving compatibility when loading older saves. Applying is an explicit overwrite of a user slot, not a separate undo transaction. Save a valued pattern elsewhere before overwriting it.
+Changes are shared globally in the same way as manual User rhythm edits. The pattern is saved through the existing `rg1` state; the generator's draft Steps, Hits and Rotate values use an optional `eg1` suffix, preserving compatibility when loading older saves. Applying is an explicit overwrite of a user slot, not a separate undo transaction. Save a valued pattern elsewhere before overwriting it.
 
 ## Runtime integration
 
