@@ -1,4 +1,4 @@
-HarmonyBus 0.2.297 adds queued Chord Play with grid/anticipation timing, follower lookahead, and shared motif Next Chord destinations. The final chord holds when the queue empties. Pair with Movy hbclean.250 for queued controls and conductor activation recording. See [Chord Play](chord-play.md).
+HarmonyBus 0.2.298 adds queued Chord Play with grid/anticipation timing, follower lookahead, and shared motif Next Chord destinations. The final chord holds when the queue empties. Pair with Movy hbclean.250 for queued controls and conductor activation recording. See [Chord Play](chord-play.md).
 
 HarmonyBus 0.2.291 adds silent conductor chord selections with recorded chord/scale snapshots. Comping keeps its existing source rhythm and arp phase. Pair with Movy hbclean.234 for Chord Play and HB Settings.
 
