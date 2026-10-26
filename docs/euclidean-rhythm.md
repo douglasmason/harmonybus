@@ -5,7 +5,7 @@ Euclidean Fill creates an evenly distributed attack pattern in **one of the four
 ## Workflow
 
 1. In **Rhythm Pattern Edit**, choose **Edit Pattern** (User 1–4).
-2. Open its nested **Euclidean Fill** panel.
+2. Open the adjacent **Euclidean Fill** panel.
 3. Set draft **Euclid Steps** to 1–16 divisions, **Euclid Hits** to 0–16 and **Euclid Rotate** to 0–15. The effective number of hits is bounded by the selected length; rotation wraps by the selected length.
 4. Read **Euclid Preview**. `X` is an attack; `.` is a rest. All three draft controls and the preview leave the existing pattern untouched and trigger no notes.
 5. Select **Apply** on **Fill Pattern** to replace only the chosen slot's attack/rest positions. Fill Pattern immediately reads back **Ready**, allowing another explicit application.
