@@ -1,3 +1,5 @@
+HarmonyBus 0.2.305 adds native chord discovery and non-recording voicing audition for Movy hbclean.273. See [Chord Discovery](chord-discovery.md).
+
 HarmonyBus 0.2.304 adds eight-note input scales, Smart operation lanes and adaptive authored motif steps. Pair with Movy hbclean.272. See [relative operations](relative-operations.md).
 
 HarmonyBus 0.2.303 adds Smart Below / Smart Above bank selectors and shared relative-operation definitions. See [relative operations](relative-operations.md).
