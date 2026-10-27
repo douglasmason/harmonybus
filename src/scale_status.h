@@ -46,9 +46,9 @@ static int hb_effective_scale_status(Inst *instance,char *buffer,int length){
            A raised pitch already present in the set must still be reported. */
         used+=snprintf(buffer+used,(size_t)(length-used)," | Foll raise:");
         unsigned seen=0;int changed=0;
-        for(int degree=0;degree<7&&used<length;degree++){
-            int before=mod12(harmony.root_pc+hb_render_degree_interval(collection,harmony,degree));
-            int after=mod12(harmony.root_pc+hb_content_degree_interval(collection,harmony,degree,9));
+        for(int degree=0;degree<(hb_ordinal_context(instance)&&hb_popcount12(collection)==8?8:7)&&used<length;degree++){
+            int before=mod12(harmony.root_pc+hb_context_render_degree(instance,collection,harmony,degree));
+            int after=mod12(harmony.root_pc+hb_content_degree_interval(instance,collection,harmony,degree,9));
             if(before!=after&&!(seen&(1u<<before))){
                 used+=snprintf(buffer+used,(size_t)(length-used)," %s>%s",hb_pc_name(before),hb_pc_name(after));
                 seen|=1u<<before;changed=1;

@@ -54,7 +54,7 @@ int main(void){
                 .pitch_mask=reference_transpose_mask(chords[form],root)};
             int tonic=(root+parent)%12;
             unsigned expected=reference_accommodate_chord(parent,harmony,tonic);
-            if(parent==reference_transpose_mask(0x555u,root)||parent==reference_transpose_mask(0x6dbu,root))
+            if(hb_popcount12(parent)==8||parent==reference_transpose_mask(0x555u,root)||parent==reference_transpose_mask(0x6dbu,root))
                 expected=parent|harmony.pitch_mask;
             assert(hb_accommodate_chord(parent,harmony,tonic)==expected);chord_cases++;
         }

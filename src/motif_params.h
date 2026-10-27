@@ -23,7 +23,10 @@ static hb_mt_event *hb_mt_storage_event(hb_mt_definition *definition,int index){
 static int hb_mt_save(Inst *instance,char *buffer,int length,int used){
     if(used<0||used>=length)return used;
     hb_mt_recorder *editor=&instance->motif.editor;
-    used+=snprintf(buffer+used,(size_t)(length-used),";mf2,%d,%d,%d,%d,%d,%d,%d:",editor->selected,editor->duration,editor->relation,editor->arrival,editor->late,g_motif_span,editor->target);
+    int adaptive=0;
+    for(int slot=0;slot<HB_MT_SLOTS;slot++)for(int step=0;step<hb_mt_storage_count(&g_motifs[slot]);step++)
+        adaptive|=hb_mt_storage_event(&g_motifs[slot],step)->selector!=0;
+    used+=snprintf(buffer+used,(size_t)(length-used),";mf%d,%d,%d,%d,%d,%d,%d,%d:",adaptive?3:2,editor->selected,editor->duration,editor->relation,editor->arrival,editor->late,g_motif_span,editor->target);
     const unsigned long long *snapshots[HB_MT_SNAPSHOTS];int snapshot_count=0;
     for(int slot=0;slot<HB_MT_SLOTS;slot++)for(int step=0;step<hb_mt_storage_count(&g_motifs[slot]);step++){
         const unsigned long long *actions=hb_mt_storage_event(&g_motifs[slot],step)->actions;int found=0;
@@ -58,6 +61,7 @@ static int hb_mt_save(Inst *instance,char *buffer,int length,int used){
             unsigned fields[]={event->kind,event->duration,event->count,event->relation,event->modifier+1,event->secondary,event->cadence,event->chord_mode,event->scale,event->flags};
             const int digits[]={1,4,1,1,1,2,2,1,3,4};
             for(int field=0;field<10;field++)used=hb_mt_write_hex(buffer,length,used,fields[field],digits[field]);
+            if(adaptive)used=hb_mt_write_hex(buffer,length,used,event->selector,4);
             int snapshot=0;while(snapshot<snapshot_count&&memcmp(event->actions,snapshots[snapshot],sizeof(event->actions)))snapshot++;
             used=hb_mt_write_hex(buffer,length,used,(unsigned)snapshot,2);
             for(int voice=0;voice<event->count;voice++){used=hb_mt_write_hex(buffer,length,used,event->notes[voice].pitch,2);used=hb_mt_write_hex(buffer,length,used,event->notes[voice].velocity,2);}
@@ -69,7 +73,9 @@ static int hb_mt_save(Inst *instance,char *buffer,int length,int used){
     return hb_rg_save(instance,buffer,length,used);
 }
 static void hb_mt_restore(Inst *instance,const char *state){
-    const char *marker=strstr(state,";mf2,");int normalized=marker!=0;if(!marker)marker=strstr(state,";mf1,");if(!marker)return;
+    const char *marker=strstr(state,";mf3,");int adaptive=marker!=0;
+    if(!marker)marker=strstr(state,";mf2,");int normalized=marker!=0;
+    if(!marker)marker=strstr(state,";mf1,");if(!marker)return;
     int selected,duration,relation,arrival,late,span,target,offset=0;
     if(sscanf(marker+5,"%d,%d,%d,%d,%d,%d,%d:%n",&selected,&duration,&relation,&arrival,&late,&span,&target,&offset)!=7||!offset)return;
     if(selected<0||selected>=16||duration<0||duration>=13||relation<0||relation>2||arrival<0||arrival>5||late<0||late>2||span<0||span>2||target<0||target>6)return;
@@ -126,6 +132,11 @@ static void hb_mt_restore(Inst *instance,const char *state){
             if(fields[0]>2||!fields[1]||fields[1]>(normalized&&step>=count-2?HB_MT_STEPS*1536:1536)||fields[2]>8||fields[3]>2||fields[4]>3||fields[5]>17||fields[6]>HB_CADENCE_COUNT*HB_CADENCE_STEPS||fields[7]>3||(!fields[0]&&!fields[2])||(fields[0]&&fields[2])){valid=0;break;}
             hb_mt_event *event=normalized?hb_mt_storage_event(&bank[slot],(int)step):&legacy.events[step];
             event->kind=fields[0];event->duration=fields[1];event->count=fields[2];event->relation=fields[3];event->modifier=(int)fields[4]-1;event->secondary=fields[5];event->cadence=fields[6];event->chord_mode=fields[7];event->scale=fields[8];event->flags=fields[9];
+            if(adaptive){
+                if(!hb_mt_read_hex(&cursor,&event->selector,4)){valid=0;break;}
+                const hb_ro_definition *selector=hb_ro_token(event->selector);
+                if(event->selector&&(event->kind||!selector||!selector->preferred_token)){valid=0;break;}
+            }
             if(normalized&&step>=count-2&&event->kind){valid=0;break;}
             if(event->kind==2&&(!step||(normalized?bank[slot].body.events[step-1].kind:legacy.events[step-1].kind)==1)){valid=0;break;}
             unsigned snapshot=0;if(!hb_mt_read_hex(&cursor,&snapshot,2)||snapshot>=snapshot_count){valid=0;break;}
@@ -288,6 +299,15 @@ static int hb_mt_set(Inst *instance,const char *key,const char *value){
     if(!strcmp(key,"motif_undo")){if(editor->recording>=0&&editor->undo_valid){editor->draft=editor->undo;editor->undo_valid=0;editor->open=0;editor->cursor=editor->draft.count;editor->error=0;}return 1;}
     if(!strcmp(key,"motif_duration")){editor->duration=enum_index(value,HB_MT_DURATION_NAMES,13,editor->duration);return 1;}
     if(!strcmp(key,"motif_relation")){editor->relation=enum_index(value,HB_MT_RELATIONS,3,editor->relation);return 1;}
+    if(!strcmp(key,"motif_operation")){
+        editor->operation=enum_index(value,HB_RO_SELECTOR_NAMES,HB_RO_SELECTOR_COUNT,editor->operation);
+        int step=editor->open?editor->open_step:editor->cursor;
+        if(editor->recording>=0&&step<editor->draft.count&&!editor->draft.events[step].kind){
+            hb_mt_checkpoint(editor);
+            editor->draft.events[step].selector=editor->operation?HB_RO_SELECTOR_BASE+editor->operation-1:0;
+        }
+        return 1;
+    }
     if(!strcmp(key,"motif_arrival")){editor->arrival=enum_index(value,HB_MT_ARRIVALS,6,editor->arrival);return 1;}
     if(!strcmp(key,"motif_target")){editor->target=enum_index(value,HB_MT_TARGETS,7,editor->target);return 1;}
     if(!strcmp(key,"motif_placement")){editor->placement=enum_index(value,HB_MT_PLACEMENTS,5,editor->placement);instance->approach_rows.target_placement=editor->placement;instance->approach_rows.event=instance->approach_rows.sequence_event=0;return 1;}
@@ -317,6 +337,13 @@ static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"motif_slot"))return snprintf(buffer,(size_t)length,"%d",editor->selected+1);
     if(!strcmp(key,"motif_duration"))return snprintf(buffer,(size_t)length,"%s",HB_MT_DURATION_NAMES[editor->duration]);
     if(!strcmp(key,"motif_relation"))return snprintf(buffer,(size_t)length,"%s",HB_MT_RELATIONS[editor->relation]);
+    if(!strcmp(key,"motif_operation")){
+        int choice=editor->operation,step=editor->open?editor->open_step:editor->cursor;
+        if(editor->recording>=0&&step<editor->draft.count&&!editor->draft.events[step].kind){
+            unsigned selector=editor->draft.events[step].selector;choice=selector?(int)(selector-HB_RO_SELECTOR_BASE+1):0;
+        }
+        return snprintf(buffer,(size_t)length,"%s",HB_RO_SELECTOR_NAMES[hb_cp_clamp(choice,0,HB_RO_SELECTOR_COUNT-1)]);
+    }
     if(!strcmp(key,"motif_arrival"))return snprintf(buffer,(size_t)length,"%s",HB_MT_ARRIVALS[editor->arrival]);
     if(!strcmp(key,"motif_target"))return snprintf(buffer,(size_t)length,"%s",HB_MT_TARGETS[editor->target]);
     if(!strcmp(key,"motif_placement"))return snprintf(buffer,(size_t)length,"%s",HB_MT_PLACEMENTS[editor->placement]);
@@ -349,7 +376,7 @@ static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
         }
         int used=snprintf(buffer,(size_t)length,"%d,%d,%d,%d,%u,%d",tapping?-2:editor->recording,editor->selected,tapping?instance->motif.tap_step:editor->cursor,editor->armed,occupied,display->anchor);
         for(int step=0;step<HB_MT_STEPS&&used<length;step++){
-            const hb_mt_event *event=&display->events[step];int kind=step>=display->count?0:event->kind==1?3:event->kind==2?4:(event->modifier||event->secondary||event->cadence)?2:1;
+            const hb_mt_event *event=&display->events[step];int kind=step>=display->count?0:event->kind==1?3:event->kind==2?4:(event->modifier||event->secondary||event->cadence||event->selector)?2:1;
             used+=snprintf(buffer+used,(size_t)(length-used),",%d",kind);
         }
         if(used<length)used+=snprintf(buffer+used,(size_t)(length-used),",%d,%d,%d",instance->motif.flash_serial,instance->motif.flash_pitch,instance->motif.flash_step);return used;

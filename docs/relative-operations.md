@@ -1,93 +1,110 @@
-# Relative operations: shared definitions and Smart approaches
+# Relative operations and six/eight-note scales — HarmonyBus 0.2.304
 
-A relative operation resolves a root, a harmonic quality and a destination
-chord-scale. LT is a leading-tone diminished operation; Connector Below is a
-different operation with the Chromatic Keys quality policy. Sharing a root offset
-does not make those operations interchangeable.
+Install with Movy **0.34.1-hbclean.271**. Both repositories are needed: Movy
+loads the separately installed HarmonyBus DSP.
 
-## Implementation plan
+## Controls
 
-1. Centralize stable operation IDs, labels, aliases, root rules, base qualities,
-   approach choices and recorded tokens in `data/operations.json`. Generate native
-   definitions and the Movy menu catalog; check both against that source in CI.
-2. Keep the existing live/motif chord resolver. Route the existing operation
-   identity conversions through the catalog rather than add another engine.
-3. Add Smart Below / Smart Above as **bank/row selectors**. Resolve them to existing
-   LT / Upper Dim operations at onset. Preserve both the chosen root and harmonic
-   interpretation in the existing recording format. Preview uses the same choice.
-4. Verify old IDs, aliases, presets, chord qualities, ownership and playback; test
-   the Smart pair across transpositions, harmonic-minor/major and augmented scales.
-5. Follow up with authored adaptive motif events, ordinary operation lanes and
-   additional selectable eight-note scales. Their format and harmonic degree
-   contracts must be extended explicitly; do not reinterpret an existing ID.
+- **Follower Scale / Parallel Scale:** Half-Whole Diminished and Whole-Half
+  Diminished are now selectable. Movy's keyboard labels are Dim H-W / Dim W-H.
+- **Operation:** Smart Below and Smart Above are available in ordinary user
+  operation lanes as well as Harm Play bank/row assignments.
+- **Motif Edit > Motif Tools > Relative Operation:** choose Captured, Smart Below
+  or Smart Above. With a note step selected, this edits that step and supports
+  Undo. It also sets the choice for newly entered steps. Captured retains the
+  recorded operation; Smart steps reevaluate their approach at each playback.
 
-## Scale-cardinality work
+An eight-pad target row uses degree `p % n` and octave `floor(p / n)`, where `p`
+is the zero-based pad index and `n` is the scale's cardinality:
 
-Keep one cardinality-aware pad calculation: for a zero-based pad index `p` and
-`n` ordered scale degrees, use degree `p % n` and octave `floor(p / n)`.
-The existing Movy mapper already uses this rule. Six-note rows therefore display
-`1 2 3 4 5 6 1↑ 2↑`; eight-note rows display `1 2 3 4 5 6 7 8`.
-Whole Tone and Augmented are currently selectable six-note HB collections.
-Eight-note input presets still need to be added to the shared scale catalog.
+| Scale size | Pads 1–8 |
+| --- | --- |
+| Six | 1, 2, 3, 4, 5, 6, 1 up an octave, 2 up an octave |
+| Seven | 1, 2, 3, 4, 5, 6, 7, 1 up an octave |
+| Eight | 1, 2, 3, 4, 5, 6, 7, 8 |
 
-Before adding those presets, define their parent-degree chord stacking and
-relative-operation interpretation. In particular, a numbered scale degree in an
-octatonic collection must not silently inherit a seven-note functional label.
-Test every tonic, row wrap, alias target, preview and saved scale ID. Preserve
-existing scale IDs and generate both HB and Movy choices from the scale catalog.
+## Pitch and harmonic meaning
 
-For adaptive authored motifs, version the event representation so a step can
-store a selector separately from the concrete operation captured in a live
-performance. Then reuse this selector/resolver in playback and ordinary motion
-lanes, with old motif/preset migration and round-trip tests. The current compact
-token field has no free operation codes; do not borrow a used code or extra flag.
+A **relative operation (RO)** resolves a root, harmonic quality and destination
+chord-scale. Leading Tone remains a diminished operation below the target.
+Connector Below remains a separate operation using the Chromatic Keys quality
+policy. Neither is renamed or replaced. Upper Dim likewise differs from
+Connector Above and Tritone Sub.
 
-## Smart selector contract
+Smart Below prefers LT; Smart Above prefers Upper Dim. When the preferred
+adjacent semitone is in the effective target collection and the opposite
+semitone is outside it, the selector switches to the other complete operation.
+Otherwise it keeps its preference; at MIDI boundaries it uses the available side.
 
-Smart Below prefers LT; Smart Above prefers Upper Dim. If the preferred adjacent
-pitch is already in the effective target scale and the other adjacent pitch is
-outside it, select the other **complete operation**. Otherwise keep the preferred
-operation. At the MIDI boundary use the available side. Empty/unknown scale
-information keeps the preferred operation. The decision uses the target after
-travel/key mapping and the same effective collection used by approach rendering.
+In A harmonic minor, both preferences yield F-sharp Upper Dim on F and G LT on
+G-sharp. This exposes both missing pitches in the augmented-second gap. The
+policy is local and deterministic; it does not promise a unique chromatic row
+for every arbitrary collection.
 
-In A harmonic minor, Smart Below on F selects F-sharp Upper Dim, and on G-sharp
-selects G LT. Both chromatic notes in the augmented-second gap are accessible.
-The policy is local and deterministic: it does not promise a globally unique or
-complete chromatic row for arbitrary collections. Both/neither adjacent pitch
-being in the scale is deliberately not resolved by unpredictable history.
+Eight-note input degrees and numbered parent-degree operations use ordered
+scale positions. Degree 8 is preserved through the input bridge and saved-note
+projection. It is not silently treated as a seventh or tonic. Chord forms retain
+their separate harmonic roles: a half-whole rotation supplies a dominant core
+(0, 4, 7, 10); a whole-half rotation supplies a diminished core (0, 3, 6, 9).
+A pad can rotate the collection into either family. Explicit chord quality still
+takes precedence. Chord accommodation adds required tones without deleting an
+arbitrary one of eight degrees to fit a seven-degree rule.
 
-Smart selectors are additional bank choices; existing assignments and LT,
-Connector Below/Above, Upper Dim and Tritone Sub retain their behavior. The
-selected operation uses the existing chord form, voicing, arp and note ownership.
-The selector itself does not force chord mode on.
+## Recording and authored motifs
 
-## Persistence and boundaries
+Live bank and lane choices resolve once at note onset. The chosen existing LT or
+Upper Dim operation is captured; later harmony changes or assignment edits do
+not rewrite that outcome. Preview uses the same selector on a private instance.
+Smart does not force chord mode on.
 
-All existing motion IDs, approach choice indices and wire tokens remain fixed.
-The 63 nonzero six-bit token codes are already occupied by operations and motif
-references. Smart selectors therefore use internal-only IDs outside the recorded
-token range, stored only in bank settings. Live input resolves them before action
-capture; recorded notes keep an ordinary LT or Upper Dim token and relative
-target, not an absolute rendered MIDI note. Replay is independent of subsequent
-bank edits. Adaptive authored motif steps require a separate future format change.
+Authored motifs store a selector separately from captured pitch/quality intent.
+The motif renderer resolves it against the current destination after key mapping,
+then uses the existing chord, voicing, scheduling and ownership code. Automatic,
+tap and bank/row motif playback share that renderer.
 
-Generate/check catalogs with:
+**Motif to Clip writes concrete choices.** Its preview names the resolved LT /
+Upper Dim steps and says “Smart choices fixed on write.” A polyphonic Smart step
+is split into simultaneous per-target events, so each note retains its own
+choice. Existing event/transfer limits still apply; an oversized export is
+rejected before any clip is changed. The source motif remains adaptive.
+
+## Compatibility and centralized definitions
+
+Existing operation IDs, six-bit recorded codes and scale IDs are unchanged.
+New native scale IDs are 20/21, keyboard IDs 23/24, and Parallel IDs 21/22.
+The legacy Relative Major/Minor Parallel ID 18 is retained.
+
+The 63 nonzero six-bit recorded token codes are already occupied. Smart bank
+selectors use internal IDs 4096/4097; Smart lane IDs 67/68 are settings identities.
+Neither is packed into that recorded token field. Live capture emits existing
+operation IDs 51/52 and tokens 14/60.
+
+Motif libraries containing adaptive steps use version **mf3**, with an explicit
+selector field per event. Old mf1/mf2 libraries load without reinterpretation;
+libraries containing only captured steps still save as mf2. Truncated or invalid
+adaptive libraries cannot partially replace the current library.
+
+- `data/operations.json` generates the native identities and Movy operation menu.
+- `data/scales.json` generates HB masks/options, Movy TypeScript options and the
+  Rust recording/projection scale table. Rust input, shared-context, chord-command
+  and recorded-action validators use the generated counts.
+- Existing scale-role, chord-quality, key-travel, voicing and note-ownership
+  resolvers remain authoritative. The catalog does not duplicate those engines.
+- Redundant parameter references were removed from three hierarchy panels; knob
+  assignments and child links remain intact, keeping the install manifest below
+  the host's 64 KiB limit.
+
+Regenerate/check both catalogs:
 
 ```sh
+python3 scripts/build_scale_catalog.py --movy ../harmonybus-movy
 python3 scripts/build_operation_catalog.py --movy ../harmonybus-movy
+python3 scripts/build_motion_metadata.py
+python3 scripts/build_scale_catalog.py --check --movy ../harmonybus-movy
 python3 scripts/build_operation_catalog.py --check --movy ../harmonybus-movy
 ```
 
-The catalog describes existing operation identities and root/base-quality rules.
-Destination-scale policies, borrowed harmony, key travel and voicing remain in
-their existing shared resolvers. This avoids encoding the entire engine in data.
-
-Native trigger-to-role/modifier conversions also read the catalog. Runtime
-identity lookups use fixed indexed tables; JSON parsing and generation happen
-only during development. Catalog drift is checked in both repositories' CI.
-
-Validation covers stable IDs and aliases; missing pitch coverage for both Smart
-preferences in five collections and all twelve transpositions; live/preview
-chord equality; recording and motif capture; bank persistence; and the four
-newer concrete tokens (59, 61–63) previously misclassified as motifs in preview.
+Regression coverage includes all-key pad geometry and degree mapping, stable IDs,
+chord-role policy, saved scale validation, Smart lane onset/capture, adaptive
+motif key changes, legacy migration, atomic mf3 loading, draft Undo, simultaneous
+per-target clip export, and the existing rendering/ownership suites.

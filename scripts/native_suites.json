@@ -696,5 +696,20 @@
       "/tmp/relative_operations_test",
       "python3 scripts/build_operation_catalog.py --check"
     ]
+  },
+  {
+    "name": "adaptive_operations_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/adaptive_operations_test.c src/harmony_core.c -lm -o /tmp/adaptive_operations_test",
+      "/tmp/adaptive_operations_test"
+    ]
+  },
+  {
+    "name": "scale_cardinality_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -w -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/scale_cardinality_test.c src/harmony_core.c -lm -o /tmp/scale_cardinality_test",
+      "/tmp/scale_cardinality_test",
+      "python3 scripts/build_scale_catalog.py --check"
+    ]
   }
 ]

@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.303"
+#define HB_VERSION "0.2.304"
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -282,6 +282,7 @@ int chord_register,chord_queue_depth,chord_queue_loop; int selection_bank[21][9]
 hb_follower_voice follower_voices[HB_FOLLOWER_VOICES];
 hb_input_intent follower_queue_input[64];
 uint8_t follower_input_held[2][128];
+uint8_t smart_lane_tokens[128][HB_MOTION_USER_LANES];
 int motion_event_owner,motion_output_owner[128];
 double follower_origin_delay[2][128];
 unsigned long long motion_follower_events[64][HB_MOTION_LANES+1],motion_output_events[128][HB_MOTION_LANES+1];
@@ -2232,8 +2233,8 @@ static int hb_input_degree(Inst *instance,int note,int root,uint16_t scale){
     return hb_source_degree_from_parent_scale(mod12(note-root),root,scale);
 }
 static const char *hb_role_name_for_degree(int degree){
-    static const char *roles[7]={"Root","2nd","3rd","4th","5th","6th","7th"};
-    return (degree>=0&&degree<7)?roles[degree]:"--";
+    static const char *roles[12]={"Root","2nd","3rd","4th","5th","6th","7th","8th","9th","10th","11th","12th"};
+    return (degree>=0&&degree<12)?roles[degree]:"--";
 }
 static int hb_inferred_progression_scale(int source_root);
 static int hb_follower_input_scale_index(Inst *instance,int source_root){
@@ -2372,7 +2373,7 @@ static uint16_t hb_accommodate_chord(uint16_t parent,hb_harmony_t harmony,int to
     if(!(chord&~parent))return parent;
     /* Symmetric collections do not have seven diatonic degree slots.
        Preserve their colors when an explicit chord contributes another tone. */
-    if(parent==hb_dominant_palette(harmony.root_pc,3)||
+    if(hb_popcount12(parent)==8||parent==hb_dominant_palette(harmony.root_pc,3)||
        parent==hb_dominant_palette(harmony.root_pc,4))return (uint16_t)(parent|chord);
     int root_degree=hb_source_degree_from_parent_scale(mod12(harmony.root_pc-tonic),tonic,parent);
     static const int interval_degree[12]={0,1,1,2,2,3,4,4,5,5,6,6};
@@ -2435,6 +2436,15 @@ static uint16_t hb_output_chord_scale_at_transpose(Inst *instance,hb_harmony_t h
 static uint16_t hb_output_chord_scale(Inst *instance,hb_harmony_t harmony,int source_root,uint16_t parent){
     return hb_output_chord_scale_at_transpose(instance,harmony,source_root,parent,g_bus.global_transpose);
 }
+static int hb_ordered_scale_interval(uint16_t scale_mask,int target_root,int degree){
+    if(degree<=0)return 0;
+    int count=hb_popcount12(scale_mask);
+    if(!count)return degree*2;
+    int octaves=(degree-1)/count,remaining=(degree-1)%count+1;
+    for(int semitones=1;semitones<=12;semitones++)
+        if((scale_mask&(1u<<mod12(target_root+semitones)))&&!--remaining)return octaves*12+semitones;
+    return degree*2;
+}
 static int hb_nth_scale_interval_from_root(uint16_t scale_mask,int target_root,int degree){
     /* degree is 0..6 meaning root, 2nd, 3rd, 4th, 5th, 6th, 7th.
        We rotate the parent scale onto the detected harmony root, yielding
@@ -2443,15 +2453,7 @@ static int hb_nth_scale_interval_from_root(uint16_t scale_mask,int target_root,i
     unsigned relative=0;for(int interval=0;interval<12;interval++)if(scale_mask&(1u<<mod12(target_root+interval)))relative|=1u<<interval;
     int special=hb_cp_special_scale_interval(relative,degree);
     if(special>=0)return special;
-    int seen=0;
-    for(int semitones=1;semitones<=24;semitones++){
-        int pc=mod12(target_root+semitones);
-        if(scale_mask&(1u<<pc)){
-            seen++;
-            if(seen==degree)return semitones;
-        }
-    }
-    return degree*2;
+    return hb_ordered_scale_interval(scale_mask,target_root,degree);
 }
 static int hb_render_degree_interval(uint16_t scale,hb_harmony_t harmony,int degree){
     int interval=hb_nth_scale_interval_from_root(scale,harmony.root_pc,degree);
@@ -2463,6 +2465,18 @@ static int hb_render_degree_interval(uint16_t scale,hb_harmony_t harmony,int deg
         for(int index=0;index<3;index++){int candidate=choices[role][index];if(candidate>=0&&(chord&(1u<<mod12(harmony.root_pc+candidate))))return candidate;}
     }
     return interval;
+}
+/* Input scale positions are distinct from a dominant palette's chord roles. */
+static int hb_ordinal_context(Inst *instance){
+    hb_key_context context=hb_key_for(instance);
+    return HB_SCALE_CARDINALITY[hb_shared_follower_scale()]==8||
+        (context.active&&hb_popcount12(context.target_mask)==8);
+}
+static int hb_context_degree_interval(Inst *instance,unsigned scale,int root,int degree){
+    return hb_ordinal_context(instance)?hb_ordered_scale_interval(scale,root,degree):hb_nth_scale_interval_from_root(scale,root,degree);
+}
+static int hb_context_render_degree(Inst *instance,unsigned scale,hb_harmony_t harmony,int degree){
+    return hb_ordinal_context(instance)?hb_ordered_scale_interval(scale,harmony.root_pc,degree):hb_render_degree_interval(scale,harmony,degree);
 }
 static int hb_map_scale_degree_relative(Inst *instance,int source_note,hb_harmony_t harmony){
     int source_root=0;
@@ -2487,7 +2501,7 @@ static int hb_map_scale_degree_relative(Inst *instance,int source_note,hb_harmon
          over C in F minor -> Db. */
     uint16_t chord_scale=hb_output_chord_scale(instance,harmony,source_root,parent_scale);
 
-    int target_interval=hb_render_degree_interval(chord_scale,harmony,degree);
+    int target_interval=hb_context_render_degree(instance,chord_scale,harmony,degree);
     int target_pc=mod12(harmony.root_pc+target_interval);
 
     /* Preserve the degree; choose its nearest octave to the source register. */
@@ -2499,9 +2513,9 @@ static int hb_map_scale_degree_relative(Inst *instance,int source_note,hb_harmon
     while(mapped>127)mapped-=12;
     return mapped;
 }
-static int hb_content_degree_interval(uint16_t chord_scale,hb_harmony_t harmony,
+static int hb_content_degree_interval(Inst *instance,uint16_t chord_scale,hb_harmony_t harmony,
                                       int degree,int content_map){
-    int interval=hb_render_degree_interval(chord_scale,harmony,degree);
+    int interval=hb_context_render_degree(instance,chord_scale,harmony,degree);
     if(content_map==9 && hb_tension_is_avoid(hb_harmony_chord_mask(harmony),
                                             mod12(harmony.root_pc+interval)))interval++;
     return interval;
@@ -2537,13 +2551,13 @@ static hb_harmony_t hb_follower_content_target(Inst *instance,hb_harmony_t harmo
     else if(content_map==4) degree_bits=(1u<<0)|(1u<<2)|(1u<<4)|(1u<<6);         /* 1 3 5 7 */
     else if(content_map==5) degree_bits=(1u<<0)|(1u<<1)|(1u<<2)|(1u<<4)|(1u<<6);/* 1 2 3 5 7 */
     else if(content_map==6) degree_bits=(1u<<0)|(1u<<1)|(1u<<2)|(1u<<4)|(1u<<5);/* 1 2 3 5 6 */
-    else if(content_map==7||content_map==9) degree_bits=0x7Fu;                                   /* all scale degrees, filter avoids */
+    else if(content_map==7||content_map==9) degree_bits=hb_ordinal_context(instance)&&hb_popcount12(chord_scale)==8?0xFFu:0x7Fu;                                   /* all scale degrees, filter avoids */
     else if(content_map==8) degree_bits=(1u<<0)|(1u<<1)|(1u<<2)|(1u<<4)|(1u<<5)|(1u<<6);/* 1 2 3 5 6 7 */
 
     uint16_t chord_mask=hb_harmony_chord_mask(harmony);
-    for(int degree=0;degree<7;degree++){
+    for(int degree=0;degree<12;degree++){
         if(!(degree_bits&(1u<<degree)))continue;
-        int interval=hb_content_degree_interval(chord_scale,harmony,degree,content_map);
+        int interval=hb_content_degree_interval(instance,chord_scale,harmony,degree,content_map);
         int pc=mod12(harmony.root_pc+interval);
 
         if(content_map==7){
@@ -2622,10 +2636,10 @@ static int hb_map_follower_note_relative(Inst *instance,int source_note,hb_harmo
     int source_degree=hb_input_degree(instance,source_note,source_root,hb_follower_input_scale(instance,source_root));
     uint16_t chord_scale=hb_output_chord_scale_at_transpose(instance,detected,source_root,parent_scale,0);
 
-    int target_interval=hb_content_degree_interval(chord_scale,detected,source_degree,content_map);
+    int target_interval=hb_content_degree_interval(instance,chord_scale,detected,source_degree,content_map);
     int target_pc=mod12(detected.root_pc+target_interval);
 
-    int source_interval=hb_nth_scale_interval_from_root(
+    int source_interval=hb_context_degree_interval(instance,
         hb_follower_input_scale(instance,source_root),source_root,source_degree);
     int source_tonic=hb_note_near_pc(source_note-source_interval,source_root);
     int relative=source_tonic+hb_signed_root_delta(source_root,mod12(detected.root_pc))+target_interval;
@@ -2634,12 +2648,12 @@ static int hb_map_follower_note_relative(Inst *instance,int source_note,hb_harmo
     if(content_target.pitch_mask&(1u<<target_pc))return relative;
     return hb_note_near_pc(relative,mod12(hb_map_note(relative,detected.root_pc,content_target,HB_MAP_NEAREST)));
 }
-static uint16_t hb_scale_degree_mask(uint16_t chord_scale,hb_harmony_t harmony,unsigned degree_bits){
+static uint16_t hb_scale_degree_mask(Inst *instance,uint16_t chord_scale,hb_harmony_t harmony,unsigned degree_bits){
     int harmony_root=harmony.root_pc;
     uint16_t mask=0;
-    for(int degree=0;degree<7;degree++){
+    for(int degree=0;degree<12;degree++){
         if(!(degree_bits&(1u<<degree)))continue;
-        int interval=hb_render_degree_interval(chord_scale,harmony,degree);
+        int interval=hb_context_render_degree(instance,chord_scale,harmony,degree);
         mask|=(uint16_t)(1u<<mod12(harmony_root+interval));
     }
     return mask;
@@ -2654,7 +2668,7 @@ static int hb_map_follower_note_classified(Inst *instance,int source_note,hb_har
     uint16_t parent_scale=hb_explicit_scale_mask(source_root,parent_scale_index);
     int source_degree=hb_input_degree(instance,source_note,source_root,hb_follower_input_scale(instance,source_root));
     if(source_degree<0)source_degree=0;
-    if(source_degree>6)source_degree=6;
+    if(source_degree>11)source_degree=11;
 
     uint16_t chord_scale=hb_output_chord_scale_at_transpose(instance,detected,source_root,parent_scale,0);
 
@@ -2672,27 +2686,30 @@ static int hb_map_follower_note_classified(Inst *instance,int source_note,hb_har
             active_mask|=(uint16_t)(1u<<mod12(active_notes[index]));
     }
 
-    unsigned int allowed_by_degree[HB_CLOSEST_SPLIT_DEGREES];
-    int nominal_by_degree[HB_CLOSEST_SPLIT_DEGREES];
-    int output_by_degree[HB_CLOSEST_SPLIT_DEGREES];
+    unsigned int allowed_by_degree[12];
+    int degree_count=hb_popcount12(hb_follower_input_scale(instance,source_root));
+    if(degree_count<HB_CLOSEST_SPLIT_DEGREES)degree_count=HB_CLOSEST_SPLIT_DEGREES;
+    if(degree_count<=source_degree)degree_count=source_degree+1;
+    int nominal_by_degree[12];
+    int output_by_degree[12];
 
     unsigned on_bits_135=(1u<<0)|(1u<<2)|(1u<<4);
     unsigned on_bits_1357=on_bits_135|(1u<<6);
     /* Only the selected split consumes these degree pools. Ordinary Closest
        and active-note splitting previously rebuilt both unused alternatives
        for every input (including every pad preview). */
-    uint16_t on_mask_135=split==1?hb_scale_degree_mask(chord_scale,detected,on_bits_135):0;
-    uint16_t off_mask_135=split==1?hb_scale_degree_mask(chord_scale,detected,0x7Fu&~on_bits_135):0;
-    uint16_t on_mask_1357=split==2?hb_scale_degree_mask(chord_scale,detected,on_bits_1357):0;
-    uint16_t off_mask_1357=split==2?hb_scale_degree_mask(chord_scale,detected,0x7Fu&~on_bits_1357):0;
+    uint16_t on_mask_135=split==1?hb_scale_degree_mask(instance,chord_scale,detected,on_bits_135):0;
+    uint16_t off_mask_135=split==1?hb_scale_degree_mask(instance,chord_scale,detected,(hb_ordinal_context(instance)&&hb_popcount12(chord_scale)==8?0xFFu:0x7Fu)&~on_bits_135):0;
+    uint16_t on_mask_1357=split==2?hb_scale_degree_mask(instance,chord_scale,detected,on_bits_1357):0;
+    uint16_t off_mask_1357=split==2?hb_scale_degree_mask(instance,chord_scale,detected,(hb_ordinal_context(instance)&&hb_popcount12(chord_scale)==8?0xFFu:0x7Fu)&~on_bits_1357):0;
 
     uint16_t input_scale=hb_follower_input_scale(instance,source_root);
-    int source_degree_interval=hb_nth_scale_interval_from_root(input_scale,source_root,source_degree);
+    int source_degree_interval=hb_context_degree_interval(instance,input_scale,source_root,source_degree);
     int source_root_note=source_note-source_degree_interval;
     source_root_note=hb_note_near_pc(source_root_note,source_root);
 
-    for(int degree=0;degree<HB_CLOSEST_SPLIT_DEGREES;degree++){
-        int source_interval=hb_nth_scale_interval_from_root(input_scale,source_root,degree);
+    for(int degree=0;degree<degree_count;degree++){
+        int source_interval=hb_context_degree_interval(instance,input_scale,source_root,degree);
         /* Closest Split stays near the source degree's ACTUAL register position.
            Using target_root+target_degree here reconstructs Relative mapping. */
         nominal_by_degree[degree]=source_root_note+source_interval;
@@ -2709,7 +2726,7 @@ static int hb_map_follower_note_classified(Inst *instance,int source_note,hb_har
             preferred=(uint16_t)(legal&pool);
             if(!preferred)preferred=pool;
         }else if(split==3){
-            int target_interval=hb_render_degree_interval(chord_scale,detected,degree);
+            int target_interval=hb_context_render_degree(instance,chord_scale,detected,degree);
             int degree_pc=mod12(detected.root_pc+target_interval);
             int is_on=(active_mask&(1u<<degree_pc))!=0;
             uint16_t out_mask=(uint16_t)(chord_scale&(uint16_t)(~active_mask)&0x0FFFu);
@@ -2728,7 +2745,7 @@ static int hb_map_follower_note_classified(Inst *instance,int source_note,hb_har
 
     /* Joint assignment balances proximity, register and pitch-class collisions
        without imposing Relative's degree ordering. */
-    if(!hb_cached_closest_assignment(&instance->closest_assignments,HB_CLOSEST_SPLIT_DEGREES,nominal_by_degree,allowed_by_degree,output_by_degree)){
+    if(!hb_cached_closest_assignment(&instance->closest_assignments,degree_count,nominal_by_degree,allowed_by_degree,output_by_degree)){
         /* At a MIDI boundary a full octave's bounded assignment can fail.
            Even that fallback must preserve this input's mapping class. */
         int nearest=hb_cs_nearest(source_note,allowed_by_degree[source_degree]);
@@ -2858,6 +2875,8 @@ static int hb_relative_approach_offset(int role,int target,unsigned scale){
 }
 static int hb_context_approach_offset(Inst *instance,int role,int target,unsigned scale){
     if(role==2)return hb_current_target_diminished(instance,scale,target)?-1:-5;
+    const hb_ro_definition *definition=hb_ro_role(role);
+    if(definition&&definition->degree>=0&&hb_ordinal_context(instance))return definition->semitones+hb_ordered_scale_interval(scale,mod12(target),definition->degree);
     return hb_relative_approach_offset(role,target,scale);
 }
 /* A chromatic pad is itself a destination. Borrow the scale of that local
@@ -2917,7 +2936,7 @@ static hb_cadence_result hb_resolve_cadence(Inst *instance,const hb_cadence_step
     for(int depth=0;depth<3&&step->path[depth];depth++){
         int term=step->path[depth];
         static const int major[]={0,0,2,4,5,7,9,11};
-        target+=term<0?major[-term]:hb_nth_scale_interval_from_root(collection,mod12(target),term-1);
+        target+=term<0?major[-term]:hb_context_degree_interval(instance,collection,mod12(target),term-1);
         collection=hb_relative_target_scale(instance,target,parent,0);
     }
     int diminished=hb_current_target_diminished(instance,collection,target);
@@ -2936,14 +2955,14 @@ static hb_cadence_result hb_resolve_cadence(Inst *instance,const hb_cadence_step
     }else if(step->kind==HB_CAD_DEGREE||step->kind==HB_CAD_BORROWED||step->kind==HB_CAD_MINOR_DEGREE){
         if(step->degree==2&&(step->kind==HB_CAD_DEGREE||step->kind==HB_CAD_MINOR_DEGREE))
             result.scale=hb_function_family(instance,target,result.scale,hb_target_minor(result.scale,target),0);
-        result.root+=hb_nth_scale_interval_from_root(result.scale,mod12(target),step->degree-1)-(step->degree>=6?12:0);
+        result.root+=hb_context_degree_interval(instance,result.scale,mod12(target),step->degree-1)-(step->degree>=6?12:0);
         if(step->kind==HB_CAD_MINOR_DEGREE)result.quality=8;
         else if(step->kind==HB_CAD_DEGREE&&hb_target_simple_chord(instance)){
             int third=hb_nth_scale_interval_from_root(result.scale,mod12(result.root),2);
             int fifth=hb_nth_scale_interval_from_root(result.scale,mod12(result.root),4);
             int seventh=hb_nth_scale_interval_from_root(result.scale,mod12(result.root),6);
             result.quality=third==3?(fifth==6?8:7):(seventh==11?5:6);
-            int old_root=target+hb_nth_scale_interval_from_root(parent,mod12(target),step->degree-1);
+            int old_root=target+hb_context_degree_interval(instance,parent,mod12(target),step->degree-1);
             result.scale=(parent&~(1u<<mod12(old_root)))|(1u<<mod12(result.root));
         }
     }else if(step->kind==HB_CAD_MINOR_TARGET)result.quality=7;
@@ -2980,6 +2999,12 @@ static unsigned hb_resolve_live_approach(Inst *instance,int source,unsigned toke
     scale=hb_key_approach_scale(instance,target,scale);
     if(instance->role==0){target=hb_key_pitch(instance,target);scale=hb_key_mask(hb_key_for(instance),scale);}
     return hb_ro_resolve_selector(token,target,scale);
+}
+static unsigned hb_resolve_smart_lane(Inst *instance,int source,int lane,unsigned token){
+    if(source<0||source>127||lane<0||lane>=HB_MOTION_USER_LANES)return hb_resolve_live_approach(instance,source,token);
+    unsigned selected=instance->smart_lane_tokens[source][lane];
+    if(!selected){selected=hb_resolve_live_approach(instance,source,token);instance->smart_lane_tokens[source][lane]=(uint8_t)selected;}
+    return selected;
 }
 static int hb_active_approach(const Inst *instance){
     if(!instance)return HB_APPROACH_OFF;
@@ -3055,7 +3080,10 @@ static int hb_secondary_at(Inst *instance,int source_note){
     if(!selected)for(int lane=0;lane<HB_MOTION_LANES;lane++){
         int operation=hb_mo_operation(motion,lane);double value=0;
         int role=hb_mo_role(operation);
+        const hb_ro_definition *definition=hb_ro_motion(operation);
+        if(definition&&definition->preferred_token)role=12;
         if(role&&hb_mo_lane_active(motion,lane)&&hb_mo_value_at(motion,lane,hb_motion_position(instance),hb_motion_condition_position(),source_note,&value)&&value>0){
+            if(definition&&definition->preferred_token)role=hb_ro_token(hb_resolve_smart_lane(instance,source_note,lane,definition->token))->role;
             selected=role;
             motion->render_flags=(motion->render_flags&~(HB_MO_SIMPLE|HB_MO_SIMPLE_SCALE))|((hb_mo_has_scale_mode(operation)&&hb_mo_round(value)>=2)?(HB_MO_SIMPLE|(hb_mo_round(value)==3?HB_MO_SIMPLE_SCALE:0)):0);
         }
@@ -4517,6 +4545,16 @@ static void hb_capture_input_intent(Inst *instance,int note,unsigned long long *
         instance->approach_rows.tokens[note]=hb_resolve_live_approach(instance,note,token);
     }
     hb_mo_capture(&instance->motion,hb_motion_position(instance),hb_motion_condition_position(),note,actions);
+    for(int lane=0;lane<HB_MOTION_LANES;lane++){
+        const hb_ro_definition *selector=hb_ro_motion(hb_mo_operation(&instance->motion,lane));double value=0;
+        if(!selector||!selector->preferred_token||
+           !hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),note,&value)||value<=0)continue;
+        const hb_ro_definition *resolved=hb_ro_token(hb_resolve_smart_lane(instance,note,lane,selector->token));
+        hb_motion_lane settings=instance->motion.lanes[lane];
+        actions[lane]=HB_MO_RECORDED|hb_mo_operation_word(resolved->motion)|
+            ((unsigned long long)settings.grid<<37)|((unsigned long long)(settings.offset+400)<<41)|
+            (unsigned long long)(uint32_t)(int32_t)hb_mo_round(value*1000.0);
+    }
     actions[HB_MOTION_LANES]|=hb_ar_alias_word(instance->movy_pad_shift[note]);
     if(instance->approach_rows.tokens[note]){
         unsigned token=instance->approach_rows.tokens[note];
@@ -4548,6 +4586,7 @@ else if(instance->role==0&&input[0]==0xF8){
     g_bus.clip_clock_ticks++;
 }
 instance->rx_count++;int status=input[0]&0xF0,is_on=(status==0x90&&length>=3&&input[2]>0),is_off=(status==0x80&&length>=3)||(status==0x90&&length>=3&&input[2]==0);if(is_on||is_off){g_bus.global_note_event_count++;g_bus.global_last_note=input[1]&0x7F;g_bus.global_last_channel=input[0]&0x0F;}
+if(is_on)memset(instance->smart_lane_tokens[input[1]&127],0,sizeof(instance->smart_lane_tokens[0]));
 if(status==0xB0&&length>=3&&(input[1]==120||input[1]==123)){
     int control_channel=input[0]&0x0F;
     if(hb_source_channel_matches(instance,control_channel))hb_stop_instance_note_state(instance);
@@ -5980,7 +6019,7 @@ if(!strcmp(key,"hb_movy_actions")){
         if(lane==source_lanes&&(words[lane]&HB_MO_INTENT_MASK)){
             unsigned long long intent=words[lane];
             int mode=(intent>>21)&3,scale=(intent>>36)&31;
-            int valid_scale=mode==3?((scale>0&&scale<HB_SCALE_COUNT)||scale==31):scale<=17;
+            int valid_scale=mode==3?((scale>0&&scale<HB_SCALE_COUNT)||scale==31):scale<HB_SCALE_COUNT;
             if(!(intent&(1ULL<<20))||((intent>>23)&15)>12||((intent>>27)&31)>16||((intent>>32)&15)>11||!valid_scale||((intent>>41)&3)>2)return;
         }
         if(lane==source_lanes&&(words[lane]&HB_MO_CADENCE_MASK)&&!hb_cadence_decode((unsigned)((words[lane]&HB_MO_CADENCE_MASK)>>13)))return;
@@ -6011,7 +6050,7 @@ if(!strcmp(key,"hb_movy_input_approach")){
 }
 if(!strcmp(key,"hb_movy_input_role")){
     int note=-1,degree=-1,target=-1;
-    if(sscanf(parameter,"%d,%d,%d",&note,&degree,&target)==3&&note>=0&&note<128&&degree>=-1&&degree<7&&target>=-1&&target<128){
+    if(sscanf(parameter,"%d,%d,%d",&note,&degree,&target)==3&&note>=0&&note<128&&degree>=-1&&degree<12&&target>=-1&&target<128){
         instance->movy_input_degree[note]=(uint8_t)(degree+1);
         instance->movy_input_target[note]=(uint8_t)(target+1);
     }
@@ -6550,6 +6589,7 @@ static int hb_pad_preview_reuse=1;
 static unsigned hb_pad_render_mask(Inst *preview,const Inst *instance,
                                   hb_harmony_t harmony,int source_note,int root_only,
                                   unsigned long long *output_low,unsigned long long *output_high){
+    if(source_note>=0&&source_note<128)memset(preview->smart_lane_tokens[source_note],0,sizeof(preview->smart_lane_tokens[0]));
     preview->render_harmony=harmony;preview->render_harmony_active=1;
     unsigned rendered_mask=0;preview->preview_gap_mask=0;preview->preview_target=-1;
     preview->preview_single_low=preview->preview_single_high=0;

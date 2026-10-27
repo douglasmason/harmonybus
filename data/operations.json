@@ -637,6 +637,16 @@
       "id": 66,
       "symbol": "HB_MO_DRUM_FILL",
       "name": "Drum Fill"
+    },
+    {
+      "id": 67,
+      "symbol": "HB_MO_SMART_BELOW",
+      "name": "Smart Below"
+    },
+    {
+      "id": 68,
+      "symbol": "HB_MO_SMART_ABOVE",
+      "name": "Smart Above"
     }
   ],
   "selectors": [
@@ -646,7 +656,8 @@
       "choice": 35,
       "token": 4096,
       "preferred": "HB_MO_LEADING_TONE",
-      "alternate": "HB_MO_UPPER_DIM"
+      "alternate": "HB_MO_UPPER_DIM",
+      "motion": "HB_MO_SMART_BELOW"
     },
     {
       "name": "Smart Above",
@@ -654,7 +665,8 @@
       "choice": 36,
       "token": 4097,
       "preferred": "HB_MO_UPPER_DIM",
-      "alternate": "HB_MO_LEADING_TONE"
+      "alternate": "HB_MO_LEADING_TONE",
+      "motion": "HB_MO_SMART_ABOVE"
     }
   ]
 }

@@ -286,7 +286,7 @@ static void explicit_key_entry(void){
         API.set_param(instance,"key_center_tonic","C");API.set_param(instance,"key_center_explicit_scale","Major");
         API.set_param(instance,"state",saved);
         API.get_param(instance,"key_center_tonic",value,sizeof(value));assert(!strcmp(value,"B"));
-        API.get_param(instance,"key_center_explicit_scale",value,sizeof(value));assert(!strcmp(value,"Harmonic Major"));
+        API.get_param(instance,"key_center_explicit_scale",value,sizeof(value));assert(!strcmp(value,HB_SCALE_NAMES[HB_SCALE_COUNT-1]));
         API.destroy_instance(instance);
     }
 }

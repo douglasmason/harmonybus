@@ -18,6 +18,7 @@ def main():
     header+=f'#define HB_SCALE_COUNT {len(native)+1}\n'
     header+='static const char *HB_SCALE_NAMES[]='+json.dumps(['Infer']+[s['name'] for s in native]).replace('[','{').replace(']','}')+';\n'
     header+='static const unsigned HB_SCALE_MASKS[]={'+','.join(map(str,[0]+[sum(1<<i for i in s['intervals']) for s in native]))+'};\n'
+    header+='static const int HB_SCALE_CARDINALITY[]={'+','.join(map(str,[0]+[len(scale['intervals']) for scale in native]))+'};\n'
     header+='static const int HB_SCALE_DOMINANT[]={'+','.join(map(str,[0]+[int(s['chord_quality']=='dominant') for s in native]))+'};\n'
     header+='static const char *HB_PARALLEL_NAMES[]='+json.dumps(['Off']+[s['name'] for s in parallel]).replace('[','{').replace(']','}')+';\n'
     header+='static const int HB_PARALLEL_SCALE_IDS[]={0,'+','.join(str(next((n['hb_id'] for n in native if n['parallel_id']==s['parallel_id']),0)) for s in parallel)+'};\n'
@@ -26,6 +27,7 @@ def main():
     path=root/'modules/harmonybus/module.json';module=json.loads(path.read_text())
     for p in module['capabilities']['chain_params']:
         if p['key']=='follower_scale':p['options']=['Infer']+[s['name'] for s in native]
+        if p['key']=='key_center_explicit_scale':p['options']=[s['name'] for s in native]
         if p['key']=='parallel_scale':p['options']=[s['name'] for s in parallel]
     write(path,json.dumps(module,separators=(',',':'))+'\n')
     if args.movy:
@@ -35,4 +37,10 @@ def main():
         ts+='export const FOLLOWER_KEYBOARD_SCALES = '+json.dumps([s['keyboard_id'] for s in native])+';\n'
         ts+='export const PARALLEL_SCALES = '+json.dumps([s['name'] for s in parallel])+';\n'
         write(args.movy/'integration/scale-catalog.ts',ts)
+        rust='// Generated from HarmonyBus data/scales.json; do not edit.\n'
+        rust+=f'pub const SCALE_COUNT: usize = {len(native)};\n'
+        rust+=f'pub const PARALLEL_COUNT: usize = {len(parallel)};\n'
+        rust+='pub const SCALES: [&[i32]; SCALE_COUNT] = [\n'
+        rust+=''.join('    &'+json.dumps(s['intervals'])+',\n' for s in native)+'];\n'
+        write(args.movy/'integration/input-roles/scale_catalog.rs',rust)
 if __name__=='__main__':main()

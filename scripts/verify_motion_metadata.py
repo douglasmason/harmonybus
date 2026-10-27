@@ -30,7 +30,7 @@ def main() -> None:
     assert not map_operation['params']  # Knob-only panel, like other leaf panels.
     for level_name, map_level in map_module['capabilities']['ui_hierarchy']['levels'].items():
         parameter_keys: set[str] = {parameter['key'] for parameter in map_level['params'] if 'key' in parameter}
-        assert (not map_level['params'] and all(k in map_canonical for k in map_level['knobs'])) or parameter_keys == set(map_level['knobs']), f'{level_name}: unassigned parameters create overflow panels'
+        assert (not parameter_keys and all(k in map_canonical for k in map_level['knobs'])) or parameter_keys == set(map_level['knobs']), f'{level_name}: unassigned parameters create overflow panels'
     assert maps[0]['motion_touch_mode']['options'] == ['Hold','Latch','Tap/Hold']
     assert maps[0]['motion_from']['options'] == [str(cycle) for cycle in range(1,17)]
     assert maps[1]['motion_from']['options'] == ['1']
@@ -41,7 +41,7 @@ def main() -> None:
     assert maps[0]['motion_offset'] == map_canonical['motion_offset']
     assert maps[3]['motion_offset']['name'] == 'Decay %' and maps[3]['motion_offset']['min'] == 0
     assert maps[3]['motion_advance']['options'] == ['Clock','Note','Chord']
-    assert maps[3]['motion_operation']['options'][-14:] == ['Leading Tone', 'Upper Dim', 'Live Key Center', 'Parallel Scale', 'Live Harmony Override', 'Override Harmony (Live + Recorded)', 'Secondary Fifth', 'Secondary II (Dom)', 'Secondary IV (Dom)', 'Secondary VI (Dom)', 'Recordable Key Center', 'Relative Key Center', 'Key Step Back', 'Key Return to Start']
+    assert maps[3]['motion_operation']['options'][-16:] == ['Leading Tone', 'Upper Dim', 'Live Key Center', 'Parallel Scale', 'Live Harmony Override', 'Override Harmony (Live + Recorded)', 'Secondary Fifth', 'Secondary II (Dom)', 'Secondary IV (Dom)', 'Secondary VI (Dom)', 'Recordable Key Center', 'Relative Key Center', 'Key Step Back', 'Key Return to Start', 'Smart Below', 'Smart Above']
     assert 'II-V-Target' not in maps[3]['motion_operation']['options']
     assert not any(option.startswith('Clip ') for option in maps[0]['motion_operation']['options'])
     assert maps[1]['motion_operation']['options'] == map_canonical['motion_operation']['options']

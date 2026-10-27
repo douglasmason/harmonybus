@@ -125,7 +125,7 @@ static int hb_mo_enabled(const hb_motion_config *config){if(config->events[HB_MO
 /* One ordered pending sequence is shared by knob and step gestures. */
 static unsigned hb_mo_trigger_bit(int operation){
     const hb_ro_definition *definition=hb_ro_motion(operation);
-    return definition?1u<<definition->trigger_index:0;
+    return definition&&definition->trigger_index>=0?1u<<definition->trigger_index:0;
 }
 static int hb_mo_tap_index(unsigned bit){int index=hb_ro_trigger_index(bit);return index<0?0:index;}
 static int hb_mo_sequence(unsigned mask,int first){
@@ -609,6 +609,10 @@ static void hb_mo_capture(hb_motion_config *config,double beat,double condition,
         if(((config->held|config->sequence_held)&(1ULL<<lane))&&(settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE||settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V))active=0;
         /* Explicitly evolving automatic lanes remain live on replay. */
         if(settings.operation==HB_MO_WEAVE||settings.operation==HB_MO_LIVE_HARMONY_OVERRIDE||settings.operation==HB_MO_HARMONY_OVERRIDE||(settings.operation>=HB_MO_RECORD_KEY&&settings.operation<=HB_MO_KEY_RETURN)||settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!((config->held|config->sequence_held)&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
+        /* Smart lane identities are live-only. The contextual capture layer
+           writes the selected existing operation before publishing a note. */
+        const hb_ro_definition *definition=hb_ro_motion(settings.operation);
+        if(definition&&definition->preferred_token)active=0;
         result[lane]=HB_MO_RECORDED|hb_mo_operation_word(active?settings.operation:0)|
             ((unsigned long long)settings.grid<<37)|((unsigned long long)(settings.offset+400)<<41)|
             (unsigned long long)(uint32_t)(int32_t)hb_mo_round(value*1000.0);

@@ -411,6 +411,44 @@
         11
       ],
       "chord_quality": "diatonic"
+    },
+    {
+      "id": "half_whole_dim",
+      "name": "Half-Whole Diminished",
+      "keyboard_name": "Dim H-W",
+      "keyboard_id": 23,
+      "hb_id": 20,
+      "parallel_id": 21,
+      "intervals": [
+        0,
+        1,
+        3,
+        4,
+        6,
+        7,
+        9,
+        10
+      ],
+      "chord_quality": "diatonic"
+    },
+    {
+      "id": "whole_half_dim",
+      "name": "Whole-Half Diminished",
+      "keyboard_name": "Dim W-H",
+      "keyboard_id": 24,
+      "hb_id": 21,
+      "parallel_id": 22,
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        6,
+        8,
+        9,
+        11
+      ],
+      "chord_quality": "diatonic"
     }
   ],
   "parallel_operations": [

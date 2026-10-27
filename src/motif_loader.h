@@ -24,6 +24,19 @@ static int hb_ml_build(Inst *instance,hb_mc_plan *plan,int *root,int *scale){
     }
     if(instance->player.rhythm.pattern&&!hb_rg_clip(plan,&instance->player.rhythm,&definition.target_end)){g_ml_error="Rhythm exceeds motif capacity";return 0;}
     if(plan->duration*4>256*24){g_ml_error="Exceeds 16 bars";return 0;}
+    /* Clip notes carry concrete outcomes. Split a polyphonic adaptive step so
+       each target gets its own decision, at the original simultaneous onset. */
+    for(int index=0;index<plan->count;index++){
+        hb_mc_event original=plan->events[index];int voices=original.event.count;
+        if(!original.event.selector||voices<2)continue;
+        if(plan->count+voices-1>HB_MC_EVENTS){g_ml_error="Smart voices exceed clip capacity";return 0;}
+        memmove(&plan->events[index+voices],&plan->events[index+1],(size_t)(plan->count-index-1)*sizeof(plan->events[0]));
+        for(int voice=0;voice<voices;voice++){
+            plan->events[index+voice]=original;plan->events[index+voice].event.count=1;
+            plan->events[index+voice].event.notes[0]=original.event.notes[voice];
+        }
+        plan->count+=voices-1;index+=voices-1;
+    }
     unsigned collection=hb_explicit_scale_mask(*root,*scale);
     for(int index=0;index<plan->count;index++){
         hb_mc_event *item=&plan->events[index];hb_mt_event *event=&item->event;
@@ -35,6 +48,22 @@ static int hb_ml_build(Inst *instance,hb_mc_plan *plan,int *root,int *scale){
         /* Parallel borrowing is a recorded per-note destination operation,
            just like a live approach; it never changes the track's scale. */
         unsigned long long *intent=&event->actions[HB_MOTION_LANES];
+        if(event->selector){
+            int target=event->notes[0].pitch;
+            unsigned destination=collection;
+            if(instance->motif_load[2]){
+                int borrowed=g_parallel_scale==18?(hb_target_minor(collection,target)?2:1):HB_PARALLEL_SCALE_IDS[g_parallel_scale];
+                if(borrowed)destination=hb_explicit_scale_mask(mod12(target),borrowed);
+            }
+            unsigned selected=hb_ro_resolve_selector(event->selector,target,destination);
+            const hb_ro_definition *operation=hb_ro_token(selected);
+            event->secondary=operation->role;event->modifier=operation->modifier;event->cadence=0;
+            event->flags&=~(HB_MO_SIMPLE|HB_MO_SIMPLE_SCALE|HB_MO_CONNECTOR_ABOVE|HB_MO_LEGACY_II);
+            *intent=(*intent&~(HB_AR_MASK|HB_MO_CADENCE_MASK|0x573ULL|HB_MO_LEGACY_II|(1ULL<<63)))|
+                hb_ar_intent(selected)|((unsigned long long)selected<<HB_AR_SHIFT);
+            for(int lane=0;lane<HB_MOTION_LANES;lane++)if((event->actions[lane]&HB_MO_RECORDED)&&hb_ro_motion(hb_mo_word_operation(event->actions[lane])))
+                event->actions[lane]=HB_MO_RECORDED;
+        }
         if(instance->player.rhythm.pattern)*intent|=HB_MO_RHYTHM_BAKED;
         if(event->modifier)*intent=(*intent&~3ULL)|(event->modifier<0?1:event->modifier==2?3:2);
         if(event->secondary)*intent=(*intent&~((7ULL<<4)|(1ULL<<8)|(1ULL<<63)))|hb_mo_role_word(event->secondary);
@@ -96,10 +125,14 @@ static int hb_ml_get(Inst *instance,const char *key,char *buffer,int length){
         for(int i=0;i<g_ml_plan.count&&used<length;i++){
             const hb_mc_event *item=&g_ml_plan.events[i];const hb_mt_event *e=&item->event;
             const hb_cadence_step *cadence=hb_cadence_decode(e->cadence);
-            const char *label=item->source_step==-1?"T":e->kind?"Rest":cadence?cadence->label:e->modifier<0?"LT":e->modifier==2?"bII":e->secondary>=0&&e->secondary<11?roles[e->secondary]:"Input";
+            const char *label=item->source_step==-1?"T":e->kind?"Rest":cadence?cadence->label:e->modifier<0?"LT":e->modifier==2?"bII":e->secondary==12?"LT":e->secondary==13?"Upper Dim":e->secondary>=0&&e->secondary<11?roles[e->secondary]:"Input";
             used+=snprintf(buffer+used,(size_t)(length-used),"%s%s",i?" > ":"",label);
         }
         return used>=length?snprintf(buffer,(size_t)length,"Long motif"):used;
+    }
+    if(!strcmp(key,"motif_load_adaptive")){
+        int adaptive=0;if(g_ml_owner==instance)for(int index=0;index<g_ml_plan.count;index++)adaptive|=g_ml_plan.events[index].event.selector!=0;
+        return snprintf(buffer,(size_t)length,"%d",adaptive);
     }
     unsigned serial;int index,consumed=0;
     if(sscanf(key,"motif_load_event_%u_%d%n",&serial,&index,&consumed)==2&&key[consumed]==0){
