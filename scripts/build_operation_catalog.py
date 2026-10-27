@@ -97,9 +97,13 @@ def render_catalog(map_catalog: dict[str, Any]) -> tuple[str, str]:
     ]
     menu.extend(dict(name=item['name'], short=item['short'], group='Smart Approaches',
                      choice=item['choice'], token=item['token'], motion=map_symbol_to_operation[item['motion']]['id']) for item in selectors)
+    labels: list[dict[str, Any]] = [dict(name=item['name'], short=item['short'], token=item['token']) for item in relatives + selectors]
     typescript: str = ('// Generated from HarmonyBus data/operations.json; no runtime/controller imports.\n' +
                       'export const RELATIVE_OPERATIONS = ' + json.dumps(menu, separators=(',', ':')) + ';\n' +
-                      'export const APPROACH_OPERATION_CHOICES = RELATIVE_OPERATIONS.map(operation => operation.name);\n')
+                      'export const APPROACH_OPERATION_CHOICES = RELATIVE_OPERATIONS.map(operation => operation.name);\n' +
+                      'const labels = ' + json.dumps(labels, separators=(',', ':')) + ';\n' +
+                      'export const OPERATION_SHORT_NAMES: Readonly<Record<string,string>> = Object.fromEntries(labels.map(operation => [operation.name, operation.short]));\n' +
+                      'export const OPERATION_TOKEN_LABELS: Readonly<Record<number,string>> = Object.fromEntries(labels.map(operation => [operation.token, operation.short]));\n')
     return '\n'.join(header), typescript
 
 
