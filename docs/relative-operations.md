@@ -1,6 +1,6 @@
 # Relative operations and six/eight-note scales — HarmonyBus 0.2.304
 
-Install with Movy **0.34.1-hbclean.271**. Both repositories are needed: Movy
+Install with Movy **0.34.1-hbclean.272**. Both repositories are needed: Movy
 loads the separately installed HarmonyBus DSP.
 
 ## Controls
