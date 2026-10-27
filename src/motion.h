@@ -83,9 +83,10 @@ static unsigned long long hb_mo_recorded_word(const hb_motion_config *config,int
     if((config->held|config->sequence_held)&(1ULL<<index))return 0; /* live performance temporarily replaces that recorded lane */
     return config->event_override?config->event_override[index]&HB_MO_RECORDED?config->event_override[index]:0:0;
 }
-/* Bit 51 extends the historical five-bit operation id without moving fields. */
-static int hb_mo_word_operation(unsigned long long word){return (int)(((word>>32)&31)|((word>>46)&32));}
-static unsigned long long hb_mo_operation_word(int operation){return ((unsigned long long)(operation&31)<<32)|((unsigned long long)(operation&32)<<46);}
+/* Bits 51/52 extend the historical operation id without moving fields.
+   Smart selectors use bit 52 only in explicitly adaptive authored clips. */
+static int hb_mo_word_operation(unsigned long long word){return (int)(((word>>32)&31)|((word>>46)&96));}
+static unsigned long long hb_mo_operation_word(int operation){return ((unsigned long long)(operation&31)<<32)|((unsigned long long)(operation&96)<<46);}
 static int hb_mo_has_scale_mode(int operation){return hb_mo_mixed(operation)||operation==HB_MO_SECONDARY_FIFTH||operation==HB_MO_SECONDARY_II||operation==HB_MO_SECONDARY_III||operation==HB_MO_SECONDARY_IV||operation==HB_MO_SECONDARY_VI||operation==HB_MO_SECONDARY_VII||operation==HB_MO_CADENCE_II_V;}
 static int hb_mo_role(int operation){const hb_ro_definition *definition=hb_ro_motion(operation);return definition?definition->role:0;}
 /* Most render probes only need the operation tag. Avoid copying the full

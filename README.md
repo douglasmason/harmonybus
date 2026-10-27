@@ -1,3 +1,5 @@
+HarmonyBus 0.2.309 pairs with Movy hbclean.282 for [Fixed/Adaptive motif export](docs/adaptive-motif-export.md).
+
 HarmonyBus 0.2.308 adds context-aware Chord Discovery for Movy hbclean.280: current/queued harmony, frozen auditions and distinct voicing choices. See [Context-aware Chord Discovery](docs/contextual-discovery.md).
 
 HarmonyBus 0.2.307 applies the parent key before the first conductor chord. Pair with Movy hbclean.275. See [parent key and pad position](docs/pad-parent-key.md).
