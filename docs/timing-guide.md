@@ -984,3 +984,6 @@ Fill Notes = Motif cycles through the motif's playable note/chord events in orde
 For a repeating bass line, select a motif and target, choose Fill Notes = Motif and a rhythm on the bass track, then use the existing Motif to Clip workflow to write it to that track. Set the Joint Play bass source to Clip. Movy's clip loop supplies repetition and the bass track's existing follower settings supply harmony and travel. Use Fill Notes = Target for repeated target attacks. There is no separate bass sequencer or hidden actor target.
 
 For held-note generated comping, the current gate keeps its onset pitch when melody or harmony changes. The next attack uses the latest retained pitch material. Releasing the input finishes the current gate and stops future attacks unless the track's existing latch retains it. Clear/stop still releases immediately. In Clip + Guide, the clip continues to own rhythm and note length, and melody updates guide the next clip attack; releasing melody does not stop the backing clip.
+
+
+HarmonyBus 0.2.308 captures current or queue-tail harmony for [context-aware Chord Discovery](contextual-discovery.md). Candidate notes stay fixed until Refresh; auditions retain existing independent output ownership.
