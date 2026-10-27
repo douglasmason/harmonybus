@@ -1,5 +1,6 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.306"
+#define HB_VERSION "0.2.307"
+#define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
 typedef unsigned char uint8_t;
@@ -2761,7 +2762,13 @@ static int hb_map_follower_note_closest_split(Inst *instance,int note,hb_harmony
 }
 static int hb_map_follower_base_note(Inst *instance,int source_note,hb_harmony_t detected,hb_harmony_t target){
     int content_map=instance->content_map;
-    if(!detected.valid)return hb_cp_clamp(source_note,0,127);
+    /* An explicit parent key is usable before the first conductor chord.
+       Reuse key travel without inventing chord content or applying transpose twice. */
+    if(!detected.valid){
+        int transpose=g_bus.global_transpose;
+        return hb_key_travel_pitch(instance,source_note+transpose,detected,
+            hb_key_follower_travel(instance),0)-transpose;
+    }
 
 
     int travel=instance->travel_map;
@@ -2808,7 +2815,7 @@ static int hb_chromatic_approach_target(Inst *instance,int source_note,hb_harmon
 }
 static int hb_map_follower_note_split2(Inst *instance,int source_note,hb_harmony_t detected,
                                         hb_harmony_t content_target){
-    if(!detected.valid)return hb_cp_clamp(source_note,0,127);
+    if(!detected.valid)return hb_map_follower_base_note(instance,source_note,detected,content_target);
     int next=hb_chromatic_approach_target(instance,source_note,detected);
     if(next>=0){
         int saved=instance->movy_input_degree[next];

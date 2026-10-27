@@ -20,7 +20,7 @@ static int test_inject(const uint8_t *packet,int length){assert(length==4);
 static host_api_v1_t host={.sample_rate=48000,.get_beat_position=test_beat,.get_bpm=test_bpm,.get_clock_status=test_clock,.midi_inject_to_move=test_inject};
 static hb_global_shared_t globals;
 static uint8_t output[64][3];static int lengths[64];
-static Inst *fixture(void){
+static Inst *fixture_without_conductor(void){
     g_init=0;g_global_shared=&globals;memset(&globals,0,sizeof(globals));
     memset(g_movy_clips,0,sizeof(g_movy_clips));g_movy_present=g_movy_blocked=0;
     g_movy_revision=14695981039346656037ULL;
@@ -37,10 +37,14 @@ static Inst *fixture(void){
     API.set_param(instance,"render_channel","4");
     API.set_param(instance,"follower_root_policy","Explicit");API.set_param(instance,"follower_explicit_root","C");
     API.set_param(instance,"follower_scale","Major");
-    uint8_t chord[4]={60,64,67,71};hb_harmony_t harmony=hb_infer_harmony(chord,4);
-    hb_commit_observed_harmony(harmony);
     instance->retrigger_held=0; /* Legacy fixtures explicitly retain Off. */
     instance->player.config.start=0;instance->player.config.phase=0; /* Legacy lifecycle fixtures request immediate start explicitly. */
+    return instance;
+}
+static Inst *fixture(void){
+    Inst *instance=fixture_without_conductor();
+    uint8_t chord[4]={60,64,67,71};hb_harmony_t harmony=hb_infer_harmony(chord,4);
+    hb_commit_observed_harmony(harmony);
     return instance;
 }
 static void midi(Inst *instance,int on,int note){uint8_t message[3]={(uint8_t)(on?0x90:0x80),(uint8_t)note,(uint8_t)(on?100:0)};API.process_midi(instance,message,3,output,lengths,64);}

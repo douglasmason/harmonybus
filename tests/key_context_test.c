@@ -258,7 +258,31 @@ static void immediate_key_feedback(void){
     }
 }
 
+static void parent_key_before_conductor(void){
+    for(int chromatic=0;chromatic<2;chromatic++)for(int transpose=-2;transpose<=2;transpose+=2){
+        Inst *instance=fixture_without_conductor();single_setup(instance);instance->chromatic_map=chromatic;
+        assert(!hb_render_harmony(instance).valid);
+        assert(press_mask(instance,60)==1);release(instance,60);
+        char value[8];snprintf(value,sizeof(value),"%d",transpose);API.set_param(instance,"transpose",value);
+        for(int tonic=0;tonic<12;tonic++){
+            API.set_param(instance,"key_center_tonic",PC_OPTS[tonic]);
+            API.set_param(instance,"key_center_explicit_scale","Major");API.set_param(instance,"key_center_apply","Apply");
+            for(int octave=0;octave<=120;octave+=60){
+                assert(press_mask(instance,octave)==(1u<<tonic));release(instance,octave);
+                assert(press_mask(instance,octave+4)==(1u<<((tonic+4)%12)));release(instance,octave+4);
+            }
+        }
+        API.set_param(instance,"key_center_tonic","D");API.set_param(instance,"key_center_apply","Apply");
+        API.set_param(instance,"parallel_scale","Natural Minor");API.set_param(instance,"parallel_mode","Down");
+        assert(press_mask(instance,64)==(1u<<5));release(instance,64);
+        API.set_param(instance,"parallel_mode","Up");API.set_param(instance,"transpose","0");
+        API.set_param(instance,"key_center_apply","Apply");API.set_param(instance,"follower_key_travel","Closest Scale Tone");
+        assert(press_mask(instance,60)==(1u<<1));release(instance,60);
+        API.destroy_instance(instance);
+    }
+}
 static void explicit_key_entry(void){
+    parent_key_before_conductor();
     for(int role=0;role<2;role++)for(int transpose=-2;transpose<=2;transpose+=2){
         Inst *instance=fixture();single_setup(instance);instance->movy_track=0;
         API.set_param(instance,"role",role?"Follower":"Conductor");
