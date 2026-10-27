@@ -62,11 +62,12 @@ The motif renderer resolves it against the current destination after key mapping
 then uses the existing chord, voicing, scheduling and ownership code. Automatic,
 tap and bank/row motif playback share that renderer.
 
-**Motif to Clip writes concrete choices.** Its preview names the resolved LT /
-Upper Dim steps and says “Smart choices fixed on write.” A polyphonic Smart step
-is split into simultaneous per-target events, so each note retains its own
-choice. Existing event/transfer limits still apply; an oversized export is
-rejected before any clip is changed. The source motif remains adaptive.
+**Motif to Clip offers Fixed (default) and Adaptive.** Fixed names the resolved
+LT / Upper Dim steps and stores simultaneous per-target choices. Adaptive keeps
+Smart Below/Above for resolution against each playback target and harmony. Both
+retain input notes and use the ordinary native renderer. Event/transfer limits
+reject oversized exports before any clip changes. The source motif remains
+adaptive. See [Fixed and Adaptive export](adaptive-motif-export.md).
 
 ## Compatibility and centralized definitions
 

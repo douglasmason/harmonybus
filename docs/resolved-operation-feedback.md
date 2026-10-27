@@ -44,8 +44,9 @@ panel, resolved feedback and motif-to-clip preview. Connector Below is `CCB`,
 Leading Tone is `LT`, and Upper Dim is `UD`; their different harmonic meanings
 are preserved. The clip preview no longer labels Connector Below as LT.
 
-Motif-to-clip export still fixes the choices at write time. Adaptive export
-is outside this increment. Existing saved IDs and formats are unchanged.
+This feedback increment originally fixed motif-to-clip choices at write time.
+HarmonyBus 0.2.309 and Movy hbclean.282 add optional [Adaptive export](adaptive-motif-export.md),
+while preserving Fixed as the default and the existing relative-operation IDs.
 
 Validation covers raw and chord playback, conductor and follower roles, both
 Smart preferences, concrete recorded replay, key/Parallel changes, same-context
