@@ -78,9 +78,12 @@ def render_catalog(map_catalog: dict[str, Any]) -> tuple[str, str]:
         header.append(f'static const unsigned char HB_RO_BY_{name}[{limit}] = {{' +
                       ','.join(str(map_index_to_choice.get(index, 0)) for index in range(limit)) + '};')
     header.append(f'#define HB_RO_SELECTOR_BASE {selector_base}')
-    header.append('static const char *HB_RO_SELECTOR_NAMES[] = {"Captured",' +
-                  ','.join(json.dumps(item['name']) for item in selectors) + '};')
-    header.append(f'#define HB_RO_SELECTOR_COUNT {len(selectors) + 1}')
+    motif_operations: list[dict[str, Any]] = selectors + [item for item in sorted(relatives, key=lambda item: item['menu_order']) if item['choice'] != 2]
+    header.append('static const char *HB_RO_MOTIF_NAMES[] = {"Captured",' +
+                  ','.join(json.dumps(item['name']) for item in motif_operations) + '};')
+    header.append('static const unsigned short HB_RO_MOTIF_TOKENS[] = {0,' +
+                  ','.join(str(item['token']) for item in motif_operations) + '};')
+    header.append(f'#define HB_RO_MOTIF_COUNT {len(motif_operations) + 1}')
     header.append('static const unsigned char HB_RO_BY_SELECTOR[] = {' +
                   ','.join(str(item['choice'] + 1) for item in selectors) + '};')
     header.append('typedef struct { const char *alias,*name; } hb_ro_alias;')
@@ -101,6 +104,7 @@ def render_catalog(map_catalog: dict[str, Any]) -> tuple[str, str]:
     typescript: str = ('// Generated from HarmonyBus data/operations.json; no runtime/controller imports.\n' +
                       'export const RELATIVE_OPERATIONS = ' + json.dumps(menu, separators=(',', ':')) + ';\n' +
                       'export const APPROACH_OPERATION_CHOICES = RELATIVE_OPERATIONS.map(operation => operation.name);\n' +
+                      'export const MOTIF_OPERATION_CHOICES = ' + json.dumps(['Captured'] + [item['name'] for item in motif_operations], separators=(',', ':')) + ';\n' +
                       'const labels = ' + json.dumps(labels, separators=(',', ':')) + ';\n' +
                       'export const OPERATION_SHORT_NAMES: Readonly<Record<string,string>> = Object.fromEntries(labels.map(operation => [operation.name, operation.short]));\n' +
                       'export const OPERATION_TOKEN_LABELS: Readonly<Record<number,string>> = Object.fromEntries(labels.map(operation => [operation.token, operation.short]));\n')
@@ -128,6 +132,14 @@ def main() -> None:
     typescript: str
     header, typescript = render_catalog(map_catalog)
     write_generated(root / 'core/include/operation_catalog.h', header, arguments.check)
+    manifest: Path = root / 'modules/harmonybus/module.json'
+    map_module: dict[str, Any] = json.loads(manifest.read_text())
+    relatives: list[dict[str, Any]] = [dict(item['relative'], name=item['name']) for item in map_catalog['operations'] if 'relative' in item]
+    motif_names: list[str] = ['Captured'] + [item['name'] for item in map_catalog['selectors']] + [item['name'] for item in sorted(relatives, key=lambda item: item['menu_order']) if item['choice'] != 2]
+    for parameter in map_module['capabilities']['chain_params']:
+        if parameter['key'] == 'motif_operation':
+            parameter['options'] = motif_names
+    write_generated(manifest, json.dumps(map_module, separators=(',', ':')) + '\n', arguments.check)
     if arguments.movy:
         write_generated(arguments.movy / 'integration/operation-catalog.ts', typescript, arguments.check)
 

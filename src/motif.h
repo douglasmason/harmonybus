@@ -21,7 +21,7 @@ enum { HB_MT_AUTO, HB_MT_CHROMATIC, HB_MT_SCALE };
 typedef struct { unsigned char pitch,velocity; } hb_mt_note;
 typedef struct {
     int kind,duration,count,relation,modifier,secondary,cadence,chord_mode;
-    unsigned scale,flags,selector; /* Zero: captured outcome; otherwise adaptive RO token. */
+    unsigned scale,flags,selector; /* Zero: captured outcome; otherwise catalog RO override. */
     unsigned long long actions[HB_MOTION_LANES+1];
     hb_mt_note notes[HB_MT_VOICES];
 } hb_mt_event;
@@ -311,7 +311,7 @@ static int hb_mt_add(hb_mt_recorder *editor,int channel,int pitch,int velocity,c
     if(!editor->open){
         hb_mt_event *event=hb_mt_entry(editor);if(!event)return 0;*event=*intent;
         event->kind=0;event->count=0;event->duration=HB_MT_DURATIONS[editor->duration];event->relation=editor->relation;
-        if(editor->operation)event->selector=HB_RO_SELECTOR_BASE+editor->operation-1;
+        if(editor->operation)event->selector=HB_RO_MOTIF_TOKENS[editor->operation];
         editor->open=1;editor->open_step=editor->cursor;
         if(editor->anchor_next){editor->draft.anchor=editor->cursor;editor->anchor_next=0;}
     }

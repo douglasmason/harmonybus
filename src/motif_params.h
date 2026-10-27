@@ -135,7 +135,7 @@ static void hb_mt_restore(Inst *instance,const char *state){
             if(adaptive){
                 if(!hb_mt_read_hex(&cursor,&event->selector,4)){valid=0;break;}
                 const hb_ro_definition *selector=hb_ro_token(event->selector);
-                if(event->selector&&(event->kind||!selector||!selector->preferred_token)){valid=0;break;}
+                if(event->selector&&(event->kind||!selector)){valid=0;break;}
             }
             if(normalized&&step>=count-2&&event->kind){valid=0;break;}
             if(event->kind==2&&(!step||(normalized?bank[slot].body.events[step-1].kind:legacy.events[step-1].kind)==1)){valid=0;break;}
@@ -300,11 +300,15 @@ static int hb_mt_set(Inst *instance,const char *key,const char *value){
     if(!strcmp(key,"motif_duration")){editor->duration=enum_index(value,HB_MT_DURATION_NAMES,13,editor->duration);return 1;}
     if(!strcmp(key,"motif_relation")){editor->relation=enum_index(value,HB_MT_RELATIONS,3,editor->relation);return 1;}
     if(!strcmp(key,"motif_operation")){
-        editor->operation=enum_index(value,HB_RO_SELECTOR_NAMES,HB_RO_SELECTOR_COUNT,editor->operation);
+        int choice=enum_index(hb_ro_canonical_name(value),HB_RO_MOTIF_NAMES,HB_RO_MOTIF_COUNT,-1);
+        if(choice<0)return 1;
+        editor->operation=choice;
         int step=editor->open?editor->open_step:editor->cursor;
         if(editor->recording>=0&&step<editor->draft.count&&!editor->draft.events[step].kind){
-            hb_mt_checkpoint(editor);
-            editor->draft.events[step].selector=editor->operation?HB_RO_SELECTOR_BASE+editor->operation-1:0;
+            unsigned token=HB_RO_MOTIF_TOKENS[choice];
+            if(editor->draft.events[step].selector!=token){
+                hb_mt_checkpoint(editor);editor->draft.events[step].selector=token;
+            }
         }
         return 1;
     }
@@ -340,9 +344,9 @@ static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"motif_operation")){
         int choice=editor->operation,step=editor->open?editor->open_step:editor->cursor;
         if(editor->recording>=0&&step<editor->draft.count&&!editor->draft.events[step].kind){
-            unsigned selector=editor->draft.events[step].selector;choice=selector?(int)(selector-HB_RO_SELECTOR_BASE+1):0;
+            choice=hb_ro_motif_choice(editor->draft.events[step].selector);
         }
-        return snprintf(buffer,(size_t)length,"%s",HB_RO_SELECTOR_NAMES[hb_cp_clamp(choice,0,HB_RO_SELECTOR_COUNT-1)]);
+        return snprintf(buffer,(size_t)length,"%s",HB_RO_MOTIF_NAMES[hb_cp_clamp(choice,0,HB_RO_MOTIF_COUNT-1)]);
     }
     if(!strcmp(key,"motif_arrival"))return snprintf(buffer,(size_t)length,"%s",HB_MT_ARRIVALS[editor->arrival]);
     if(!strcmp(key,"motif_target"))return snprintf(buffer,(size_t)length,"%s",HB_MT_TARGETS[editor->target]);
@@ -354,6 +358,11 @@ static int hb_mt_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"motif_status")){
         static const char *errors[]={"","32 step limit","8 note limit","Tie needs a note","Duration limit","No future harmony","Choose bar for defer","Target unavailable","Phrase queue full","Motif bank full","Empty: Edit motif","Lane changed or busy"};
         if(editor->error)return snprintf(buffer,(size_t)length,"%s",errors[hb_cp_clamp(editor->error,0,11)]);
+        int step=editor->open?editor->open_step:editor->cursor;
+        if(editor->recording>=0&&step<editor->draft.count){
+            const hb_mt_event *event=&editor->draft.events[step];
+            return snprintf(buffer,(size_t)length,"%d %s%s",step+1,event->selector||event->kind?"":"Captured: ",hb_mt_operation_label(event));
+        }
         if(instance->motif.tap_active){
             hb_mt_runtime *runtime=&instance->motif;
             if(editor->playback==1)return snprintf(buffer,(size_t)length,"Tap %d/%d Anchor %d",runtime->tap_step+1,runtime->tap_phrase.count,runtime->tap_phrase.anchor+1);
