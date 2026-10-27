@@ -103,23 +103,25 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
         for(int voice=0;voice<event->count;voice++){
             int pitch=hb_mt_relative(event,event->notes[voice].pitch,anchor,target,scale);
             unsigned collection=scale;
-            /* Adaptive steps choose in the effective destination collection.
+            /* Authored steps choose in the effective destination collection.
                Map the target first, then render the complete chosen operation. */
             if(event->selector&&instance->role==0){pitch=hb_key_map(phrase_key,pitch);collection=hb_key_mask(phrase_key,collection);}
             int feedback_target=pitch;
             int intent_kind=0,intent_target=mod12(pitch),intent_minor=0;
+            hb_mt_event resolved_event;
+            const hb_mt_event *render_event=event;
+            if(event->selector){
+                resolved_event=*event;
+                hb_mt_apply_operation(&resolved_event,hb_ro_token(hb_ro_resolve_selector(event->selector,pitch,collection)));
+                render_event=&resolved_event;
+            }
             const unsigned long long *old_actions=instance->motion.event_override;unsigned long long old_flags=instance->motion.render_flags;
             hb_harmony_t old_harmony=instance->render_harmony;int old_active=instance->render_harmony_active;
-            instance->motion.event_override=event->actions;instance->motion.render_flags=event->flags;
+            instance->motion.event_override=render_event->actions;instance->motion.render_flags=render_event->flags;
             instance->render_harmony=harmony;instance->render_harmony_active=1;
             hb_cp_config config=hb_chord_config_at(instance,event->notes[voice].pitch,onset,onset);config.mode=event->chord_mode==3?hb_cp_mode(&instance->player):event->chord_mode;
-            const hb_cadence_step *cadence=hb_cadence_decode(event->cadence);
-            int secondary=event->secondary,modifier=event->modifier;
-            if(event->selector){
-                const hb_ro_definition *resolved=hb_ro_token(hb_ro_resolve_selector(event->selector,pitch,collection));
-                secondary=resolved->role;modifier=resolved->modifier;cadence=0;
-                instance->motion.render_flags&=~(HB_MO_SIMPLE|HB_MO_SIMPLE_SCALE|HB_MO_CONNECTOR_ABOVE|HB_MO_LEGACY_II);
-            }
+            const hb_cadence_step *cadence=hb_cadence_decode(render_event->cadence);
+            int secondary=render_event->secondary,modifier=render_event->modifier;
             if(config.mode&&secondary==2&&hb_current_target_diminished(instance,collection,pitch))secondary=12;
             const hb_ro_definition *feedback_operation=cadence?0:hb_ro_resolved(secondary,modifier,
                 (instance->motion.render_flags&HB_MO_CONNECTOR_ABOVE)!=0);

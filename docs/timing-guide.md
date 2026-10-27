@@ -1,3 +1,5 @@
+HarmonyBus 0.2.310 completes the motif Relative Operation editor with Movy hbclean.283. See [Motif RPO editor](motif-rpo-editor.md).
+
 HarmonyBus 0.2.309 adds Fixed/Adaptive motif-to-clip export with Movy hbclean.282, reusing onset resolution and ownership. See [Fixed and Adaptive motif export](adaptive-motif-export.md).
 
 HarmonyBus 0.2.307 applies the parent key before the first conductor chord. Pair with Movy hbclean.275. See [parent key and pad position](pad-parent-key.md).

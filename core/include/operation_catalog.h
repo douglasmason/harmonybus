@@ -110,8 +110,9 @@ static const unsigned char HB_RO_BY_ROLE[18] = {0,4,5,0,6,7,8,9,11,12,13,0,30,31
 static const unsigned char HB_RO_BY_TOKEN[64] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,30,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,35,31,32,33,34};
 static const unsigned char HB_RO_BY_TRIGGER[19] = {1,3,4,5,6,7,8,2,9,10,11,12,13,30,31,32,33,34,35};
 #define HB_RO_SELECTOR_BASE 4096
-static const char *HB_RO_SELECTOR_NAMES[] = {"Captured","Smart Below","Smart Above"};
-#define HB_RO_SELECTOR_COUNT 3
+static const char *HB_RO_MOTIF_NAMES[] = {"Captured","Smart Below","Smart Above","Connector Below","Connector Above","Secondary II","Secondary III","Secondary IV","Secondary Fifth","Secondary VI","Secondary VII","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)","Secondary V (Dom)","Leading Tone","Upper Dim","Backdoor II","Backdoor V","Tritone II","Tritone Sub"};
+static const unsigned short HB_RO_MOTIF_TOKENS[] = {0,4096,4097,1,2,4,11,12,61,6,13,62,63,59,5,14,60,7,8,9,10};
+#define HB_RO_MOTIF_COUNT 21
 static const unsigned char HB_RO_BY_SELECTOR[] = {36,37};
 typedef struct { const char *alias,*name; } hb_ro_alias;
 static const hb_ro_alias HB_RO_ALIASES[] = {

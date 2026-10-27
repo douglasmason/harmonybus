@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.309"
+#define HB_VERSION "0.2.310"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -258,6 +258,7 @@ static SharedBus g_bus={.approach_control=HB_APPROACH_OFF,.approach_mode=0}; sta
 typedef struct { uint8_t source,pitch,velocity,on; } hb_rx_event;
 static int g_render_window=0,g_render_restored=0;
 #include "../../../src/approach_rows.h"
+#include "../../../src/motif_operations.h"
 #include "../../../src/key_context.h"
 #include "../../../src/shared_context.h"
 #include "../../../src/follower_ownership.h"
@@ -3569,6 +3570,9 @@ static void hb_motion_values_feedback(Inst *instance,const uint8_t message[3],in
             hb_harmony_t harmony=hb_render_harmony(instance);
             int parent_root=0;hb_resolve_follower_reference_root(instance,&parent_root);
             unsigned parent=hb_parent_chord_scale(instance,harmony,parent_root,hb_follower_input_scale(instance,parent_root),g_bus.global_transpose);
+            /* Raw conductor pitches were already mapped into the live key.
+               Ordinal operations must use that same destination collection. */
+            parent=hb_key_mask(hb_key_for(instance),parent);
             if(cadence)*pitch=hb_resolve_cadence(instance,cadence,*pitch,parent).root;
             else *pitch+=hb_context_approach_offset(instance,secondary,*pitch,hb_secondary_collection(instance,secondary,*pitch,parent));
             while(*pitch<0)*pitch+=12;while(*pitch>127)*pitch-=12;

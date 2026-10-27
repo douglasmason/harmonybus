@@ -109,3 +109,7 @@ Regression coverage includes all-key pad geometry and degree mapping, stable IDs
 chord-role policy, saved scale validation, Smart lane onset/capture, adaptive
 motif key changes, legacy migration, atomic mf3 loading, draft Undo, simultaneous
 per-target clip export, and the existing rendering/ownership suites.
+
+## Motif editing
+
+The motif editor now offers every supported catalog recipe as a reversible override. Captured restores the original event; LT/UD and CCB/CCA retain their distinct harmonic meanings. See [Motif Relative Operation editor](motif-rpo-editor.md).

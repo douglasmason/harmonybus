@@ -43,6 +43,14 @@ static const char *hb_ro_canonical_name(const char *name){
         if(!strcmp(name,HB_RO_ALIASES[index].alias))return HB_RO_ALIASES[index].name;
     return name;
 }
+static int hb_ro_motif_choice(unsigned token){
+    for(int choice=0;choice<HB_RO_MOTIF_COUNT;choice++)if(HB_RO_MOTIF_TOKENS[choice]==token)return choice;
+    return 0;
+}
+static int hb_ro_adaptive(unsigned token){
+    const hb_ro_definition *operation=hb_ro_token(token);
+    return operation&&operation->preferred_token;
+}
 /* Direction is a preference. Switch only when it exposes an otherwise missing
    adjacent pitch, and select the entire LT/Upper Dim recipe, not an offset. */
 static unsigned hb_ro_resolve_selector(unsigned token,int target,unsigned scale){
