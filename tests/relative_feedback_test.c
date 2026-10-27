@@ -45,8 +45,8 @@ static void live_and_recorded(void){
     }
 }
 static void live_key_and_parallel(void){
-    for(int mode=0;mode<2;mode++)for(int role=0;role<2;role++)for(int parallel=0;parallel<2;parallel++)for(int high=0;high<2;high++){
-        Inst *instance=approach_fixture();API.set_param(instance,"role",role?"Follower":"Conductor");API.set_param(instance,"source_channel","1");instance->player.config.mode=mode;
+    for(int playback=0;playback<2;playback++)for(int mode=0;mode<2;mode++)for(int role=0;role<2;role++)for(int parallel=0;parallel<2;parallel++)for(int high=0;high<2;high++){
+        Inst *instance=approach_fixture();API.set_param(instance,"role",role?"Follower":"Conductor");API.set_param(instance,"source_channel","1");instance->player.config.mode=mode;instance->player.config.playback=playback;
         API.set_param(instance,"motion_operation","Smart Below");API.set_param(instance,"motion_amount","1");API.set_param(instance,"motion_enabled","On");
         if(parallel){API.set_param(instance,"parallel_scale","Major");API.set_param(instance,"parallel_mode","Down");}
         else g_key_context=(hb_key_context){.active=1,.source_root=9,.target_root=11,.source_mask=hb_explicit_scale_mask(9,8),.target_mask=hb_explicit_scale_mask(11,8)};
@@ -90,4 +90,4 @@ static void clip_labels(void){
     assert(!strcmp(labels,"CCB > CCA > LT > UD > T"));
     API.destroy_instance(instance);
 }
-int main(void){live_and_recorded();live_key_and_parallel();motif_onsets();clip_labels();puts("Rendered operation feedback: live/recorded, raw/chord, key/Parallel, preview, mapped motifs, read isolation, stop clearing and clip labels pass");}
+int main(void){live_and_recorded();live_key_and_parallel();motif_onsets();clip_labels();puts("Rendered operation feedback: live/recorded, raw/arp/chord, key/Parallel, preview, mapped motifs, read isolation, stop clearing and clip labels pass");}

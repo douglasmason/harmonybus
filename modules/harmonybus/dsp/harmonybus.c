@@ -3022,6 +3022,20 @@ static unsigned hb_resolve_smart_lane(Inst *instance,int source,int lane,unsigne
     if(!selected){selected=hb_resolve_live_approach(instance,source,token);instance->smart_lane_tokens[source][lane]=(uint8_t)selected;}
     return selected;
 }
+/* Freeze the same concrete Smart choice for voice playback and recording.
+   Buffered followers call this after resolving their onset harmony. */
+static void hb_capture_smart_lanes(Inst *instance,int note,unsigned long long *actions){
+    for(int lane=0;lane<HB_MOTION_LANES;lane++){
+        const hb_ro_definition *selector=hb_ro_motion(hb_mo_operation(&instance->motion,lane));double value=0;
+        if(!selector||!selector->preferred_token||
+           !hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),note,&value)||value<=0)continue;
+        const hb_ro_definition *resolved=hb_ro_token(hb_resolve_smart_lane(instance,note,lane,selector->token));
+        hb_motion_lane settings=instance->motion.lanes[lane];
+        actions[lane]=HB_MO_RECORDED|hb_mo_operation_word(resolved->motion)|
+            ((unsigned long long)settings.grid<<37)|((unsigned long long)(settings.offset+400)<<41)|
+            (unsigned long long)(uint32_t)(int32_t)hb_mo_round(value*1000.0);
+    }
+}
 static int hb_active_approach(const Inst *instance){
     if(!instance)return HB_APPROACH_OFF;
     return hb_approach_effective(instance->approach_control,instance->approach_pad_armed);
@@ -3506,6 +3520,7 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
             if(instance->role==0){instance->dirty=1;instance->frames_since_change=0;instance->conductor_note_on_pending=1;}
             key->recordable=instance->role==0&&!instance->movy_playback&&!instance->synthetic_advance&&!instance->adopt_held;
             memcpy(instance->motion_player_events[index],instance->motion.event_override?instance->motion.event_override:instance->motion.events,sizeof(instance->motion.events));
+            hb_capture_smart_lanes(instance,source_note,instance->motion_player_events[index]);
             if(approach_chord)instance->motion_player_events[index][HB_MOTION_LANES]|=HB_MO_CHORD_APPROACH;
             key->playback_origin=instance->movy_playback;
             hb_input_intent input=hb_input_get(instance,source_note);
@@ -3540,19 +3555,11 @@ static double hb_motion_condition_position(void){
     if(g_movy_present)return (double)g_movy_tick/g_movy_ppqn;
     return hb_current_beat();
 }
-static int hb_motion_input_note(const Inst *instance,int output_note){
-    if(instance->motion_event_owner>0)return (instance->motion_event_owner-1)%128;
-    /* Raw arps and private pad previews retain their originating player key. */
-    if(instance->motion.event_override)for(int owner=0;owner<HB_CP_KEYS;owner++)
-        if(instance->player.keys[owner].used&&instance->motion.event_override==instance->motion_player_events[owner])
-            return instance->player.keys[owner].source;
-    return output_note;
-}
 static void hb_motion_values_feedback(Inst *instance,const uint8_t message[3],int *pitch,int *velocity,int *pan,double *off_beat,int *skip,unsigned *feedback){
     *pitch=message[1];*velocity=message[2];*pan=-1;*off_beat=-1;*skip=0;
     double beat=hb_motion_position(instance),condition=hb_motion_condition_position();
     if(instance->role==0&&!hb_cp_mode(&instance->player)){
-        int secondary=hb_secondary_at(instance,hb_motion_input_note(instance,message[1]));
+        int secondary=hb_secondary_at(instance,message[1]);
         const hb_cadence_step *cadence=hb_mo_current_cadence(&instance->motion);
         if(secondary||cadence){
             if(feedback)*feedback=hb_rf_make(cadence?0:hb_ro_role(secondary),*pitch,*pitch,0,0,instance->movy_playback!=0);
@@ -3788,6 +3795,7 @@ static int hb_release_follower_queue(Inst *instance,int frames,int sample_rate,
             *voice=(hb_follower_voice){.used=1,.source=source_note,.channel=instance->follower_queue_channel[index],
                 .origin=instance->movy_playback!=0,.pitch=mapped,.velocity=velocity,.harmony=hb_render_harmony(instance),.input=hb_input_get(instance,source_note),.relative_feedback=feedback};
             memcpy(voice->events,instance->motion_follower_events[index],sizeof(voice->events));
+            hb_capture_smart_lanes(instance,source_note,voice->events);
             double delay=target_beat>=0.0
                 ?target_beat-instance->follower_queue_arrival_beat[index]:0.0;
             instance->follower_origin_delay[instance->movy_playback!=0][source_note]=instance->follower_note_delay_beats[source_note]=delay>0.0?delay:0.0;
@@ -4605,16 +4613,7 @@ static void hb_capture_input_intent(Inst *instance,int note,unsigned long long *
         instance->approach_rows.tokens[note]=hb_resolve_live_approach(instance,note,token);
     }
     hb_mo_capture(&instance->motion,hb_motion_position(instance),hb_motion_condition_position(),note,actions);
-    for(int lane=0;lane<HB_MOTION_LANES;lane++){
-        const hb_ro_definition *selector=hb_ro_motion(hb_mo_operation(&instance->motion,lane));double value=0;
-        if(!selector||!selector->preferred_token||
-           !hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),note,&value)||value<=0)continue;
-        const hb_ro_definition *resolved=hb_ro_token(hb_resolve_smart_lane(instance,note,lane,selector->token));
-        hb_motion_lane settings=instance->motion.lanes[lane];
-        actions[lane]=HB_MO_RECORDED|hb_mo_operation_word(resolved->motion)|
-            ((unsigned long long)settings.grid<<37)|((unsigned long long)(settings.offset+400)<<41)|
-            (unsigned long long)(uint32_t)(int32_t)hb_mo_round(value*1000.0);
-    }
+    hb_capture_smart_lanes(instance,note,actions);
     actions[HB_MOTION_LANES]|=hb_ar_alias_word(instance->movy_pad_shift[note]);
     if(instance->approach_rows.tokens[note]){
         unsigned token=instance->approach_rows.tokens[note];
@@ -4716,6 +4715,7 @@ if(!(is_on||is_off))return pass(input,length,output,lengths,max_output);int note
             *input_voice=(hb_follower_voice){.used=1,.source=note,.channel=input_channel,.origin=instance->movy_playback!=0,.velocity=input[2]};
             input_voice->relative_feedback=hb_rf_make(0,note,note,0,0,instance->movy_playback!=0);
             memcpy(input_voice->events,instance->motion.event_override?instance->motion.event_override:instance->motion.events,sizeof(input_voice->events));
+            hb_capture_smart_lanes(instance,note,input_voice->events);
         }else instance->mapped[note]=input_voice->pitch;
         instance->motion_event_owner=hb_fv_identity(note,input_channel,instance->movy_playback!=0);
         if(instance->motion_output_base){

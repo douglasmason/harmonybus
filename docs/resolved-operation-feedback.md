@@ -22,6 +22,9 @@ Smart conductor selection now keeps the source harmony and its parent scale in
 the same key before mapping them once to the destination. This fixes a case
 where a key change could choose LT while the corresponding mapped motif chose
 Upper Dim for the same target.
+Raw notes and arpeggiators now retain that concrete choice in their onset
+snapshot through the same capture routine used by recording. Later generated
+notes cannot choose again using an already mapped output pitch as their input.
 
 The compact `ro1` section travels in the existing `pad_view` snapshot. It contains
 an event serial, concrete operation token, target/root pitch classes, rendered
