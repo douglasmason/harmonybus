@@ -20,6 +20,8 @@ static const char *MO_TOUCH[]={"Hold","Latch","Tap/Hold"};
 static const char *MO_TRIGGER_TOUCH[]={"Hold","Arm","Tap/Hold"};
 static const char *const *hb_mo_touch_options(hb_motion_config *config){
     int operation=config->lanes[config->selected].operation;
+    const hb_ro_definition *definition=hb_ro_motion(operation);
+    if(definition&&definition->preferred_token)return MO_TOUCH;
     return ((operation>=HB_MO_BELOW&&operation<=HB_MO_ENCLOSE_BA)||(operation>=HB_MO_SECONDARY_II&&operation!=HB_MO_WEAVE))?MO_TRIGGER_TOUCH:MO_TOUCH;
 }
 static const char *MO_RANDOM[]={"Repeat","Evolve"};
@@ -274,7 +276,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"chain_params")){
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
-        for(int operation=0;operation<=HB_MO_DRUM_FILL;operation++){
+        for(int operation=0;operation<HB_MO_OPERATION_COUNT;operation++){
             if(operation==HB_MO_DRUM_FILL&&config->host_capabilities<3&&operation!=selected)continue;
             if(operation==HB_MO_ABOVE)continue; /* Legacy serialized ID, consolidated picker. */
             if(hb_mo_mixed(operation)||operation==HB_MO_CADENCE_II_V||operation==HB_MO_CADENCE_BACKDOOR||operation==HB_MO_CADENCE_TRITONE)continue;

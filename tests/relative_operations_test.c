@@ -9,7 +9,7 @@ static void catalog_contract(void){
         const hb_ro_definition *definition=hb_ro_choice(choice);
         if(!definition)continue;
         assert(hb_ro_token(definition->token)==definition);
-        if(definition->motion>=0){
+        if(definition->motion>=0&&!definition->preferred_token){
             assert(hb_ro_motion(definition->motion)==definition);
             assert(hb_ro_trigger(hb_mo_trigger_bit(definition->motion))==definition);
         }
@@ -163,7 +163,9 @@ static void single_note_paths(void){
     }
     host.midi_inject_to_move=0;
 }
+#ifndef HB_RELATIVE_OPERATIONS_FIXTURE
 int main(void){
     catalog_contract();gap_selection();production_paths();fixed_operation_previews();motif_capture();single_note_paths();
     puts("Relative operations: stable identities, chromatic gap coverage, complete harmony, preview, recording and persistence pass");
 }
+#endif

@@ -103,6 +103,9 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
         for(int voice=0;voice<event->count;voice++){
             int pitch=hb_mt_relative(event,event->notes[voice].pitch,anchor,target,scale);
             unsigned collection=scale;
+            /* Adaptive steps choose in the effective destination collection.
+               Map the target first, then render the complete chosen operation. */
+            if(event->selector&&instance->role==0){pitch=hb_key_map(phrase_key,pitch);collection=hb_key_mask(phrase_key,collection);}
             int intent_kind=0,intent_target=mod12(pitch),intent_minor=0;
             const unsigned long long *old_actions=instance->motion.event_override;unsigned long long old_flags=instance->motion.render_flags;
             hb_harmony_t old_harmony=instance->render_harmony;int old_active=instance->render_harmony_active;
@@ -110,16 +113,25 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
             instance->render_harmony=harmony;instance->render_harmony_active=1;
             hb_cp_config config=hb_chord_config_at(instance,event->notes[voice].pitch,onset,onset);config.mode=event->chord_mode==3?hb_cp_mode(&instance->player):event->chord_mode;
             const hb_cadence_step *cadence=hb_cadence_decode(event->cadence);
-            if(config.mode&&(event->secondary||cadence||event->modifier)){
-                hb_approach_result approach=hb_resolve_chord_approach(instance,pitch,collection,config,harmony,event->secondary,cadence,event->modifier,0);
+            int secondary=event->secondary,modifier=event->modifier;
+            if(event->selector){
+                const hb_ro_definition *resolved=hb_ro_token(hb_ro_resolve_selector(event->selector,pitch,collection));
+                secondary=resolved->role;modifier=resolved->modifier;cadence=0;
+                instance->motion.render_flags&=~(HB_MO_SIMPLE|HB_MO_SIMPLE_SCALE|HB_MO_CONNECTOR_ABOVE|HB_MO_LEGACY_II);
+            }
+            if(config.mode&&(secondary||cadence||modifier)){
+                hb_approach_result approach=hb_resolve_chord_approach(instance,pitch,collection,config,harmony,secondary,cadence,modifier,0);
                 pitch=approach.root;collection=approach.scale;config=approach.config;
                 intent_kind=approach.intent_kind;intent_target=approach.intent_target;intent_minor=approach.intent_minor;
             }else{
                 if(cadence){hb_cadence_result result=hb_resolve_cadence(instance,cadence,pitch,collection);pitch=result.root;collection=result.scale;}
-                else if(event->secondary)pitch+=hb_relative_approach_offset(event->secondary,pitch,hb_secondary_collection(instance,event->secondary,pitch,collection));
-                if(event->modifier<0)pitch--;
-                else if(event->modifier==1)pitch=hb_mt_walk(pitch,1,collection);
-                else if(event->modifier==2)pitch++;
+                else if(secondary){
+                    unsigned parent=hb_secondary_collection(instance,secondary,pitch,collection);
+                    pitch+=hb_ordinal_context(instance)?hb_context_approach_offset(instance,secondary,pitch,parent):hb_relative_approach_offset(secondary,pitch,parent);
+                }
+                if(modifier<0)pitch--;
+                else if(modifier==1)pitch=hb_mt_walk(pitch,1,collection);
+                else if(modifier==2)pitch++;
             }
             instance->motion.event_override=old_actions;instance->motion.render_flags=old_flags;
             instance->render_harmony=old_harmony;instance->render_harmony_active=old_active;
@@ -137,8 +149,8 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
             override_root=config.mode==2&&harmony.valid?harmony.root_pc:mod12(pitch);
             override_semantic|=semantic!=0;
             int rendered_pitches[HB_CP_VOICES];
-            for(int generated=0;generated<voices;generated++)rendered_pitches[generated]=instance->role==0?hb_key_map(phrase_key,pitches[generated]):pitches[generated];
-            if(instance->role==0&&phrase_key.active&&!phrase_key.blues&&config.mode&&
+            for(int generated=0;generated<voices;generated++)rendered_pitches[generated]=instance->role==0&&!event->selector?hb_key_map(phrase_key,pitches[generated]):pitches[generated];
+            if(!event->selector&&instance->role==0&&phrase_key.active&&!phrase_key.blues&&config.mode&&
                (intent_kind==2||intent_kind==3||(intent_kind>=8&&intent_kind<=10))){
                 int destination=mod12(hb_key_map(phrase_key,60+intent_target));
                 unsigned mapped_collection=hb_function_family(instance,destination,phrase_key.target_mask,hb_target_minor(phrase_key.target_mask,destination),0);
@@ -160,7 +172,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
                 staged[count-1].root_pc=override_root;
                 staged[count-1].intent_kind=intent_kind;staged[count-1].intent_target=intent_target;staged[count-1].intent_minor=intent_minor;
                 staged[count-1].intent_scale=phrase_key.approach_scale?scale:0;
-                if(generated==0)staged[count-1].trail_target=(unsigned short)((instance->role==0?hb_key_map(phrase_key,pitch):pitch)+1);
+                if(generated==0)staged[count-1].trail_target=(unsigned short)((instance->role==0&&!event->selector?hb_key_map(phrase_key,pitch):pitch)+1);
                 override_mask|=1u<<mod12(pitches[generated]);
                 if(pitches[generated]<override_bass)override_bass=pitches[generated];
             }

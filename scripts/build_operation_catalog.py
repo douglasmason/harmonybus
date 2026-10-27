@@ -63,7 +63,8 @@ def render_catalog(map_catalog: dict[str, Any]) -> tuple[str, str]:
     for selector in selectors:
         preferred_token: int = map_symbol_to_operation[selector['preferred']]['relative']['token']
         alternate_token: int = map_symbol_to_operation[selector['alternate']]['relative']['token']
-        header.append(f"    [{selector['choice']}] = {{-1,{selector['token']},0,0,0,-1,9,0,-1," +
+        motion: int = map_symbol_to_operation[selector['motion']]['id']
+        header.append(f"    [{selector['choice']}] = {{{motion},{selector['token']},0,0,0,-1,9,0,-1," +
                       f'{preferred_token},{alternate_token},' + json.dumps(selector['name']) + ',' + json.dumps(selector['short']) + '},')
     header.append('};')
     for field, limit, name in (('motion', len(operations), 'MOTION'), ('role', 18, 'ROLE'), ('token', 64, 'TOKEN'), ('trigger_index', 19, 'TRIGGER')):
@@ -71,10 +72,15 @@ def render_catalog(map_catalog: dict[str, Any]) -> tuple[str, str]:
             relative[field]: relative['choice'] + 1 for relative in relatives
             if field != 'role' or relative['role'] > 0
         }
+        if field == 'motion':
+            map_index_to_choice.update({map_symbol_to_operation[item['motion']]['id']: item['choice'] + 1 for item in selectors})
         assert all(0 <= index < limit for index in map_index_to_choice)
         header.append(f'static const unsigned char HB_RO_BY_{name}[{limit}] = {{' +
                       ','.join(str(map_index_to_choice.get(index, 0)) for index in range(limit)) + '};')
     header.append(f'#define HB_RO_SELECTOR_BASE {selector_base}')
+    header.append('static const char *HB_RO_SELECTOR_NAMES[] = {"Captured",' +
+                  ','.join(json.dumps(item['name']) for item in selectors) + '};')
+    header.append(f'#define HB_RO_SELECTOR_COUNT {len(selectors) + 1}')
     header.append('static const unsigned char HB_RO_BY_SELECTOR[] = {' +
                   ','.join(str(item['choice'] + 1) for item in selectors) + '};')
     header.append('typedef struct { const char *alias,*name; } hb_ro_alias;')
@@ -90,7 +96,7 @@ def render_catalog(map_catalog: dict[str, Any]) -> tuple[str, str]:
         for relative in sorted(relatives, key=lambda item: item['menu_order']) if relative['choice'] != 2
     ]
     menu.extend(dict(name=item['name'], short=item['short'], group='Smart Approaches',
-                     choice=item['choice'], token=item['token'], motion=-1) for item in selectors)
+                     choice=item['choice'], token=item['token'], motion=map_symbol_to_operation[item['motion']]['id']) for item in selectors)
     typescript: str = ('// Generated from HarmonyBus data/operations.json; no runtime/controller imports.\n' +
                       'export const RELATIVE_OPERATIONS = ' + json.dumps(menu, separators=(',', ':')) + ';\n' +
                       'export const APPROACH_OPERATION_CHOICES = RELATIVE_OPERATIONS.map(operation => operation.name);\n')

@@ -1,3 +1,5 @@
+HarmonyBus 0.2.304 adds eight-note input scales, Smart operation lanes and adaptive authored motif steps. Pair with Movy hbclean.272. See [relative operations](relative-operations.md).
+
 HarmonyBus 0.2.303 adds Smart Below / Smart Above bank selectors and shared relative-operation definitions. See [relative operations](relative-operations.md).
 
 HarmonyBus 0.2.302 derives Chord Play quality hues from the resolved chord scale, independently of voiced form. See [implied quality](implied-quality.md).

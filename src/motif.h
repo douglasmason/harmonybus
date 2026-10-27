@@ -21,7 +21,7 @@ enum { HB_MT_AUTO, HB_MT_CHROMATIC, HB_MT_SCALE };
 typedef struct { unsigned char pitch,velocity; } hb_mt_note;
 typedef struct {
     int kind,duration,count,relation,modifier,secondary,cadence,chord_mode;
-    unsigned scale,flags;
+    unsigned scale,flags,selector; /* Zero: captured outcome; otherwise adaptive RO token. */
     unsigned long long actions[HB_MOTION_LANES+1];
     hb_mt_note notes[HB_MT_VOICES];
 } hb_mt_event;
@@ -42,7 +42,7 @@ typedef struct {
 typedef struct {
     int lane,selected,armed,recording,duration,relation,chord_entry,anchor_next,open;
     int arrival,late,span,target,error,cursor,open_step,changed,undo_valid;
-    int playback,preset,tap_grid,completion,placement;
+    int playback,preset,tap_grid,completion,placement,operation;
     unsigned char held[16][128],swallow[16][128];
     hb_mt_phrase draft,undo;
 } hb_mt_recorder;
@@ -138,7 +138,7 @@ static void hb_mt_preset(int preset,hb_mt_phrase *phrase){
 /* Compare stored input identity, never the currently rendered voicing.
    Velocity/duration are deliberately excluded and retained on extraction. */
 static int hb_mt_is_target(const hb_mt_event *event,const hb_mt_event *reference){
-    if(event->kind||!event->count||event->modifier)return 0;
+    if(event->kind||!event->count||event->modifier||event->selector)return 0;
     if(event->cadence){
         const hb_cadence_step *cadence=hb_cadence_decode(event->cadence);
         if(!cadence||(cadence->kind!=HB_CAD_TARGET&&cadence->kind!=HB_CAD_MINOR_TARGET))return 0;
@@ -310,6 +310,7 @@ static int hb_mt_add(hb_mt_recorder *editor,int channel,int pitch,int velocity,c
     if(!editor->open){
         hb_mt_event *event=hb_mt_entry(editor);if(!event)return 0;*event=*intent;
         event->kind=0;event->count=0;event->duration=HB_MT_DURATIONS[editor->duration];event->relation=editor->relation;
+        if(editor->operation)event->selector=HB_RO_SELECTOR_BASE+editor->operation-1;
         editor->open=1;editor->open_step=editor->cursor;
         if(editor->anchor_next){editor->draft.anchor=editor->cursor;editor->anchor_next=0;}
     }
