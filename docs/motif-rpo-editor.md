@@ -1,6 +1,6 @@
 # Motif Relative Operation editor
 
-HarmonyBus 0.2.310 and Movy 0.34.1-hbclean.283 let an authored motif step use any supported Relative Pitch Operation (RPO): LT, Upper Dim, Connector Below/Above, parent secondaries, dominant approaches, substitutions, Smart Below, or Smart Above.
+HarmonyBus 0.2.310 and Movy 0.34.1-hbclean.284 let an authored motif step use any supported Relative Pitch Operation (RPO): LT, Upper Dim, Connector Below/Above, parent secondaries, dominant approaches, substitutions, Smart Below, or Smart Above.
 
 Open a Play Motif lane's editor, begin editing, select a note step, and turn **Relative Operation** in **Motif Tools**. A choice edits the selected step and becomes the choice for newly entered notes. On a rest, tie, or empty position it only changes the next-entry choice. Finish with Done. Undo restores the previous draft.
 
