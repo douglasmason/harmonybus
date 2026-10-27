@@ -17,7 +17,7 @@ static void hb_discovery_stop(Inst *instance){
 }
 static void hb_discovery_probe(Inst *instance,const char *parameter){
     int conductor_track,variant,offset=0,fields[9],range=0,note=0;
-    instance->discovery_count=0;strcpy(instance->discovery_text,"--");
+    instance->discovery_count=0;memcpy(instance->discovery_text,"--",3);
     if(sscanf(parameter,"%d,%d;%n",&conductor_track,&variant,&offset)!=2||offset<=0||
        conductor_track<0||conductor_track>=16||variant<0||variant>6||
        !hb_selection_parse_register(parameter+offset,fields,&range))return;
