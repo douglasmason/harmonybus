@@ -1,3 +1,5 @@
+HarmonyBus 0.2.306 applies the parent key before the first conductor chord. Pair with Movy hbclean.274. See [parent key and pad position](docs/pad-parent-key.md).
+
 HarmonyBus 0.2.305 adds on-demand chord discovery and non-recording voicing audition for Movy hbclean.273. See [Chord Discovery](docs/chord-discovery.md) for controls and validation.
 
 HarmonyBus 0.2.281 extracts the shared portable musical core without changing musical behavior. Preserves the 0.2.280 scale diagnostics, rhythm performance and Grid gates. Pair with Movy hbclean.202 for opt-in stock FM-1 USB MIDI input; no firmware update is required.
