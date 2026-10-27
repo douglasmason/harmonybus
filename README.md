@@ -1,3 +1,5 @@
+HarmonyBus 0.2.305 adds on-demand chord discovery and non-recording voicing audition for Movy hbclean.273. See [Chord Discovery](docs/chord-discovery.md) for controls and validation.
+
 HarmonyBus 0.2.281 extracts the shared portable musical core without changing musical behavior. Preserves the 0.2.280 scale diagnostics, rhythm performance and Grid gates. Pair with Movy hbclean.202 for opt-in stock FM-1 USB MIDI input; no firmware update is required.
 
 > HarmonyBus 0.2.280 explains the resolved chord scale in Track Scales > Scale Status, including its source and the effective Parallel/Key parent. Raised-Avoid follower changes and generated-chord Raise Avoid previews are shown separately. Auto Local now reuses Target Scale = Simplified and Simple Minor on an established minor tonic; Auto and Parent retain their behavior. Explicit minor-seventh chord tones remain protected. No new scale selector or Movy update is required.
