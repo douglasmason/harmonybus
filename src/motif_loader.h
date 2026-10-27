@@ -121,11 +121,11 @@ static int hb_ml_get(Inst *instance,const char *key,char *buffer,int length){
     if(!strcmp(key,"motif_load_labels")){
         if(g_ml_owner!=instance)return snprintf(buffer,(size_t)length,"Preview expired");
         int used=0;
-        static const char *roles[]={"Input","ii","V","T","vi","iv","bVII","bII","iii","IV","vii"};
         for(int i=0;i<g_ml_plan.count&&used<length;i++){
             const hb_mc_event *item=&g_ml_plan.events[i];const hb_mt_event *e=&item->event;
             const hb_cadence_step *cadence=hb_cadence_decode(e->cadence);
-            const char *label=item->source_step==-1?"T":e->kind?"Rest":cadence?cadence->label:e->modifier<0?"LT":e->modifier==2?"bII":e->secondary==12?"LT":e->secondary==13?"Upper Dim":e->secondary>=0&&e->secondary<11?roles[e->secondary]:"Input";
+            const hb_ro_definition *operation=hb_ro_resolved(e->secondary,e->modifier,(e->flags&HB_MO_CONNECTOR_ABOVE)!=0);
+            const char *label=item->source_step==-1?"T":e->kind?"Rest":cadence?cadence->label:operation?operation->short_name:e->secondary==3?"T":"Input";
             used+=snprintf(buffer+used,(size_t)(length-used),"%s%s",i?" > ":"",label);
         }
         return used>=length?snprintf(buffer,(size_t)length,"Long motif"):used;

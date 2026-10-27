@@ -27,6 +27,7 @@ typedef struct {
     unsigned rhythm_serial;double rhythm_release_at;
     int input_degree,input_target,input_shift;unsigned input_token;
     unsigned transform_revision,trail_serial;
+    unsigned relative_feedback;
     int notes[HB_CP_VOICES];
     int release_synced,release_follow;double release_start,release_end;
     double due[HB_CP_VOICES];

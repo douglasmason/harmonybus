@@ -106,6 +106,7 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
             /* Adaptive steps choose in the effective destination collection.
                Map the target first, then render the complete chosen operation. */
             if(event->selector&&instance->role==0){pitch=hb_key_map(phrase_key,pitch);collection=hb_key_mask(phrase_key,collection);}
+            int feedback_target=pitch;
             int intent_kind=0,intent_target=mod12(pitch),intent_minor=0;
             const unsigned long long *old_actions=instance->motion.event_override;unsigned long long old_flags=instance->motion.render_flags;
             hb_harmony_t old_harmony=instance->render_harmony;int old_active=instance->render_harmony_active;
@@ -119,6 +120,9 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
                 secondary=resolved->role;modifier=resolved->modifier;cadence=0;
                 instance->motion.render_flags&=~(HB_MO_SIMPLE|HB_MO_SIMPLE_SCALE|HB_MO_CONNECTOR_ABOVE|HB_MO_LEGACY_II);
             }
+            if(config.mode&&secondary==2&&hb_current_target_diminished(instance,collection,pitch))secondary=12;
+            const hb_ro_definition *feedback_operation=cadence?0:hb_ro_resolved(secondary,modifier,
+                (instance->motion.render_flags&HB_MO_CONNECTOR_ABOVE)!=0);
             if(config.mode&&(secondary||cadence||modifier)){
                 hb_approach_result approach=hb_resolve_chord_approach(instance,pitch,collection,config,harmony,secondary,cadence,modifier,0);
                 pitch=approach.root;collection=approach.scale;config=approach.config;
@@ -148,6 +152,8 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
             override_mask|=semantic;
             override_root=config.mode==2&&harmony.valid?harmony.root_pc:mod12(pitch);
             override_semantic|=semantic!=0;
+            int feedback_root=config.mode==2&&harmony.valid?harmony.root_pc:pitch;
+            if(instance->role==0&&!event->selector){feedback_root=hb_key_map(phrase_key,feedback_root);feedback_target=hb_key_map(phrase_key,feedback_target);}
             int rendered_pitches[HB_CP_VOICES];
             for(int generated=0;generated<voices;generated++)rendered_pitches[generated]=instance->role==0&&!event->selector?hb_key_map(phrase_key,pitches[generated]):pitches[generated];
             if(!event->selector&&instance->role==0&&phrase_key.active&&!phrase_key.blues&&config.mode&&
@@ -156,17 +162,20 @@ static int hb_mt_schedule(Inst *instance,const hb_mt_phrase *phrase,int input,in
                 unsigned mapped_collection=hb_function_family(instance,destination,phrase_key.target_mask,hb_target_minor(phrase_key.target_mask,destination),0);
                 int root=mod12(destination+(intent_kind==2?7:intent_kind==3?11:hb_nth_scale_interval_from_root(mapped_collection,destination,1+2*(intent_kind-8))));
                 int mapped_pitch=hb_cp_nearest(hb_key_map(phrase_key,pitch),1u<<root);
+                feedback_root=mapped_pitch;
                 hb_cp_config mapped_config=config;mapped_config.mode=1;
                 mapped_config.quality=intent_kind==2?6:intent_kind==3?9:0;
                 int mapped_count=hb_cp_voice_semantic(mapped_config,mapped_pitch,mod12(pitch),semantic,mapped_collection,rendered_pitches,0);
                 /* Forms retain voice cardinality under seven-note family changes. */
                 if(mapped_count<voices)voices=mapped_count;
             }
+            unsigned feedback_mask=0;for(int generated=0;generated<voices;generated++)feedback_mask|=1u<<mod12(rendered_pitches[generated]);
             for(int generated=0;generated<voices;generated++){
                 if(pitches[generated]<0||pitches[generated]>127)continue;
                 if(count>=HB_MT_SCHEDULE){editor->error=8;return 0;}
                 int gain=(int)event->notes[voice].velocity*velocity/100;
                 staged[count++]=(hb_mt_scheduled){onset,end,rendered_pitches[generated],hb_cp_clamp(gain,1,127),channel,instance->render_channel,0,1};
+                if(generated==0)staged[count-1].relative_feedback=hb_rf_make(feedback_operation,feedback_target,feedback_root,feedback_mask,config.mode!=0,2);
                 staged[count-1].reference_pitch=pitches[generated];
                 staged[count-1].semantic_mask=semantic;
                 staged[count-1].root_pc=override_root;
@@ -326,6 +335,7 @@ static int hb_mt_emit(Inst *instance,hb_mt_scheduled *event,int on,uint8_t outpu
     }
     if(!local_shared){output[0][0]=(uint8_t)((on?0x90:0x80)|event->channel);output[0][1]=(uint8_t)event->pitch;output[0][2]=(uint8_t)(on?event->velocity:0);lengths[0]=3;}
     if(event->render>=0&&!render_shared){uint8_t packet[4]={(uint8_t)(on?0x29:0x28),(uint8_t)((on?0x90:0x80)|event->render),(uint8_t)event->pitch,(uint8_t)(on?event->velocity:0)};hb_send_render_raw(instance,packet,event->render==event->channel);}
+    if(on&&event->relative_feedback)hb_rf_publish(&instance->relative_feedback_word,event->relative_feedback);
     if(on&&!local_shared)hb_trail_heard(instance,event->trail_target);
     event->started=on;
     if(on&&instance->key_pending&&event->on+1e-6>=instance->key_pending_at){hb_key_commit_pending(instance);}

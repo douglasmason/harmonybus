@@ -1,4 +1,4 @@
-HarmonyBus 0.2.306 applies the parent key before the first conductor chord. Pair with Movy hbclean.274. See [parent key and pad position](docs/pad-parent-key.md).
+HarmonyBus 0.2.307 applies the parent key before the first conductor chord. Pair with Movy hbclean.275. See [parent key and pad position](docs/pad-parent-key.md).
 
 HarmonyBus 0.2.305 adds on-demand chord discovery and non-recording voicing audition for Movy hbclean.273. See [Chord Discovery](docs/chord-discovery.md) for controls and validation.
 

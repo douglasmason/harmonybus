@@ -1,4 +1,4 @@
-# Parent key before the first chord — HarmonyBus 0.2.306
+# Parent key before the first chord — HarmonyBus 0.2.307
 
 Follower notes now use the selected parent key even before a conductor has played
 or selected a chord. Previously the display could show D major while the same
@@ -9,7 +9,7 @@ explicit input roots, recorded source degrees, Parallel and master transpose kee
 their existing meaning. Closest and directional key-travel policies remain
 intentional alternatives to Relative. No new mode or key setting is added.
 
-Pair with Movy hbclean.274 for the parent-key readout and pad-position control.
+Pair with Movy hbclean.275 for the parent-key readout and pad-position control.
 In Set Parameters, knob 8 changes position; Shift + touch resets it. Left/Right
 still shift pads during melodic note play, including Chord Play. The parent key
 does not move when the pad pattern moves.
