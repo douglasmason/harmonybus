@@ -125,7 +125,7 @@ static int hb_ml_get(Inst *instance,const char *key,char *buffer,int length){
             const hb_mc_event *item=&g_ml_plan.events[i];const hb_mt_event *e=&item->event;
             const hb_cadence_step *cadence=hb_cadence_decode(e->cadence);
             const hb_ro_definition *operation=hb_ro_resolved(e->secondary,e->modifier,(e->flags&HB_MO_CONNECTOR_ABOVE)!=0);
-            const char *label=item->source_step==-1?"T":e->kind?"Rest":cadence?cadence->label:operation?operation->short_name:"Input";
+            const char *label=item->source_step==-1?"T":e->kind?"Rest":cadence?cadence->label:operation?operation->short_name:e->secondary==3?"T":"Input";
             used+=snprintf(buffer+used,(size_t)(length-used),"%s%s",i?" > ":"",label);
         }
         return used>=length?snprintf(buffer,(size_t)length,"Long motif"):used;

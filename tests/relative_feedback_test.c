@@ -80,4 +80,14 @@ static void motif_onsets(void){
     }
     API.destroy_instance(instance);
 }
-int main(void){live_and_recorded();live_key_and_parallel();motif_onsets();puts("Rendered operation feedback: live/recorded, raw/chord, key/Parallel, preview, mapped motifs, read isolation and stop clearing pass");}
+static void clip_labels(void){
+    Inst *instance=approach_fixture();g_ml_owner=instance;memset(&g_ml_plan,0,sizeof(g_ml_plan));g_ml_plan.count=5;
+    g_ml_plan.events[0].event.modifier=-1;
+    g_ml_plan.events[1].event.modifier=2;g_ml_plan.events[1].event.flags=HB_MO_CONNECTOR_ABOVE;
+    g_ml_plan.events[2].event.secondary=12;g_ml_plan.events[3].event.secondary=13;
+    g_ml_plan.events[4].event.secondary=3;
+    char labels[128];API.get_param(instance,"motif_load_labels",labels,sizeof(labels));
+    assert(!strcmp(labels,"CCB > CCA > LT > UD > T"));
+    API.destroy_instance(instance);
+}
+int main(void){live_and_recorded();live_key_and_parallel();motif_onsets();clip_labels();puts("Rendered operation feedback: live/recorded, raw/chord, key/Parallel, preview, mapped motifs, read isolation, stop clearing and clip labels pass");}
