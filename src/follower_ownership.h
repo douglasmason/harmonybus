@@ -8,6 +8,7 @@ typedef struct {
     int used,source,channel,origin,pitch,velocity;
     hb_harmony_t harmony;
     hb_input_intent input;
+    unsigned relative_feedback;
     unsigned long long events[HB_MOTION_LANES+1];
 } hb_follower_voice;
 static int hb_fv_identity(int source,int channel,int origin){return 1+source+128*channel+2048*origin;}

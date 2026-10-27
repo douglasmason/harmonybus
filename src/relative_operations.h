@@ -32,6 +32,12 @@ static const hb_ro_definition *hb_ro_trigger(unsigned trigger){
     int index=hb_ro_trigger_index(trigger);
     return index>=0?hb_ro_choice(HB_RO_BY_TRIGGER[index]-1):0;
 }
+/* The already resolved musical fields share one presentation identity. */
+static const hb_ro_definition *hb_ro_resolved(int role,int modifier,int connector_above){
+    if(role)return hb_ro_role(role);
+    return modifier?hb_ro_motion(modifier<0?HB_MO_BELOW:modifier==1?HB_MO_ABOVE:
+        modifier==2&&connector_above?HB_MO_CHROM_ABOVE:HB_MO_TRITONE_V):0;
+}
 static const char *hb_ro_canonical_name(const char *name){
     for(unsigned index=0;index<sizeof(HB_RO_ALIASES)/sizeof(HB_RO_ALIASES[0]);index++)
         if(!strcmp(name,HB_RO_ALIASES[index].alias))return HB_RO_ALIASES[index].name;
