@@ -143,6 +143,46 @@ when it stops applying. This is channel-wide, not independent per-note pan. The
 receiving instrument must support CC10. Independent voice panning would require
 an instrument/voice control mechanism.
 
+## Pendulum sculpting with Triangle
+
+Use the existing **Triangle** pattern to make an operation value rise and fall.
+For a repeating velocity swell, choose an unused lane and set:
+
+| Panel | Settings |
+|---|---|
+| Operation | Operation **Velocity**, Pattern **Triangle**, Amount **25**, Offset **0**, Auto **On** |
+| Timing / Trigger | Grid **1/8**, Cycle **1 Bar**, Phase **0**, Probability **100%**, Advance **Clock** |
+| Conditions | Every **1**, From **1**, Through **1** |
+
+Keep automatic operations enabled and leave this lane's field modulation
+unmapped. With no other velocity changes, eight input attacks at velocity 80,
+one on each eighth-note grid position starting at transport beat zero, render
+as **60, 70, 80, 90, 100, 90, 80, 70**, then repeat. The Triangle samples are
+`−1, −0.5, 0, 0.5, 1, 0.5, 0, −0.5`; Velocity applies the resulting percentage
+change to each incoming velocity.
+
+**Amount** sets the excursion, **Offset** moves its center, **Cycle** sets the
+duration, and **Phase** shifts the starting position in grid steps. A negative
+Amount reverses the shape. Grid determines how often the sampled value changes.
+The same pattern can shape Gate, Rotate or Transpose, using that operation's
+units. For a Gate sweep, Amount 25 and Offset 50 give 25–75% of the grid.
+Values apply when notes are generated; a Velocity swell does not change the
+velocity of an already sounding note.
+
+Use **Advance Note** or **Chord** to step through the shape on accepted input
+events. Generated chord voices, arpeggio attacks, ratchets and echoes do not
+advance those input counters. Keep **Clock** for a swell across an ongoing
+arpeggio.
+
+In Movy, the editable source remains the abstract clip data and operation intent.
+This recipe configures an operation evaluated in the existing rendering path;
+the resulting MIDI drives stock Schwung or other Movy instruments. Applying the
+lane does not rewrite the source clip or require editing rendered MIDI.
+
+For a pendulum through pitches in an arpeggio, choose **Arp Order: Up-Down**.
+That is a separate control: it traverses the note pool without repeating the
+endpoints (`1, 2, 3, 4, 3, 2`). Triangle shapes an operation value.
+
 ## Cycle conditions
 
 The **Conditions** page automates Auto-capable note operations on selected
