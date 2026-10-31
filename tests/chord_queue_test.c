@@ -24,6 +24,48 @@ static void snapshot(Inst *conductor,const char *tail){
     char tiny[4]={0,0,0,99};int full=hb_cq_status(conductor,tiny,3);
     assert(full==(int)strlen(buffer)&&tiny[2]==0&&tiny[3]==99);
 }
+static void sustained_loop(Inst *conductor){
+    API.set_param(conductor,"hb_chord_queue","off");
+    API.set_param(conductor,"chord_queue_depth","4");
+    API.set_param(conductor,"chord_queue_end","Loop");
+    API.set_param(conductor,"chord_timing","1 Bar");
+    API.set_param(conductor,"anticipation","On Grid");
+    running=0;position=0;held=-1;
+    const int roots[]={0,7,5,2};
+    for(int index=0;index<4;index++)choose(conductor,roots[index]);
+    assert(take(conductor));snapshot(conductor,"|0|4|C|G|F|D");
+    char bank[1024]="",status[4096];
+    for(int slot=0;slot<21;slot++)strcat(bank,slot?";0,1,0,1,0,1,12,0,0":"0,1,0,1,0,1,12,0,0");
+    API.set_param(conductor,"hb_chord_bank",bank);
+    API.get_param(conductor,"hb_chord_bank_snapshot",status,sizeof(status));
+    assert(!strcmp(strrchr(status,','),",1")); /* C is in the loop, not pending. */
+    running=1;assert(!take(conductor));
+    for(int change=1;change<=2048;change++){
+        double scheduled=change*4.0;
+        position=scheduled-1.0/96.0;
+        assert(!take(conductor));
+        /* Sporadic late service after two clean loops must not move the grid. */
+        position=scheduled+(change>8&&change%7==0?0.375:0.0);
+        assert(take(conductor));assert(!take(conductor));
+        assert(hb_live_selection(conductor).root_pc==roots[change%4]);
+        assert(g_chord_queue.pending[0].at==scheduled+4.0);
+        assert(g_chord_queue.cycle_count==4&&g_chord_queue.history_count<=HB_CQ_HISTORY);
+        assert(hb_cq_at(conductor,scheduled,0).root_pc==roots[change%4]);
+        assert(hb_cq_at(conductor,scheduled-0.5,0).root_pc==roots[(change-1)%4]);
+        if(change>64)assert(hb_cq_at(conductor,scheduled-63*4.0,0).root_pc==roots[(change-63)%4]);
+    }
+    /* A due chord must win over restoration of a voice invalidated by another
+       operation. Otherwise every reset can replay the old chord before it. */
+    position+=4.0;
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));
+    held=-1;
+    assert(take(conductor));
+    assert(hb_live_selection(conductor).root_pc==7);
+    API.set_param(conductor,"chord_queue_end","Hold");
+    API.get_param(conductor,"hb_chord_bank_snapshot",status,sizeof(status));
+    assert(!strcmp(strrchr(status,','),",0")); /* Hold shows only future members. */
+    running=0;assert(!take(conductor));
+}
 int main(void){
     Inst *follower=fixture();host.get_clock_status=queue_clock;host.get_beat_position=queue_beat;position=0;running=0;
     Inst *conductor=API.create_instance("",0);API.set_param(conductor,"role","Conductor");
@@ -174,6 +216,7 @@ int main(void){
     /* Status reads at a future boundary cannot advance either queue or cursor. */
     position=20;snapshot(conductor,"|2|3|C|C|F");assert(take(conductor));snapshot(conductor,"|0|3|C|C|F");
     running=0;assert(!take(conductor));API.get_param(conductor,"hb_chord_queue_status",buffer,sizeof(buffer));assert(!strcmp(buffer,"--"));
+    sustained_loop(conductor);
     API.destroy_instance(conductor);API.destroy_instance(follower);
     puts("Queued chords: seed, grid/anticipation, stopped preload, lookahead/late, motif arrival, empty hold, capacity, recorded isolation and lifecycle pass");
 }
