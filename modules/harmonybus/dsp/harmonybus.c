@@ -78,6 +78,14 @@ struct host_api_v1 {
     double (*get_beat_position)(void);
 };
 static const host_api_v1_t *g_host = 0;
+/* One optional-host tempo boundary for 1.7.3, 1.8.2 and standalone hosts.
+ * Preserve every valid value (including fractional BPM); do not smooth the
+ * host's already held clock or replace abstract clip/transport phase. */
+static double hb_host_bpm(void){
+    double bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
+    return bpm>=20.0&&bpm<=999.0?bpm:120.0;
+}
+
 /* The loader calls init/create on the same thread. Copy callbacks into each
  * instance; a later chain init must never redirect an existing route. */
 static _Thread_local const host_api_v1_t *g_field_init_host;
@@ -1625,8 +1633,7 @@ static void hb_commit_observed_harmony(hb_harmony_t harmony){
 }
 static void hb_next_confirm_observed(double beat){
     if(!next_pending_active)return;
-    double bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
-    if(bpm<=0.0)bpm=120.0;
+    double bpm=hb_host_bpm();
     /* Confirm for at least 25ms; retain the original transition phase. */
     double confirmation=(g_bus.inference_window_ms>25?g_bus.inference_window_ms:25)*bpm/60000.0;
     if(beat-next_pending_beat+1e-9<confirmation)return;
@@ -1754,8 +1761,8 @@ static void hb_next_update_playhead(int frames,int sample_rate){
         int expected=hb_next_model_event_for_phase(phase,0);
         if(expected>=0){
             double age=phase-g_bus.next_model[expected].phase;if(age<0)age+=length;
-            double bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
-            double grace=(g_bus.inference_window_ms+25)*(bpm>0?bpm:120.0)/60000.0;
+            double bpm=hb_host_bpm();
+            double grace=(g_bus.inference_window_ms+25)*bpm/60000.0;
             if(grace<0.125)grace=0.125;
             if(age>grace&&beat-age+1e-6>=g_clip_cache_activated&&
                !hb_harmony_equal_effective(g_bus.next_model[expected].harmony,g_bus.observed_harmony)){
@@ -4071,7 +4078,7 @@ static uint16_t hb_active_mask(const Inst *instance){
 }
 static int hb_timescale_frames(int sample_rate){
     if(g_bus.chord_timescale==0)return 0;
-    float bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0f;if(bpm<20.0f)bpm=120.0f;
+    float bpm=hb_host_bpm();
     float quarter_seconds=60.0f/bpm;
     static const float quarter_units[6]={0.0f,0.25f,0.5f,1.0f,2.0f,4.0f};
     return (int)(quarter_seconds*quarter_units[g_bus.chord_timescale]*(float)sample_rate);
@@ -5255,8 +5262,7 @@ static int tick_core(void *value,int frames,int sample_rate,uint8_t output[][3],
     double elapsed=sample_rate>0?(double)frames/sample_rate:0.0;
     player->seconds+=elapsed;
     double previous_beat=player->beat;
-    double tempo=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
-    if(tempo<=0.0)tempo=120.0;
+    double tempo=hb_host_bpm();
     player->release_beats+=elapsed*tempo/60.0;
     player->beat=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING?hb_current_beat():player->beat+elapsed*tempo/60.0;
     if(player->beat+1e-6<previous_beat)hb_cp_clear(player);
@@ -5556,14 +5562,14 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
     /* One shared clock owner; never multiply motion by the instance count. */
     int field_owner=0;while(field_owner<HB_MAX_INSTANCES&&!g_pool[field_owner].used)field_owner++;
     if(!g_field_managed_clock&&field_owner<HB_MAX_INSTANCES&&instance==&g_pool[field_owner]&&frames>0&&sample_rate>0){
-        double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120;
-        hb_nf_advance((double)frames/sample_rate,bpm>0?bpm:120);
+        double bpm=hb_host_bpm();
+        hb_nf_advance((double)frames/sample_rate,bpm);
     }
     hb_mt_choice_advance(instance,frames>0&&sample_rate>0?(double)frames/sample_rate:0);
     hb_gesture_finish_use(instance);
     if(HB_SCOPED_TICK_SYNC&&g_conductor_block_ready)hb_auto_chord_repeat_sync(instance);
     else for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
-    if(frames>0&&sample_rate>0){double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120.0;if(bpm<=0)bpm=120.0;instance->motion_beat+=(double)frames*bpm/(60.0*sample_rate);}
+    if(frames>0&&sample_rate>0){double bpm=hb_host_bpm();instance->motion_beat+=(double)frames*bpm/(60.0*sample_rate);}
     hb_motion_tick_routes(instance);
     /* Receiver already owns shared rendered gates. Only drain this route while
        a previous Conductor/Follower role still has pending output. */
@@ -5674,8 +5680,7 @@ static double hb_anticipation_beats(void){
     return (index>=0&&index<6)?beats[index]:0.0;
 }
 static double hb_ms_to_beats(int milliseconds){
-    double bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
-    if(bpm<=0.0)bpm=120.0;
+    double bpm=hb_host_bpm();
     return ((double)milliseconds*bpm)/(60000.0);
 }
 static double hb_current_beat(void){
@@ -6042,7 +6047,7 @@ if(!strcmp(key,"hb_movy_block")){
     if(sscanf(parameter,"%llu,%d,%d",&block,&frames,&rate)==3&&frames>0&&rate>0&&
        (!g_conductor_block_ready||block!=g_conductor_block_id)){
         hb_movy_refresh();
-        if(g_field_managed_clock){double bpm=g_host&&g_host->get_bpm?g_host->get_bpm():120;hb_nf_advance((double)frames/rate,bpm>0?bpm:120);}
+        if(g_field_managed_clock){double bpm=hb_host_bpm();hb_nf_advance((double)frames/rate,bpm);}
         g_conductor_block_id=block;g_conductor_block_ready=1;
         hb_prepare_conductors(frames,rate);
         if(HB_SCOPED_TICK_SYNC){
@@ -7102,8 +7107,8 @@ if(!strcmp(key,"timing_next_at")||!strcmp(key,"timing_next_chord")){
 }
 if(!strcmp(key,"render_velocity_gain"))return snprintf(buffer,(size_t)length,"%.4f",instance->render_velocity_gain/10000.0);
 if(!strcmp(key,"hb_tempo")){
-    double bpm=(g_host&&g_host->get_bpm)?g_host->get_bpm():120.0;
-    return snprintf(buffer,(size_t)length,"%.0f",bpm>0?bpm:120.0);
+    double bpm=hb_host_bpm();
+    return snprintf(buffer,(size_t)length,"%.0f",bpm);
 }
 if(!strcmp(key,"humanize_timing")||!strcmp(key,"humanize_velocity")||!strcmp(key,"humanize_gate")){
     int index=!strcmp(key,"humanize_timing")?0:!strcmp(key,"humanize_velocity")?1:2;

@@ -1,5 +1,12 @@
 [
   {
+    "name": "host_tempo_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/host_tempo_test.c src/harmony_core.c -lm -o /tmp/host_tempo_test",
+      "/tmp/host_tempo_test"
+    ]
+  },
+  {
     "name": "stock_field_clock_test",
     "commands": [
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/stock_field_clock_test.c src/harmony_core.c -lm -o /tmp/stock_field_clock_test",
