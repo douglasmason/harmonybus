@@ -103,14 +103,18 @@ static void hb_cq_enqueue(Inst *instance,const char *parameter){
 static int hb_cq_take(Inst *instance,char *buffer,int length){
     hb_cq_sync();
     if(!hb_cq_owned(instance)||!hb_cq_owner())return snprintf(buffer,(size_t)length,"off");
+    double now=hb_current_beat();
+    int due=hb_cq_ready()&&(g_chord_queue.running||g_chord_queue.seed)&&
+        g_chord_queue.pending[0].at>=0&&now+1e-6>=g_chord_queue.pending[0].at;
     /* Transport start and chord-state operations drain native voice ownership.
-       Restore the held current selection through the same host input bridge. */
-    if(!g_chord_queue.seed&&g_chord_queue.history_count&&!hb_live_selection(instance).valid){
+       Restore only between changes: replaying the old selection must never
+       displace a chord already due at this sequencer boundary. */
+    if(!due&&!g_chord_queue.seed&&g_chord_queue.history_count&&!hb_live_selection(instance).valid){
         hb_cq_event current=g_chord_queue.history[g_chord_queue.history_count-1];
         instance->selection_pending=current.word;instance->selection_note=current.note;
         return snprintf(buffer,(size_t)length,"%d",current.note);
     }
-    if(!hb_cq_ready()||(!g_chord_queue.running&&!g_chord_queue.seed)||g_chord_queue.pending[0].at<0||hb_current_beat()+1e-6<g_chord_queue.pending[0].at)return snprintf(buffer,(size_t)length,"--");
+    if(!due)return snprintf(buffer,(size_t)length,"--");
     hb_cq_event event=g_chord_queue.pending[0];
     if(g_chord_queue.seed)event.at=hb_current_beat();
     g_chord_queue.seed=0;
@@ -139,9 +143,17 @@ static hb_harmony_t hb_cq_at(const Inst *instance,double beat,int shifted){
         if((hb_next_immediate_for(instance)||(delay>=0&&beat-selected.at>=delay))&&hb_cq_ready())return hb_cq_next();
         if(delay<0)beat+=hb_next_shift_beats_for(instance);
     }
-    selected=queue->history[0];
-    for(int index=1;index<queue->history_count;index++)if(queue->history[index].at<=beat+1e-6)selected=queue->history[index];
-    for(int index=0;index<queue->count;index++)if(queue->pending[index].at>=0&&queue->pending[index].at<=beat+1e-6)selected=queue->pending[index];
+    /* Most audio reads ask for now. Search backwards only for an explicitly
+       delayed harmony, rather than rescanning a growing history every read. */
+    if(selected.at>beat+1e-6){
+        selected=queue->history[0];
+        for(int index=queue->history_count-2;index>0;index--)
+            if(queue->history[index].at<=beat+1e-6){selected=queue->history[index];break;}
+    }
+    for(int index=0;index<queue->count;index++){
+        if(queue->pending[index].at<0||queue->pending[index].at>beat+1e-6)break;
+        selected=queue->pending[index];
+    }
     return hb_selection_decode(selected.word,selected.note);
 }
 static double hb_cq_boundary_for(const Inst *instance,double beat){
