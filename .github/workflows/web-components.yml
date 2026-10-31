@@ -1,0 +1,16 @@
+name: Shared web components
+on:
+  pull_request:
+    paths: ['modules/harmonybus/*web*', 'tests/*web*', '.github/workflows/web-components.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  components:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tests/field_web_test.mjs && node tests/choice_web_test.mjs && node tests/web_components_test.mjs
