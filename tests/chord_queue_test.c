@@ -25,6 +25,115 @@ static void snapshot(Inst *conductor,const char *tail){
     char tiny[4]={0,0,0,99};int full=hb_cq_status(conductor,tiny,3);
     assert(full==(int)strlen(buffer)&&tiny[2]==0&&tiny[3]==99);
 }
+static void preview_snapshot(Inst *conductor){
+    hb_chord_queue before=g_chord_queue;
+    hb_harmony_t expected[HB_CQ_CAPACITY+3]={0};
+    if(before.history_count){
+        hb_cq_event event=before.history[before.history_count-1];
+        expected[0]=hb_key_harmony(conductor,hb_selection_decode(event.word,event.note));
+    }
+    if(before.count){
+        hb_cq_event event=before.pending[0];
+        expected[1]=hb_key_harmony(conductor,hb_selection_decode(event.word,event.note));
+    }
+    int cycle=conductor->chord_queue_loop&&!before.waiting&&before.cycle_count;
+    int count=cycle?before.cycle_count:before.count+(expected[0].valid?1:0);
+    for(int index=0;index<count;index++){
+        if(!cycle&&expected[0].valid&&index==0)expected[index+2]=expected[0];
+        else {
+            hb_cq_event event=cycle?before.cycle[index]:before.pending[index-(expected[0].valid?1:0)];
+            expected[index+2]=hb_key_harmony(conductor,hb_selection_decode(event.word,event.note));
+        }
+    }
+    hb_key_harmony_cache musical[4];memcpy(musical,conductor->key_cache,sizeof(musical));
+    unsigned cursor=conductor->key_cache_cursor;
+    for(int read=0;read<3;read++){
+        char buffer[2048];hb_cq_status(conductor,buffer,sizeof(buffer));
+        assert(!memcmp(&before,&g_chord_queue,sizeof(before)));
+        assert(cursor==conductor->key_cache_cursor);
+        assert(!memcmp(musical,conductor->key_cache,sizeof(musical)));
+        int cell=0;
+        for(char *token=strtok(buffer,"|");token;token=strtok(NULL,"|"),cell++){
+            int index=cell==3?0:cell==4?1:cell>=11?cell-9:-1;
+            if(index>=0){
+                assert(index<count+2);
+                assert(!strcmp(token,expected[index].valid?expected[index].name:"--"));
+            }
+        }
+        assert(cell==11+count);
+    }
+}
+static void queue_preview_check(Inst *conductor){
+    hb_key_context saved=g_key_context;
+    int transpose=g_bus.global_transpose,accidentals=g_bus.accidentals,range=conductor->chord_register;
+    unsigned overrides=conductor->policy_overrides;
+    int major=conductor->policy_values[HB_P_DOMINANT],minor=conductor->policy_values[HB_P_DOMINANT_MINOR];
+    API.set_param(conductor,"hb_chord_queue","off");
+    API.set_param(conductor,"chord_queue_depth","16");
+    API.set_param(conductor,"chord_queue_end","Loop");
+    running=0;position=0;held=-1;
+    API.set_param(conductor,"hb_chord_queue","begin");
+    for(int index=0;index<HB_CQ_CAPACITY;index++){
+        char selection[64];snprintf(selection,sizeof(selection),"%d,%d,0,1,0,1,12",index%12,index<12?1:2);
+        API.set_param(conductor,"hb_chord_queue",selection);
+    }
+    assert(g_chord_queue.waiting&&g_chord_queue.count==HB_CQ_CAPACITY);
+    g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=9,
+        .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(9,2)};
+    preview_snapshot(conductor); /* Waiting: no current chord. */
+    if(getenv("HB_QUEUE_STATUS_BENCH")){
+        char status[2048];hb_cq_event event=g_chord_queue.pending[0];
+        hb_harmony_t musical=hb_selection_decode(event.word,event.note);
+        hb_key_harmony(conductor,musical);
+        unsigned cursor=conductor->key_cache_cursor;
+        struct timespec start,end;clock_gettime(CLOCK_MONOTONIC,&start);
+        for(int read=0;read<10000;read++){
+            hb_cq_status(conductor,status,sizeof(status));hb_key_harmony(conductor,musical);
+        }
+        clock_gettime(CLOCK_MONOTONIC,&end);
+        double ns=(end.tv_sec-start.tv_sec)*1e9+end.tv_nsec-start.tv_nsec;
+        printf("16-chord status + musical read: %.0f ns/read, %u musical-cache writes (desktop only)\n",ns/10000.,conductor->key_cache_cursor-cursor);
+        assert(cursor==conductor->key_cache_cursor);
+    }
+    API.set_param(conductor,"hb_chord_queue","commit");assert(take(conductor));
+    running=1;assert(!take(conductor));
+    for(int change=0;change<32;change++){
+        if(change){position=change*4.;assert(take(conductor));}
+        g_bus.global_transpose=change%5-2;g_bus.accidentals=change%3;
+        conductor->chord_register=change%7-3;
+        conductor->policy_overrides|=(1u<<HB_P_DOMINANT)|(1u<<HB_P_DOMINANT_MINOR);
+        conductor->policy_values[HB_P_DOMINANT]=conductor->policy_values[HB_P_DOMINANT_MINOR]=change%11;
+        g_key_context.active=change%4!=0;g_key_context.target_root=change%12;
+        g_key_context.target_mask=hb_explicit_scale_mask(change%12,change%19+1);
+        preview_snapshot(conductor);
+    }
+    running=0;assert(!take(conductor));preview_snapshot(conductor);
+    running=1;position=0;assert(take(conductor));preview_snapshot(conductor);
+    /* Compare against a fresh mapping with unchanged key/descriptor inputs
+       while spelling preferences change. */
+    g_bus.global_transpose=0;
+    g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=1,
+        .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(1,1)};
+    for(int spelling=0;spelling<3;spelling++){
+        g_bus.accidentals=spelling;
+        hb_cq_event event=g_chord_queue.cycle[0];
+        hb_key_harmony_cache fresh={0};
+        hb_harmony_t expected=hb_key_harmony_cached(conductor,hb_selection_decode(event.word,event.note),&fresh);
+        char status[2048],prefix[128];hb_cq_status(conductor,status,sizeof(status));
+        snprintf(prefix,sizeof(prefix),"cq1|%d|%.6f|%s|",g_chord_queue.count,g_chord_queue.pending[0].at,expected.name);
+        assert(!strncmp(status,prefix,strlen(prefix)));
+        hb_harmony_t musical=hb_key_harmony(conductor,hb_selection_decode(event.word,event.note));
+        assert(!strcmp(expected.name,musical.name));
+    }
+    /* Hold can display the current chord plus sixteen future chords. */
+    API.set_param(conductor,"chord_queue_end","Hold");choose(conductor,5);
+    assert(g_chord_queue.count==HB_CQ_CAPACITY);preview_snapshot(conductor);
+    API.set_param(conductor,"hb_chord_queue","off");
+    g_key_context=saved;g_bus.global_transpose=transpose;g_bus.accidentals=accidentals;
+    conductor->chord_register=range;conductor->policy_overrides=overrides;
+    conductor->policy_values[HB_P_DOMINANT]=major;conductor->policy_values[HB_P_DOMINANT_MINOR]=minor;
+    running=0;
+}
 static void sustained_loop(Inst *conductor){
     API.set_param(conductor,"hb_chord_queue","off");
     API.set_param(conductor,"chord_queue_depth","4");
@@ -331,7 +440,8 @@ int main(void){
     API.get_param(conductor,"hb_chord_queue_status",buffer,sizeof(buffer));assert(!strcmp(buffer,"--"));
     sustained_loop(conductor);
     late_first_cue(conductor);
+    queue_preview_check(conductor);
     selection_cache_check(conductor);
     API.destroy_instance(conductor);API.destroy_instance(follower);
-    puts("Queued chords: seed, grid/anticipation, stopped preload, lookahead/late, motif arrival, empty hold, capacity, recorded isolation and lifecycle pass");
+    puts("Queued chords: seed, grid/anticipation, stopped preload, lookahead/late, motif arrival, empty hold, capacity, preview cache isolation, recorded isolation and lifecycle pass");
 }
