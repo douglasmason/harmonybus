@@ -85,7 +85,7 @@ static void sf_mic_analyze(void) {
     }
 }
 static void sf_mic_tick(Inst *instance,int frames,int sample_rate) {
-    if(!instance)return;
+    if(!instance||__atomic_load_n(&g_sf_mic_owner,__ATOMIC_ACQUIRE)!=(int)(instance-g_pool))return;
     unsigned generation=__atomic_load_n(&g_sf_mic_generation,__ATOMIC_ACQUIRE);
     if(g_sf_mic_state.active_generation!=generation){
         sf_mic_clear_audio();
