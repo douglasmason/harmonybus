@@ -130,6 +130,36 @@ static void selection_cache_check(Inst *conductor){
         assert(checksum>0);
     }
 }
+static void late_first_cue(Inst *conductor){
+    API.set_param(conductor,"hb_chord_queue","off");
+    API.set_param(conductor,"chord_queue_depth","4");
+    API.set_param(conductor,"chord_queue_end","Loop");
+    API.set_param(conductor,"chord_timing","1 Bar");
+    API.set_param(conductor,"anticipation","On Grid");
+    running=1;position=0;held=-1;
+    const int roots[]={0,7,5,2};
+    for(int index=0;index<4;index++)choose(conductor,roots[index]);
+    assert(!take(conductor));
+    assert(g_chord_queue.pending[0].at==4);
+    unsigned long long late=g_chord_queue_diagnostics.late;
+    /* Stall across two deadlines before the first attack. Servicing a seed
+       must preserve its due time just like every subsequent queue event. */
+    position=9;assert(take(conductor));
+    assert(g_chord_queue.history[0].at==4);
+    assert(g_chord_queue_diagnostics.last_due==4&&g_chord_queue_diagnostics.last_actual==9);
+    assert(g_chord_queue_diagnostics.late==late+1);
+    assert(hb_live_selection(conductor).root_pc==0);
+    assert(take(conductor));
+    assert(g_chord_queue.history[1].at==8);
+    assert(hb_live_selection(conductor).root_pc==7);
+    assert(hb_cq_at(conductor,7.5,0).root_pc==0);
+    assert(hb_cq_at(conductor,8.5,0).root_pc==7);
+    assert(g_chord_queue.pending[0].at==12&&!take(conductor));
+    position=12;assert(take(conductor));
+    assert(hb_live_selection(conductor).root_pc==5);
+    API.set_param(conductor,"hb_chord_queue","off");
+    running=0;
+}
 int main(void){
     Inst *follower=fixture();host.get_clock_status=queue_clock;host.get_beat_position=queue_beat;position=0;running=0;
     Inst *conductor=API.create_instance("",0);API.set_param(conductor,"role","Conductor");
@@ -300,6 +330,7 @@ int main(void){
     running=0;assert(!take(conductor));API.set_param(conductor,"hb_chord_queue","off");
     API.get_param(conductor,"hb_chord_queue_status",buffer,sizeof(buffer));assert(!strcmp(buffer,"--"));
     sustained_loop(conductor);
+    late_first_cue(conductor);
     selection_cache_check(conductor);
     API.destroy_instance(conductor);API.destroy_instance(follower);
     puts("Queued chords: seed, grid/anticipation, stopped preload, lookahead/late, motif arrival, empty hold, capacity, recorded isolation and lifecycle pass");
