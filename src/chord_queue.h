@@ -9,13 +9,22 @@ typedef struct {
     hb_cq_event pending[HB_CQ_CAPACITY], cycle[HB_CQ_CAPACITY], history[HB_CQ_HISTORY];
 } hb_chord_queue;
 static hb_chord_queue g_chord_queue;
+/* Lifetime totals survive queue clears so an end-of-capture read can explain
+   a vanished queue. No allocation, clock reads or logging in the audio path. */
+static struct {
+    unsigned long long services, activations, recoveries, late, clears, rearms;
+    double max_late, last_due, last_actual;
+} g_chord_queue_diagnostics;
 static int hb_cq_owned(const Inst *instance){return g_chord_queue.owner==(int)(instance-g_pool)+1;}
 static Inst *hb_cq_owner(void){
     int index=g_chord_queue.owner-1;
     return index>=0&&index<HB_MAX_INSTANCES&&g_pool[index].used&&g_pool[index].role==0?&g_pool[index]:0;
 }
 static int hb_cq_ready(void){return hb_cq_owner()&&!g_chord_queue.waiting&&g_chord_queue.count>0;}
-static void hb_cq_clear(Inst *instance){if(!instance||hb_cq_owned(instance))memset(&g_chord_queue,0,sizeof(g_chord_queue));}
+static void hb_cq_clear(Inst *instance){if(!instance||hb_cq_owned(instance)){
+    if(g_chord_queue.owner)g_chord_queue_diagnostics.clears++;
+    memset(&g_chord_queue,0,sizeof(g_chord_queue));
+}}
 static int hb_selection_parse(const char *parameter,int *fields,int bank);
 static int hb_selection_parse_register(const char *parameter,int *fields,int *range);
 static unsigned long long hb_selection_with_register(unsigned long long word,int *note,int range);
@@ -65,7 +74,9 @@ static void hb_cq_sync(void){
         g_chord_queue.waiting=0;g_chord_queue.phrase_ready=0;armed=1;
         if(!running&&g_chord_queue.seed)g_chord_queue.pending[0].at=now;
     }
-    if(running&&!g_chord_queue.waiting&&(armed||!g_chord_queue.running||g_chord_queue.timing!=g_bus.chord_timing||g_chord_queue.anticipation!=g_bus.anticipation))hb_cq_schedule(now);
+    if(running&&!g_chord_queue.waiting&&(armed||!g_chord_queue.running||g_chord_queue.timing!=g_bus.chord_timing||g_chord_queue.anticipation!=g_bus.anticipation)){
+        g_chord_queue_diagnostics.rearms++;hb_cq_schedule(now);
+    }
     g_chord_queue.running=running;g_chord_queue.last_beat=now;
     g_chord_queue.timing=g_bus.chord_timing;g_chord_queue.anticipation=g_bus.anticipation;
 }
@@ -103,6 +114,7 @@ static void hb_cq_enqueue(Inst *instance,const char *parameter){
 static int hb_cq_take(Inst *instance,char *buffer,int length){
     hb_cq_sync();
     if(!hb_cq_owned(instance)||!hb_cq_owner())return snprintf(buffer,(size_t)length,"off");
+    g_chord_queue_diagnostics.services++;
     double now=hb_current_beat();
     int due=hb_cq_ready()&&(g_chord_queue.running||g_chord_queue.seed)&&
         g_chord_queue.pending[0].at>=0&&now+1e-6>=g_chord_queue.pending[0].at;
@@ -110,6 +122,7 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
        Restore only between changes: replaying the old selection must never
        displace a chord already due at this sequencer boundary. */
     if(!due&&!g_chord_queue.seed&&g_chord_queue.history_count&&!hb_live_selection(instance).valid){
+        g_chord_queue_diagnostics.recoveries++;
         hb_cq_event current=g_chord_queue.history[g_chord_queue.history_count-1];
         instance->selection_pending=current.word;instance->selection_note=current.note;
         return snprintf(buffer,(size_t)length,"%d",current.note);
@@ -117,6 +130,13 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
     if(!due)return snprintf(buffer,(size_t)length,"--");
     hb_cq_event event=g_chord_queue.pending[0];
     if(g_chord_queue.seed)event.at=hb_current_beat();
+    g_chord_queue_diagnostics.activations++;
+    g_chord_queue_diagnostics.last_due=event.at;
+    g_chord_queue_diagnostics.last_actual=now;
+    double late=now-event.at;
+    if(late>g_chord_queue_diagnostics.max_late)g_chord_queue_diagnostics.max_late=late;
+    /* Allow one 96-PPQN service tick; this is beat lateness, not wall time. */
+    if(late>1.0/96.0+1e-6)g_chord_queue_diagnostics.late++;
     g_chord_queue.seed=0;
     for(int index=1;index<g_chord_queue.count;index++)g_chord_queue.pending[index-1]=g_chord_queue.pending[index];
     g_chord_queue.count--;
@@ -190,4 +210,12 @@ static int hb_cq_status(Inst *instance,char *buffer,int length){
         used+=snprintf(available?buffer+used:0,(size_t)available,"|%s",harmony.valid?harmony.name:"--");
     }
     return used;
+}
+static int hb_cq_diagnostics(char *buffer,int length){
+    return snprintf(buffer,(size_t)length,"qd1|%llu|%llu|%llu|%llu|%llu|%llu|%.6f|%.6f|%.6f|%d",
+        g_chord_queue_diagnostics.services,g_chord_queue_diagnostics.activations,
+        g_chord_queue_diagnostics.recoveries,g_chord_queue_diagnostics.late,
+        g_chord_queue_diagnostics.clears,g_chord_queue_diagnostics.rearms,
+        g_chord_queue_diagnostics.max_late,g_chord_queue_diagnostics.last_due,
+        g_chord_queue_diagnostics.last_actual,g_chord_queue.owner);
 }

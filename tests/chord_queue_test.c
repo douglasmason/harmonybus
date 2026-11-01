@@ -31,6 +31,10 @@ static void sustained_loop(Inst *conductor){
     API.set_param(conductor,"chord_timing","1 Bar");
     API.set_param(conductor,"anticipation","On Grid");
     running=0;position=0;held=-1;
+    unsigned long long activations=g_chord_queue_diagnostics.activations;
+    unsigned long long recoveries=g_chord_queue_diagnostics.recoveries;
+    unsigned long long late=g_chord_queue_diagnostics.late;
+    unsigned long long late_expected=0;
     const int roots[]={0,7,5,2};
     for(int index=0;index<4;index++)choose(conductor,roots[index]);
     assert(take(conductor));snapshot(conductor,"|0|4|C|G|F|D");
@@ -46,6 +50,7 @@ static void sustained_loop(Inst *conductor){
         assert(!take(conductor));
         /* Sporadic late service after two clean loops must not move the grid. */
         position=scheduled+(change>8&&change%7==0?0.375:0.0);
+        if(change>8&&change%7==0)late_expected++;
         assert(take(conductor));assert(!take(conductor));
         assert(hb_live_selection(conductor).root_pc==roots[change%4]);
         assert(g_chord_queue.pending[0].at==scheduled+4.0);
@@ -54,6 +59,22 @@ static void sustained_loop(Inst *conductor){
         assert(hb_cq_at(conductor,scheduled-0.5,0).root_pc==roots[(change-1)%4]);
         if(change>64)assert(hb_cq_at(conductor,scheduled-63*4.0,0).root_pc==roots[(change-63)%4]);
     }
+    assert(g_chord_queue_diagnostics.activations-activations==2049);
+    assert(g_chord_queue_diagnostics.late-late==late_expected);
+    assert(g_chord_queue_diagnostics.recoveries==recoveries);
+    assert(g_chord_queue_diagnostics.max_late>=0.375);
+    /* A missing voice between boundaries is separately attributed. Reads
+       cannot consume a cue, reset counters, or mutate the timeline. */
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));held=-1;
+    assert(take(conductor));assert(g_chord_queue_diagnostics.recoveries==recoveries+1);
+    assert(g_chord_queue_diagnostics.activations-activations==2049);
+    hb_chord_queue before=g_chord_queue;
+    char diagnostics[512],again[512],tiny[4]={0,0,0,99};
+    API.get_param(conductor,"hb_chord_queue_diagnostics",diagnostics,sizeof(diagnostics));
+    API.get_param(conductor,"hb_chord_queue_diagnostics",again,sizeof(again));
+    assert(!strcmp(diagnostics,again)&&!strncmp(diagnostics,"qd1|",4));
+    assert(!memcmp(&before,&g_chord_queue,sizeof(before)));
+    assert(hb_cq_diagnostics(tiny,3)==(int)strlen(diagnostics)&&tiny[2]==0&&tiny[3]==99);
     /* A due chord must win over restoration of a voice invalidated by another
        operation. Otherwise every reset can replay the old chord before it. */
     position+=4.0;
@@ -61,10 +82,14 @@ static void sustained_loop(Inst *conductor){
     held=-1;
     assert(take(conductor));
     assert(hb_live_selection(conductor).root_pc==7);
+    assert(g_chord_queue_diagnostics.recoveries==recoveries+1);
     API.set_param(conductor,"chord_queue_end","Hold");
     API.get_param(conductor,"hb_chord_bank_snapshot",status,sizeof(status));
     assert(!strcmp(strrchr(status,','),",0")); /* Hold shows only future members. */
+    unsigned long long clears=g_chord_queue_diagnostics.clears;
     running=0;assert(!take(conductor));
+    assert(g_chord_queue_diagnostics.clears==clears+1);
+    assert(g_chord_queue_diagnostics.activations-activations==2050);
 }
 int main(void){
     Inst *follower=fixture();host.get_clock_status=queue_clock;host.get_beat_position=queue_beat;position=0;running=0;

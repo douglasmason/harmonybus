@@ -87,3 +87,18 @@ lookahead still searches the historical events. Regression coverage includes
 plus 128 bars through the production Movy/Schwung/HarmonyBus chain. These tests
 do not reproduce or establish a fix for intermittent physical-device lag and
 crackles after the first few loops.
+
+`hb_chord_queue_diagnostics` is a read-only `qd1` snapshot. Its pipe-separated
+fields are services, activations, recoveries, lateChanges, clears, rearms,
+maxLateBeats, lastDueBeat, lastActualBeat and owner. Totals/peak survive queue
+clears and cover the loaded module's lifetime. The single conductor queue is
+shared across instances; do not sum snapshots read through different tracks.
+Services count owned take calls; activations include the initial seed;
+recoveries count missing-live-selection requests between due changes. A late
+change exceeds its beat deadline by more than one 96-PPQN tick. Rearms count
+start/timing/anticipation/phrase scheduling, not ordinary cycle repeats.
+The maximum and last deadline/actual values are in beats, not milliseconds;
+a stalled beat clock can therefore conceal wall-time lateness. These counters
+identify symptoms, not audio glitches or the cause of lost voice ownership.
+The audio path adds only scalar counter/arithmetic operations; snapshots do not
+synchronize, consume a chord, reset counters, or allocate history.

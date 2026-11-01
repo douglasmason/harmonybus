@@ -6883,6 +6883,7 @@ if(!strcmp(key,"chord_register"))return instance->chord_register==99?snprintf(bu
 if(!strcmp(key,"chord_queue_end"))return snprintf(buffer,(size_t)length,"%s",instance->chord_queue_loop?"Loop":"Hold");
 if(!strcmp(key,"chord_queue_depth"))return instance->chord_queue_depth?snprintf(buffer,(size_t)length,"%d",instance->chord_queue_depth):snprintf(buffer,(size_t)length,"Touch Phrase");
 if(!strcmp(key,"hb_chord_queue_status"))return hb_cq_status(instance,buffer,length);
+if(!strcmp(key,"hb_chord_queue_diagnostics"))return hb_cq_diagnostics(buffer,length);
 if(!strcmp(key,"hb_chord_bank_snapshot"))return hb_selection_bank_snapshot(instance,buffer,length);
 if(!strcmp(key,"hb_chord_discovery_probe"))return snprintf(buffer,(size_t)length,"%s",instance->discovery_count?instance->discovery_text:"--");
 if(!strcmp(key,"hb_chord_discovery_context"))return snprintf(buffer,(size_t)length,"%s",instance->discovery_anchor.valid?instance->discovery_context_text:"--");
