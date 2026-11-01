@@ -423,6 +423,13 @@ static hb_harmony_t hb_selected_harmony(const Inst *instance);
 static hb_harmony_t hb_selection_decode(unsigned long long word,int note);
 static unsigned g_selection_serial;
 static void hb_cq_clear(Inst *instance);
+static int hb_has_live_selection(const Inst *instance){
+    for(int index=0;index<HB_CP_KEYS;index++){
+        const hb_cp_key *key=&instance->player.keys[index];
+        if(key->used&&key->selection&&!key->playback_origin&&hb_selection_word(key->selection_word))return 1;
+    }
+    return 0;
+}
 static hb_harmony_t hb_live_selection(const Inst *instance){
     for(int index=0;index<HB_CP_KEYS;index++){
         const hb_cp_key *key=&instance->player.keys[index];
@@ -6887,7 +6894,7 @@ if(!strcmp(key,"hb_chord_queue_diagnostics"))return hb_cq_diagnostics(buffer,len
 if(!strcmp(key,"hb_chord_bank_snapshot"))return hb_selection_bank_snapshot(instance,buffer,length);
 if(!strcmp(key,"hb_chord_discovery_probe"))return snprintf(buffer,(size_t)length,"%s",instance->discovery_count?instance->discovery_text:"--");
 if(!strcmp(key,"hb_chord_discovery_context"))return snprintf(buffer,(size_t)length,"%s",instance->discovery_anchor.valid?instance->discovery_context_text:"--");
-if(!strcmp(key,"hb_chord_active"))return snprintf(buffer,(size_t)length,"%d",hb_live_selection(instance).valid!=0);
+if(!strcmp(key,"hb_chord_active"))return snprintf(buffer,(size_t)length,"%d",hb_has_live_selection(instance));
 if(!strcmp(key,"hb_chord_note"))return snprintf(buffer,(size_t)length,"%d",instance->selection_pending?instance->selection_note:-1);
 if(!strcmp(key,"hb_chord_prepared"))return snprintf(buffer,(size_t)length,"%d",hb_selection_word(instance->selection_pending));
 int field_result=hb_stock_field_get(instance,key,buffer,length);if(field_result>=0)return field_result;

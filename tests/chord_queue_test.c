@@ -1,6 +1,7 @@
 #define main ignored_reference_main
 #include "follower_reference_test.c"
 #undef main
+#include <time.h>
 static int running;
 static double queue_beat(void){return running?position:-1;}
 static int queue_clock(void){return running?MOVE_CLOCK_STATUS_RUNNING:0;}
@@ -90,6 +91,44 @@ static void sustained_loop(Inst *conductor){
     running=0;assert(!take(conductor));
     assert(g_chord_queue_diagnostics.clears==clears+1);
     assert(g_chord_queue_diagnostics.activations-activations==2050);
+}
+static void selection_cache_check(Inst *conductor){
+    int transpose=g_bus.global_transpose,accidentals=g_bus.accidentals,range=conductor->chord_register;
+    for(int root=0;root<12;root++)for(int quality=1;quality<=12;quality++)for(int form=0;form<=16;form++){
+        int fields[9]={root,quality,form,1,0,1,12,0,0},note=0;
+        unsigned long long word=hb_selection_resolve(conductor,fields,&note);if(!word)continue;
+        for(int shift=-12;shift<=12;shift+=6)for(int reg=-1;reg<=1;reg++){
+            g_bus.global_transpose=shift;conductor->chord_register=reg;
+            unsigned long long ranged=reg?hb_selection_with_register(word,&note,reg):word;
+            for(int spelling=0;spelling<3;spelling++){
+                g_bus.accidentals=spelling;conductor->chord_register=spelling-1;
+                hb_harmony_t reference=hb_selection_decode_uncached(ranged,note);
+                for(int read=0;read<2;read++){
+                    hb_harmony_t cached=hb_selection_decode(ranged,note),expected=reference;
+                    assert(!strcmp(cached.name,expected.name));
+                    memset(cached.name,0,sizeof(cached.name));memset(expected.name,0,sizeof(expected.name));
+                    assert(!memcmp(&cached,&expected,sizeof(cached)));
+                }
+            }
+        }
+    }
+    g_bus.global_transpose=transpose;g_bus.accidentals=accidentals;conductor->chord_register=range;
+    if(getenv("HB_QUEUE_DECODE_BENCH")){
+        int fields[9]={0,1,0,1,0,1,12,0,0},note=0;
+        unsigned long long word=hb_selection_resolve(conductor,fields,&note);
+        volatile unsigned checksum=0;
+        for(int cached=0;cached<2;cached++){
+            struct timespec start,end;clock_gettime(CLOCK_MONOTONIC,&start);
+            for(int index=0;index<100000;index++){
+                hb_harmony_t harmony=cached?hb_selection_decode(word,note):hb_selection_decode_uncached(word,note);
+                checksum+=harmony.pitch_mask;
+            }
+            clock_gettime(CLOCK_MONOTONIC,&end);
+            double ns=(end.tv_sec-start.tv_sec)*1e9+end.tv_nsec-start.tv_nsec;
+            printf("Selection decode %s: %.0f ns/read (desktop only)\n",cached?"cached":"uncached",ns/100000.0);
+        }
+        assert(checksum>0);
+    }
 }
 int main(void){
     Inst *follower=fixture();host.get_clock_status=queue_clock;host.get_beat_position=queue_beat;position=0;running=0;
@@ -240,8 +279,18 @@ int main(void){
     position=16;assert(take(conductor));snapshot(conductor,"|2|3|C|C|F");
     /* Status reads at a future boundary cannot advance either queue or cursor. */
     position=20;snapshot(conductor,"|2|3|C|C|F");assert(take(conductor));snapshot(conductor,"|0|3|C|C|F");
-    running=0;assert(!take(conductor));API.get_param(conductor,"hb_chord_queue_status",buffer,sizeof(buffer));assert(!strcmp(buffer,"--"));
+    running=0;assert(!take(conductor));snapshot(conductor,"|0|3|C|C|F");
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));held=-1;
+    for(int tick=0;tick<100;tick++)assert(!take(conductor));
+    assert(g_chord_queue.paused&&g_chord_queue.count==2);
+    running=1;position=0;assert(take(conductor));snapshot(conductor,"|0|3|C|C|F");
+    assert(g_chord_queue.pending[0].at==4&&!g_chord_queue.paused);
+    position=4;assert(take(conductor));snapshot(conductor,"|1|3|C|C|F");
+    position=8;assert(take(conductor));snapshot(conductor,"|2|3|C|C|F");
+    running=0;assert(!take(conductor));API.set_param(conductor,"hb_chord_queue","off");
+    API.get_param(conductor,"hb_chord_queue_status",buffer,sizeof(buffer));assert(!strcmp(buffer,"--"));
     sustained_loop(conductor);
+    selection_cache_check(conductor);
     API.destroy_instance(conductor);API.destroy_instance(follower);
     puts("Queued chords: seed, grid/anticipation, stopped preload, lookahead/late, motif arrival, empty hold, capacity, recorded isolation and lifecycle pass");
 }
