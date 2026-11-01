@@ -5594,8 +5594,10 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
     }
     int emitted=hb_motion_local_drain(instance,output,lengths,capacity);hb_gesture_finish_use(instance);return emitted;
 }
+#include "../../../src/scale_finding_mic.h"
 static int tick(void *value,int frames,int sample_rate,uint8_t output[][3],int lengths[],int capacity){
     Inst *instance=(Inst*)value;if(!instance)return 0;
+    sf_mic_tick(instance,frames,sample_rate);
     if(HB_SCOPED_TICK_SYNC&&g_conductor_block_ready)hb_key_operations_sync_instance(instance);
     else hb_key_operations_sync();
     int advanced=0;
@@ -6883,6 +6885,7 @@ static hb_harmony_t hb_opening_harmony(void){
 }
 #include "../../../src/shared_context_runtime.h"
 static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+if(!strcmp(key,"sf_mic_chroma"))return sf_mic_get(instance,buffer,length);
 if(!strcmp(key,"hb_chord_queue_take"))return hb_cq_take(instance,buffer,length);
 if(!strcmp(key,"hb_chord_range_mask"))return snprintf(buffer,(size_t)length,"%u",hb_register_mask(instance));
 if(!strcmp(key,"hb_chord_range_top"))return snprintf(buffer,(size_t)length,"%d",hb_register_top(instance));
@@ -7860,6 +7863,7 @@ static void hb_reset_track_defaults(Inst *instance,int track){
 }
 static void set_param(void *value,const char *key,const char *parameter){
     Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
+    if(!strcmp(key,"sf_mic_enable")){sf_mic_set(instance,parameter);return;}
     if(hb_stock_field_set(instance,key,parameter))return;
     if(!strcmp(key,"state")||!strcmp(key,"performance_reset"))hb_stock_field_clear(instance);
     if(!strcmp(key,"performance_reset"))for(int i=0;i<2;i++)instance->field_mod[i].enabled=0;
