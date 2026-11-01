@@ -161,7 +161,9 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
     }
     if(!due)return snprintf(buffer,(size_t)length,"--");
     hb_cq_event event=g_chord_queue.pending[0];
-    if(g_chord_queue.seed)event.at=now;
+    /* Seed deadlines are already assigned by sync, including stopped preload
+       and resume. Preserve a late first deadline so history stays on the grid
+       and diagnostics retain the difference between due and actual service. */
     g_chord_queue_diagnostics.activations++;
     g_chord_queue_diagnostics.last_due=event.at;
     g_chord_queue_diagnostics.last_actual=now;

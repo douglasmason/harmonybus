@@ -124,3 +124,11 @@ before the conductor phase reconciles the shared bus. This prevents stale
 running/tick values from stranding Stop or postponing a cue. The native fallback
 still uses the host transport when no Movy metadata exists; no extra poll or
 full bus reconciliation is added.
+## Late first-cue deadlines
+
+The first queued activation preserves its scheduled beat even when serviced
+late. Seed deadlines are already assigned by queue synchronization, including
+stopped preload and resume. Replacing that deadline with the service beat hid
+first-cue lateness and could put history out of order when the next cue was
+already due. Actual note delivery remains on the existing service call; the
+queue does not add retries, skip chords or change its catch-up policy.
