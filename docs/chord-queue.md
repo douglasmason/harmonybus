@@ -118,3 +118,9 @@ compare cached/uncached results across roots, qualities, forms, transpose,
 register and spelling, and pause/resume tests retain exact phrase/cursor state.
 A desktop microbenchmark measured roughly 825 ns uncached versus 77 ns cached
 per repeated decode; this is not an end-to-end or physical crackle measurement.
+
+Queue service reads the already-published owner `hb_movy_clip` transport stamp
+before the conductor phase reconciles the shared bus. This prevents stale
+running/tick values from stranding Stop or postponing a cue. The native fallback
+still uses the host transport when no Movy metadata exists; no extra poll or
+full bus reconciliation is added.

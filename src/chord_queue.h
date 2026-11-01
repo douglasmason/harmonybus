@@ -20,6 +20,19 @@ static Inst *hb_cq_owner(void){
     int index=g_chord_queue.owner-1;
     return index>=0&&index<HB_MAX_INSTANCES&&g_pool[index].used&&g_pool[index].role==0?&g_pool[index]:0;
 }
+/* Movy publishes clip metadata before servicing this queue, then reconciles
+   the bus in its conductor phase. Use that fresh owner snapshot directly:
+   waiting for reconciliation can strand Stop until the next sequencer tick. */
+static double hb_cq_beat(void){
+    Inst *owner=hb_cq_owner();
+    const hb_movy_clip_t *clip=owner?&g_movy_clips[owner-g_pool]:0;
+    return clip&&clip->present&&clip->ppqn?(double)clip->tick/clip->ppqn:hb_current_beat();
+}
+static int hb_cq_running(void){
+    Inst *owner=hb_cq_owner();
+    const hb_movy_clip_t *clip=owner?&g_movy_clips[owner-g_pool]:0;
+    return clip&&clip->present?clip->running:hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;
+}
 static int hb_cq_ready(void){return hb_cq_owner()&&!g_chord_queue.waiting&&g_chord_queue.count>0;}
 static void hb_cq_clear(Inst *instance){if(!instance||hb_cq_owned(instance)){
     if(g_chord_queue.owner)g_chord_queue_diagnostics.clears++;
@@ -59,7 +72,7 @@ static void hb_cq_repeat(double after){
    redraws. Editing timing re-arms future entries, without changing the current. */
 static void hb_cq_sync(void){
     if(!hb_cq_owner())return;
-    double now=hb_current_beat();int running=hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;
+    double now=hb_cq_beat();int running=hb_cq_running();
     if(g_chord_queue.running&&(!running||now+1e-6<g_chord_queue.last_beat)){
         if(!hb_cq_owner()->chord_queue_loop||!g_chord_queue.cycle_count){hb_cq_clear(0);return;}
         g_chord_queue.paused=1;g_chord_queue.running=0;
@@ -105,7 +118,7 @@ static void hb_cq_begin(Inst *instance){
     if(!hb_cq_owner()){
         hb_cq_clear(0);g_chord_queue.owner=(int)(instance-g_pool)+1;
         g_chord_queue.seed=1;g_chord_queue.waiting=1;g_chord_queue.cycle_position=-1;
-        g_chord_queue.last_beat=hb_current_beat();
+        g_chord_queue.last_beat=hb_cq_beat();
     }
     g_chord_queue.phrase_held=1;
 }
@@ -116,12 +129,12 @@ static void hb_cq_enqueue(Inst *instance,const char *parameter){
     if(hb_cq_owner()&&!hb_cq_owned(instance))return;
     if(!hb_cq_owner()){
         hb_cq_clear(0);g_chord_queue.owner=(int)(instance-g_pool)+1;
-        g_chord_queue.seed=1;g_chord_queue.waiting=1;g_chord_queue.last_beat=hb_current_beat();
+        g_chord_queue.seed=1;g_chord_queue.waiting=1;g_chord_queue.last_beat=hb_cq_beat();
     }
     hb_cq_sync();
     if(!hb_cq_owner())return;
     if(g_chord_queue.count>=HB_CQ_CAPACITY||(instance->chord_queue_loop&&!g_chord_queue.waiting&&g_chord_queue.cycle_count>=HB_CQ_CAPACITY)){g_chord_queue.result=2;return;}
-    double after=g_chord_queue.count?g_chord_queue.pending[g_chord_queue.count-1].at:hb_current_beat();
+    double after=g_chord_queue.count?g_chord_queue.pending[g_chord_queue.count-1].at:hb_cq_beat();
     double at=!g_chord_queue.waiting&&g_chord_queue.running?hb_cq_next_boundary(after):-1;
     g_chord_queue.pending[g_chord_queue.count++]=(hb_cq_event){word,note,at};
     if(!g_chord_queue.waiting&&g_chord_queue.cycle_count<HB_CQ_CAPACITY)g_chord_queue.cycle[g_chord_queue.cycle_count++]=g_chord_queue.pending[g_chord_queue.count-1];
@@ -134,7 +147,7 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
     if(!hb_cq_owned(instance)||!hb_cq_owner())return snprintf(buffer,(size_t)length,"off");
     if(g_chord_queue.paused)return snprintf(buffer,(size_t)length,"--");
     g_chord_queue_diagnostics.services++;
-    double now=hb_current_beat();
+    double now=hb_cq_beat();
     int due=hb_cq_ready()&&(g_chord_queue.running||g_chord_queue.seed)&&
         g_chord_queue.pending[0].at>=0&&now+1e-6>=g_chord_queue.pending[0].at;
     /* Transport start and chord-state operations drain native voice ownership.
@@ -148,7 +161,7 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
     }
     if(!due)return snprintf(buffer,(size_t)length,"--");
     hb_cq_event event=g_chord_queue.pending[0];
-    if(g_chord_queue.seed)event.at=hb_current_beat();
+    if(g_chord_queue.seed)event.at=now;
     g_chord_queue_diagnostics.activations++;
     g_chord_queue_diagnostics.last_due=event.at;
     g_chord_queue_diagnostics.last_actual=now;

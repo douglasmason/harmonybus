@@ -287,6 +287,16 @@ int main(void){
     assert(g_chord_queue.pending[0].at==4&&!g_chord_queue.paused);
     position=4;assert(take(conductor));snapshot(conductor,"|1|3|C|C|F");
     position=8;assert(take(conductor));snapshot(conductor,"|2|3|C|C|F");
+    /* Metadata arrives before the bus's conductor reconciliation. Queue
+       servicing must see Stop/Play even when the shared clock is stale. */
+    hb_movy_clip_t *metadata=&g_movy_clips[conductor-g_pool];
+    metadata->present=1;metadata->ppqn=96;metadata->tick=8*96;metadata->running=0;
+    assert(!take(conductor)&&g_chord_queue.paused); /* host still says running */
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));held=-1;
+    metadata->running=1;metadata->tick=0;running=0;
+    assert(take(conductor)&&!g_chord_queue.paused); /* host still says stopped */
+    snapshot(conductor,"|0|3|C|C|F");assert(g_chord_queue.pending[0].at==4);
+    memset(metadata,0,sizeof(*metadata));
     running=0;assert(!take(conductor));API.set_param(conductor,"hb_chord_queue","off");
     API.get_param(conductor,"hb_chord_queue_status",buffer,sizeof(buffer));assert(!strcmp(buffer,"--"));
     sustained_loop(conductor);
