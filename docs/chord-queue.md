@@ -87,3 +87,40 @@ lookahead still searches the historical events. Regression coverage includes
 plus 128 bars through the production Movy/Schwung/HarmonyBus chain. These tests
 do not reproduce or establish a fix for intermittent physical-device lag and
 crackles after the first few loops.
+
+`hb_chord_queue_diagnostics` is a read-only `qd1` snapshot. Its pipe-separated
+fields are services, activations, recoveries, lateChanges, clears, rearms,
+maxLateBeats, lastDueBeat, lastActualBeat and owner. Totals/peak survive queue
+clears and cover the loaded module's lifetime. The single conductor queue is
+shared across instances; do not sum snapshots read through different tracks.
+Services count owned take calls; activations include the initial seed;
+recoveries count missing-live-selection requests between due changes. A late
+change exceeds its beat deadline by more than one 96-PPQN tick. Rearms count
+start/timing/anticipation/phrase scheduling, not ordinary cycle repeats.
+The maximum and last deadline/actual values are in beats, not milliseconds;
+a stalled beat clock can therefore conceal wall-time lateness. These counters
+identify symptoms, not audio glitches or the cause of lost voice ownership.
+The audio path adds only scalar counter/arithmetic operations; snapshots do not
+synchronize, consume a chord, reset counters, or allocate history.
+
+Loop mode now retains its phrase when transport stops. It stays silent while
+paused and restarts at chord one on Play, with the same queue status and bank
+membership used by the display/LEDs. Hold mode still clears on Stop. Explicit
+Harmony Off, Reset, role/routing changes and set replacement clear ownership.
+This prevents a stopped live queue from disappearing while a previously
+recorded progression continues on the next Play.
+
+Selection decoding now caches immutable descriptor interpretation in 64 fixed
+thread-local slots. Global transpose is part of the cache key; inherited range
+and spelling are refreshed on every read. Voice-validity checks inspect the
+existing selection keys without running chord inference. Differential tests
+compare cached/uncached results across roots, qualities, forms, transpose,
+register and spelling, and pause/resume tests retain exact phrase/cursor state.
+A desktop microbenchmark measured roughly 825 ns uncached versus 77 ns cached
+per repeated decode; this is not an end-to-end or physical crackle measurement.
+
+Queue service reads the already-published owner `hb_movy_clip` transport stamp
+before the conductor phase reconciles the shared bus. This prevents stale
+running/tick values from stranding Stop or postponing a cue. The native fallback
+still uses the host transport when no Movy metadata exists; no extra poll or
+full bus reconciliation is added.

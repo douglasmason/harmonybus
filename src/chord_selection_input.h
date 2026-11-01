@@ -1,6 +1,6 @@
 /* Selection supplies explicit harmony to the existing conductor player.
    Render Off retains silent harmony control for independently triggered followers. */
-static hb_harmony_t hb_selection_decode(unsigned long long word,int note){
+static hb_harmony_t hb_selection_decode_uncached(unsigned long long word,int note){
     hb_harmony_t result={0};if(!hb_selection_word(word))return result;
     int root=mod12(note+g_bus.global_transpose);uint8_t notes[12];int count=0;
     unsigned mask=hb_transpose_mask(word&4095u,root);
@@ -19,6 +19,27 @@ static hb_harmony_t hb_selection_decode(unsigned long long word,int note){
         result.intent_target=mod12(root+((word>>41)&15));result.intent_minor=(word>>45)&1;
     }
     hb_format_harmony(result.name,sizeof(result.name),result);return result;
+}
+/* The descriptor already identifies the chord: infer its semantic identity
+   once, not at every audio/UI read. Per-thread storage avoids sharing mutable
+   cache slots between render helpers; its size never grows with playback. */
+static hb_harmony_t hb_selection_decode(unsigned long long word,int note){
+    static _Thread_local struct {
+        unsigned long long word;
+        int note,transpose;
+        hb_harmony_t harmony;
+    } cache[64];
+    if(!hb_selection_word(word))return (hb_harmony_t){0};
+    unsigned slot=(unsigned)(word^(word>>12)^((unsigned)note*31u))&63u;
+    if(cache[slot].word!=word||cache[slot].note!=note||cache[slot].transpose!=g_bus.global_transpose){
+        cache[slot].harmony=hb_selection_decode_uncached(word,note);
+        cache[slot].word=word;cache[slot].note=note;cache[slot].transpose=g_bus.global_transpose;
+    }
+    hb_harmony_t result=cache[slot].harmony;
+    /* Inherited register and spelling are live settings, not descriptor data. */
+    if(!(word&HB_SELECTION_REGISTER))result.register_octaves=hb_conductor_register();
+    hb_format_harmony(result.name,sizeof(result.name),result);
+    return result;
 }
 static hb_harmony_t hb_selected_harmony(const Inst *instance){
     const hb_cp_key *winner=0;
