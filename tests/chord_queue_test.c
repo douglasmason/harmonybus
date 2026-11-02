@@ -36,7 +36,7 @@ static void preview_snapshot(Inst *conductor){
         hb_cq_event event=before.pending[0];
         expected[1]=hb_key_harmony(conductor,hb_selection_decode(event.word,event.note));
     }
-    int cycle=conductor->chord_queue_loop&&!before.waiting&&before.cycle_count;
+    int cycle=before.cycle_count>0;
     int count=cycle?before.cycle_count:before.count+(expected[0].valid?1:0);
     for(int index=0;index<count;index++){
         if(!cycle&&expected[0].valid&&index==0)expected[index+2]=expected[0];
@@ -198,6 +198,8 @@ static void sustained_loop(Inst *conductor){
     assert(!strcmp(strrchr(status,','),",0")); /* Hold shows only future members. */
     unsigned long long clears=g_chord_queue_diagnostics.clears;
     running=0;assert(!take(conductor));
+    assert(g_chord_queue_diagnostics.clears==clears);
+    API.set_param(conductor,"hb_chord_queue","off");
     assert(g_chord_queue_diagnostics.clears==clears+1);
     assert(g_chord_queue_diagnostics.activations-activations==2050);
 }
@@ -273,6 +275,7 @@ int main(void){
     Inst *follower=fixture();host.get_clock_status=queue_clock;host.get_beat_position=queue_beat;position=0;running=0;
     Inst *conductor=API.create_instance("",0);API.set_param(conductor,"role","Conductor");
     assert(conductor->chord_queue_depth==2);API.set_param(conductor,"chord_queue_depth","1");
+    API.set_param(conductor,"chord_queue_end","Hold"); /* This exercise tests finite-queue refills. */
     API.set_param(conductor,"render_channel","Off");API.set_param(conductor,"chord_timing","1 Bar");
     choose(conductor,0);assert(take(conductor));choose(conductor,7);choose(conductor,5);
     assert(!take(conductor)&&g_chord_queue.count==2);assert(hb_render_harmony(follower).root_pc==0);
@@ -312,7 +315,8 @@ int main(void){
     API.set_param(conductor,"chord_timing","1/2");API.set_param(conductor,"anticipation","1/8 Early");
     assert(!take(conductor));assert(g_chord_queue.pending[0].at==105.5);
     position=105.5;assert(take(conductor));assert(hb_live_selection(conductor).root_pc==2);
-    running=0;assert(!take(conductor));assert(!hb_cq_owner());
+    running=0;assert(!take(conductor));assert(hb_cq_owner());
+    API.set_param(conductor,"hb_chord_queue","off");assert(!hb_cq_owner());
     /* Preload after a previous run; a fresh Play resets the master position. */
     choose(conductor,0);assert(take(conductor));choose(conductor,7);
     g_chord_queue.last_beat=105.5;position=0;running=1;
