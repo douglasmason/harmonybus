@@ -6128,6 +6128,7 @@ if(!strcmp(key,"hb_chord_range")){hb_selection_range_edit(instance,parameter);re
 if(!strcmp(key,"chord_register")){int next=!strcmp(parameter,"Conductor")?99:!strncmp(parameter,"Top ",4)?1000+hb_cp_clamp(parse_i(parameter+4,67),0,127):hb_cp_clamp(parse_i(parameter,0),-3,3);if(next!=instance->chord_register){instance->chord_register=next;hb_register_refresh();}return;}
 if(!strcmp(key,"chord_queue_end")){instance->chord_queue_loop=!strcmp(parameter,"Loop");return;}
  if(!strcmp(key,"hb_chord_queue_override")){hb_cq_override(instance,!strcmp(parameter,"On")||parameter[0]=='1');return;}
+ if(!strcmp(key,"hb_chord_queue_mute")){hb_cq_mute(instance,!strcmp(parameter,"On")||parameter[0]=='1');return;}
 if(!strcmp(key,"chord_queue_depth")){instance->chord_queue_depth=!strcmp(parameter,"Touch Phrase")?0:hb_cp_clamp(parse_i(parameter,instance->chord_queue_depth),1,HB_CQ_CAPACITY);return;}
 if(!strcmp(key,"hb_chord_queue")){if(!strcmp(parameter,"off"))hb_cq_clear(instance);else if(!strcmp(parameter,"begin"))hb_cq_begin(instance);else if(!strcmp(parameter,"commit")||!strcmp(parameter,"end")){if(hb_cq_owned(instance)){g_chord_queue.phrase_held=0;if(!strcmp(parameter,"commit")&&g_chord_queue.waiting&&g_chord_queue.count)g_chord_queue.phrase_ready=1;}}else hb_cq_enqueue(instance,parameter);return;}
 if(!strcmp(key,"hb_movy_input_chord")){hb_selection_prepare(instance,parameter);return;}
@@ -6895,6 +6896,7 @@ if(!strcmp(key,"chord_queue_end"))return snprintf(buffer,(size_t)length,"%s",ins
 if(!strcmp(key,"chord_queue_depth"))return instance->chord_queue_depth?snprintf(buffer,(size_t)length,"%d",instance->chord_queue_depth):snprintf(buffer,(size_t)length,"Touch Phrase");
 if(!strcmp(key,"hb_chord_queue_status"))return hb_cq_status(instance,buffer,length);
  if(!strcmp(key,"hb_chord_queue_override"))return snprintf(buffer,(size_t)length,"%s",hb_cq_owned(instance)&&g_chord_queue.enabled?"On":"Off");
+ if(!strcmp(key,"hb_chord_queue_mute"))return snprintf(buffer,(size_t)length,"%s",hb_cq_owned(instance)&&g_chord_queue.muted?"On":"Off");
 if(!strcmp(key,"hb_chord_queue_diagnostics"))return hb_cq_diagnostics(buffer,length);
 if(!strcmp(key,"hb_chord_bank_snapshot"))return hb_selection_bank_snapshot(instance,buffer,length);
 if(!strcmp(key,"hb_chord_discovery_probe"))return snprintf(buffer,(size_t)length,"%s",instance->discovery_count?instance->discovery_text:"--");
