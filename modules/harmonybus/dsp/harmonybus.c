@@ -7342,7 +7342,7 @@ if(!strcmp(key,"pad_view")){
     for(int choice=1;choice<HB_SCALE_COUNT;choice++)
         if(hb_explicit_scale_mask(footer_key.target_root,choice)==footer_key.target_mask&&!HB_SCALE_DOMINANT[choice]){footer_scale=choice;break;}
     hb_harmony_t footer_next=hb_cq_next();
-    if(!hb_cq_owner()&&g_bus.next_model_locked&&!g_movy_blocked){
+    if(!hb_cq_playback_owner()&&g_bus.next_model_locked&&!g_movy_blocked){
         hb_loop_harmony_event_t events[HB_MAX_LOOP_HARMONIES];
         int count=hb_timing_events(events);double phase=hb_next_phase(hb_clip_playhead()),cycle=hb_next_loop_length(),nearest=1e99;
         for(int index=0;index<count;index++){
