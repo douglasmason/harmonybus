@@ -452,6 +452,18 @@ int main(void){
     assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
     running=1;position=0;assert(!take(conductor));
     position=4;assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
+    /* Hold keeps all chord names and retrigger works without stopping or
+       destroying the original recorded progression. */
+    char retained_status[256];
+    API.get_param(conductor,"hb_chord_queue_status",retained_status,sizeof(retained_status));
+    assert(strstr(retained_status,"|1|2|C|G"));
+    position=8;assert(!take(conductor));
+    API.get_param(conductor,"hb_chord_queue_status",retained_status,sizeof(retained_status));
+    assert(strstr(retained_status,"|1|2|C|G"));
+    API.set_param(conductor,"hb_chord_queue","retrigger");
+    assert(g_chord_queue.count==2&&g_chord_queue.cycle_count==2);
+    assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
+    position=12;assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
     running=0;assert(!take(conductor));
     assert(g_chord_queue.paused&&g_chord_queue.cycle_count==2&&hb_cq_owner());
     assert(g_chord_queue_diagnostics.clears>0);
