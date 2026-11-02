@@ -4,7 +4,7 @@
 #define HB_CQ_HISTORY 65
 typedef struct { unsigned long long word; int note; double at; } hb_cq_event;
 typedef struct {
-    int owner, count, history_count, seed, waiting, phrase_ready, phrase_held, cycle_count, cycle_position, running, timing, anticipation, result, paused;
+    int owner, count, history_count, seed, waiting, phrase_ready, phrase_held, cycle_count, cycle_position, running, timing, anticipation, result, paused, enabled, muted;
     double last_beat;
     hb_cq_event pending[HB_CQ_CAPACITY], cycle[HB_CQ_CAPACITY], history[HB_CQ_HISTORY];
 } hb_chord_queue;
@@ -16,6 +16,9 @@ static struct {
     double max_late, last_due, last_actual;
 } g_chord_queue_diagnostics;
 static int hb_cq_owned(const Inst *instance){return g_chord_queue.owner==(int)(instance-g_pool)+1;}
+/* Playback authority is separate from queue storage. A bypassed queue still
+   belongs to its conductor but must never override recorded harmony. */
+static int hb_cq_enabled(void){return g_chord_queue.owner&&g_chord_queue.enabled;}
 static Inst *hb_cq_owner(void){
     int index=g_chord_queue.owner-1;
     return index>=0&&index<HB_MAX_INSTANCES&&g_pool[index].used&&g_pool[index].role==0?&g_pool[index]:0;
@@ -33,7 +36,22 @@ static int hb_cq_running(void){
     const hb_movy_clip_t *clip=owner?&g_movy_clips[owner-g_pool]:0;
     return clip&&clip->present?clip->running:hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;
 }
-static int hb_cq_ready(void){return hb_cq_owner()&&!g_chord_queue.waiting&&g_chord_queue.count>0;}
+static int hb_cq_ready(void){return hb_cq_owner()&&g_chord_queue.enabled&&!g_chord_queue.waiting&&g_chord_queue.count>0;}
+/* A queue's active authority is not its lifetime or phase. Toggling Mute
+   must not reset the progression, restart the transport, or discard history.
+   The native consumer keeps advancing deadlines even while bypassed. */
+static void hb_cq_override(Inst *instance,int enabled){
+    if(!hb_cq_owned(instance))return;
+    g_chord_queue.enabled=enabled!=0;
+    if(!enabled)g_chord_queue.muted=0;
+}
+/* Suppress only notes produced by the queue's virtual chord input. Keep the
+   native timeline, history, lookahead and pending event deadlines running.
+   The Rust owner releases already sounding notes on the mute transition. */
+static void hb_cq_mute(Inst *instance,int muted){
+    if(!hb_cq_owned(instance))return;
+    g_chord_queue.muted=g_chord_queue.enabled&&(muted!=0);
+}
 static void hb_cq_clear(Inst *instance){if(!instance||hb_cq_owned(instance)){
     if(g_chord_queue.owner)g_chord_queue_diagnostics.clears++;
     memset(&g_chord_queue,0,sizeof(g_chord_queue));
@@ -74,23 +92,30 @@ static void hb_cq_sync(void){
     if(!hb_cq_owner())return;
     double now=hb_cq_beat();int running=hb_cq_running();
     if(g_chord_queue.running&&(!running||now+1e-6<g_chord_queue.last_beat)){
-        if(!hb_cq_owner()->chord_queue_loop||!g_chord_queue.cycle_count){hb_cq_clear(0);return;}
+        /* Stop silences the selection but never destroys an owned queue.
+           Hold/Loop is a playback policy, not a queue-lifetime policy.
+           Only explicit Off (or Set teardown) is allowed to clear it. */
         g_chord_queue.paused=1;g_chord_queue.running=0;
         for(int index=0;index<g_chord_queue.count;index++)g_chord_queue.pending[index].at=-1;
     }
     if(g_chord_queue.paused){
         if(!running)return;
-        /* Transport Play starts the retained loop at its first chord. Do not
-           restore a stopped voice, or fall through to a recorded clip loop. */
-        g_chord_queue.running=1;hb_cq_repeat(now);
-        g_chord_queue.seed=1;g_chord_queue.history_count=0;g_chord_queue.cycle_position=-1;
-        double at=now;
-        for(int index=0;index<g_chord_queue.count;index++){
-            g_chord_queue.pending[index].at=at;at=hb_cq_next_boundary(at);
+        if(g_chord_queue.cycle_count){
+            /* Play always reactivates the retained progression at chord one,
+               including Hold queues; no fallback to the recorded conductor. */
+            g_chord_queue.running=1;hb_cq_repeat(now);
+            g_chord_queue.seed=1;g_chord_queue.history_count=0;g_chord_queue.cycle_position=-1;
+            double at=now;
+            for(int index=0;index<g_chord_queue.count;index++){
+                g_chord_queue.pending[index].at=at;at=hb_cq_next_boundary(at);
+            }
+            g_chord_queue.paused=0;g_chord_queue.last_beat=now;
+            g_chord_queue.timing=g_bus.chord_timing;g_chord_queue.anticipation=g_bus.anticipation;
+            g_chord_queue_diagnostics.rearms++;return;
         }
-        g_chord_queue.paused=0;g_chord_queue.last_beat=now;
-        g_chord_queue.timing=g_bus.chord_timing;g_chord_queue.anticipation=g_bus.anticipation;
-        g_chord_queue_diagnostics.rearms++;return;
+        /* Incomplete Touch Phrase / Queue Depth entries also survive Stop.
+           Allow the existing arming rules to run when Play resumes. */
+        g_chord_queue.paused=0;
     }
     if(running&&!g_chord_queue.running&&g_chord_queue.history_count){
         hb_cq_event current=g_chord_queue.history[g_chord_queue.history_count-1];current.at=now;
@@ -117,10 +142,33 @@ static void hb_cq_begin(Inst *instance){
     if(instance->role!=0||(hb_cq_owner()&&!hb_cq_owned(instance)))return;
     if(!hb_cq_owner()){
         hb_cq_clear(0);g_chord_queue.owner=(int)(instance-g_pool)+1;
-        g_chord_queue.seed=1;g_chord_queue.waiting=1;g_chord_queue.cycle_position=-1;
+        g_chord_queue.seed=1;g_chord_queue.enabled=1;g_chord_queue.waiting=1;g_chord_queue.cycle_position=-1;
         g_chord_queue.last_beat=hb_cq_beat();
     }
     g_chord_queue.phrase_held=1;
+}
+/* Retrigger the committed cycle, independent of its Loop/Hold ending policy. */
+static void hb_cq_retrigger(Inst *instance){
+    if(!hb_cq_owned(instance)||!g_chord_queue.cycle_count)return;
+    double now=hb_cq_beat();
+    int running=hb_cq_running();
+    hb_cq_repeat(now);
+    g_chord_queue.seed=1;
+    g_chord_queue.paused=!running;
+    g_chord_queue.running=running;
+    g_chord_queue.last_beat=now;
+    g_chord_queue.history_count=0;
+    g_chord_queue.cycle_position=-1;
+    g_chord_queue.timing=g_bus.chord_timing;
+    g_chord_queue.anticipation=g_bus.anticipation;
+    if(running){
+        double at=now;
+        for(int index=0;index<g_chord_queue.count;index++){
+            g_chord_queue.pending[index].at=at;
+            at=hb_cq_next_boundary(at);
+        }
+    }
+    g_chord_queue_diagnostics.rearms++;
 }
 static void hb_cq_enqueue(Inst *instance,const char *parameter){
     int fields[9],note=0,range=0;
@@ -129,7 +177,7 @@ static void hb_cq_enqueue(Inst *instance,const char *parameter){
     if(hb_cq_owner()&&!hb_cq_owned(instance))return;
     if(!hb_cq_owner()){
         hb_cq_clear(0);g_chord_queue.owner=(int)(instance-g_pool)+1;
-        g_chord_queue.seed=1;g_chord_queue.waiting=1;g_chord_queue.last_beat=hb_cq_beat();
+        g_chord_queue.seed=1;g_chord_queue.enabled=1;g_chord_queue.waiting=1;g_chord_queue.last_beat=hb_cq_beat();
     }
     hb_cq_sync();
     if(!hb_cq_owner())return;
@@ -148,12 +196,14 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
     if(g_chord_queue.paused)return snprintf(buffer,(size_t)length,"--");
     g_chord_queue_diagnostics.services++;
     double now=hb_cq_beat();
-    int due=hb_cq_ready()&&(g_chord_queue.running||g_chord_queue.seed)&&
+    int due=hb_cq_owner()&&!g_chord_queue.waiting&&g_chord_queue.count>0&&
+        (g_chord_queue.running||g_chord_queue.seed)&&
         g_chord_queue.pending[0].at>=0&&now+1e-6>=g_chord_queue.pending[0].at;
     /* Transport start and chord-state operations drain native voice ownership.
        Restore only between changes: replaying the old selection must never
        displace a chord already due at this sequencer boundary. */
-    if(!due&&!g_chord_queue.seed&&g_chord_queue.history_count&&!hb_has_live_selection(instance)){
+    if(!due&&!g_chord_queue.seed&&g_chord_queue.enabled&&!g_chord_queue.muted&&
+        g_chord_queue.history_count&&!hb_has_live_selection(instance)){
         g_chord_queue_diagnostics.recoveries++;
         hb_cq_event current=g_chord_queue.history[g_chord_queue.history_count-1];
         instance->selection_pending=current.word;instance->selection_note=current.note;
@@ -181,6 +231,9 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
     }
     g_chord_queue.history[g_chord_queue.history_count++]=event;
     if(!g_chord_queue.count&&instance->chord_queue_loop&&g_chord_queue.cycle_count)hb_cq_repeat(event.at);
+    /* Consumptive timing always advances. Bypassed events must not install
+       a virtual input note over the conductor's recorded harmony. */
+    if(!g_chord_queue.enabled||g_chord_queue.muted)return snprintf(buffer,(size_t)length,"--");
     instance->selection_pending=event.word;instance->selection_note=event.note;
     return snprintf(buffer,(size_t)length,"%d",event.note);
 }
@@ -237,7 +290,9 @@ static int hb_cq_status(Inst *instance,char *buffer,int length){
     hb_harmony_t next=g_chord_queue.count?hb_selection_decode(g_chord_queue.pending[0].word,g_chord_queue.pending[0].note):(hb_harmony_t){0};
     current=hb_key_harmony_cached(instance,current,&preview[HB_CQ_CAPACITY]);
     next=hb_key_harmony_cached(instance,next,&preview[HB_CQ_CAPACITY+1]);
-    int cycle=instance->chord_queue_loop&&!g_chord_queue.waiting&&g_chord_queue.cycle_count;
+    /* The footer must retain the complete stored progression even after Hold
+       reaches the final chord, on Stop, or while temporarily bypassed. */
+    int cycle=g_chord_queue.cycle_count>0;
     int count=cycle?g_chord_queue.cycle_count:g_chord_queue.count+(current.valid?1:0);
     int cursor=cycle?g_chord_queue.cycle_position:current.valid?0:-1;
     int used=snprintf(buffer,(size_t)length,"cq1|%d|%.6f|%s|%s|%d|%d|%d|%d|%d|%d",g_chord_queue.count,

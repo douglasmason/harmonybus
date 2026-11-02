@@ -36,7 +36,7 @@ static void preview_snapshot(Inst *conductor){
         hb_cq_event event=before.pending[0];
         expected[1]=hb_key_harmony(conductor,hb_selection_decode(event.word,event.note));
     }
-    int cycle=conductor->chord_queue_loop&&!before.waiting&&before.cycle_count;
+    int cycle=before.cycle_count>0;
     int count=cycle?before.cycle_count:before.count+(expected[0].valid?1:0);
     for(int index=0;index<count;index++){
         if(!cycle&&expected[0].valid&&index==0)expected[index+2]=expected[0];
@@ -198,6 +198,8 @@ static void sustained_loop(Inst *conductor){
     assert(!strcmp(strrchr(status,','),",0")); /* Hold shows only future members. */
     unsigned long long clears=g_chord_queue_diagnostics.clears;
     running=0;assert(!take(conductor));
+    assert(g_chord_queue_diagnostics.clears==clears);
+    API.set_param(conductor,"hb_chord_queue","off");
     assert(g_chord_queue_diagnostics.clears==clears+1);
     assert(g_chord_queue_diagnostics.activations-activations==2050);
 }
@@ -273,6 +275,7 @@ int main(void){
     Inst *follower=fixture();host.get_clock_status=queue_clock;host.get_beat_position=queue_beat;position=0;running=0;
     Inst *conductor=API.create_instance("",0);API.set_param(conductor,"role","Conductor");
     assert(conductor->chord_queue_depth==2);API.set_param(conductor,"chord_queue_depth","1");
+    API.set_param(conductor,"chord_queue_end","Hold"); /* This exercise tests finite-queue refills. */
     API.set_param(conductor,"render_channel","Off");API.set_param(conductor,"chord_timing","1 Bar");
     choose(conductor,0);assert(take(conductor));choose(conductor,7);choose(conductor,5);
     assert(!take(conductor)&&g_chord_queue.count==2);assert(hb_render_harmony(follower).root_pc==0);
@@ -312,13 +315,18 @@ int main(void){
     API.set_param(conductor,"chord_timing","1/2");API.set_param(conductor,"anticipation","1/8 Early");
     assert(!take(conductor));assert(g_chord_queue.pending[0].at==105.5);
     position=105.5;assert(take(conductor));assert(hb_live_selection(conductor).root_pc==2);
-    running=0;assert(!take(conductor));assert(!hb_cq_owner());
+    running=0;assert(!take(conductor));assert(hb_cq_owner());
+    API.set_param(conductor,"hb_chord_queue","off");assert(!hb_cq_owner());
     /* Preload after a previous run; a fresh Play resets the master position. */
     choose(conductor,0);assert(take(conductor));choose(conductor,7);
     g_chord_queue.last_beat=105.5;position=0;running=1;
     assert(!take(conductor));assert(hb_cq_owner()&&g_chord_queue.count==1);
     assert(g_chord_queue.history[0].at==0&&g_chord_queue.pending[0].at==1.5);
     running=0;assert(!take(conductor));
+    /* Stop retains the previous progression. Explicit Off is required before
+       exercising a fresh stopped, immediate-seed queue in this fixture. */
+    assert(hb_cq_owner());
+    API.set_param(conductor,"hb_chord_queue","off");assert(!hb_cq_owner());
     choose(conductor,0);assert(take(conductor));API.set_param(conductor,"hb_chord_queue","off");assert(!hb_cq_owner());
     choose(conductor,0);assert(take(conductor));API.set_param(conductor,"role","Follower");assert(!hb_cq_owner());
     API.set_param(conductor,"role","Conductor");
@@ -438,6 +446,111 @@ int main(void){
     memset(metadata,0,sizeof(*metadata));
     running=0;assert(!take(conductor));API.set_param(conductor,"hb_chord_queue","off");
     API.get_param(conductor,"hb_chord_queue_status",buffer,sizeof(buffer));assert(!strcmp(buffer,"--"));
+    /* Hold does not mean delete on Stop. An explicitly assembled progression
+       remains the source of harmony until Off, and each Play starts at chord 1. */
+    API.set_param(conductor,"chord_queue_end","Hold");
+    API.set_param(conductor,"chord_queue_depth","2");
+    running=0;position=0;held=-1;
+    choose(conductor,0);choose(conductor,7);
+    assert(g_chord_queue.cycle_count==2);
+    assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
+    running=1;position=0;assert(!take(conductor));
+    position=4;assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
+    /* Hold keeps all chord names and retrigger works without stopping or
+       destroying the original recorded progression. */
+    char retained_status[256];
+    API.get_param(conductor,"hb_chord_queue_status",retained_status,sizeof(retained_status));
+    assert(strstr(retained_status,"|1|2|C|G"));
+    position=8;assert(!take(conductor));
+    API.get_param(conductor,"hb_chord_queue_status",retained_status,sizeof(retained_status));
+    assert(strstr(retained_status,"|1|2|C|G"));
+    API.set_param(conductor,"hb_chord_queue","retrigger");
+    assert(g_chord_queue.count==2&&g_chord_queue.cycle_count==2);
+    assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
+    position=12;assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
+    running=0;assert(!take(conductor));
+    assert(g_chord_queue.paused&&g_chord_queue.cycle_count==2&&hb_cq_owner());
+    assert(g_chord_queue_diagnostics.clears>0);
+    for(int repeat=0;repeat<3;repeat++){
+        running=1;position=0;assert(take(conductor));
+        assert(hb_live_selection(conductor).root_pc==0&&g_chord_queue.cycle_position==0);
+        position=4;assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
+        running=0;assert(!take(conductor));
+        assert(g_chord_queue.paused&&g_chord_queue.cycle_count==2);
+    }
+    API.set_param(conductor,"hb_chord_queue","off");
+    assert(!hb_cq_owner());
+    /* Even an incomplete, not-yet-armed queue survives Stop and can be
+       finished after Play; no implicit flush from transport operations. */
+    API.set_param(conductor,"chord_queue_depth","4");
+    position=0;running=1;held=-1;choose(conductor,0);
+    assert(g_chord_queue.waiting&&g_chord_queue.count==1&&!take(conductor));
+    running=0;assert(!take(conductor));
+    assert(g_chord_queue.paused&&g_chord_queue.count==1&&hb_cq_owner());
+    running=1;position=0;assert(!take(conductor));
+    assert(g_chord_queue.count==1&&!g_chord_queue.paused);
+    choose(conductor,7);choose(conductor,5);choose(conductor,2);
+    assert(g_chord_queue.cycle_count==4);
+    position=4;assert(take(conductor));
+    assert(hb_live_selection(conductor).root_pc==0);
+    API.set_param(conductor,"hb_chord_queue","off");
+    assert(!hb_cq_owner());
+    /* Muting only suppresses generated selection notes; the C queue keeps
+       advancing history, loop phase and next harmony on the same deadlines. */
+    API.set_param(conductor,"chord_queue_end","Loop");
+    API.set_param(conductor,"chord_queue_depth","2");
+    running=0;position=0;held=-1;
+    choose(conductor,0);choose(conductor,7);
+    assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
+    API.set_param(conductor,"hb_chord_queue_mute","On");
+    assert(g_chord_queue.muted);
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));held=-1;
+    running=1;position=0;assert(!take(conductor));
+    position=4;
+    assert(!take(conductor)); /* second chord advances silently */
+    assert(g_chord_queue.cycle_position==1&&g_chord_queue.history_count>=2);
+    position=5;assert(!take(conductor)); /* no recovery while muted */
+    API.set_param(conductor,"hb_chord_queue_mute","Off");
+    assert(!g_chord_queue.muted);
+    assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
+    assert(g_chord_queue.cycle_position==1); /* unmute does not rewind */
+    API.set_param(conductor,"hb_chord_queue_mute","On");
+    int retained_cursor=g_chord_queue.cycle_position;
+    unsigned long long rearmed_before=g_chord_queue_diagnostics.rearms;
+    API.set_param(conductor,"hb_chord_queue_override","Off");
+    assert(!g_chord_queue.muted&&!g_chord_queue.enabled);
+    assert(hb_cq_owner()&&g_chord_queue.cycle_count==2);
+    assert(g_chord_queue.cycle_position==retained_cursor);
+    assert(g_chord_queue_diagnostics.rearms==rearmed_before); /* bypass never retriggers */
+    /* A stored but bypassed queue cannot suppress recorded conductor MIDI.
+       This is a musical authority boundary, not a deletion of the queue. */
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));
+    conductor->recorded_action_valid[60]=1;
+    memset(conductor->recorded_actions[60],0,sizeof(conductor->recorded_actions[60]));
+    conductor->recorded_actions[60][0]=g_chord_queue.cycle[0].word;
+    conductor->movy_playback=1;
+    uint8_t clip_on[]={0x90,60,100};
+    assert(hb_selection_input(conductor,clip_on,3));
+    int playback_seen=0;
+    for(int key_index=0;key_index<HB_CP_KEYS;key_index++)
+        playback_seen|=conductor->player.keys[key_index].used&&
+            conductor->player.keys[key_index].playback_origin;
+    assert(playback_seen);
+    conductor->movy_playback=0;
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));
+    conductor->recorded_action_valid[60]=0;
+    /* Bypassed playback consumes scheduled changes without emitting notes. */
+    position=8;
+    assert(!take(conductor));
+    assert(g_chord_queue.cycle_position==0&&g_chord_queue.history_count>=3);
+    API.set_param(conductor,"hb_chord_queue_override","On");
+    assert(g_chord_queue.enabled&&!g_chord_queue.muted);
+    assert(g_chord_queue.cycle_position==0);
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));held=-1;
+    position=9;assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
+    assert(g_chord_queue.cycle_position==0); /* reactivation resumes current phase */
+    API.set_param(conductor,"hb_chord_queue","off");
+    assert(!hb_cq_owner());
     sustained_loop(conductor);
     late_first_cue(conductor);
     queue_preview_check(conductor);
