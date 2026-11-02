@@ -1,14 +1,34 @@
 /* One live conductor timeline. Clip learning remains separate; all consumers
    below read the same scheduled harmony used by the host's ordinary note path. */
-#define HB_CQ_CAPACITY 16
+#define HB_CQ_DEPTH_MAX 16
+#define HB_CQ_PREVIEW 32
 #define HB_CQ_HISTORY 65
 typedef struct { unsigned long long word; int note; double at; } hb_cq_event;
 typedef struct {
     int owner, count, history_count, seed, waiting, phrase_ready, phrase_held, cycle_count, cycle_position, running, timing, anticipation, result, paused, enabled, muted;
     double last_beat;
-    hb_cq_event pending[HB_CQ_CAPACITY], cycle[HB_CQ_CAPACITY], history[HB_CQ_HISTORY];
+    /* One retained progression; pending is a view of its unplayed suffix.
+       Moving the cursor never copies the remaining progression. */
+    int capacity, stored_count, scheduled_count;
+    hb_cq_event *pending, *cycle, history[HB_CQ_HISTORY];
 } hb_chord_queue;
 static hb_chord_queue g_chord_queue;
+/* Grow only on an explicit enqueue edit, never on take/repeat/status. A failed
+   edit leaves both the progression and its playback cursor intact. */
+static int hb_cq_reserve(void){
+    hb_chord_queue *queue=&g_chord_queue;
+    if(queue->stored_count<queue->capacity)return 1;
+    if(queue->capacity>1073741823)return 0;
+    int capacity=queue->capacity?queue->capacity*2:64;
+    if((size_t)capacity>(size_t)-1/sizeof(hb_cq_event))return 0;
+    hb_cq_event *events=malloc((size_t)capacity*sizeof(*events));
+    if(!events)return 0;
+    int offset=queue->pending?(int)(queue->pending-queue->cycle):0;
+    if(queue->stored_count)memcpy(events,queue->cycle,(size_t)queue->stored_count*sizeof(*events));
+    free(queue->cycle);
+    queue->cycle=events;queue->pending=events+offset;queue->capacity=capacity;
+    return 1;
+}
 /* Lifetime totals survive queue clears so an end-of-capture read can explain
    a vanished queue. No allocation, clock reads or logging in the audio path. */
 static struct {
@@ -54,6 +74,7 @@ static void hb_cq_mute(Inst *instance,int muted){
 }
 static void hb_cq_clear(Inst *instance){if(!instance||hb_cq_owned(instance)){
     if(g_chord_queue.owner)g_chord_queue_diagnostics.clears++;
+    free(g_chord_queue.cycle);
     memset(&g_chord_queue,0,sizeof(g_chord_queue));
 }}
 static int hb_selection_parse(const char *parameter,int *fields,int bank);
@@ -75,16 +96,27 @@ static double hb_cq_next_boundary(double after){
     }
     return hb_ft_next_boundary(after+1e-6,4.0,hb_anticipation_beats());
 }
-static void hb_cq_schedule(double after){
-    for(int index=0;index<g_chord_queue.count;index++){
+/* The lookahead/history horizon stays bounded as retained storage grows. */
+static void hb_cq_extend(double after){
+    int limit=g_chord_queue.count<HB_CQ_HISTORY?g_chord_queue.count:HB_CQ_HISTORY;
+    for(int index=g_chord_queue.scheduled_count;index<limit;index++){
         after=hb_cq_next_boundary(after);g_chord_queue.pending[index].at=after;
     }
+    g_chord_queue.scheduled_count=limit;
+}
+static void hb_cq_schedule(double after){
+    g_chord_queue.scheduled_count=0;hb_cq_extend(after);
+}
+static void hb_cq_schedule_immediate(double now){
+    g_chord_queue.scheduled_count=0;
+    if(g_chord_queue.count){g_chord_queue.pending[0].at=now;g_chord_queue.scheduled_count=1;hb_cq_extend(now);}
 }
 static void hb_cq_repeat(double after){
-    memcpy(g_chord_queue.pending,g_chord_queue.cycle,(size_t)g_chord_queue.cycle_count*sizeof(hb_cq_event));
+    g_chord_queue.pending=g_chord_queue.cycle;
+    g_chord_queue.cycle_count=g_chord_queue.stored_count;
     g_chord_queue.count=g_chord_queue.cycle_count;g_chord_queue.waiting=0;
     if(g_chord_queue.running)hb_cq_schedule(after);
-    else for(int index=0;index<g_chord_queue.count;index++)g_chord_queue.pending[index].at=-1;
+    else {g_chord_queue.scheduled_count=0;if(g_chord_queue.count)g_chord_queue.pending[0].at=-1;}
 }
 /* Called by the host only at its existing sequencer boundary, never by UI
    redraws. Editing timing re-arms future entries, without changing the current. */
@@ -96,7 +128,7 @@ static void hb_cq_sync(void){
            Hold/Loop is a playback policy, not a queue-lifetime policy.
            Only explicit Off (or Set teardown) is allowed to clear it. */
         g_chord_queue.paused=1;g_chord_queue.running=0;
-        for(int index=0;index<g_chord_queue.count;index++)g_chord_queue.pending[index].at=-1;
+        g_chord_queue.scheduled_count=0;if(g_chord_queue.count)g_chord_queue.pending[0].at=-1;
     }
     if(g_chord_queue.paused){
         if(!running)return;
@@ -105,10 +137,7 @@ static void hb_cq_sync(void){
                including Hold queues; no fallback to the recorded conductor. */
             g_chord_queue.running=1;hb_cq_repeat(now);
             g_chord_queue.seed=1;g_chord_queue.history_count=0;g_chord_queue.cycle_position=-1;
-            double at=now;
-            for(int index=0;index<g_chord_queue.count;index++){
-                g_chord_queue.pending[index].at=at;at=hb_cq_next_boundary(at);
-            }
+            hb_cq_schedule_immediate(now);
             g_chord_queue.paused=0;g_chord_queue.last_beat=now;
             g_chord_queue.timing=g_bus.chord_timing;g_chord_queue.anticipation=g_bus.anticipation;
             g_chord_queue_diagnostics.rearms++;return;
@@ -124,11 +153,10 @@ static void hb_cq_sync(void){
     int armed=0;
     if(hb_cq_owner()->chord_queue_loop&&g_chord_queue.waiting&&!g_chord_queue.count&&g_chord_queue.cycle_count){hb_cq_repeat(now);armed=1;}
     if(g_chord_queue.waiting&&!g_chord_queue.phrase_held&&g_chord_queue.count>0&&(g_chord_queue.phrase_ready||(hb_cq_owner()->chord_queue_depth>0&&g_chord_queue.count>=hb_cq_owner()->chord_queue_depth))){
-        g_chord_queue.cycle_count=g_chord_queue.count;
-        g_chord_queue.cycle_position=-1;
-        memcpy(g_chord_queue.cycle,g_chord_queue.pending,(size_t)g_chord_queue.count*sizeof(hb_cq_event));
+        g_chord_queue.cycle_count=g_chord_queue.stored_count;
+        g_chord_queue.cycle_position=g_chord_queue.cycle_count-g_chord_queue.count-1;
         g_chord_queue.waiting=0;g_chord_queue.phrase_ready=0;armed=1;
-        if(!running&&g_chord_queue.seed)g_chord_queue.pending[0].at=now;
+        if(!running&&g_chord_queue.seed){g_chord_queue.pending[0].at=now;g_chord_queue.scheduled_count=1;}
     }
     if(running&&!g_chord_queue.waiting&&(armed||!g_chord_queue.running||g_chord_queue.timing!=g_bus.chord_timing||g_chord_queue.anticipation!=g_bus.anticipation)){
         g_chord_queue_diagnostics.rearms++;hb_cq_schedule(now);
@@ -161,13 +189,7 @@ static void hb_cq_retrigger(Inst *instance){
     g_chord_queue.cycle_position=-1;
     g_chord_queue.timing=g_bus.chord_timing;
     g_chord_queue.anticipation=g_bus.anticipation;
-    if(running){
-        double at=now;
-        for(int index=0;index<g_chord_queue.count;index++){
-            g_chord_queue.pending[index].at=at;
-            at=hb_cq_next_boundary(at);
-        }
-    }
+    if(running)hb_cq_schedule_immediate(now);
     g_chord_queue_diagnostics.rearms++;
 }
 static void hb_cq_enqueue(Inst *instance,const char *parameter){
@@ -177,15 +199,18 @@ static void hb_cq_enqueue(Inst *instance,const char *parameter){
     if(hb_cq_owner()&&!hb_cq_owned(instance))return;
     if(!hb_cq_owner()){
         hb_cq_clear(0);g_chord_queue.owner=(int)(instance-g_pool)+1;
-        g_chord_queue.seed=1;g_chord_queue.enabled=1;g_chord_queue.waiting=1;g_chord_queue.last_beat=hb_cq_beat();
+        g_chord_queue.seed=1;g_chord_queue.enabled=1;g_chord_queue.waiting=1;g_chord_queue.cycle_position=-1;g_chord_queue.last_beat=hb_cq_beat();
     }
     hb_cq_sync();
     if(!hb_cq_owner())return;
-    if(g_chord_queue.count>=HB_CQ_CAPACITY||(instance->chord_queue_loop&&!g_chord_queue.waiting&&g_chord_queue.cycle_count>=HB_CQ_CAPACITY)){g_chord_queue.result=2;return;}
-    double after=g_chord_queue.count?g_chord_queue.pending[g_chord_queue.count-1].at:hb_cq_beat();
-    double at=!g_chord_queue.waiting&&g_chord_queue.running?hb_cq_next_boundary(after):-1;
-    g_chord_queue.pending[g_chord_queue.count++]=(hb_cq_event){word,note,at};
-    if(!g_chord_queue.waiting&&g_chord_queue.cycle_count<HB_CQ_CAPACITY)g_chord_queue.cycle[g_chord_queue.cycle_count++]=g_chord_queue.pending[g_chord_queue.count-1];
+    if(!hb_cq_reserve()){g_chord_queue.result=2;return;}
+    g_chord_queue.pending[g_chord_queue.count++]=(hb_cq_event){word,note,-1};
+    g_chord_queue.stored_count++;
+    if(!g_chord_queue.waiting)g_chord_queue.cycle_count=g_chord_queue.stored_count;
+    if(!g_chord_queue.waiting&&g_chord_queue.running){
+        double after=g_chord_queue.scheduled_count?g_chord_queue.pending[g_chord_queue.scheduled_count-1].at:hb_cq_beat();
+        hb_cq_extend(after);
+    }
     g_chord_queue.result=1;hb_cq_sync();
 }
 /* Consumptive bridge, like hb_recorded_actions: prepares exactly one ordinary
@@ -222,8 +247,13 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
     /* Allow one 96-PPQN service tick; this is beat lateness, not wall time. */
     if(late>1.0/96.0+1e-6)g_chord_queue_diagnostics.late++;
     g_chord_queue.seed=0;
-    for(int index=1;index<g_chord_queue.count;index++)g_chord_queue.pending[index-1]=g_chord_queue.pending[index];
+    g_chord_queue.pending++;
     g_chord_queue.count--;
+    if(g_chord_queue.scheduled_count)g_chord_queue.scheduled_count--;
+    if(g_chord_queue.running){
+        double after=g_chord_queue.scheduled_count?g_chord_queue.pending[g_chord_queue.scheduled_count-1].at:event.at;
+        hb_cq_extend(after);
+    }
     g_chord_queue.cycle_position=g_chord_queue.cycle_count-g_chord_queue.count-1;
     if(!g_chord_queue.count)g_chord_queue.waiting=1;
     if(g_chord_queue.history_count==HB_CQ_HISTORY){
@@ -257,7 +287,7 @@ static hb_harmony_t hb_cq_at(const Inst *instance,double beat,int shifted){
         for(int index=queue->history_count-2;index>0;index--)
             if(queue->history[index].at<=beat+1e-6){selected=queue->history[index];break;}
     }
-    for(int index=0;index<queue->count;index++){
+    for(int index=0;index<queue->scheduled_count;index++){
         if(queue->pending[index].at<0||queue->pending[index].at>beat+1e-6)break;
         selected=queue->pending[index];
     }
@@ -273,9 +303,15 @@ static double hb_cq_boundary_for(const Inst *instance,double beat){
         double at=g_chord_queue.history[g_chord_queue.history_count-1].at+delay;
         if(at>=beat-1e-6)best=at;
     }
-    for(int index=0;index<g_chord_queue.history_count+g_chord_queue.count;index++){
-        hb_cq_event event=index<g_chord_queue.history_count?g_chord_queue.history[index]:g_chord_queue.pending[index-g_chord_queue.history_count];
+    for(int index=0;index<g_chord_queue.history_count;index++){
+        hb_cq_event event=g_chord_queue.history[index];
         double at=event.at-shift;if(event.at>=0&&at>=beat-1e-6&&at<best)best=at;
+    }
+    /* Pending deadlines are ordered. The first eligible boundary is enough. */
+    for(int index=0;index<g_chord_queue.scheduled_count;index++){
+        hb_cq_event event=g_chord_queue.pending[index];
+        double at=event.at-shift;
+        if(event.at>=0&&at>=beat-1e-6){if(at<best)best=at;break;}
     }
     return best<1e98?best:-1;
 }
@@ -285,26 +321,27 @@ static int hb_cq_status(Inst *instance,char *buffer,int length){
        is one live queue; bounded per-thread storage also avoids sharing
        mutable preview slots with render helpers. Full mapping inputs and
        policies are checked by hb_key_harmony_cached on every read. */
-    static _Thread_local hb_key_harmony_cache preview[HB_CQ_CAPACITY+2];
+    static _Thread_local hb_key_harmony_cache preview[HB_CQ_PREVIEW+2];
     hb_harmony_t current=g_chord_queue.history_count?hb_selection_decode(g_chord_queue.history[g_chord_queue.history_count-1].word,g_chord_queue.history[g_chord_queue.history_count-1].note):(hb_harmony_t){0};
     hb_harmony_t next=g_chord_queue.count?hb_selection_decode(g_chord_queue.pending[0].word,g_chord_queue.pending[0].note):(hb_harmony_t){0};
-    current=hb_key_harmony_cached(instance,current,&preview[HB_CQ_CAPACITY]);
-    next=hb_key_harmony_cached(instance,next,&preview[HB_CQ_CAPACITY+1]);
+    current=hb_key_harmony_cached(instance,current,&preview[HB_CQ_PREVIEW]);
+    next=hb_key_harmony_cached(instance,next,&preview[HB_CQ_PREVIEW+1]);
     /* The footer must retain the complete stored progression even after Hold
        reaches the final chord, on Stop, or while temporarily bypassed. */
-    int cycle=g_chord_queue.cycle_count>0;
-    int count=cycle?g_chord_queue.cycle_count:g_chord_queue.count+(current.valid?1:0);
-    int cursor=cycle?g_chord_queue.cycle_position:current.valid?0:-1;
-    int used=snprintf(buffer,(size_t)length,"cq1|%d|%.6f|%s|%s|%d|%d|%d|%d|%d|%d",g_chord_queue.count,
+    int count=g_chord_queue.stored_count,cursor=g_chord_queue.cycle_position;
+    int window=count>HB_CQ_PREVIEW,first=0;
+    if(window){
+        first=cursor-HB_CQ_PREVIEW/2;
+        if(first>count-HB_CQ_PREVIEW)first=count-HB_CQ_PREVIEW;
+        if(first<0)first=0;
+    }
+    int visible=count<HB_CQ_PREVIEW?count:HB_CQ_PREVIEW;
+    int used=snprintf(buffer,(size_t)length,"%s|%d|%.6f|%s|%s|%d|%d|%d|%d|%d|%d",window?"cq2":"cq1",g_chord_queue.count,
         g_chord_queue.count?g_chord_queue.pending[0].at:-1,current.valid?current.name:"--",next.valid?next.name:"--",g_chord_queue.result,g_chord_queue.waiting,instance->chord_queue_depth,instance->chord_queue_loop,cursor,count);
-    for(int index=0;index<count;index++){
-        hb_harmony_t harmony;
-        if(!cycle&&current.valid&&index==0)harmony=current;
-        else {
-            int slot=cycle?index:index-(current.valid?1:0);
-            hb_cq_event event=cycle?g_chord_queue.cycle[slot]:g_chord_queue.pending[slot];
-            harmony=hb_key_harmony_cached(instance,hb_selection_decode(event.word,event.note),&preview[slot]);
-        }
+    if(window){int available=used<length?length-used:0;used+=snprintf(available?buffer+used:0,(size_t)available,"|%d",first);}
+    for(int index=0;index<visible;index++){
+        hb_cq_event event=g_chord_queue.cycle[first+index];
+        hb_harmony_t harmony=hb_key_harmony_cached(instance,hb_selection_decode(event.word,event.note),&preview[index]);
         int available=used<length?length-used:0;
         used+=snprintf(available?buffer+used:0,(size_t)available,"|%s",harmony.valid?harmony.name:"--");
     }
