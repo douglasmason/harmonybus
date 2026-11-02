@@ -1,3 +1,5 @@
+HarmonyBus 0.2.311 supports growing, retained Chord Play queues with Movy hbclean.313. Update both modules. See [Growing chord queues](growing-chord-queue.md).
+
 HarmonyBus 0.2.310 completes the motif Relative Operation editor with Movy hbclean.284. See [Motif RPO editor](motif-rpo-editor.md).
 
 HarmonyBus 0.2.309 adds Fixed/Adaptive motif-to-clip export with Movy hbclean.282, reusing onset resolution and ownership. See [Fixed and Adaptive motif export](adaptive-motif-export.md).
