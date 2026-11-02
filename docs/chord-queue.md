@@ -152,3 +152,22 @@ stopped preload and resume. Replacing that deadline with the service beat hid
 first-cue lateness and could put history out of order when the next cue was
 already due. Actual note delivery remains on the existing service call; the
 queue does not add retries, skip chords or change its catch-up policy.
+
+
+## Queue lifetime and transport
+
+An assembled queue is conductor-owned, not tied to Chord Play's UI focus or
+the transport's current playing state. Neither Stop, pause, a beat-position
+jump, nor changing the Queue End playback policy destroys its contents.
+Stop silences the current live chord; Play starts a completed queue again at
+its first chord. This is true for both Loop (repeat) and Hold (reach the last
+chord and sustain it until its normal override lifetime ends), with the same
+native descriptor and harmonic lookahead. An incomplete Queue Depth or Touch
+Phrase preserves its partial entries across Stop and can be completed later.
+
+Only explicit Harmony Off / queue cancellation, new Set teardown, or an
+intentional conflicting conductor selection retires the existing owned
+queue. UI selection preferences must not send `hb_chord_queue=off`
+automatically. Queue lifetime does not imply keeping sounding notes alive
+while playback is stopped. The existing fixed-buffer service and counters
+remain unchanged; no UI polling or audio-thread heap allocation is added.
