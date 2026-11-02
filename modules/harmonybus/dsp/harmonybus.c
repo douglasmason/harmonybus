@@ -6130,7 +6130,7 @@ if(!strcmp(key,"chord_queue_end")){instance->chord_queue_loop=!strcmp(parameter,
  if(!strcmp(key,"hb_chord_queue_override")){hb_cq_override(instance,!strcmp(parameter,"On")||parameter[0]=='1');return;}
  if(!strcmp(key,"hb_chord_queue_mute")){hb_cq_mute(instance,!strcmp(parameter,"On")||parameter[0]=='1');return;}
 if(!strcmp(key,"chord_queue_depth")){instance->chord_queue_depth=!strcmp(parameter,"Touch Phrase")?0:hb_cp_clamp(parse_i(parameter,instance->chord_queue_depth),1,HB_CQ_CAPACITY);return;}
-if(!strcmp(key,"hb_chord_queue")){if(!strcmp(parameter,"off"))hb_cq_clear(instance);else if(!strcmp(parameter,"begin"))hb_cq_begin(instance);else if(!strcmp(parameter,"commit")||!strcmp(parameter,"end")){if(hb_cq_owned(instance)){g_chord_queue.phrase_held=0;if(!strcmp(parameter,"commit")&&g_chord_queue.waiting&&g_chord_queue.count)g_chord_queue.phrase_ready=1;}}else hb_cq_enqueue(instance,parameter);return;}
+if(!strcmp(key,"hb_chord_queue")){if(!strcmp(parameter,"off"))hb_cq_clear(instance);else if(!strcmp(parameter,"retrigger"))hb_cq_retrigger(instance);else if(!strcmp(parameter,"begin"))hb_cq_begin(instance);else if(!strcmp(parameter,"commit")||!strcmp(parameter,"end")){if(hb_cq_owned(instance)){g_chord_queue.phrase_held=0;if(!strcmp(parameter,"commit")&&g_chord_queue.waiting&&g_chord_queue.count)g_chord_queue.phrase_ready=1;}}else hb_cq_enqueue(instance,parameter);return;}
 if(!strcmp(key,"hb_movy_input_chord")){hb_selection_prepare(instance,parameter);return;}
 if(!strcmp(key,"hb_movy_input_approach")){
     int note=-1,shift=0,row=3;char trailing;int fields=sscanf(parameter,"%d,%d,%d%c",&note,&shift,&row,&trailing);
