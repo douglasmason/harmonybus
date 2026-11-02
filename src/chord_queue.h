@@ -4,7 +4,7 @@
 #define HB_CQ_HISTORY 65
 typedef struct { unsigned long long word; int note; double at; } hb_cq_event;
 typedef struct {
-    int owner, count, history_count, seed, waiting, phrase_ready, phrase_held, cycle_count, cycle_position, running, timing, anticipation, result, paused;
+    int owner, count, history_count, seed, waiting, phrase_ready, phrase_held, cycle_count, cycle_position, running, timing, anticipation, result, paused, enabled;
     double last_beat;
     hb_cq_event pending[HB_CQ_CAPACITY], cycle[HB_CQ_CAPACITY], history[HB_CQ_HISTORY];
 } hb_chord_queue;
@@ -16,6 +16,9 @@ static struct {
     double max_late, last_due, last_actual;
 } g_chord_queue_diagnostics;
 static int hb_cq_owned(const Inst *instance){return g_chord_queue.owner==(int)(instance-g_pool)+1;}
+/* Playback authority is separate from queue storage. A bypassed queue still
+   belongs to its conductor but must never override recorded harmony. */
+static int hb_cq_enabled(void){return g_chord_queue.owner&&g_chord_queue.enabled;}
 static Inst *hb_cq_owner(void){
     int index=g_chord_queue.owner-1;
     return index>=0&&index<HB_MAX_INSTANCES&&g_pool[index].used&&g_pool[index].role==0?&g_pool[index]:0;
@@ -33,7 +36,21 @@ static int hb_cq_running(void){
     const hb_movy_clip_t *clip=owner?&g_movy_clips[owner-g_pool]:0;
     return clip&&clip->present?clip->running:hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;
 }
-static int hb_cq_ready(void){return hb_cq_owner()&&!g_chord_queue.waiting&&g_chord_queue.count>0;}
+static int hb_cq_ready(void){return hb_cq_owner()&&g_chord_queue.enabled&&!g_chord_queue.waiting&&g_chord_queue.count>0;}
+/* Disable/enable changes musical authority without destroying queue contents.
+   The Rust bridge releases any sounding input note when disabling. */
+static void hb_cq_override(Inst *instance,int enabled){
+    if(!hb_cq_owned(instance))return;
+    enabled=enabled!=0;
+    if(g_chord_queue.enabled==enabled)return;
+    g_chord_queue.enabled=enabled;
+    g_chord_queue.paused=1;
+    g_chord_queue.running=0;
+    g_chord_queue.seed=enabled?1:0;
+    g_chord_queue.history_count=0;
+    g_chord_queue.cycle_position=-1;
+    for(int index=0;index<g_chord_queue.count;index++)g_chord_queue.pending[index].at=-1;
+}
 static void hb_cq_clear(Inst *instance){if(!instance||hb_cq_owned(instance)){
     if(g_chord_queue.owner)g_chord_queue_diagnostics.clears++;
     memset(&g_chord_queue,0,sizeof(g_chord_queue));
@@ -73,6 +90,7 @@ static void hb_cq_repeat(double after){
 static void hb_cq_sync(void){
     if(!hb_cq_owner())return;
     double now=hb_cq_beat();int running=hb_cq_running();
+    if(!g_chord_queue.enabled)return;
     if(g_chord_queue.running&&(!running||now+1e-6<g_chord_queue.last_beat)){
         /* Stop silences the selection but never destroys an owned queue.
            Hold/Loop is a playback policy, not a queue-lifetime policy.
@@ -124,7 +142,7 @@ static void hb_cq_begin(Inst *instance){
     if(instance->role!=0||(hb_cq_owner()&&!hb_cq_owned(instance)))return;
     if(!hb_cq_owner()){
         hb_cq_clear(0);g_chord_queue.owner=(int)(instance-g_pool)+1;
-        g_chord_queue.seed=1;g_chord_queue.waiting=1;g_chord_queue.cycle_position=-1;
+        g_chord_queue.seed=1;g_chord_queue.enabled=1;g_chord_queue.waiting=1;g_chord_queue.cycle_position=-1;
         g_chord_queue.last_beat=hb_cq_beat();
     }
     g_chord_queue.phrase_held=1;
@@ -136,7 +154,7 @@ static void hb_cq_enqueue(Inst *instance,const char *parameter){
     if(hb_cq_owner()&&!hb_cq_owned(instance))return;
     if(!hb_cq_owner()){
         hb_cq_clear(0);g_chord_queue.owner=(int)(instance-g_pool)+1;
-        g_chord_queue.seed=1;g_chord_queue.waiting=1;g_chord_queue.last_beat=hb_cq_beat();
+        g_chord_queue.seed=1;g_chord_queue.enabled=1;g_chord_queue.waiting=1;g_chord_queue.last_beat=hb_cq_beat();
     }
     hb_cq_sync();
     if(!hb_cq_owner())return;
@@ -152,7 +170,7 @@ static void hb_cq_enqueue(Inst *instance,const char *parameter){
 static int hb_cq_take(Inst *instance,char *buffer,int length){
     hb_cq_sync();
     if(!hb_cq_owned(instance)||!hb_cq_owner())return snprintf(buffer,(size_t)length,"off");
-    if(g_chord_queue.paused)return snprintf(buffer,(size_t)length,"--");
+    if(g_chord_queue.paused||!g_chord_queue.enabled)return snprintf(buffer,(size_t)length,"--");
     g_chord_queue_diagnostics.services++;
     double now=hb_cq_beat();
     int due=hb_cq_ready()&&(g_chord_queue.running||g_chord_queue.seed)&&
