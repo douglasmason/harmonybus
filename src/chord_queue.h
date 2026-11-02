@@ -4,7 +4,7 @@
 #define HB_CQ_HISTORY 65
 typedef struct { unsigned long long word; int note; double at; } hb_cq_event;
 typedef struct {
-    int owner, count, history_count, seed, waiting, phrase_ready, phrase_held, cycle_count, cycle_position, running, timing, anticipation, result, paused, enabled;
+    int owner, count, history_count, seed, waiting, phrase_ready, phrase_held, cycle_count, cycle_position, running, timing, anticipation, result, paused, enabled, muted;
     double last_beat;
     hb_cq_event pending[HB_CQ_CAPACITY], cycle[HB_CQ_CAPACITY], history[HB_CQ_HISTORY];
 } hb_chord_queue;
@@ -44,12 +44,21 @@ static void hb_cq_override(Inst *instance,int enabled){
     enabled=enabled!=0;
     if(g_chord_queue.enabled==enabled)return;
     g_chord_queue.enabled=enabled;
+    // Bypass always clears output mute; re-enabling starts audible.
+    if(!enabled)g_chord_queue.muted=0;
     g_chord_queue.paused=1;
     g_chord_queue.running=0;
     g_chord_queue.seed=enabled?1:0;
     g_chord_queue.history_count=0;
     g_chord_queue.cycle_position=-1;
     for(int index=0;index<g_chord_queue.count;index++)g_chord_queue.pending[index].at=-1;
+}
+/* Suppress only notes produced by the queue's virtual chord input. Keep the
+   native timeline, history, lookahead and pending event deadlines running.
+   The Rust owner releases already sounding notes on the mute transition. */
+static void hb_cq_mute(Inst *instance,int muted){
+    if(!hb_cq_owned(instance))return;
+    g_chord_queue.muted=g_chord_queue.enabled&&(muted!=0);
 }
 static void hb_cq_clear(Inst *instance){if(!instance||hb_cq_owned(instance)){
     if(g_chord_queue.owner)g_chord_queue_diagnostics.clears++;
@@ -178,7 +187,7 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
     /* Transport start and chord-state operations drain native voice ownership.
        Restore only between changes: replaying the old selection must never
        displace a chord already due at this sequencer boundary. */
-    if(!due&&!g_chord_queue.seed&&g_chord_queue.history_count&&!hb_has_live_selection(instance)){
+    if(!due&&!g_chord_queue.seed&&!g_chord_queue.muted&&g_chord_queue.history_count&&!hb_has_live_selection(instance)){
         g_chord_queue_diagnostics.recoveries++;
         hb_cq_event current=g_chord_queue.history[g_chord_queue.history_count-1];
         instance->selection_pending=current.word;instance->selection_note=current.note;
@@ -207,7 +216,10 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
     g_chord_queue.history[g_chord_queue.history_count++]=event;
     if(!g_chord_queue.count&&instance->chord_queue_loop&&g_chord_queue.cycle_count)hb_cq_repeat(event.at);
     instance->selection_pending=event.word;instance->selection_note=event.note;
-    return snprintf(buffer,(size_t)length,"%d",event.note);
+    /* Consume the event at its original deadline even while muted, rather
+       than generating a pitch and leaving an accumulating backlog. */
+    return g_chord_queue.muted?snprintf(buffer,(size_t)length,"--"):
+        snprintf(buffer,(size_t)length,"%d",event.note);
 }
 static hb_harmony_t hb_cq_next(void){
     return hb_cq_ready()?hb_selection_decode(g_chord_queue.pending[0].word,g_chord_queue.pending[0].note):(hb_harmony_t){0};
