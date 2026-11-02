@@ -511,9 +511,13 @@ int main(void){
     assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
     assert(g_chord_queue.cycle_position==1); /* unmute does not rewind */
     API.set_param(conductor,"hb_chord_queue_mute","On");
+    int retained_cursor=g_chord_queue.cycle_position;
+    unsigned long long rearmed_before=g_chord_queue_diagnostics.rearms;
     API.set_param(conductor,"hb_chord_queue_override","Off");
     assert(!g_chord_queue.muted&&!g_chord_queue.enabled);
-    assert(hb_cq_owner()&&g_chord_queue.cycle_count==2); /* Loop off retains queue */
+    assert(hb_cq_owner()&&g_chord_queue.cycle_count==2);
+    assert(g_chord_queue.cycle_position==retained_cursor);
+    assert(g_chord_queue_diagnostics.rearms==rearmed_before); /* bypass never retriggers */
     /* A stored but bypassed queue cannot suppress recorded conductor MIDI.
        This is a musical authority boundary, not a deletion of the queue. */
     memset(conductor->player.keys,0,sizeof(conductor->player.keys));
@@ -531,10 +535,16 @@ int main(void){
     conductor->movy_playback=0;
     memset(conductor->player.keys,0,sizeof(conductor->player.keys));
     conductor->recorded_action_valid[60]=0;
+    /* Bypassed playback consumes scheduled changes without emitting notes. */
+    position=8;
+    assert(!take(conductor));
+    assert(g_chord_queue.cycle_position==0&&g_chord_queue.history_count>=3);
     API.set_param(conductor,"hb_chord_queue_override","On");
     assert(g_chord_queue.enabled&&!g_chord_queue.muted);
+    assert(g_chord_queue.cycle_position==0);
     memset(conductor->player.keys,0,sizeof(conductor->player.keys));held=-1;
-    position=0;assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
+    position=9;assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
+    assert(g_chord_queue.cycle_position==0); /* reactivation resumes current phase */
     API.set_param(conductor,"hb_chord_queue","off");
     assert(!hb_cq_owner());
     sustained_loop(conductor);
