@@ -37,21 +37,13 @@ static int hb_cq_running(void){
     return clip&&clip->present?clip->running:hb_clock_status()==MOVE_CLOCK_STATUS_RUNNING;
 }
 static int hb_cq_ready(void){return hb_cq_owner()&&g_chord_queue.enabled&&!g_chord_queue.waiting&&g_chord_queue.count>0;}
-/* Disable/enable changes musical authority without destroying queue contents.
-   The Rust bridge releases any sounding input note when disabling. */
+/* A queue's active authority is not its lifetime or phase. Toggling Mute
+   must not reset the progression, restart the transport, or discard history.
+   The native consumer keeps advancing deadlines even while bypassed. */
 static void hb_cq_override(Inst *instance,int enabled){
     if(!hb_cq_owned(instance))return;
-    enabled=enabled!=0;
-    if(g_chord_queue.enabled==enabled)return;
-    g_chord_queue.enabled=enabled;
-    // Bypass always clears output mute; re-enabling starts audible.
+    g_chord_queue.enabled=enabled!=0;
     if(!enabled)g_chord_queue.muted=0;
-    g_chord_queue.paused=1;
-    g_chord_queue.running=0;
-    g_chord_queue.seed=enabled?1:0;
-    g_chord_queue.history_count=0;
-    g_chord_queue.cycle_position=-1;
-    for(int index=0;index<g_chord_queue.count;index++)g_chord_queue.pending[index].at=-1;
 }
 /* Suppress only notes produced by the queue's virtual chord input. Keep the
    native timeline, history, lookahead and pending event deadlines running.
@@ -99,7 +91,6 @@ static void hb_cq_repeat(double after){
 static void hb_cq_sync(void){
     if(!hb_cq_owner())return;
     double now=hb_cq_beat();int running=hb_cq_running();
-    if(!g_chord_queue.enabled)return;
     if(g_chord_queue.running&&(!running||now+1e-6<g_chord_queue.last_beat)){
         /* Stop silences the selection but never destroys an owned queue.
            Hold/Loop is a playback policy, not a queue-lifetime policy.
@@ -202,15 +193,17 @@ static void hb_cq_enqueue(Inst *instance,const char *parameter){
 static int hb_cq_take(Inst *instance,char *buffer,int length){
     hb_cq_sync();
     if(!hb_cq_owned(instance)||!hb_cq_owner())return snprintf(buffer,(size_t)length,"off");
-    if(g_chord_queue.paused||!g_chord_queue.enabled)return snprintf(buffer,(size_t)length,"--");
+    if(g_chord_queue.paused)return snprintf(buffer,(size_t)length,"--");
     g_chord_queue_diagnostics.services++;
     double now=hb_cq_beat();
-    int due=hb_cq_ready()&&(g_chord_queue.running||g_chord_queue.seed)&&
+    int due=hb_cq_owner()&&!g_chord_queue.waiting&&g_chord_queue.count>0&&
+        (g_chord_queue.running||g_chord_queue.seed)&&
         g_chord_queue.pending[0].at>=0&&now+1e-6>=g_chord_queue.pending[0].at;
     /* Transport start and chord-state operations drain native voice ownership.
        Restore only between changes: replaying the old selection must never
        displace a chord already due at this sequencer boundary. */
-    if(!due&&!g_chord_queue.seed&&!g_chord_queue.muted&&g_chord_queue.history_count&&!hb_has_live_selection(instance)){
+    if(!due&&!g_chord_queue.seed&&g_chord_queue.enabled&&!g_chord_queue.muted&&
+        g_chord_queue.history_count&&!hb_has_live_selection(instance)){
         g_chord_queue_diagnostics.recoveries++;
         hb_cq_event current=g_chord_queue.history[g_chord_queue.history_count-1];
         instance->selection_pending=current.word;instance->selection_note=current.note;
@@ -238,11 +231,11 @@ static int hb_cq_take(Inst *instance,char *buffer,int length){
     }
     g_chord_queue.history[g_chord_queue.history_count++]=event;
     if(!g_chord_queue.count&&instance->chord_queue_loop&&g_chord_queue.cycle_count)hb_cq_repeat(event.at);
+    /* Consumptive timing always advances. Bypassed events must not install
+       a virtual input note over the conductor's recorded harmony. */
+    if(!g_chord_queue.enabled||g_chord_queue.muted)return snprintf(buffer,(size_t)length,"--");
     instance->selection_pending=event.word;instance->selection_note=event.note;
-    /* Consume the event at its original deadline even while muted, rather
-       than generating a pitch and leaving an accumulating backlog. */
-    return g_chord_queue.muted?snprintf(buffer,(size_t)length,"--"):
-        snprintf(buffer,(size_t)length,"%d",event.note);
+    return snprintf(buffer,(size_t)length,"%d",event.note);
 }
 static hb_harmony_t hb_cq_next(void){
     return hb_cq_ready()?hb_selection_decode(g_chord_queue.pending[0].word,g_chord_queue.pending[0].note):(hb_harmony_t){0};
