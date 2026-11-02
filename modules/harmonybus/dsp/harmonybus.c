@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.310"
+#define HB_VERSION "0.2.311"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -6129,7 +6129,7 @@ if(!strcmp(key,"chord_register")){int next=!strcmp(parameter,"Conductor")?99:!st
 if(!strcmp(key,"chord_queue_end")){instance->chord_queue_loop=!strcmp(parameter,"Loop");return;}
  if(!strcmp(key,"hb_chord_queue_override")){hb_cq_override(instance,!strcmp(parameter,"On")||parameter[0]=='1');return;}
  if(!strcmp(key,"hb_chord_queue_mute")){hb_cq_mute(instance,!strcmp(parameter,"On")||parameter[0]=='1');return;}
-if(!strcmp(key,"chord_queue_depth")){instance->chord_queue_depth=!strcmp(parameter,"Touch Phrase")?0:hb_cp_clamp(parse_i(parameter,instance->chord_queue_depth),1,HB_CQ_CAPACITY);return;}
+if(!strcmp(key,"chord_queue_depth")){instance->chord_queue_depth=!strcmp(parameter,"Touch Phrase")?0:hb_cp_clamp(parse_i(parameter,instance->chord_queue_depth),1,HB_CQ_DEPTH_MAX);return;}
 if(!strcmp(key,"hb_chord_queue")){if(!strcmp(parameter,"off"))hb_cq_clear(instance);else if(!strcmp(parameter,"retrigger"))hb_cq_retrigger(instance);else if(!strcmp(parameter,"begin"))hb_cq_begin(instance);else if(!strcmp(parameter,"commit")||!strcmp(parameter,"end")){if(hb_cq_owned(instance)){g_chord_queue.phrase_held=0;if(!strcmp(parameter,"commit")&&g_chord_queue.waiting&&g_chord_queue.count)g_chord_queue.phrase_ready=1;}}else hb_cq_enqueue(instance,parameter);return;}
 if(!strcmp(key,"hb_movy_input_chord")){hb_selection_prepare(instance,parameter);return;}
 if(!strcmp(key,"hb_movy_input_approach")){
@@ -6539,7 +6539,7 @@ static void hb_restore_state(Inst *instance,const char *state){
     instance->chord_register=register_value==99||(register_value>=1000&&register_value<=1127)?register_value:hb_cp_clamp(register_value,-3,3);
     const char *depth_suffix=strstr(state,";cqd1,");int depth=2,loop=1;
     if(depth_suffix)sscanf(depth_suffix,";cqd1,%d,%d",&depth,&loop);
-    instance->chord_queue_depth=hb_cp_clamp(depth,0,HB_CQ_CAPACITY);instance->chord_queue_loop=loop==1;
+    instance->chord_queue_depth=hb_cp_clamp(depth,0,HB_CQ_DEPTH_MAX);instance->chord_queue_loop=loop==1;
     const char *quality_suffix=strstr(state,";cq1,");
     int quality=0,chromatic=0;
     if(quality_suffix&&sscanf(quality_suffix,";cq1,%d,%d",&quality,&chromatic)==2&&

@@ -1,6 +1,15 @@
+#include <stdlib.h>
+static int queue_allocations,fail_queue_allocation;
+static void *queue_test_malloc(size_t size){
+    queue_allocations++;
+    if(fail_queue_allocation){fail_queue_allocation=0;return NULL;}
+    return malloc(size);
+}
+#define malloc queue_test_malloc
 #define main ignored_reference_main
 #include "follower_reference_test.c"
 #undef main
+#undef malloc
 #include <time.h>
 static int running;
 static double queue_beat(void){return running?position:-1;}
@@ -17,6 +26,65 @@ static void choose(Inst *conductor,int root){
     char buffer[64];snprintf(buffer,sizeof(buffer),"%d,1,0,1,0,1,12",root);
     API.set_param(conductor,"hb_chord_queue",buffer);
 }
+static void growing_queue_check(Inst *conductor){
+    API.set_param(conductor,"hb_chord_queue","off");
+    API.set_param(conductor,"chord_queue_depth","Touch Phrase");
+    API.set_param(conductor,"chord_queue_end","Hold");
+    API.set_param(conductor,"chord_timing","1/16");
+    API.set_param(conductor,"anticipation","On Grid");
+    running=0;position=0;held=-1;
+    for(int index=0;index<4096;index++){
+        choose(conductor,index%12);
+        assert(g_chord_queue.result==1&&g_chord_queue.count==index+1);
+    }
+    hb_chord_queue before=g_chord_queue;
+    fail_queue_allocation=1;choose(conductor,11);
+    assert(!fail_queue_allocation&&g_chord_queue.result==2);
+    before.result=2;assert(!memcmp(&before,&g_chord_queue,sizeof(before)));
+    API.set_param(conductor,"hb_chord_queue","commit");assert(take(conductor));
+    running=1;assert(!take(conductor));
+    int allocations=queue_allocations;
+    for(int index=1;index<4096;index++){
+        position=index*.25;assert(take(conductor));
+        assert(hb_live_selection(conductor).root_pc==index%12);
+        assert(g_chord_queue.cycle_position==index);
+        assert(g_chord_queue.scheduled_count<=HB_CQ_HISTORY);
+        if(index%127==0){
+            char status[2048];hb_chord_queue saved=g_chord_queue;
+            assert(hb_cq_status(conductor,status,sizeof(status))<(int)sizeof(status));
+            assert(!strncmp(status,"cq2|",4));
+            assert(!memcmp(&saved,&g_chord_queue,sizeof(saved)));
+        }
+    }
+    assert(queue_allocations==allocations&&!g_chord_queue.count&&g_chord_queue.waiting);
+    /* A Hold refill extends the saved progression, including a stopped
+       partial refill; it must never overwrite its earlier chords. */
+    choose(conductor,7);choose(conductor,5);
+    assert(g_chord_queue.stored_count==4098&&g_chord_queue.waiting);
+    API.set_param(conductor,"hb_chord_queue","commit");
+    assert(!take(conductor)); /* The host services the commit at the current beat. */
+    position+=.25;assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
+    assert(g_chord_queue.cycle_position==4096);
+    position+=.25;assert(take(conductor)&&hb_live_selection(conductor).root_pc==5);
+    choose(conductor,2);assert(g_chord_queue.waiting);
+    running=0;assert(!take(conductor));
+    running=1;position=0;assert(take(conductor));
+    assert(g_chord_queue.cycle_count==4099&&g_chord_queue.count==4098);
+    assert(hb_live_selection(conductor).root_pc==0);
+    /* Both policies replay the same retained list. Queue traversal, wrap,
+       status and retrigger never grow its storage. */
+    API.set_param(conductor,"chord_queue_end","Loop");
+    allocations=queue_allocations;
+    for(int index=1;index<=4099;index++){
+        position=index*.25;assert(take(conductor));
+        int expected=index<4096?index%12:index==4096?7:index==4097?5:index==4098?2:0;
+        assert(hb_live_selection(conductor).root_pc==expected);
+    }
+    API.set_param(conductor,"hb_chord_queue","retrigger");assert(take(conductor));
+    assert(hb_live_selection(conductor).root_pc==0&&queue_allocations==allocations);
+    API.set_param(conductor,"hb_chord_queue","off");
+    assert(!g_chord_queue.cycle&&!g_chord_queue.pending&&!g_chord_queue.capacity);
+}
 static void snapshot(Inst *conductor,const char *tail){
     char buffer[1024];hb_chord_queue before=g_chord_queue;
     hb_cq_status(conductor,buffer,sizeof(buffer));
@@ -27,7 +95,7 @@ static void snapshot(Inst *conductor,const char *tail){
 }
 static void preview_snapshot(Inst *conductor){
     hb_chord_queue before=g_chord_queue;
-    hb_harmony_t expected[HB_CQ_CAPACITY+3]={0};
+    hb_harmony_t expected[HB_CQ_PREVIEW+3]={0};
     if(before.history_count){
         hb_cq_event event=before.history[before.history_count-1];
         expected[0]=hb_key_harmony(conductor,hb_selection_decode(event.word,event.note));
@@ -73,11 +141,11 @@ static void queue_preview_check(Inst *conductor){
     API.set_param(conductor,"chord_queue_end","Loop");
     running=0;position=0;held=-1;
     API.set_param(conductor,"hb_chord_queue","begin");
-    for(int index=0;index<HB_CQ_CAPACITY;index++){
+    for(int index=0;index<16;index++){
         char selection[64];snprintf(selection,sizeof(selection),"%d,%d,0,1,0,1,12",index%12,index<12?1:2);
         API.set_param(conductor,"hb_chord_queue",selection);
     }
-    assert(g_chord_queue.waiting&&g_chord_queue.count==HB_CQ_CAPACITY);
+    assert(g_chord_queue.waiting&&g_chord_queue.count==16);
     g_key_context=(hb_key_context){.active=1,.source_root=0,.target_root=9,
         .source_mask=hb_explicit_scale_mask(0,1),.target_mask=hb_explicit_scale_mask(9,2)};
     preview_snapshot(conductor); /* Waiting: no current chord. */
@@ -127,7 +195,7 @@ static void queue_preview_check(Inst *conductor){
     }
     /* Hold can display the current chord plus sixteen future chords. */
     API.set_param(conductor,"chord_queue_end","Hold");choose(conductor,5);
-    assert(g_chord_queue.count==HB_CQ_CAPACITY);preview_snapshot(conductor);
+    assert(g_chord_queue.count==16);preview_snapshot(conductor);
     API.set_param(conductor,"hb_chord_queue","off");
     g_key_context=saved;g_bus.global_transpose=transpose;g_bus.accidentals=accidentals;
     conductor->chord_register=range;conductor->policy_overrides=overrides;
@@ -308,10 +376,10 @@ int main(void){
     assert(!hb_cq_next().valid&&hb_mt_arrival(conductor,100)<0);
     choose(conductor,2);assert(g_chord_queue.pending[0].at==104);assert(!take(conductor));
     position=104;assert(take(conductor));assert(hb_live_selection(conductor).root_pc==2);
-    /* Repeated choices are distinct attacks; full queues reject atomically. */
-    for(int index=0;index<HB_CQ_CAPACITY;index++)choose(conductor,2);
-    choose(conductor,3);assert(g_chord_queue.count==HB_CQ_CAPACITY&&g_chord_queue.result==2);
-    API.set_param(conductor,"hb_chord_queue","bad");assert(g_chord_queue.count==HB_CQ_CAPACITY);
+    /* Repeated choices remain distinct beyond the old sixteen-entry cap. */
+    for(int index=0;index<16;index++)choose(conductor,2);
+    choose(conductor,3);assert(g_chord_queue.count==17&&g_chord_queue.result==1);
+    API.set_param(conductor,"hb_chord_queue","bad");assert(g_chord_queue.count==17);
     API.set_param(conductor,"chord_timing","1/2");API.set_param(conductor,"anticipation","1/8 Early");
     assert(!take(conductor));assert(g_chord_queue.pending[0].at==105.5);
     position=105.5;assert(take(conductor));assert(hb_live_selection(conductor).root_pc==2);
@@ -359,7 +427,7 @@ int main(void){
     for(int index=0;index<15;index++)choose(conductor,index%12);
     assert(!take(conductor)&&g_chord_queue.waiting);choose(conductor,3);
     assert(!g_chord_queue.waiting&&g_chord_queue.count==16&&g_chord_queue.pending[0].at==120);
-    choose(conductor,4);assert(g_chord_queue.result==2&&g_chord_queue.count==16);
+    choose(conductor,4);assert(g_chord_queue.result==1&&g_chord_queue.count==17);
     /* Preferences persist; queued notes do not. */
     API.get_param(conductor,"state",buffer,sizeof(buffer));assert(strstr(buffer,";cqd1,16"));
     API.set_param(conductor,"hb_chord_queue","off");API.set_param(conductor,"chord_queue_depth","2");
@@ -555,6 +623,7 @@ int main(void){
     late_first_cue(conductor);
     queue_preview_check(conductor);
     selection_cache_check(conductor);
+    growing_queue_check(conductor);
     API.destroy_instance(conductor);API.destroy_instance(follower);
     puts("Queued chords: seed, grid/anticipation, stopped preload, lookahead/late, motif arrival, empty hold, capacity, preview cache isolation, recorded isolation and lifecycle pass");
 }

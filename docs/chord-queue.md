@@ -1,196 +1,81 @@
-# Queued Chord Play: timing, depth, Hold / Loop
+# Queued Chord Play
 
-Install HarmonyBus 0.2.297 with Movy 0.34.1-hbclean.256.
+The conductor owns one retained progression. New sessions default to Queued
+entry and Loop. Explicitly saved Immediate or Hold preferences remain respected.
+Queue Depth (1–16, default 2) controls when a batch starts; it is not the maximum
+progression length. Touch Phrase commits on the last release of an overlapping
+knob/step gesture. A partial initial batch waits. When committed while stopped,
+its first chord sounds; Play advances the remaining chords on Queue Time.
 
-The first Chord Play panel contains Mode, Queue Time, Anticipation, Queue End,
-Next, Queue Status, Queue Depth, and Range / Tap Off. Queue controls target the
-conductor even while the pads play a different track. The panel count stays at
-eight. Left/Right arrows navigate the same panels as the jog dial; extended
-lists retain their bounded navigation and Left-at-first-item return behavior.
+Hold reaches the final chord and waits for another batch. New choices append
+to the retained progression, including after earlier batches finish. Loop repeats
+the retained progression. Neither policy imposes a sixteen-chord limit. Storage
+grows with available memory; if a growth allocation fails, the new choice is
+rejected without changing the existing progression or cursor.
 
-Queue Depth is 1–16 (default 2), with an additional Touch Phrase choice. It is the number of choices required to start
-or refill, not a limit of two future chords. A partial initial batch waits.
-When filled while stopped, its first chord sounds and Play starts progression.
-When filled during playback, progression begins at the next Queue Time boundary,
-including Anticipation. Observed timing uses learned clip changes and otherwise
-falls back to a bar. Changing timing reschedules future entries without changing
-the current chord.
+## Controls and lifetime
 
-Touch Phrase reuses the motif entry touch-sequence helper. Keep one knob or
-step held while touching the next; releasing the last held control commits the
-batch. A single touch/release commits one chord. Fixed depths continue to accept
-ordinary sequential touches without overlap.
+- Sample switches Immediate (bright) / Queued (dim), even with an empty queue.
+- Loop switches Hold / Loop. It is bright for Loop, dim for Hold, and off when
+  there is no queue. Shift+Loop retriggers the retained progression.
+- Mute bypasses/reactivates the queue. It is bright only while the queue is
+  muted, dim while active, and off with no queue. The queue continues its
+  timeline while bypassed; reactivation adopts the current chord without rewind.
+- X and the existing Range / Tap Off control explicitly cancel the queue.
+  X and Copy are available/dim only while a queue exists.
 
-Queue End has two choices:
+Stop silences the live selection and preserves the progression. Play restarts
+an assembled progression at its first chord, in both Hold and Loop. A partial
+initial batch still obeys its arming rule. If an already assembled progression
+has an unfinished appended batch, Stop/Play includes those retained choices.
+Changing input modes, focus, entry preference or end policy does not clear the
+queue. Explicit cancellation, Set teardown or conflicting conductor ownership
+retires it.
 
-- Hold consumes the queue, holds its last chord, and waits for Queue Depth new
-  choices before resuming. Transport and the other tracks continue.
-- Loop repeats the queued progression. Additional choices join its end, up to
-  sixteen chords. Changing to Hold lets the pending sequence finish; changing
-  back to Loop resumes the retained progression at the next boundary.
+Lookahead, pad prediction and motif destinations read the same scheduled native
+queue. Incomplete refills are not advertised as scheduled harmony. Recording
+writes actual chord activations into the conductor clip, never enqueue gestures.
+Range edits update stored choices in place without an extra attack. Only the
+currently sounding history entry is mutable; older history remains a timeline.
 
-The footer shows Fill, Ready, Hold, or Loop status and brackets the current
-chord. Loop uses an explicit position and total, such as `Loop 1/4 [C] G F D`:
-the stopped first-chord preview is included in the four. Longer progressions
-retain the same status prefix and show neighbors of the current chord. The
-queue footer owns its display band; the generic clip strip, performance footer,
-and enqueue count toasts do not overwrite it. All members of a repeating loop
-pulse on their knobs and steps, including chords already played this pass.
-Hold mode pulses only future queued choices. Sounding harmony retains its white selection color. The
-shared harmony footer supplies chord names beside ordinary Roman numerals;
-explicit secondary intent retains its target relationship. Live motif headers
-also retain this harmony footer. Preview/editor-specific instructions remain
-local to their respective views.
+## Storage, scheduling and feedback
 
-Harmony Off clears the live chord and the entire queue; it does not rewind or
-restart the existing progression. During playback it hands authority back to the
-conductor clip. Both playing and stopped, it leaves Queued mode selected and
-ready to fill a new progression.
-Stop, changing conductor, or loading a Set clears the transient queue. Queue
-Depth and Queue End persist in the conductor's native state; queued notes do not.
+The native queue stores one growable progression. Pending entries are a suffix
+view, so taking a chord advances a pointer instead of shifting all future entries.
+Storage grows geometrically, beginning at 64 entries, on explicit enqueue edits.
+There is no allocation in ordinary take, loop, retrigger or status reads. Host
+parameter edits can still share the audio service thread; this does not claim
+that allocation during an enqueue is hard real time or that device crackles are
+resolved. Cancellation releases the storage.
 
-Lookahead, pad prediction and motif destinations share the scheduled queue.
-Partial refills are not advertised as scheduled future harmony. Recording writes
-actual chord activations into the conductor's playing clip, never enqueue
-choices early. Looped activations use the same input and recording path.
+Only the next 65 deadlines are materialized, matching the existing bounded
+history horizon. Taking a chord replenishes that window. Loop/retrigger and
+transport/timing changes reschedule at most 65 entries, regardless of retained
+length. Current and delayed harmony reads and boundary searches use this window.
+The history remains bounded at 65 actual activations.
 
-Turning a chord-bank knob changes that chord's register in octaves (−3 to +3).
-Turning knob 8 changes the default on the track supplying the chord sound.
-Shift-tap a chord knob to inherit the default; Shift-tap knob 8 resets its default
-(the comping track resumes conductor inheritance). A normal knob-8 tap applies
-Harmony Off on release; any turn suppresses Off. Range edits update held and
-queued choices in place without enqueueing an extra attack. Per-chord overrides
-travel with recorded harmony and take priority over track defaults.
+Footer snapshots map at most 32 chord names using separate preview caches, so
+feedback does not evict the musical key-map cache. Short progressions retain the
+`cq1` protocol. Long progressions use `cq2`: the same ten header fields (pending
+count, next beat, current name, next name, result, waiting, depth, loop, absolute
+cursor, total retained count), followed by a zero-based window start and at most
+32 names. The window follows the cursor; it never changes playback. Result 2
+means the latest choice could not be stored. Consumers validate the window and
+use the absolute cursor/total for counts. All retained entries remain replayable.
 
-The first Settings category, Sound, exposes the chord/arp controls and labels
-its owner as Cond or Comp with the track number. It follows actual direct-output
-routing. Harmony identity, key/scale relationships, and chord-change timing stay
-with the conductor; additional attacks, gaps and playing style belong to the
-renderer. The conductor's timing is a fallback for comping, not an instruction
-to copy every comping attack back into the harmony progression. Raw melodic
-input is not transposed by the chord range control.
+`hb_chord_queue_diagnostics` remains the read-only `qd1` snapshot: services,
+activations, recoveries, lateChanges, clears, rearms, maxLateBeats, lastDueBeat,
+lastActualBeat and owner. Lifetime counters survive explicit queue cancellation.
+Lateness is in beats, not wall time; it cannot establish audio glitch causality.
 
-Left/Right lights follow the current Chord Play panel/list bounds. Grid uses the
-same bounds for its arrows and lights: Left/Right for time, +/− for rows. Other
-views retain their bar, step-record, octave and group actions, with octave/group
-lights dark at their limits.
+## Validation
 
-Validation includes native queue and lifecycle regression tests, controller
-knob routing/navigation/LED tests, shared footer tests, production QuickJS
-startup, full-chain audio/recording checks, and CI builds. Physical Move
-verification remains pending.
-
-The timing review gives an already due chord priority over recovery of a cleared
-old voice. Current-harmony reads no longer scan all retained history; delayed
-lookahead still searches the historical events. Regression coverage includes
-2,048 exact core changes, history rollover and voice loss at a due boundary,
-plus 128 bars through the production Movy/Schwung/HarmonyBus chain. These tests
-do not reproduce or establish a fix for intermittent physical-device lag and
-crackles after the first few loops.
-
-`hb_chord_queue_diagnostics` is a read-only `qd1` snapshot. Its pipe-separated
-fields are services, activations, recoveries, lateChanges, clears, rearms,
-maxLateBeats, lastDueBeat, lastActualBeat and owner. Totals/peak survive queue
-clears and cover the loaded module's lifetime. The single conductor queue is
-shared across instances; do not sum snapshots read through different tracks.
-Services count owned take calls; activations include the initial seed;
-recoveries count missing-live-selection requests between due changes. A late
-change exceeds its beat deadline by more than one 96-PPQN tick. Rearms count
-start/timing/anticipation/phrase scheduling, not ordinary cycle repeats.
-The maximum and last deadline/actual values are in beats, not milliseconds;
-a stalled beat clock can therefore conceal wall-time lateness. These counters
-identify symptoms, not audio glitches or the cause of lost voice ownership.
-The audio path adds only scalar counter/arithmetic operations; snapshots do not
-synchronize, consume a chord, reset counters, or allocate history.
-
-Loop mode now retains its phrase when transport stops. It stays silent while
-paused and restarts at chord one on Play, with the same queue status and bank
-membership used by the display/LEDs. Hold mode still clears on Stop. Explicit
-Harmony Off, Reset, role/routing changes and set replacement clear ownership.
-This prevents a stopped live queue from disappearing while a previously
-recorded progression continues on the next Play.
-
-Selection decoding now caches immutable descriptor interpretation in 64 fixed
-thread-local slots. Global transpose is part of the cache key; inherited range
-and spelling are refreshed on every read. Voice-validity checks inspect the
-existing selection keys without running chord inference. Differential tests
-compare cached/uncached results across roots, qualities, forms, transpose,
-register and spelling, and pause/resume tests retain exact phrase/cursor state.
-A desktop microbenchmark measured roughly 825 ns uncached versus 77 ns cached
-per repeated decode; this is not an end-to-end or physical crackle measurement.
-
-Queue service reads the already-published owner `hb_movy_clip` transport stamp
-before the conductor phase reconciles the shared bus. This prevents stale
-running/tick values from stranding Stop or postponing a cue. The native fallback
-still uses the host transport when no Movy metadata exists; no extra poll or
-full bus reconciliation is added.
-
-Queue footer key mapping uses eighteen fixed, thread-local preview slots:
-sixteen entries plus current and next. It no longer replaces the four mapping
-entries used by music. The existing mapping helper validates the complete
-input harmony, key context and dominant policies on every read, so edits and
-owner changes do not require a separate invalidation protocol. The queue,
-deadline and cursor remain untouched by status reads. Hold's current chord
-plus sixteen pending entries fits because the current chord reuses its header
-result.
-
-Before this isolation, a waiting sixteen-chord queue with Key Center active
-caused 160,001 musical-cache writes over 10,000 status/musical-read pairs;
-after warming the preview slots it causes zero. A desktop microbenchmark of
-that case fell from approximately 45 microseconds to 8–10 microseconds per pair.
-These are function timings, not device audio or physical crackle measurements.
-Run the optional timing check with `HB_QUEUE_STATUS_BENCH=1` on an optimized
-`chord_queue_test` build. The regression also checks cold/warm names against
-musical mapping, key/scale/transpose/policy/range/spelling edits, paused/resumed
-loops and the maximum Hold footer; no wall-clock threshold is asserted.
-
-## Late first-cue deadlines
-
-The first queued activation preserves its scheduled beat even when serviced
-late. Seed deadlines are already assigned by queue synchronization, including
-stopped preload and resume. Replacing that deadline with the service beat hid
-first-cue lateness and could put history out of order when the next cue was
-already due. Actual note delivery remains on the existing service call; the
-queue does not add retries, skip chords or change its catch-up policy.
-
-
-## Queue lifetime and transport
-
-An assembled queue is conductor-owned, not tied to Chord Play's UI focus or
-the transport's current playing state. Neither Stop, pause, a beat-position
-jump, nor changing the Queue End playback policy destroys its contents.
-Stop silences the current live chord; Play starts a completed queue again at
-its first chord. This is true for both Loop (repeat) and Hold (reach the last
-chord and sustain it until its normal override lifetime ends), with the same
-native descriptor and harmonic lookahead. An incomplete Queue Depth or Touch
-Phrase preserves its partial entries across Stop and can be completed later.
-
-Only explicit Harmony Off / queue cancellation, new Set teardown, or an
-intentional conflicting conductor selection retires the existing owned
-queue. UI selection preferences must not send `hb_chord_queue=off`
-automatically. Queue lifetime does not imply keeping sounding notes alive
-while playback is stopped. The existing fixed-buffer service and counters
-remain unchanged; no UI polling or audio-thread heap allocation is added.
-
-
-## Contextual Loop and Mute on Move
-
-Queue End defaults to **Loop** for new sessions; explicitly saved Hold settings
-remain respected. The physical Loop button is no longer the Queue End selector.
-It switches the native queue **override** On/Off, preserving its stored events.
-While bypassed, recorded conductor harmony (including its lookahead and pad
-context) is used and the queue's current generated note is released. Switching
-Loop back on restarts the saved progression at its first chord.
-
-Physical Mute is distinct. With Loop enabled, Mute stops MIDI generated by the
-queue's virtual chord input but continues consuming queued events at their
-scheduled boundaries; the native current/next harmony and phase advance
-uninterrupted. Unmuting recovers the *current* chord, not the first queued one.
-Muting therefore cannot accumulate a backlog or reorder deadlines. Turning
-Loop off automatically clears Mute, so the next activation is audible.
-
-These controls do not mute the selected melody track, clear the queue, stop
-transport, or replace ordinary explicit Harmony Off. The Rust bridge releases
-the currently sounding chord on a Mute or Loop-off gesture through the normal
-note-off path. Only queue-owned selection MIDI is suppressed; other actors'
-independent clips and instruments remain under their original routing rules.
+The native regression exercises 4,096 distinct queued activations, allocation
+failure, bounded deadline/preview windows, continued Hold entry, a 4,099-chord
+replay and retrigger, and verifies that playback does not allocate. Existing
+coverage includes late service, 2,048 loop changes, pause/resume, bypass,
+lookahead, cache isolation, range edits and conductor ownership. The Movy
+production-chain fixture covers a 64-chord Hold queue, appended refill and
+66-chord restart with balanced MIDI releases, in addition to its 128-bar loop
+fixture. Controller tests cover long-queue counts, cursor visibility and button
+availability. Physical Move audio and display verification remain necessary.
