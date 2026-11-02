@@ -323,6 +323,10 @@ int main(void){
     assert(!take(conductor));assert(hb_cq_owner()&&g_chord_queue.count==1);
     assert(g_chord_queue.history[0].at==0&&g_chord_queue.pending[0].at==1.5);
     running=0;assert(!take(conductor));
+    /* Stop retains the previous progression. Explicit Off is required before
+       exercising a fresh stopped, immediate-seed queue in this fixture. */
+    assert(hb_cq_owner());
+    API.set_param(conductor,"hb_chord_queue","off");assert(!hb_cq_owner());
     choose(conductor,0);assert(take(conductor));API.set_param(conductor,"hb_chord_queue","off");assert(!hb_cq_owner());
     choose(conductor,0);assert(take(conductor));API.set_param(conductor,"role","Follower");assert(!hb_cq_owner());
     API.set_param(conductor,"role","Conductor");
