@@ -74,23 +74,30 @@ static void hb_cq_sync(void){
     if(!hb_cq_owner())return;
     double now=hb_cq_beat();int running=hb_cq_running();
     if(g_chord_queue.running&&(!running||now+1e-6<g_chord_queue.last_beat)){
-        if(!hb_cq_owner()->chord_queue_loop||!g_chord_queue.cycle_count){hb_cq_clear(0);return;}
+        /* Stop silences the selection but never destroys an owned queue.
+           Hold/Loop is a playback policy, not a queue-lifetime policy.
+           Only explicit Off (or Set teardown) is allowed to clear it. */
         g_chord_queue.paused=1;g_chord_queue.running=0;
         for(int index=0;index<g_chord_queue.count;index++)g_chord_queue.pending[index].at=-1;
     }
     if(g_chord_queue.paused){
         if(!running)return;
-        /* Transport Play starts the retained loop at its first chord. Do not
-           restore a stopped voice, or fall through to a recorded clip loop. */
-        g_chord_queue.running=1;hb_cq_repeat(now);
-        g_chord_queue.seed=1;g_chord_queue.history_count=0;g_chord_queue.cycle_position=-1;
-        double at=now;
-        for(int index=0;index<g_chord_queue.count;index++){
-            g_chord_queue.pending[index].at=at;at=hb_cq_next_boundary(at);
+        if(g_chord_queue.cycle_count){
+            /* Play always reactivates the retained progression at chord one,
+               including Hold queues; no fallback to the recorded conductor. */
+            g_chord_queue.running=1;hb_cq_repeat(now);
+            g_chord_queue.seed=1;g_chord_queue.history_count=0;g_chord_queue.cycle_position=-1;
+            double at=now;
+            for(int index=0;index<g_chord_queue.count;index++){
+                g_chord_queue.pending[index].at=at;at=hb_cq_next_boundary(at);
+            }
+            g_chord_queue.paused=0;g_chord_queue.last_beat=now;
+            g_chord_queue.timing=g_bus.chord_timing;g_chord_queue.anticipation=g_bus.anticipation;
+            g_chord_queue_diagnostics.rearms++;return;
         }
-        g_chord_queue.paused=0;g_chord_queue.last_beat=now;
-        g_chord_queue.timing=g_bus.chord_timing;g_chord_queue.anticipation=g_bus.anticipation;
-        g_chord_queue_diagnostics.rearms++;return;
+        /* Incomplete Touch Phrase / Queue Depth entries also survive Stop.
+           Allow the existing arming rules to run when Play resumes. */
+        g_chord_queue.paused=0;
     }
     if(running&&!g_chord_queue.running&&g_chord_queue.history_count){
         hb_cq_event current=g_chord_queue.history[g_chord_queue.history_count-1];current.at=now;
