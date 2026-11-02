@@ -498,6 +498,23 @@ int main(void){
     API.set_param(conductor,"hb_chord_queue_override","Off");
     assert(!g_chord_queue.muted&&!g_chord_queue.enabled);
     assert(hb_cq_owner()&&g_chord_queue.cycle_count==2); /* Loop off retains queue */
+    /* A stored but bypassed queue cannot suppress recorded conductor MIDI.
+       This is a musical authority boundary, not a deletion of the queue. */
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));
+    conductor->recorded_action_valid[60]=1;
+    memset(conductor->recorded_actions[60],0,sizeof(conductor->recorded_actions[60]));
+    conductor->recorded_actions[60][0]=g_chord_queue.cycle[0].word;
+    conductor->movy_playback=1;
+    uint8_t clip_on[]={0x90,60,100};
+    assert(hb_selection_input(conductor,clip_on,3));
+    int playback_seen=0;
+    for(int key_index=0;key_index<HB_CP_KEYS;key_index++)
+        playback_seen|=conductor->player.keys[key_index].used&&
+            conductor->player.keys[key_index].playback_origin;
+    assert(playback_seen);
+    conductor->movy_playback=0;
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));
+    conductor->recorded_action_valid[60]=0;
     API.set_param(conductor,"hb_chord_queue_override","On");
     assert(g_chord_queue.enabled&&!g_chord_queue.muted);
     memset(conductor->player.keys,0,sizeof(conductor->player.keys));held=-1;
