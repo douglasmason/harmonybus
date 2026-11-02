@@ -124,6 +124,26 @@ before the conductor phase reconciles the shared bus. This prevents stale
 running/tick values from stranding Stop or postponing a cue. The native fallback
 still uses the host transport when no Movy metadata exists; no extra poll or
 full bus reconciliation is added.
+
+Queue footer key mapping uses eighteen fixed, thread-local preview slots:
+sixteen entries plus current and next. It no longer replaces the four mapping
+entries used by music. The existing mapping helper validates the complete
+input harmony, key context and dominant policies on every read, so edits and
+owner changes do not require a separate invalidation protocol. The queue,
+deadline and cursor remain untouched by status reads. Hold's current chord
+plus sixteen pending entries fits because the current chord reuses its header
+result.
+
+Before this isolation, a waiting sixteen-chord queue with Key Center active
+caused 160,001 musical-cache writes over 10,000 status/musical-read pairs;
+after warming the preview slots it causes zero. A desktop microbenchmark of
+that case fell from approximately 45 microseconds to 8–10 microseconds per pair.
+These are function timings, not device audio or physical crackle measurements.
+Run the optional timing check with `HB_QUEUE_STATUS_BENCH=1` on an optimized
+`chord_queue_test` build. The regression also checks cold/warm names against
+musical mapping, key/scale/transpose/policy/range/spelling edits, paused/resumed
+loops and the maximum Hold footer; no wall-clock threshold is asserted.
+
 ## Late first-cue deadlines
 
 The first queued activation preserves its scheduled beat even when serviced

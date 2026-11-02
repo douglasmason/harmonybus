@@ -228,9 +228,15 @@ static double hb_cq_boundary_for(const Inst *instance,double beat){
 }
 static int hb_cq_status(Inst *instance,char *buffer,int length){
     if(!hb_cq_owned(instance)||!hb_cq_owner())return snprintf(buffer,(size_t)length,"--");
+    /* Footer previews must not evict the four musical key-map entries. There
+       is one live queue; bounded per-thread storage also avoids sharing
+       mutable preview slots with render helpers. Full mapping inputs and
+       policies are checked by hb_key_harmony_cached on every read. */
+    static _Thread_local hb_key_harmony_cache preview[HB_CQ_CAPACITY+2];
     hb_harmony_t current=g_chord_queue.history_count?hb_selection_decode(g_chord_queue.history[g_chord_queue.history_count-1].word,g_chord_queue.history[g_chord_queue.history_count-1].note):(hb_harmony_t){0};
     hb_harmony_t next=g_chord_queue.count?hb_selection_decode(g_chord_queue.pending[0].word,g_chord_queue.pending[0].note):(hb_harmony_t){0};
-    current=hb_key_harmony(instance,current);next=hb_key_harmony(instance,next);
+    current=hb_key_harmony_cached(instance,current,&preview[HB_CQ_CAPACITY]);
+    next=hb_key_harmony_cached(instance,next,&preview[HB_CQ_CAPACITY+1]);
     int cycle=instance->chord_queue_loop&&!g_chord_queue.waiting&&g_chord_queue.cycle_count;
     int count=cycle?g_chord_queue.cycle_count:g_chord_queue.count+(current.valid?1:0);
     int cursor=cycle?g_chord_queue.cycle_position:current.valid?0:-1;
@@ -239,7 +245,11 @@ static int hb_cq_status(Inst *instance,char *buffer,int length){
     for(int index=0;index<count;index++){
         hb_harmony_t harmony;
         if(!cycle&&current.valid&&index==0)harmony=current;
-        else {hb_cq_event event=cycle?g_chord_queue.cycle[index]:g_chord_queue.pending[index-(current.valid?1:0)];harmony=hb_key_harmony(instance,hb_selection_decode(event.word,event.note));}
+        else {
+            int slot=cycle?index:index-(current.valid?1:0);
+            hb_cq_event event=cycle?g_chord_queue.cycle[slot]:g_chord_queue.pending[slot];
+            harmony=hb_key_harmony_cached(instance,hb_selection_decode(event.word,event.note),&preview[slot]);
+        }
         int available=used<length?length-used:0;
         used+=snprintf(available?buffer+used:0,(size_t)available,"|%s",harmony.valid?harmony.name:"--");
     }
