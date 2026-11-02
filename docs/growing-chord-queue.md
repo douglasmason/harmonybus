@@ -1,6 +1,6 @@
 # HarmonyBus 0.2.311 — growing retained chord queues
 
-Install this HarmonyBus update together with Movy 0.34.1-hbclean.313.
+Install this HarmonyBus update together with Movy 0.34.1-hbclean.314.
 The queue engine runs in HarmonyBus; updating only Movy does not remove the
 old sixteen-chord limit.
 
