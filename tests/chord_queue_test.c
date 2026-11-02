@@ -475,6 +475,35 @@ int main(void){
     assert(hb_live_selection(conductor).root_pc==0);
     API.set_param(conductor,"hb_chord_queue","off");
     assert(!hb_cq_owner());
+    /* Muting only suppresses generated selection notes; the C queue keeps
+       advancing history, loop phase and next harmony on the same deadlines. */
+    API.set_param(conductor,"chord_queue_end","Loop");
+    API.set_param(conductor,"chord_queue_depth","2");
+    running=0;position=0;held=-1;
+    choose(conductor,0);choose(conductor,7);
+    assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
+    API.set_param(conductor,"hb_chord_queue_mute","On");
+    assert(g_chord_queue.muted);
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));held=-1;
+    running=1;position=0;assert(!take(conductor));
+    position=4;
+    assert(!take(conductor)); /* second chord advances silently */
+    assert(g_chord_queue.cycle_position==1&&g_chord_queue.history_count>=2);
+    position=5;assert(!take(conductor)); /* no recovery while muted */
+    API.set_param(conductor,"hb_chord_queue_mute","Off");
+    assert(!g_chord_queue.muted);
+    assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
+    assert(g_chord_queue.cycle_position==1); /* unmute does not rewind */
+    API.set_param(conductor,"hb_chord_queue_mute","On");
+    API.set_param(conductor,"hb_chord_queue_override","Off");
+    assert(!g_chord_queue.muted&&!g_chord_queue.enabled);
+    assert(hb_cq_owner()&&g_chord_queue.cycle_count==2); /* Loop off retains queue */
+    API.set_param(conductor,"hb_chord_queue_override","On");
+    assert(g_chord_queue.enabled&&!g_chord_queue.muted);
+    memset(conductor->player.keys,0,sizeof(conductor->player.keys));held=-1;
+    position=0;assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
+    API.set_param(conductor,"hb_chord_queue","off");
+    assert(!hb_cq_owner());
     sustained_loop(conductor);
     late_first_cue(conductor);
     queue_preview_check(conductor);
