@@ -156,6 +156,29 @@ static void hb_cq_begin(Inst *instance){
     }
     g_chord_queue.phrase_held=1;
 }
+/* Retrigger the committed cycle, independent of its Loop/Hold ending policy. */
+static void hb_cq_retrigger(Inst *instance){
+    if(!hb_cq_owned(instance)||!g_chord_queue.cycle_count)return;
+    double now=hb_cq_beat();
+    int running=hb_cq_running();
+    hb_cq_repeat(now);
+    g_chord_queue.seed=1;
+    g_chord_queue.paused=!running;
+    g_chord_queue.running=running;
+    g_chord_queue.last_beat=now;
+    g_chord_queue.history_count=0;
+    g_chord_queue.cycle_position=-1;
+    g_chord_queue.timing=g_bus.chord_timing;
+    g_chord_queue.anticipation=g_bus.anticipation;
+    if(running){
+        double at=now;
+        for(int index=0;index<g_chord_queue.count;index++){
+            g_chord_queue.pending[index].at=at;
+            at=hb_cq_next_boundary(at);
+        }
+    }
+    g_chord_queue_diagnostics.rearms++;
+}
 static void hb_cq_enqueue(Inst *instance,const char *parameter){
     int fields[9],note=0,range=0;
     if(instance->role!=0||!hb_selection_parse_register(parameter,fields,&range))return;
@@ -274,7 +297,9 @@ static int hb_cq_status(Inst *instance,char *buffer,int length){
     hb_harmony_t next=g_chord_queue.count?hb_selection_decode(g_chord_queue.pending[0].word,g_chord_queue.pending[0].note):(hb_harmony_t){0};
     current=hb_key_harmony_cached(instance,current,&preview[HB_CQ_CAPACITY]);
     next=hb_key_harmony_cached(instance,next,&preview[HB_CQ_CAPACITY+1]);
-    int cycle=instance->chord_queue_loop&&!g_chord_queue.waiting&&g_chord_queue.cycle_count;
+    /* The footer must retain the complete stored progression even after Hold
+       reaches the final chord, on Stop, or while temporarily bypassed. */
+    int cycle=g_chord_queue.cycle_count>0;
     int count=cycle?g_chord_queue.cycle_count:g_chord_queue.count+(current.valid?1:0);
     int cursor=cycle?g_chord_queue.cycle_position:current.valid?0:-1;
     int used=snprintf(buffer,(size_t)length,"cq1|%d|%.6f|%s|%s|%d|%d|%d|%d|%d|%d",g_chord_queue.count,
