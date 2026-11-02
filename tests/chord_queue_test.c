@@ -438,6 +438,43 @@ int main(void){
     memset(metadata,0,sizeof(*metadata));
     running=0;assert(!take(conductor));API.set_param(conductor,"hb_chord_queue","off");
     API.get_param(conductor,"hb_chord_queue_status",buffer,sizeof(buffer));assert(!strcmp(buffer,"--"));
+    /* Hold does not mean delete on Stop. An explicitly assembled progression
+       remains the source of harmony until Off, and each Play starts at chord 1. */
+    API.set_param(conductor,"chord_queue_end","Hold");
+    API.set_param(conductor,"chord_queue_depth","2");
+    running=0;position=0;held=-1;
+    choose(conductor,0);choose(conductor,7);
+    assert(g_chord_queue.cycle_count==2);
+    assert(take(conductor)&&hb_live_selection(conductor).root_pc==0);
+    running=1;position=0;assert(!take(conductor));
+    position=4;assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
+    running=0;assert(!take(conductor));
+    assert(g_chord_queue.paused&&g_chord_queue.cycle_count==2&&hb_cq_owner());
+    assert(g_chord_queue_diagnostics.clears>0);
+    for(int repeat=0;repeat<3;repeat++){
+        running=1;position=0;assert(take(conductor));
+        assert(hb_live_selection(conductor).root_pc==0&&g_chord_queue.cycle_position==0);
+        position=4;assert(take(conductor)&&hb_live_selection(conductor).root_pc==7);
+        running=0;assert(!take(conductor));
+        assert(g_chord_queue.paused&&g_chord_queue.cycle_count==2);
+    }
+    API.set_param(conductor,"hb_chord_queue","off");
+    assert(!hb_cq_owner());
+    /* Even an incomplete, not-yet-armed queue survives Stop and can be
+       finished after Play; no implicit flush from transport operations. */
+    API.set_param(conductor,"chord_queue_depth","4");
+    position=0;running=1;held=-1;choose(conductor,0);
+    assert(g_chord_queue.waiting&&g_chord_queue.count==1&&!take(conductor));
+    running=0;assert(!take(conductor));
+    assert(g_chord_queue.paused&&g_chord_queue.count==1&&hb_cq_owner());
+    running=1;position=0;assert(!take(conductor));
+    assert(g_chord_queue.count==1&&!g_chord_queue.paused);
+    choose(conductor,7);choose(conductor,5);choose(conductor,2);
+    assert(g_chord_queue.cycle_count==4);
+    position=4;assert(take(conductor));
+    assert(hb_live_selection(conductor).root_pc==0);
+    API.set_param(conductor,"hb_chord_queue","off");
+    assert(!hb_cq_owner());
     sustained_loop(conductor);
     late_first_cue(conductor);
     queue_preview_check(conductor);
