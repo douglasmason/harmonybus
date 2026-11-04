@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.311"
+#define HB_VERSION "0.2.312"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -1789,6 +1789,7 @@ static void hb_next_update_playhead(int frames,int sample_rate){
 }
 
 #include "../../../src/chord_queue.h"
+#include "../../../src/chord_queue_export.h"
 /* Queue ownership persists while bypassed; only the enabled queue is musical
    authority. All ordinary recorded/observed harmony remains available. */
 static Inst *hb_cq_playback_owner(void){return hb_cq_enabled()?hb_cq_owner():0;}
@@ -6895,6 +6896,7 @@ if(!strcmp(key,"chord_register"))return instance->chord_register==99?snprintf(bu
 if(!strcmp(key,"chord_queue_end"))return snprintf(buffer,(size_t)length,"%s",instance->chord_queue_loop?"Loop":"Hold");
 if(!strcmp(key,"chord_queue_depth"))return instance->chord_queue_depth?snprintf(buffer,(size_t)length,"%d",instance->chord_queue_depth):snprintf(buffer,(size_t)length,"Touch Phrase");
 if(!strcmp(key,"hb_chord_queue_status"))return hb_cq_status(instance,buffer,length);
+if(!strcmp(key,"hb_chord_queue_export"))return hb_cq_export(instance,buffer,length);
  if(!strcmp(key,"hb_chord_queue_override"))return snprintf(buffer,(size_t)length,"%s",hb_cq_owned(instance)&&g_chord_queue.enabled?"On":"Off");
  if(!strcmp(key,"hb_chord_queue_mute"))return snprintf(buffer,(size_t)length,"%s",hb_cq_owned(instance)&&g_chord_queue.muted?"On":"Off");
 if(!strcmp(key,"hb_chord_queue_diagnostics"))return hb_cq_diagnostics(buffer,length);
