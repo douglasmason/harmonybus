@@ -15,6 +15,67 @@ static int running;
 static double queue_beat(void){return running?position:-1;}
 static int queue_clock(void){return running?MOVE_CLOCK_STATUS_RUNNING:0;}
 static int held=-1;
+static void queue_copy_check(Inst *conductor){
+    char output[32768],repeat[32768];
+    API.set_param(conductor,"hb_chord_queue","off");
+    assert(hb_cq_export(conductor,output,sizeof(output))>0&&!strncmp(output,"error:",6));
+    API.set_param(conductor,"chord_queue_depth","Touch Phrase");
+    API.set_param(conductor,"chord_timing","1 Bar");
+    API.set_param(conductor,"anticipation","On Grid");
+    running=0;position=0;held=-1;
+    API.set_param(conductor,"hb_chord_queue","0,1,3,1,0,1,12,0,0,10");
+    assert(hb_cq_export(conductor,output,sizeof(output))>0&&!strncmp(output,"error:",6));
+    API.set_param(conductor,"hb_chord_queue","7,6,3,1,0,1,2");
+    API.set_param(conductor,"hb_chord_queue","commit");
+    hb_cq_sync();
+    hb_chord_queue saved=g_chord_queue;
+    hb_cq_event entries[2]={saved.cycle[0],saved.cycle[1]};
+    int allocations=queue_allocations;
+    int length=hb_cq_export(conductor,output,sizeof(output));
+    assert(length>0&&length==(int)strlen(output)&&!strncmp(output,"qx1|",4));
+    assert(strstr(output,"|2|768|"));
+    for(int index=0;index<2;index++){
+        char expected[64];snprintf(expected,sizeof(expected),"|%d,%016llx,384",entries[index].note,entries[index].word);
+        assert(strstr(output,expected));
+    }
+    for(int iteration=0;iteration<100;iteration++)assert(hb_cq_export(conductor,repeat,sizeof(repeat))==length&&!strcmp(output,repeat));
+    assert(queue_allocations==allocations&&!memcmp(&saved,&g_chord_queue,sizeof(saved)));
+    assert(!memcmp(entries,g_chord_queue.cycle,sizeof(entries)));
+    g_chord_queue.running=1;
+    for(int cursor=0;cursor<2;cursor++){
+        g_chord_queue.cycle_position=cursor;
+        assert(hb_cq_export(conductor,repeat,sizeof(repeat))==length&&!strcmp(output,repeat));
+    }
+    g_chord_queue=saved;
+    char tiny[4]={0,0,0,99};assert(hb_cq_export(conductor,tiny,3)==length&&tiny[2]==0&&tiny[3]==99);
+    API.set_param(conductor,"hb_chord_queue","begin");
+    assert(hb_cq_export(conductor,output,sizeof(output))>0&&!strncmp(output,"error:",6));
+    API.set_param(conductor,"hb_chord_queue","off");
+    for(int index=0;index<17;index++)API.set_param(conductor,"hb_chord_queue","0,1,0,1,0,1,12");
+    API.set_param(conductor,"hb_chord_queue","commit");hb_cq_sync();
+    assert(hb_cq_export(conductor,output,sizeof(output))>0&&strstr(output,"16-bar"));
+    assert(g_chord_queue.stored_count==17);
+    API.set_param(conductor,"hb_chord_queue","off");
+    /* A known irregular 1.5/2.5 beat model survives as integer tick gates. */
+    API.set_param(conductor,"chord_timing","Observed");
+    API.set_param(conductor,"hb_chord_queue","0,1,0,1,0,1,12");
+    API.set_param(conductor,"hb_chord_queue","7,1,0,1,0,1,12");
+    API.set_param(conductor,"hb_chord_queue","commit");hb_cq_sync();
+    g_movy_present=0;g_bus.clip_loop_start=0;g_bus.clip_loop_end=4;
+    g_bus.next_model_locked=1;g_bus.next_model_count=2;
+    g_bus.next_model[0].phase=0;g_bus.next_model[1].phase=1.5;
+    assert(hb_chord_grid_beats()==0);
+    assert(hb_cq_export(conductor,output,sizeof(output))>0&&strstr(output,"|2|384|"));
+    char expected[64];
+    snprintf(expected,sizeof(expected),"|%d,%016llx,144",g_chord_queue.cycle[0].note,g_chord_queue.cycle[0].word);
+    assert(strstr(output,expected));
+    snprintf(expected,sizeof(expected),"|%d,%016llx,240",g_chord_queue.cycle[1].note,g_chord_queue.cycle[1].word);
+    assert(strstr(output,expected));
+    g_bus.next_model[1].phase=1.501;
+    assert(hb_cq_export(conductor,output,sizeof(output))>0&&strstr(output,"cannot be copied exactly"));
+    API.set_param(conductor,"hb_chord_queue","off");
+    g_bus.next_model_locked=0;g_bus.next_model_count=0;
+}
 static int take(Inst *conductor){
     char buffer[64];API.get_param(conductor,"hb_chord_queue_take",buffer,sizeof(buffer));
     if(!strcmp(buffer,"--")||!strcmp(buffer,"off"))return 0;
@@ -624,6 +685,7 @@ int main(void){
     queue_preview_check(conductor);
     selection_cache_check(conductor);
     growing_queue_check(conductor);
+    queue_copy_check(conductor);
     API.destroy_instance(conductor);API.destroy_instance(follower);
     puts("Queued chords: seed, grid/anticipation, stopped preload, lookahead/late, motif arrival, empty hold, capacity, preview cache isolation, recorded isolation and lifecycle pass");
 }
