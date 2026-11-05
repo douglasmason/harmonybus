@@ -6899,6 +6899,7 @@ if(!strcmp(key,"chord_queue_depth"))return instance->chord_queue_depth?snprintf(
 if(!strcmp(key,"hb_chord_queue_status"))return hb_cq_status(instance,buffer,length);
 if(!strcmp(key,"hb_chord_queue_export"))return hb_cq_export(instance,buffer,length);
 if(!strcmp(key,"hb_chord_queue_handoff"))return snprintf(buffer,(size_t)length,"%d",hb_cq_handoff_ready(instance));
+if(!strcmp(key,"hb_chord_queue_handoff_tick"))return hb_cq_owned(instance)&&g_chord_queue.handoff_armed?snprintf(buffer,(size_t)length,"%llu",(unsigned long long)(g_chord_queue.handoff_at*96.0+0.5)):snprintf(buffer,(size_t)length,"--");
  if(!strcmp(key,"hb_chord_queue_override"))return snprintf(buffer,(size_t)length,"%s",hb_cq_owned(instance)&&g_chord_queue.enabled?"On":"Off");
  if(!strcmp(key,"hb_chord_queue_mute"))return snprintf(buffer,(size_t)length,"%s",hb_cq_owned(instance)&&g_chord_queue.muted?"On":"Off");
 if(!strcmp(key,"hb_chord_queue_diagnostics"))return hb_cq_diagnostics(buffer,length);

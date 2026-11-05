@@ -101,6 +101,7 @@ static void queue_handoff_check(Inst *conductor){
         hb_cq_export(conductor,exported,sizeof(exported));memcpy(token,exported+4,16);token[16]=0;
         API.set_param(conductor,"hb_chord_queue_handoff",token);
         assert(hb_cq_handoff_ready(conductor)==0&&g_chord_queue.handoff_at==12);
+        char tick[32];API.get_param(conductor,"hb_chord_queue_handoff_tick",tick,sizeof(tick));assert(!strcmp(tick,"1152"));
         int allocations=queue_allocations;
         position=8;assert(hb_cq_handoff_ready(conductor)==0);assert(take(conductor));
         position=11.99;assert(hb_cq_handoff_ready(conductor)==0);
@@ -112,6 +113,8 @@ static void queue_handoff_check(Inst *conductor){
         API.set_param(conductor,"anticipation","1/16 Early");assert(hb_cq_handoff_ready(conductor)==-1);
         API.set_param(conductor,"anticipation","On Grid");
         API.set_param(conductor,"hb_chord_queue_handoff",token);
+        position=11;assert(hb_cq_handoff_ready(conductor)==-1); /* rewind cancels even if native sync resumes */
+        position=12;API.set_param(conductor,"hb_chord_queue_handoff",token);
         running=0;assert(hb_cq_handoff_ready(conductor)==-1);
     }
     API.set_param(conductor,"hb_chord_queue","off");

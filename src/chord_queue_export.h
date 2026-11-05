@@ -84,6 +84,10 @@ static void hb_cq_handoff_arm(Inst *instance,const char *parameter){
        !hb_cq_handoff_identity(instance,token))return;
     g_chord_queue.handoff_token=token;
     g_chord_queue.handoff_at=hb_cq_copy_origin();
+    double ticks=g_chord_queue.handoff_at*96.0;
+    if(!(ticks>=0)||ticks>9007199254740991.0)return;
+    unsigned long long rounded=(unsigned long long)(ticks+0.5);
+    if(ticks-rounded>0.0001||rounded-ticks>0.0001)return;
     g_chord_queue.handoff_timing=g_bus.chord_timing;
     g_chord_queue.handoff_anticipation=g_bus.anticipation;
     g_chord_queue.handoff_armed=1;
