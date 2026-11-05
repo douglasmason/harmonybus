@@ -1,0 +1,7 @@
+# Explicit queue-to-clip handoff
+
+HarmonyBus 0.2.313 supplies an allocation-free native boundary handshake for Movy hbclean.321. Plain Copy remains save-only. In the Copy destination picker, Step 9 selects **Copy + handoff**; choose an empty destination with Steps 1–8 or Jog. The abstract clip is saved immediately, then playback transfers at the native queue's next cycle start. A completed Hold transfers on its next native boundary. Transport must be running. No physical installation is performed by publication.
+
+The existing queue computes its own boundary. Movy replaces the virtual chord input with the saved clip's first normal sequencer step on that same service tick, then continues through the existing clip player. No second clock, MIDI ownership layer or sequencer is introduced. Before transfer the native descriptor/duration fingerprint is checked again. Queue edits, stopped/rewound transport, mute/bypass and timing changes cancel safely. Oversize, incomplete or unrepresentable queues retain the Copy limits and are refused.
+
+The native handshake adds no allocations while waiting or checking readiness. Regression tests cover Loop/Hold deadlines, no early consumption, explicit cancellation, changed timing and Stop. The Movy production-chain test compares actual attacks, releases and pitch sets with uninterrupted queue playback, including a transfer, subsequent looping and Undo cancellation. Physical Move timing and audio remain separate acceptance checks.
