@@ -87,6 +87,38 @@ static void choose(Inst *conductor,int root){
     char buffer[64];snprintf(buffer,sizeof(buffer),"%d,1,0,1,0,1,12",root);
     API.set_param(conductor,"hb_chord_queue",buffer);
 }
+static void queue_handoff_check(Inst *conductor){
+    char exported[32768],token[17];
+    for(int loop=0;loop<2;loop++){
+        API.set_param(conductor,"hb_chord_queue","off");
+        API.set_param(conductor,"chord_queue_depth","2");
+        API.set_param(conductor,"chord_queue_end",loop?"Loop":"Hold");
+        API.set_param(conductor,"chord_timing","1 Bar");
+        API.set_param(conductor,"anticipation","On Grid");
+        running=1;position=0;held=-1;
+        choose(conductor,0);choose(conductor,7);assert(!take(conductor));
+        position=4;assert(take(conductor));
+        hb_cq_export(conductor,exported,sizeof(exported));memcpy(token,exported+4,16);token[16]=0;
+        API.set_param(conductor,"hb_chord_queue_handoff",token);
+        assert(hb_cq_handoff_ready(conductor)==0&&g_chord_queue.handoff_at==12);
+        char tick[32];API.get_param(conductor,"hb_chord_queue_handoff_tick",tick,sizeof(tick));assert(!strcmp(tick,"1152"));
+        int allocations=queue_allocations;
+        position=8;assert(hb_cq_handoff_ready(conductor)==0);assert(take(conductor));
+        position=11.99;assert(hb_cq_handoff_ready(conductor)==0);
+        position=12;assert(hb_cq_handoff_ready(conductor)==1);
+        assert(queue_allocations==allocations); /* waiting/transfer allocate nothing */
+        assert(g_chord_queue.cycle_position==1); /* readiness never plays chord one */
+        API.set_param(conductor,"hb_chord_queue_handoff","off");assert(hb_cq_handoff_ready(conductor)==-1);
+        API.set_param(conductor,"hb_chord_queue_handoff",token);assert(g_chord_queue.handoff_armed);
+        API.set_param(conductor,"anticipation","1/16 Early");assert(hb_cq_handoff_ready(conductor)==-1);
+        API.set_param(conductor,"anticipation","On Grid");
+        API.set_param(conductor,"hb_chord_queue_handoff",token);
+        position=11;assert(hb_cq_handoff_ready(conductor)==-1); /* rewind cancels even if native sync resumes */
+        position=12;API.set_param(conductor,"hb_chord_queue_handoff",token);
+        running=0;assert(hb_cq_handoff_ready(conductor)==-1);
+    }
+    API.set_param(conductor,"hb_chord_queue","off");
+}
 static void growing_queue_check(Inst *conductor){
     API.set_param(conductor,"hb_chord_queue","off");
     API.set_param(conductor,"chord_queue_depth","Touch Phrase");
@@ -686,6 +718,7 @@ int main(void){
     selection_cache_check(conductor);
     growing_queue_check(conductor);
     queue_copy_check(conductor);
+    queue_handoff_check(conductor);
     API.destroy_instance(conductor);API.destroy_instance(follower);
     puts("Queued chords: seed, grid/anticipation, stopped preload, lookahead/late, motif arrival, empty hold, capacity, preview cache isolation, recorded isolation and lifecycle pass");
 }

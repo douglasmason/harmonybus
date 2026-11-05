@@ -7,6 +7,10 @@ typedef struct { unsigned long long word; int note; double at; } hb_cq_event;
 typedef struct {
     int owner, count, history_count, seed, waiting, phrase_ready, phrase_held, cycle_count, cycle_position, running, timing, anticipation, result, paused, enabled, muted;
     double last_beat;
+    /* Explicit transfer uses the existing queue boundary, never another clock. */
+    double handoff_at;
+    unsigned long long handoff_token;
+    int handoff_armed, handoff_timing, handoff_anticipation;
     /* One retained progression; pending is a view of its unplayed suffix.
        Moving the cursor never copies the remaining progression. */
     int capacity, stored_count, scheduled_count;
@@ -124,6 +128,7 @@ static void hb_cq_sync(void){
     if(!hb_cq_owner())return;
     double now=hb_cq_beat();int running=hb_cq_running();
     if(g_chord_queue.running&&(!running||now+1e-6<g_chord_queue.last_beat)){
+        g_chord_queue.handoff_armed=0;
         /* Stop silences the selection but never destroys an owned queue.
            Hold/Loop is a playback policy, not a queue-lifetime policy.
            Only explicit Off (or Set teardown) is allowed to clear it. */
