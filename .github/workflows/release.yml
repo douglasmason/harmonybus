@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: harmonybus-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   release:
@@ -26,24 +26,15 @@ jobs:
 
       - name: Check CI promotion invariants
         run: |
-          python3 scripts/test_ci_release.py
+          python3 scripts/test_candidate_release.py
+          python3 scripts/test_release_base.py
           python3 scripts/test_native_suites.py
 
       - name: Select checks and recover tested release
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/ci_release.py plan hb
-
-      - name: Focused native and UI checks
-        if: steps.plan.outputs.mode == 'focused'
-        run: |
-          node --check modules/harmonybus/canvas.js
-          node tests/pad_pulse_widget_test.mjs
-          for test in harmony_core input_pad knob_latch connector_harmony pad_feedback external_surface; do
-            cc -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all "tests/${test}_test.c" src/harmony_core.c -lm -o "/tmp/${test}_test"
-            "/tmp/${test}_test"
-          done
+        run: python3 scripts/candidate_release.py plan
 
       - name: Resolve and validate version/UI
         if: steps.plan.outputs.mode == 'full'
@@ -254,52 +245,25 @@ jobs:
           cc -O2 tests/core_parity_test.c core/src/harmony_core.c -ldl -o /tmp/parity
           /tmp/parity /tmp/reference/core.so
 
+      - name: Checksum package
+        if: steps.plan.outputs.mode == 'full'
+        run: (cd dist && sha256sum "harmonybus-v${VERSION}-module.tar.gz" HarmonyBus-Timing-Guide.pdf > SHA256SUMS)
+
       - name: Seal comprehensive release artifact
         if: steps.plan.outputs.mode == 'full'
-        run: python3 scripts/ci_release.py seal hb
+        run: python3 scripts/candidate_release.py seal
 
       - name: Preserve tested device package
         if: steps.plan.outputs.mode == 'full'
         uses: actions/upload-artifact@v4
         with:
-          name: comprehensive-release
+          name: verified-candidate
           path: ci-release/*
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish release
-        # Chord Play releases, including 0.2.301, publish through chord-play.yml after checksum/main verification.
-        # Keep comprehensive checks here, without replacing that verified asset.
-        if: steps.plan.outputs.publish == 'true' && env.VERSION != '0.2.295' && env.VERSION != '0.2.296' && env.VERSION != '0.2.297' && env.VERSION != '0.2.300' && env.VERSION != '0.2.301' && env.VERSION != '0.2.302' && env.VERSION != '0.2.303' && env.VERSION != '0.2.304' && env.VERSION != '0.2.305' && env.VERSION != '0.2.306' && env.VERSION != '0.2.307' && env.VERSION != '0.2.308' && env.VERSION != '0.2.309' && env.VERSION != '0.2.310' && env.VERSION != '0.2.311' && env.VERSION != '0.2.312'
+      - name: Publish verified main package and advance installer last
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="v${VERSION}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber
-          else
-            gh release create "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --target "$GITHUB_SHA" --title "Harmony Bus ${TAG}" --notes "HarmonyBus 0.2.281 extracts the shared portable musical core without changing musical behavior. Preserves the 0.2.280 scale diagnostics, rhythm performance and Grid gates. Pair with Movy hbclean.202 for opt-in stock FM-1 USB MIDI input; no firmware update is required." || { gh release view "$TAG" >/dev/null && gh release upload "$TAG" "$HB" dist/HarmonyBus-Timing-Guide.pdf --clobber; }
-          fi
-          # A failed gh create can leave a draft with uploaded assets. A retry
-          # must publish it before exposing its URL to module installers.
-          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
-            gh release edit "$TAG" --draft=false --target "$GITHUB_SHA" --notes "HarmonyBus 0.2.281 extracts the shared portable musical core without changing musical behavior. Preserves the 0.2.280 scale diagnostics, rhythm performance and Grid gates. Pair with Movy hbclean.202 for opt-in stock FM-1 USB MIDI input; no firmware update is required." || test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
-          fi
-          test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
-
-      - name: Update Module Store metadata
-        if: steps.plan.outputs.publish == 'true' && env.VERSION != '0.2.295' && env.VERSION != '0.2.296' && env.VERSION != '0.2.297' && env.VERSION != '0.2.300' && env.VERSION != '0.2.301' && env.VERSION != '0.2.302' && env.VERSION != '0.2.303' && env.VERSION != '0.2.304' && env.VERSION != '0.2.305' && env.VERSION != '0.2.306' && env.VERSION != '0.2.307' && env.VERSION != '0.2.308' && env.VERSION != '0.2.309' && env.VERSION != '0.2.310' && env.VERSION != '0.2.311' && env.VERSION != '0.2.312'
-        run: |
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
-          version = os.environ["VERSION"]
-          Path("release.json").write_text(json.dumps({"version": version, "download_url": f"https://github.com/douglasmason/harmonybus/releases/download/v{version}/harmonybus-v{version}-module.tar.gz"}, indent=2) + "\n")
-          PY
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add release.json
-          if ! git diff --cached --quiet; then
-            git commit -m "Update release.json for v${VERSION}"
-            git push origin main
-          fi
+        run: python3 scripts/candidate_release.py publish

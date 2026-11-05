@@ -1,0 +1,12 @@
+{
+  "version": "0.2.312",
+  "previous_version": "0.2.311",
+  "workflow": "release.yml",
+  "title": "HarmonyBus 0.2.312 \u2014 Native queue export for Copy Queue",
+  "notes": "docs/queue-copy.md",
+  "assets": [
+    "dist/harmonybus-v0.2.312-module.tar.gz",
+    "dist/HarmonyBus-Timing-Guide.pdf",
+    "dist/SHA256SUMS"
+  ]
+}
