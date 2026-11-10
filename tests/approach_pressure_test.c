@@ -24,6 +24,7 @@ static void press(Inst *instance,int source){
 static double amount(Inst *instance){
     double value=999;return hb_mo_value(&instance->motion,0,0,60,&value)?value:0;
 }
+#ifndef HB_PRESSURE_TEST_HELPERS
 int main(void){
     Inst *instance=setup();configure(instance,HB_PRESSURE_PEAK,0);
     press(instance,96);assert(instance->approach_rows.pressure[3].down);
@@ -80,3 +81,4 @@ int main(void){
     API.destroy_instance(instance);puts("approach pressure gestures, row ownership and persistence passed");
     return 0;
 }
+#endif

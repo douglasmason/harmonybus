@@ -15,16 +15,17 @@
 static int hb_mo_clip_operation(int operation){return (operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED)||operation==HB_MO_WEAVE;}
 #include "cadences.h"
 static int hb_mo_mixed(int operation){return operation>=HB_MO_MIXED_FIRST&&operation<=HB_MO_MIXED_LAST;}
+static int hb_mo_note_repeat_operation(int operation){return operation==HB_MO_NOTE_REPEAT||operation==HB_MO_REPEAT_DIVISIONS;}
 static int hb_mo_pressure_supported(int operation){
     return operation==HB_MO_VELOCITY||operation==HB_MO_GATE||operation==HB_MO_PAN||
-        operation==HB_MO_TRANSPOSE||operation==HB_MO_RATCHET||operation==HB_MO_ECHO;
+        operation==HB_MO_TRANSPOSE||operation==HB_MO_RATCHET||operation==HB_MO_ECHO||hb_mo_note_repeat_operation(operation);
 }
 /* Low three choices resolve on release; high three on press. Scope and
    resolution are independent even though the compact knob lists both. */
 static int hb_mo_chord_arp_choice(int amount){return amount>=0&&amount<6?amount:1;}
 typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through,touch_mode,auto_off; int motif_playback,motif_arrival,motif_target,motif_late,motif_grid,motif_completion; hb_cp_config chord_state;int chord_state_valid,chord_input; int field_target,field_low,field_high,field_x,field_y,field_z; } hb_motion_lane;
 typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned long long held,sequence_held;
-    unsigned long long pressure_active;double pressure_value[16];
+    unsigned long long pressure_active;double pressure_value[16];int pressure_rate[16];
     unsigned revision[HB_MOTION_LANES]; unsigned long long render_flags;
     unsigned long long events[HB_MOTION_LANES+1]; /* final slot snapshots the source-gesture approach */
     const unsigned long long *event_override;
@@ -38,11 +39,12 @@ typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host
     unsigned gesture_serial[HB_MOTION_GESTURES]; int gesture_operation[HB_MOTION_GESTURES],gesture_mode[HB_MOTION_GESTURES],gesture_threshold[HB_MOTION_GESTURES];
     unsigned tap_mask,tap_serial[19]; int tap_owner[19],tap_policy[19],enclosure_auto_off; int tap_first,tap_started,enclosure_step,cadence_program;
 } hb_motion_config;
-typedef struct { int used,channel,source,pitch,sounding,input_owner; double off_beat; unsigned long long serial; double repeat_off; int generated,lane,manual; unsigned revision,held_serial; } hb_motion_owner;
+typedef struct { int used,channel,source,pitch,sounding,input_owner,velocity; double off_beat; unsigned long long serial,repeat_lanes,parent_serial; double repeat_off; int generated,lane,manual; unsigned revision,held_serial; } hb_motion_owner;
 typedef struct {
     int used,lane,channel,pitch,velocity,remaining,manual,decay;
     unsigned revision,held_serial;
     double next,spacing,gate;
+    int seed_slot;unsigned long long seed_serial;
 } hb_motion_burst;
 typedef struct {
     hb_rr_route rhythm; double rhythm_now,rhythm_delay; int rhythm_enabled;
@@ -51,7 +53,7 @@ typedef struct {
     unsigned short refs[16][128];
     uint8_t queue[HB_MOTION_QUEUE][3];
     unsigned short trail_in,trail_out,trail_queue[HB_MOTION_QUEUE];
-    int head,count,owned,repeat_pending,strict_ownership,pan_dirty[16],base_pan[16];
+    int head,count,owned,repeat_pending,note_repeat_pending,strict_ownership,pan_dirty[16],base_pan[16];
     unsigned long long next_serial;
     unsigned enclosure_revision;
     int enclosure_step,performance_valid,performance_modifier;
@@ -580,6 +582,7 @@ static int hb_mo_value_at(const hb_motion_config *config,int index,double beat,d
         const hb_motion_lane *pressure_lane=&config->lanes[index];
         if(!hb_mo_pressure_supported(pressure_lane->operation))return 0;
         double pressure=config->pressure_value[index];if(pressure<=0)return 0;
+        if(hb_mo_note_repeat_operation(pressure_lane->operation)){*value=config->pressure_rate[index];return *value>0;}
         double low=pressure_lane->field_target==2?pressure_lane->field_low:
             pressure_lane->operation==HB_MO_GATE?100:pressure_lane->operation==HB_MO_RATCHET?1:0;
         double high=pressure_lane->field_target==2?pressure_lane->field_high:pressure_lane->amount;
@@ -623,7 +626,7 @@ static void hb_mo_capture(hb_motion_config *config,double beat,double condition,
         int active=hb_mo_value_at(config,lane,beat,condition,voice,&value);
         if(((config->held|config->sequence_held)&(1ULL<<lane))&&(settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE||settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V))active=0;
         /* Explicitly evolving automatic lanes remain live on replay. */
-        if(settings.operation==HB_MO_WEAVE||settings.operation==HB_MO_LIVE_HARMONY_OVERRIDE||settings.operation==HB_MO_HARMONY_OVERRIDE||(settings.operation>=HB_MO_RECORD_KEY&&settings.operation<=HB_MO_KEY_RETURN)||settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!((config->held|config->sequence_held)&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
+        if(hb_mo_note_repeat_operation(settings.operation)||settings.operation==HB_MO_WEAVE||settings.operation==HB_MO_LIVE_HARMONY_OVERRIDE||settings.operation==HB_MO_HARMONY_OVERRIDE||(settings.operation>=HB_MO_RECORD_KEY&&settings.operation<=HB_MO_KEY_RETURN)||settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!((config->held|config->sequence_held)&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
         /* Smart lane identities are live-only. The contextual capture layer
            writes the selected existing operation before publishing a note. */
         const hb_ro_definition *definition=hb_ro_motion(settings.operation);
@@ -674,6 +677,7 @@ static void hb_mo_due(hb_motion_route *route,double beat){
 }
 static void hb_mo_panic(hb_motion_route *route){
     memset(route->bursts,0,sizeof(route->bursts));
+    route->note_repeat_pending=0;
     for(int index=0;index<HB_MOTION_OWNERS;index++){
         hb_motion_owner *owner=&route->owners[index];
         if(owner->used&&hb_mo_release(route,owner)){owner->used=0;route->owned--;}
@@ -715,7 +719,7 @@ static int hb_mo_event_owned(hb_motion_route *route,const uint8_t message[3],int
     for(int index=0;index<HB_MOTION_OWNERS;index++)if(!route->owners[index].used){slot=index;break;}
     if(slot<0||route->count>HB_MOTION_QUEUE-2)return 0;
     hb_motion_owner *owner=&route->owners[slot];
-    *owner=(hb_motion_owner){.used=1,.channel=channel,.source=source,.pitch=pitch,.sounding=!skip,.input_owner=input_owner,.off_beat=off_beat,.serial=route->next_serial++};route->owned++;
+    *owner=(hb_motion_owner){.used=1,.channel=channel,.source=source,.pitch=pitch,.velocity=skip?0:velocity,.sounding=!skip,.input_owner=input_owner,.off_beat=off_beat,.serial=route->next_serial++};route->owned++;
     if(skip)return 1;
     if(pan<0&&route->pan_dirty[channel]){
         hb_mo_push(route,0xb0|channel,10,route->base_pan[channel]);route->pan_dirty[channel]=0;
@@ -743,12 +747,81 @@ static int hb_mo_repeat_active(const hb_motion_config *config,int lane,int manua
     return config->revision[lane]==revision&&hb_mo_lane_active(config,lane)&&
         (!manual||(((config->held|config->sequence_held)&(1ULL<<lane))&&config->held_serial[lane]==held_serial));
 }
+static int hb_mo_repeat_seed(const hb_motion_route *route,int slot,unsigned long long serial){
+    return slot>=0&&slot<HB_MOTION_OWNERS&&route->owners[slot].used&&
+        !route->owners[slot].generated&&route->owners[slot].serial==serial;
+}
+static int hb_mo_note_repeat_rate(const hb_motion_config *config,int lane,double beat,double condition,int voice){
+    double amount;
+    if(!hb_mo_note_repeat_operation(config->lanes[lane].operation)||!hb_mo_value_at(config,lane,beat,condition,voice,&amount))return 0;
+    int divisions=hb_mo_clamp(hb_mo_round(amount),0,16),rate=1;
+    if(!divisions)return 0;
+    if(config->lanes[lane].operation==HB_MO_REPEAT_DIVISIONS)return divisions;
+    while(rate<16&&rate*2<=divisions)rate*=2;
+    return rate;
+}
+/* A repeating voice borrows its original note owner. No second input player,
+   note-on recursion or allocation; route deadlines drive all generated notes. */
+static void hb_mo_note_repeat_sync(hb_motion_route *route,const hb_motion_config *config,double beat,double condition,double now){
+    unsigned long long lanes=0;
+    for(int lane=0;lane<HB_MOTION_USER_LANES;lane++)
+        if(hb_mo_note_repeat_operation(config->lanes[lane].operation)&&hb_mo_lane_active(config,lane))lanes|=1ULL<<lane;
+    /* The usual disabled case does not scan the note/burst pools. */
+    if(!lanes&&!route->note_repeat_pending)return;
+    route->note_repeat_pending=0;
+    for(int index=0;index<HB_MOTION_BURSTS;index++){
+        hb_motion_burst *burst=&route->bursts[index];if(!burst->used||burst->remaining!=-1)continue;
+        int seed=hb_mo_repeat_seed(route,burst->seed_slot,burst->seed_serial);
+        int rate=seed&&config->revision[burst->lane]==burst->revision?
+            hb_mo_note_repeat_rate(config,burst->lane,beat,condition,route->owners[burst->seed_slot].source):0;
+        if(!rate){
+            if(seed)route->owners[burst->seed_slot].repeat_lanes&=~(1ULL<<burst->lane);
+            burst->used=0;continue;
+        }
+        route->note_repeat_pending=1;
+        double spacing=1.0/rate;
+        if(spacing!=burst->spacing){
+            burst->spacing=spacing;burst->gate=spacing*.5;
+            burst->next=now+(hb_mo_floor(beat/spacing+1e-9)+1)*spacing-beat;
+        }
+    }
+    /* Release only generated voices whose seed or repeat contribution ended. */
+    for(int index=0;index<HB_MOTION_OWNERS;index++){
+        hb_motion_owner *owner=&route->owners[index];if(!owner->used||owner->generated!=2)continue;
+        int seed=hb_mo_repeat_seed(route,owner->source,owner->parent_serial);
+        if(!seed||
+           config->revision[owner->lane]!=owner->revision||
+           !hb_mo_note_repeat_rate(config,owner->lane,beat,condition,route->owners[owner->source].source))
+            if(hb_mo_release(route,owner)){owner->used=0;route->owned--;}
+    }
+    if(!lanes)return;
+    for(int index=0;index<HB_MOTION_OWNERS;index++){
+        hb_motion_owner *owner=&route->owners[index];
+        if(!owner->used||owner->generated||!owner->velocity)continue;
+        unsigned long long missing=lanes&~owner->repeat_lanes;if(!missing)continue;
+        for(int lane=0;lane<HB_MOTION_USER_LANES;lane++)if(missing&(1ULL<<lane)){
+            int rate=hb_mo_note_repeat_rate(config,lane,beat,condition,owner->source);if(!rate)continue;
+            int slot=-1;for(int entry=0;entry<HB_MOTION_BURSTS;entry++)if(!route->bursts[entry].used){slot=entry;break;}
+            if(slot<0)return; /* Leave original notes intact when the pool is full. */
+            double spacing=1.0/rate,next=now+(hb_mo_floor(beat/spacing+1e-9)+1)*spacing-beat;
+            route->bursts[slot]=(hb_motion_burst){.used=1,.lane=lane,.channel=owner->channel,.pitch=owner->pitch,.velocity=owner->velocity,
+                .remaining=-1,.revision=config->revision[lane],.next=next,.spacing=spacing,.gate=spacing*.5,.seed_slot=index,.seed_serial=owner->serial};
+            owner->repeat_lanes|=1ULL<<lane;route->repeat_pending=route->note_repeat_pending=1;
+            double deadline=now+spacing*.5;if(next<deadline)deadline=next;
+            if(owner->repeat_off<=0||deadline<owner->repeat_off)owner->repeat_off=deadline;
+        }
+    }
+}
 static void hb_mo_repeat_cancel(hb_motion_route *route,const hb_motion_config *config,int all){
     if(!route->repeat_pending)return;
     int pending=0;
     for(int index=0;index<HB_MOTION_BURSTS;index++){
         hb_motion_burst *burst=&route->bursts[index];
-        if(burst->used&&(all||!hb_mo_repeat_active(config,burst->lane,burst->manual,burst->revision,burst->held_serial)))burst->used=0;
+        if(burst->used&&(all||!hb_mo_repeat_active(config,burst->lane,burst->manual,burst->revision,burst->held_serial))){
+            if(burst->remaining==-1&&hb_mo_repeat_seed(route,burst->seed_slot,burst->seed_serial))
+                route->owners[burst->seed_slot].repeat_lanes&=~(1ULL<<burst->lane);
+            burst->used=0;
+        }
         pending|=burst->used;
     }
     for(int index=0;index<HB_MOTION_OWNERS;index++){
@@ -804,19 +877,21 @@ static void hb_mo_repeat_tick(hb_motion_route *route,const hb_motion_config *con
         int slot=-1;for(int index=0;index<HB_MOTION_OWNERS;index++)if(!route->owners[index].used){slot=index;break;}
         if(burst->velocity>0&&slot>=0&&route->count<HB_MOTION_QUEUE-1){
             hb_motion_owner *owner=&route->owners[slot];
-            *owner=(hb_motion_owner){.used=1,.channel=burst->channel,.source=-1,.pitch=burst->pitch,.sounding=1,
-                .off_beat=now+burst->gate,.serial=route->next_serial++,.generated=1,.lane=burst->lane,.manual=burst->manual,
+            *owner=(hb_motion_owner){.used=1,.channel=burst->channel,.source=burst->remaining==-1?burst->seed_slot:-1,.pitch=burst->pitch,.sounding=1,
+                .off_beat=now+burst->gate,.serial=route->next_serial++,.generated=burst->remaining==-1?2:1,.parent_serial=burst->seed_serial,.lane=burst->lane,.manual=burst->manual,
                 .revision=burst->revision,.held_serial=burst->held_serial};
             route->owned++;route->refs[owner->channel][owner->pitch]++;
             hb_mo_push(route,0x90|owner->channel,owner->pitch,burst->velocity);
         }
-        burst->remaining--;burst->next+=burst->spacing;
+        if(burst->remaining>0)burst->remaining--;burst->next+=burst->spacing;
         /* Drop missed attacks instead of dumping a late catch-up burst. */
         while(burst->remaining>0&&burst->next<=now+1e-9){
             burst->remaining--;burst->next+=burst->spacing;
             burst->velocity=hb_mo_round(burst->velocity*(100-burst->decay)/100.0);
         }
-        if(burst->remaining<=0||burst->velocity<=0)burst->used=0;
+        if(burst->remaining==-1&&burst->next<=now+1e-9)
+            burst->next+=(hb_mo_floor((now-burst->next)/burst->spacing)+1)*burst->spacing;
+        if(!burst->remaining||burst->velocity<=0)burst->used=0;
     }
 }
 #endif

@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.314"
+#define HB_VERSION "0.2.315"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -5317,6 +5317,8 @@ static void hb_motion_tick_routes(Inst *instance){
     }
     double beat=hb_motion_position(instance);
     hb_mo_due(&instance->motion_local,beat);hb_mo_due(&instance->motion_render,beat);
+    hb_mo_note_repeat_sync(&instance->motion_local,&instance->motion,beat,hb_motion_condition_position(),instance->motion_beat);
+    hb_mo_note_repeat_sync(&instance->motion_render,&instance->motion,beat,hb_motion_condition_position(),instance->motion_beat);
     hb_mo_repeat_tick(&instance->motion_local,&instance->motion,instance->motion_beat);
     hb_mo_repeat_tick(&instance->motion_render,&instance->motion,instance->motion_beat);
     int pan_active=0;for(int lane=0;lane<HB_MOTION_USER_LANES;lane++)if(hb_mo_lane_active(&instance->motion,lane)&&hb_mo_condition(&instance->motion,lane,hb_motion_condition_position())&&instance->motion.lanes[lane].operation==HB_MO_PAN)pan_active=1;
