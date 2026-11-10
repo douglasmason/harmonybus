@@ -4,15 +4,18 @@ static void hb_ap_refresh(Inst *instance){
     hb_ar_state *state=&instance->approach_rows;
     instance->motion.pressure_active=0;
     if(!state->pressure[0].active&&!state->pressure[1].active&&
-       !state->pressure[2].active&&!state->pressure[3].active)return;
+       !state->pressure[2].active&&!state->pressure[3].active){memset(instance->motion.pressure_rate,0,sizeof(instance->motion.pressure_rate));return;}
     for(int lane=0;lane<16;lane++){
         int winner=-1;
         for(int row=0;row<4;row++)if(state->pressure_lane[row]==lane+1&&
             state->pressure_mode[row]&&state->pressure[row].active&&
             (winner<0||state->pressure_order[row]>state->pressure_order[winner]))winner=row;
-        if(winner<0||!hb_mo_pressure_supported(instance->motion.lanes[lane].operation))continue;
+        if(winner<0||!hb_mo_pressure_supported(instance->motion.lanes[lane].operation)){instance->motion.pressure_rate[lane]=0;continue;}
         instance->motion.pressure_active|=1ULL<<lane;
         instance->motion.pressure_value[lane]=hb_pressure_value(&state->pressure[winner],state->pressure_reverse[winner]);
+        instance->motion.pressure_rate[lane]=hb_pressure_repeat_rate(instance->motion.pressure_value[lane],
+            instance->motion.lanes[lane].amount,instance->motion.pressure_rate[lane],
+            instance->motion.lanes[lane].operation==HB_MO_REPEAT_DIVISIONS);
     }
 }
 static void hb_ap_clear(Inst *instance){
@@ -20,6 +23,7 @@ static void hb_ap_clear(Inst *instance){
     memset(state->pressure,0,sizeof(state->pressure));
     memset(state->pressure_contacts,0,sizeof(state->pressure_contacts));
     instance->motion.pressure_active=0;
+    memset(instance->motion.pressure_rate,0,sizeof(instance->motion.pressure_rate));
 }
 /* Consume only mapped pressure, so one squeeze cannot also drive arp pressure. */
 static int hb_ap_input(Inst *instance,const uint8_t *input,int length,int row){

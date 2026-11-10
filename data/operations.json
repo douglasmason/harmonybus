@@ -647,6 +647,16 @@
       "id": 68,
       "symbol": "HB_MO_SMART_ABOVE",
       "name": "Smart Above"
+    },
+    {
+      "id": 69,
+      "symbol": "HB_MO_NOTE_REPEAT",
+      "name": "Note Repeat"
+    },
+    {
+      "id": 70,
+      "symbol": "HB_MO_REPEAT_DIVISIONS",
+      "name": "Repeat Divisions"
     }
   ],
   "selectors": [

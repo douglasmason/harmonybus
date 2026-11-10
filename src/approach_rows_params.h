@@ -164,6 +164,12 @@ static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
             if(lane<0||!state->pressure_mode[row])return snprintf(buffer,(size_t)length,"Off");
             if(!hb_mo_pressure_supported(instance->motion.lanes[lane].operation))return snprintf(buffer,(size_t)length,"Choose amount op");
             if(!state->pressure[row].active)return snprintf(buffer,(size_t)length,"Ready");
+            if(hb_mo_note_repeat_operation(instance->motion.lanes[lane].operation)){
+                int rate=instance->motion.pressure_rate[lane];
+                if(rate&&instance->motion.lanes[lane].operation==HB_MO_REPEAT_DIVISIONS)
+                    return snprintf(buffer,(size_t)length,"%s %d/beat",state->pressure[row].latched?"Latch":"Repeat",rate);
+                return rate?snprintf(buffer,(size_t)length,"%s 1/%d",state->pressure[row].latched?"Latch":"Repeat",4*rate):snprintf(buffer,(size_t)length,"Repeat Off");
+            }
             return snprintf(buffer,(size_t)length,"%s %d%%",state->pressure[row].latched?"Latch":"Hold",hb_mo_round(100*hb_pressure_value(&state->pressure[row],state->pressure_reverse[row])));
         }
         if(!strcmp(key,"approach_pressure_clear"))return snprintf(buffer,(size_t)length,"Release all");

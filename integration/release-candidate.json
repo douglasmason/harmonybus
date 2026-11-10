@@ -1,11 +1,11 @@
 {
-  "version": "0.2.314",
-  "previous_version": "0.2.313",
+  "version": "0.2.315",
+  "previous_version": "0.2.314",
   "workflow": "release.yml",
-  "title": "HarmonyBus 0.2.314 — Approach row pressure modes",
-  "notes": "docs/approach-pressure.md",
+  "title": "HarmonyBus 0.2.315 — Pressure-controlled held-note repeat",
+  "notes": "docs/pressure-repeat.md",
   "assets": [
-    "dist/harmonybus-v0.2.314-module.tar.gz",
+    "dist/harmonybus-v0.2.315-module.tar.gz",
     "dist/HarmonyBus-Timing-Guide.pdf",
     "dist/SHA256SUMS"
   ]
