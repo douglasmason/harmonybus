@@ -65,6 +65,15 @@ int main(void){
     assert(instance->approach_rows.pressure_reverse[3]==1&&!instance->motion.pressure_active);
     press(instance,96);pressure(instance,96,60);hb_stop_instance_note_state(instance);
     pressure(instance,96,100);input(instance,96,0);assert(!instance->motion.pressure_active);
+    /* Route and role resets cannot strand a contact on the former channel. */
+    configure(instance,HB_PRESSURE_HOLD,0);press(instance,96);pressure(instance,96,80);
+    assert(instance->motion.pressure_active);
+    API.set_param(instance,"source_channel","2");assert(!instance->motion.pressure_active);
+    pressure(instance,96,100);input(instance,96,0);assert(!instance->motion.pressure_active);
+    API.set_param(instance,"source_channel","1");
+    press(instance,96);pressure(instance,96,80);assert(instance->motion.pressure_active);
+    hb_clear_instance_note_state(instance);assert(!instance->motion.pressure_active);
+    pressure(instance,96,100);input(instance,96,0);assert(!instance->motion.pressure_active);
     /* Unsupported categorical operations cannot be swept accidentally. */
     instance->motion.lanes[0].operation=HB_MO_SECONDARY_V;
     press(instance,96);pressure(instance,96,127);assert(!instance->motion.pressure_active);input(instance,96,0);
