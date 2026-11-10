@@ -1,11 +1,16 @@
 #ifndef HB_APPROACH_ROWS_H
 #define HB_APPROACH_ROWS_H
+#include "../core/include/pressure_control.h"
+typedef struct { int source,channel,row,count,value; } hb_ap_contact;
 /* Slots reference the existing motif library/presets; no phrase copy is saved. */
 #define HB_AR_SHIFT 43
 #define HB_AR_MASK (2047ULL<<HB_AR_SHIFT)
 /* Index 2 remains a legacy Scale Above assignment; new choices use Secondary II. */
 static const char *hb_ar_name(int choice){return HB_AR_NAMES[choice==2?3:choice];}
 typedef struct {
+    int pressure_editor,pressure_lane[4],pressure_mode[4],pressure_reverse[4],pressure_prepared[4];
+    double pressure_clock;unsigned pressure_serial,pressure_order[4];
+    hb_pressure_control pressure[4];hb_ap_contact pressure_contacts[64];
     int row_slots[3],row_steps[3];
     int sequence_slots[8],sequence_count,sequence_cursor,sequence_event;
     unsigned sequence_pad;
@@ -20,7 +25,7 @@ typedef struct {
    available to steps while knob 8 on each panel controls Chord + Arp. */
 static const int HB_AR_DEFAULT_BANK[16]={-5,-4,-1,-2,-30,-10,-8,-31,2,3,5,36,37,14,10,15};
 static int g_ar_bank[16],g_ar_bank_ready;
-static void hb_ar_init(hb_ar_state *state){memset(state,0,sizeof(*state));for(int index=0;index<8;index++)state->knobs[index]=13+index;for(int index=0;index<16;index++)state->bank[index]=g_ar_bank_ready?g_ar_bank[index]:HB_AR_DEFAULT_BANK[index];state->order[0]=1;for(int index=0;index<8;index++)state->order_slot[index]=-1;state->count=1;state->bank_armed=-1;state->pending_row=state->preview_row=-1;for(int row=0;row<3;row++)state->row_slots[row]=2-row;}
+static void hb_ar_init(hb_ar_state *state){memset(state,0,sizeof(*state));for(int row=0;row<4;row++)state->pressure_prepared[row]=100;for(int index=0;index<8;index++)state->knobs[index]=13+index;for(int index=0;index<16;index++)state->bank[index]=g_ar_bank_ready?g_ar_bank[index]:HB_AR_DEFAULT_BANK[index];state->order[0]=1;for(int index=0;index<8;index++)state->order_slot[index]=-1;state->count=1;state->bank_armed=-1;state->pending_row=state->preview_row=-1;for(int row=0;row<3;row++)state->row_slots[row]=2-row;}
 static int hb_ar_reference_code(int reference){
     const hb_ro_definition *definition=reference<0?hb_ro_choice(-reference-1):0;
     return definition?definition->token:reference>0?15+reference:0;

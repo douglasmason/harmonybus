@@ -746,5 +746,12 @@
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/motif_operations_test.c src/harmony_core.c -lm -o /tmp/motif_operations_test",
       "/tmp/motif_operations_test"
     ]
+  },
+  {
+    "name": "approach_pressure_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/approach_pressure_test.c src/harmony_core.c -lm -o /tmp/approach_pressure_test",
+      "/tmp/approach_pressure_test"
+    ]
   }
 ]

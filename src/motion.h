@@ -15,11 +15,16 @@
 static int hb_mo_clip_operation(int operation){return (operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED)||operation==HB_MO_WEAVE;}
 #include "cadences.h"
 static int hb_mo_mixed(int operation){return operation>=HB_MO_MIXED_FIRST&&operation<=HB_MO_MIXED_LAST;}
+static int hb_mo_pressure_supported(int operation){
+    return operation==HB_MO_VELOCITY||operation==HB_MO_GATE||operation==HB_MO_PAN||
+        operation==HB_MO_TRANSPOSE||operation==HB_MO_RATCHET||operation==HB_MO_ECHO;
+}
 /* Low three choices resolve on release; high three on press. Scope and
    resolution are independent even though the compact knob lists both. */
 static int hb_mo_chord_arp_choice(int amount){return amount>=0&&amount<6?amount:1;}
 typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through,touch_mode,auto_off; int motif_playback,motif_arrival,motif_target,motif_late,motif_grid,motif_completion; hb_cp_config chord_state;int chord_state_valid,chord_input; int field_target,field_low,field_high,field_x,field_y,field_z; } hb_motion_lane;
 typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned long long held,sequence_held;
+    unsigned long long pressure_active;double pressure_value[16];
     unsigned revision[HB_MOTION_LANES]; unsigned long long render_flags;
     unsigned long long events[HB_MOTION_LANES+1]; /* final slot snapshots the source-gesture approach */
     const unsigned long long *event_override;
@@ -80,7 +85,7 @@ static void hb_mo_route_init(hb_motion_route *route){memset(route,0,sizeof(*rout
    Bit 63 distinguishes snapshots from ordinary advancing event counters. */
 #define HB_MO_RECORDED (1ULL<<63)
 static unsigned long long hb_mo_recorded_word(const hb_motion_config *config,int index){
-    if((config->held|config->sequence_held)&(1ULL<<index))return 0; /* live performance temporarily replaces that recorded lane */
+    if((config->held|config->sequence_held|config->pressure_active)&(1ULL<<index))return 0; /* live performance temporarily replaces that recorded lane */
     return config->event_override?config->event_override[index]&HB_MO_RECORDED?config->event_override[index]:0:0;
 }
 /* Bits 51/52 extend the historical operation id without moving fields.
@@ -120,7 +125,7 @@ static int hb_mo_lane_active(const hb_motion_config *config,int index){
     if(hb_mo_clip_operation(operation)&&
         (!config->host_capabilities||(config->host_capabilities<2&&!((config->held|config->sequence_held)&(1ULL<<index)))))return 0;
     if(hb_mo_enclosure_mask(operation))return config->enclosure&&config->enclosure_lane==index;
-    return operation && (((config->held|config->sequence_held)&(1ULL<<index)) || (!config->bypass&&config->lanes[index].enabled));
+    return operation && (((config->held|config->sequence_held|config->pressure_active)&(1ULL<<index)) || (!config->bypass&&config->lanes[index].enabled));
 }
 static int hb_mo_enabled(const hb_motion_config *config){if(config->events[HB_MOTION_LANES]||(config->event_override&&config->event_override[HB_MOTION_LANES])||config->pitch_held||config->enclosure||config->gesture_down)return 1;for(int index=0;index<HB_MOTION_LANES;index++)if(hb_mo_lane_active(config,index))return 1;return 0;}
 /* One ordered pending sequence is shared by knob and step gestures. */
@@ -571,6 +576,15 @@ static int hb_mo_value_at(const hb_motion_config *config,int index,double beat,d
     if(word){*value=(double)(int32_t)(uint32_t)word/1000.0;return hb_mo_word_operation(word)!=0;}
 
     if(!hb_mo_lane_active(config,index))return 0;
+    if(index<16&&(config->pressure_active&(1ULL<<index))){
+        const hb_motion_lane *pressure_lane=&config->lanes[index];
+        if(!hb_mo_pressure_supported(pressure_lane->operation))return 0;
+        double pressure=config->pressure_value[index];if(pressure<=0)return 0;
+        double low=pressure_lane->field_target==2?pressure_lane->field_low:
+            pressure_lane->operation==HB_MO_GATE?100:pressure_lane->operation==HB_MO_RATCHET?1:0;
+        double high=pressure_lane->field_target==2?pressure_lane->field_high:pressure_lane->amount;
+        *value=low+(high-low)*pressure;return 1;
+    }
     /* Recorded overrides returned above; the live lane can be read directly. */
     const hb_motion_lane *lane=&config->lanes[index];
     int held=((config->held|config->sequence_held)&(1ULL<<index))!=0;
