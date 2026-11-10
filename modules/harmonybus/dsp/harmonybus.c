@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.313"
+#define HB_VERSION "0.2.314"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -4486,7 +4486,9 @@ static void hb_clear_instance_note_state(Inst *instance){
     instance->dirty=1;
     instance->frames_since_change=0;
 }
+static void hb_ap_clear(Inst *instance);
 static void hb_stop_instance_note_state(Inst *instance){
+    hb_ap_clear(instance);
     hb_rf_publish(&instance->relative_feedback_word,0);
     instance->player.release_held=instance->player.release_armed=instance->player.release_latched=0;
     instance->dominant_color_held=instance->dominant_color_latched=0;
@@ -5411,6 +5413,7 @@ static void hb_gesture_finish_use(Inst *instance){
 }
 #include "../../../src/motif_runtime.h"
 #include "../../../src/approach_rows_runtime.h"
+#include "../../../src/approach_pressure.h"
 /* Observe only final local MIDI, after chord/arp, motif and motion/rhythm
    scheduling. Pool membership and queued notes are not sounding notes. */
 static void hb_pad_observe_output(Inst *instance,uint8_t output[][3],const int lengths[],int count){
@@ -5435,6 +5438,11 @@ static int process_key_base(void *value,const uint8_t *input,int length,uint8_t 
         if(length>=3&&(input[0]&0xf0)==0x90&&input[2]&&!instance->movy_playback){
             int target=(input[1]&127)+instance->movy_pad_shift[input[1]&127];
             if(target>=0&&target<=127)instance->motif_load_last=target;
+        }
+        if(length>=3&&instance->role<2&&hb_source_channel_matches(instance,input[0]&15)){
+            int row=instance->movy_pad_pending==(input[1]&127)+1&&hb_approach_pad_enabled(instance)?
+                (instance->approach_rows.pending_row<0?3:instance->approach_rows.pending_row):-1;
+            if(hb_ap_input(instance,input,length,row)){instance->key_input_consumed=1;return 0;}
         }
         hb_gesture_target_input(instance,input,length);
         if(hb_ar_input(instance,input,length)){instance->key_input_consumed=1;hb_gesture_finish_use(instance);return 0;}
@@ -5580,7 +5588,8 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
     hb_gesture_finish_use(instance);
     if(HB_SCOPED_TICK_SYNC&&g_conductor_block_ready)hb_auto_chord_repeat_sync(instance);
     else for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
-    if(frames>0&&sample_rate>0){double bpm=hb_host_bpm();instance->motion_beat+=(double)frames*bpm/(60.0*sample_rate);}
+    hb_ap_refresh(instance);
+    if(frames>0&&sample_rate>0){double bpm=hb_host_bpm();instance->motion_beat+=(double)frames*bpm/(60.0*sample_rate);instance->approach_rows.pressure_clock+=(double)frames*1000.0/sample_rate;}
     hb_motion_tick_routes(instance);
     /* Receiver already owns shared rendered gates. Only drain this route while
        a previous Conductor/Follower role still has pending output. */

@@ -18,6 +18,17 @@ static int hb_ar_slot(const char *key,const char *prefix,int count){
 }
 static int hb_ar_set_local(Inst *instance,const char *key,const char *value){
     hb_ar_state *state=&instance->approach_rows;
+    if(!strncmp(key,"approach_pressure_",18)){
+        if(!strcmp(key,"approach_pressure_row")){state->pressure_editor=hb_cp_clamp(parse_i(value,0),0,3);int lane=state->pressure_lane[state->pressure_editor];if(lane)instance->motion.selected=lane-1;return 1;}
+        if(!strcmp(key,"approach_pressure_clear")){hb_ap_clear(instance);return 1;}
+        int row=state->pressure_editor,number=parse_i(value,0),*destination=0,limit=0;
+        if(!strcmp(key,"approach_pressure_lane")){destination=&state->pressure_lane[row];limit=16;}
+        if(!strcmp(key,"approach_pressure_mode")){destination=&state->pressure_mode[row];limit=3;}
+        if(!strcmp(key,"approach_pressure_reverse")){destination=&state->pressure_reverse[row];limit=1;}
+        if(!strcmp(key,"approach_pressure_prepared")){destination=&state->pressure_prepared[row];limit=100;}
+        if(destination){int next=hb_cp_clamp(number,0,limit);if(*destination!=next){hb_ap_clear(instance);*destination=next;}if(destination==&state->pressure_lane[row]&&next)instance->motion.selected=next-1;return 1;}
+        return 0;
+    }
     value=hb_ro_canonical_name(value);
     if(!strcmp(key,"approach_motif_latch")){
         if(hb_ar_spatial_layout(instance))return 1;
@@ -141,6 +152,22 @@ static int hb_ar_set(Inst *instance,const char *key,const char *value){
     return handled;
 }
 static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
+    if(!strncmp(key,"approach_pressure_",18)){
+        hb_ar_state *state=&instance->approach_rows;int row=state->pressure_editor;
+        if(!strcmp(key,"approach_pressure_row"))return snprintf(buffer,(size_t)length,"%d",row);
+        if(!strcmp(key,"approach_pressure_lane"))return snprintf(buffer,(size_t)length,"%d",state->pressure_lane[row]);
+        if(!strcmp(key,"approach_pressure_mode"))return snprintf(buffer,(size_t)length,"%d",state->pressure_mode[row]);
+        if(!strcmp(key,"approach_pressure_reverse"))return snprintf(buffer,(size_t)length,"%d",state->pressure_reverse[row]);
+        if(!strcmp(key,"approach_pressure_prepared"))return snprintf(buffer,(size_t)length,"%d",state->pressure_prepared[row]);
+        if(!strcmp(key,"approach_pressure_value")){
+            int lane=state->pressure_lane[row]-1;
+            if(lane<0||!state->pressure_mode[row])return snprintf(buffer,(size_t)length,"Off");
+            if(!hb_mo_pressure_supported(instance->motion.lanes[lane].operation))return snprintf(buffer,(size_t)length,"Choose amount op");
+            if(!state->pressure[row].active)return snprintf(buffer,(size_t)length,"Ready");
+            return snprintf(buffer,(size_t)length,"%s %d%%",state->pressure[row].latched?"Latch":"Hold",hb_mo_round(100*hb_pressure_value(&state->pressure[row],state->pressure_reverse[row])));
+        }
+        if(!strcmp(key,"approach_pressure_clear"))return snprintf(buffer,(size_t)length,"Release all");
+    }
     if(!strcmp(key,"approach_sequence_view"))return hb_ar_sequence_view(instance,buffer,length);
     hb_ar_state *state=&instance->approach_rows;int slot=hb_ar_slot(key,"approach_knob_",8);
     if(!strcmp(key,"approach_latch_slots"))return snprintf(buffer,(size_t)length,"%u",state->latch_slots);
@@ -157,6 +184,9 @@ static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
 static int hb_ar_save(Inst *instance,char *buffer,int length,int used){
     if(used<0||used>=length)return used;
     hb_ar_state *state=&instance->approach_rows;
+    if(used<length)used+=snprintf(buffer+used,(size_t)(length-used),";ap1");
+    for(int row=0;row<4&&used<length;row++)used+=snprintf(buffer+used,(size_t)(length-used),",%d,%d,%d,%d",state->pressure_lane[row],state->pressure_mode[row],state->pressure_reverse[row],state->pressure_prepared[row]);
+    if(used<0||used>=length)return -1;
     used+=snprintf(buffer+used,(size_t)(length-used),";ar1");
     for(int index=0;index<8&&used<length;index++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",state->knobs[index]);
     for(int index=0;index<16&&used<length;index++)used+=snprintf(buffer+used,(size_t)(length-used),",%d",state->bank[index]);
@@ -171,6 +201,26 @@ static int hb_ar_save(Inst *instance,char *buffer,int length,int used){
     return used>=length?-1:used;
 }
 static void hb_ar_restore(Inst *instance,const char *source){
+    hb_ap_clear(instance);
+    hb_ar_state *pressure_state=&instance->approach_rows;
+    memset(pressure_state->pressure_lane,0,sizeof(pressure_state->pressure_lane));
+    memset(pressure_state->pressure_mode,0,sizeof(pressure_state->pressure_mode));
+    memset(pressure_state->pressure_reverse,0,sizeof(pressure_state->pressure_reverse));
+    for(int row=0;row<4;row++)pressure_state->pressure_prepared[row]=100;
+    const char *pressure=strstr(source,";ap1");
+    if(pressure){
+        int values[16],valid=1;pressure+=4;
+        for(int index=0;index<16;index++){
+            if(*pressure++!=','){valid=0;break;}char *end;
+            long number=strtol(pressure,&end,10);int limit=index%4==0?16:index%4==1?3:index%4==2?1:100;
+            if(end==pressure||number<0||number>limit){valid=0;break;}
+            values[index]=(int)number;pressure=end;
+        }
+        if(valid&&(!*pressure||*pressure==';'))for(int row=0;row<4;row++){
+            pressure_state->pressure_lane[row]=values[row*4];pressure_state->pressure_mode[row]=values[row*4+1];
+            pressure_state->pressure_reverse[row]=values[row*4+2];pressure_state->pressure_prepared[row]=values[row*4+3];
+        }
+    }
     const char *cursor=strstr(source,";ar1,");if(!cursor)return;cursor+=4;
     hb_ar_state restored=instance->approach_rows;int count=25;
     for(int index=0;index<count;index++){

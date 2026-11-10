@@ -1,11 +1,11 @@
 {
-  "version": "0.2.313",
-  "previous_version": "0.2.312",
+  "version": "0.2.314",
+  "previous_version": "0.2.313",
   "workflow": "release.yml",
-  "title": "HarmonyBus 0.2.313 \u2014 Native queue-to-clip handoff",
-  "notes": "docs/queue-handoff.md",
+  "title": "HarmonyBus 0.2.314 — Approach row pressure modes",
+  "notes": "docs/approach-pressure.md",
   "assets": [
-    "dist/harmonybus-v0.2.313-module.tar.gz",
+    "dist/harmonybus-v0.2.314-module.tar.gz",
     "dist/HarmonyBus-Timing-Guide.pdf",
     "dist/SHA256SUMS"
   ]

@@ -1,3 +1,5 @@
+HarmonyBus 0.2.314 adds opt-in approach row pressure modes for Movy hbclean.337. See [Approach pressure](approach-pressure.md).
+
 HarmonyBus 0.2.313 adds native queue export for Movy hbclean.318 Copy Queue. Update both modules. See [Copy Queue](queue-copy.md).
 
 HarmonyBus 0.2.311 supports growing, retained Chord Play queues with Movy hbclean.314. Update both modules. See [Growing chord queues](growing-chord-queue.md).
