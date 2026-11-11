@@ -657,6 +657,11 @@
       "id": 70,
       "symbol": "HB_MO_REPEAT_DIVISIONS",
       "name": "Repeat Divisions"
+    },
+    {
+      "id": 71,
+      "symbol": "HB_MO_GLOBAL_TRANSPOSE",
+      "name": "Global Transpose"
     }
   ],
   "selectors": [
