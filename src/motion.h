@@ -2,6 +2,7 @@
 #define HB_MOTION_H
 #include "../core/include/noise_field.h"
 #include "render_rhythm.h"
+#include "../core/include/output_transpose.h"
 #include "chord_player.h"
 /* Sixteen shared lane assignments with per-instance voice ownership. Pure evaluation uses transport position, never a
    mutable random stream, so local and MIDI-render routes make identical choices. */
@@ -18,7 +19,7 @@ static int hb_mo_mixed(int operation){return operation>=HB_MO_MIXED_FIRST&&opera
 static int hb_mo_note_repeat_operation(int operation){return operation==HB_MO_NOTE_REPEAT||operation==HB_MO_REPEAT_DIVISIONS;}
 static int hb_mo_pressure_supported(int operation){
     return operation==HB_MO_VELOCITY||operation==HB_MO_GATE||operation==HB_MO_PAN||
-        operation==HB_MO_TRANSPOSE||operation==HB_MO_RATCHET||operation==HB_MO_ECHO||hb_mo_note_repeat_operation(operation);
+        operation==HB_MO_TRANSPOSE||operation==HB_MO_GLOBAL_TRANSPOSE||operation==HB_MO_RATCHET||operation==HB_MO_ECHO||hb_mo_note_repeat_operation(operation);
 }
 /* Low three choices resolve on release; high three on press. Scope and
    resolution are independent even though the compact knob lists both. */
@@ -47,6 +48,7 @@ typedef struct {
     int seed_slot;unsigned long long seed_serial;
 } hb_motion_burst;
 typedef struct {
+    hb_output_transpose transpose;
     hb_rr_route rhythm; double rhythm_now,rhythm_delay; int rhythm_enabled;
     hb_motion_owner owners[HB_MOTION_OWNERS];
     hb_motion_burst bursts[HB_MOTION_BURSTS];
@@ -244,7 +246,7 @@ static void hb_mo_gesture(hb_motion_config *config,int id,int down,int elapsed){
     if(down){
         if(config->gesture_down&bit)return;
         int operation=id<HB_MOTION_LANES?config->lanes[id].operation:id==HB_MOTION_LANES?HB_MO_ABOVE:HB_MO_BELOW;
-        int mode=operation>=HB_MO_RELATIVE_KEY?0:id<HB_MOTION_LANES?config->lanes[id].touch_mode:2;
+        int mode=operation>=HB_MO_RELATIVE_KEY&&operation!=HB_MO_GLOBAL_TRANSPOSE?0:id<HB_MOTION_LANES?config->lanes[id].touch_mode:2;
         config->gesture_down|=bit;config->gesture_used&=~bit;
         config->gesture_operation[id]=operation;config->gesture_mode[id]=mode;config->gesture_threshold[id]=g_hb_hold_ms;
         config->gesture_serial[id]=++config->serial;
@@ -626,7 +628,7 @@ static void hb_mo_capture(hb_motion_config *config,double beat,double condition,
         int active=hb_mo_value_at(config,lane,beat,condition,voice,&value);
         if(((config->held|config->sequence_held)&(1ULL<<lane))&&(settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE||settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V))active=0;
         /* Explicitly evolving automatic lanes remain live on replay. */
-        if(hb_mo_note_repeat_operation(settings.operation)||settings.operation==HB_MO_WEAVE||settings.operation==HB_MO_LIVE_HARMONY_OVERRIDE||settings.operation==HB_MO_HARMONY_OVERRIDE||(settings.operation>=HB_MO_RECORD_KEY&&settings.operation<=HB_MO_KEY_RETURN)||settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!((config->held|config->sequence_held)&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
+        if(settings.operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_note_repeat_operation(settings.operation)||settings.operation==HB_MO_WEAVE||settings.operation==HB_MO_LIVE_HARMONY_OVERRIDE||settings.operation==HB_MO_HARMONY_OVERRIDE||(settings.operation>=HB_MO_RECORD_KEY&&settings.operation<=HB_MO_KEY_RETURN)||settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!((config->held|config->sequence_held)&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
         /* Smart lane identities are live-only. The contextual capture layer
            writes the selected existing operation before publishing a note. */
         const hb_ro_definition *definition=hb_ro_motion(settings.operation);
@@ -656,9 +658,17 @@ static int hb_mo_push_owned(hb_motion_route *route,int status,int pitch,int velo
 static int hb_mo_push(hb_motion_route *route,int status,int pitch,int velocity){return hb_mo_push_owned(route,status,pitch,velocity,0);}
 static int hb_mo_pop(hb_motion_route *route,uint8_t message[3]){
     route->trail_out=0;
-    if(!route->count){int result=hb_rr_pop(&route->rhythm,route->rhythm_now,message);route->trail_out=route->rhythm.trail_out;return result;}
-    route->trail_out=route->trail_queue[route->head];memcpy(message,route->queue[route->head],3);
-    route->head=(route->head+1)%HB_MOTION_QUEUE;route->count--;return 1;
+    if(hb_ot_pending(&route->transpose,message))return 1;
+    for(;;){
+        if(!route->count){
+            if(!hb_rr_pop(&route->rhythm,route->rhythm_now,message))return 0;
+            route->trail_out=route->rhythm.trail_out;
+        }else{
+            route->trail_out=route->trail_queue[route->head];memcpy(message,route->queue[route->head],3);
+            route->head=(route->head+1)%HB_MOTION_QUEUE;route->count--;
+        }
+        if(hb_ot_message(&route->transpose,message))return 1;
+    }
 }
 /* Releasing one source must not silence a different source mapped to that pitch. */
 static int hb_mo_release(hb_motion_route *route,hb_motion_owner *owner){
@@ -676,6 +686,7 @@ static void hb_mo_due(hb_motion_route *route,double beat){
     }
 }
 static void hb_mo_panic(hb_motion_route *route){
+    hb_ot_panic(&route->transpose);
     memset(route->bursts,0,sizeof(route->bursts));
     route->note_repeat_pending=0;
     for(int index=0;index<HB_MOTION_OWNERS;index++){

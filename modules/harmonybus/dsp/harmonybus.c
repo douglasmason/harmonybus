@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.316"
+#define HB_VERSION "0.2.317"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -294,6 +294,7 @@ typedef struct {
     unsigned long long discovery_word;unsigned discovery_epoch,discovery_parent;
     int discovery_track,discovery_note,discovery_parent_root,discovery_transpose;
     int field_managed;
+int global_operation_values[16];unsigned global_operation_manual;
 int chord_register,chord_queue_depth,chord_queue_loop; int selection_bank[21][9],selection_bank_valid; double selection_until; unsigned selection_serial; unsigned long long selection_pending; int selection_note; hb_harmony_t opening_selection; int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_tonic,key_scale,key_input_consumed; int key_action,key_shift,key_return_after,key_pending_action; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[2][16][128]; int chord_pair_owner[2][16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; int motif_load[7],motif_load_last; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 hb_follower_voice follower_voices[HB_FOLLOWER_VOICES];
 hb_input_intent follower_queue_input[64];
@@ -367,6 +368,11 @@ static void hb_rr_prepare(Inst *instance,hb_motion_route *route){
     route->rhythm_delay=(instance->rhythm_host&&instance->movy_playback)||target<now?0:target-now;
 }
 static void hb_motion_output(Inst *instance,hb_motion_route *route,const uint8_t message[3]);
+/* A final-output performance offset leaves the saved key/transpose untouched.
+   Replicated shared lanes contribute once: strongest active owner per slot. */
+static int g_global_operation_transpose;
+static void hb_global_operation_resolve(void);
+static void hb_key_operations_sync(void);
 static void hb_motion_flush_render(Inst *instance);
 static double hb_motion_position(Inst *instance);
 static double hb_motion_condition_position(void);
@@ -2013,7 +2019,23 @@ static int hb_send_render_raw(Inst *source,const uint8_t input_packet[4],int sup
     if(sent==4)g_render_owners[channel][pitch]=next;
     return sent;
 }
+static void hb_global_operation_resolve(void){
+    int total=0;
+    for(int lane=0;lane<16;lane++){
+        int selected=0,manual=0;
+        for(int owner=0;owner<HB_MAX_INSTANCES;owner++)if(g_pool[owner].used&&g_pool[owner].role<2){
+            int explicit_owner=(g_pool[owner].global_operation_manual>>lane)&1;
+            if(explicit_owner<manual)continue;
+            if(explicit_owner>manual){selected=0;manual=1;}
+            int value=g_pool[owner].global_operation_values[lane];
+            if(abs(value)>abs(selected))selected=value;
+        }
+        total+=selected;
+    }
+    g_global_operation_transpose=hb_mo_clamp(total,-24,24);
+}
 static void hb_motion_flush_render(Inst *instance){
+    hb_ot_target(&instance->motion_render.transpose,instance->role<2?g_global_operation_transpose:0);
     uint8_t message[3];
     while(hb_mo_pop(&instance->motion_render,message)){
         uint8_t packet[4]={(uint8_t)(0x20|(message[0]>>4)),message[0],message[1],message[2]};
@@ -2022,7 +2044,7 @@ static void hb_motion_flush_render(Inst *instance){
 }
 static int hb_send_render(Inst *source,const uint8_t packet[4],int suppress_external){
     if(source->movy_track>=0)suppress_external=0;
-    if(!source->motion_render.strict_ownership&&!source->motion_event_owner&&hb_rr_pattern(source)<2&&!hb_rr_active(&source->motion_render.rhythm)&&!hb_mo_enabled(&source->motion)&&!source->motion_render.owned&&!source->motion_render.count)
+    if(!g_global_operation_transpose&&!source->motion_render.transpose.current&&!source->motion_render.transpose.stage&&!source->motion_render.strict_ownership&&!source->motion_event_owner&&hb_rr_pattern(source)<2&&!hb_rr_active(&source->motion_render.rhythm)&&!hb_mo_enabled(&source->motion)&&!source->motion_render.owned&&!source->motion_render.count)
         return hb_send_render_raw(source,packet,suppress_external);
     source->motion_render_suppress[packet[1]&15]=suppress_external;
     hb_motion_output(source,&source->motion_render,packet+1);
@@ -4331,7 +4353,7 @@ if(instance){
     while(instance->player.sounding_count)hb_player_tick(instance,discarded,lengths,16);
     hb_mo_panic(&instance->motion_render);hb_motion_flush_render(instance);
     hb_receiver_remove_source(instance);
-    instance->used=0;
+    instance->used=0;hb_global_operation_resolve();
 }g_field_managed_clock=0;for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used&&g_pool[index].field_managed)g_field_managed_clock=1;for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)return;hb_nf_reset();memset(g_clip_cache,0,sizeof(g_clip_cache));memset(g_timelines,0,sizeof(g_timelines));memset(g_timeline_owners,0,sizeof(g_timeline_owners));g_clip_cache_key_valid=0;memset(&g_clip_cache_key,0,sizeof(g_clip_cache_key));g_motion_settings_ready=g_motion_settings_restored=g_quant_restored=0;g_ar_bank_ready=0;g_bus.quant_timing=0;g_buffer_restored=0;g_bus.boundary_buffer_ms=-3;g_lookahead_restored=0;hb_touch_defaults();g_bus.next_lookahead=0;g_bus.next_anti_buffer_ms=25;hb_set_shared_follower_scale(1);g_scale_restored=0;hb_store_scale_exceptions(0,0);g_scale_exceptions_restored=0;memset(g_motifs,0,sizeof(g_motifs));g_motifs_restored=0;g_rg_ready=g_rg_restored=0;g_motif_rhythm=g_motif_span=g_motif_timing_restored=0;g_render_window=g_render_restored=0;g_role_ready=g_role_restored=0;if(g_global_shared)g_global_shared->role_ready=0;hb_pad_defaults();}
 static int hb_source_channel_matches(Inst *instance,int midi_channel){
     if(!instance)return 0;
@@ -5343,6 +5365,7 @@ static void hb_motion_tick_routes(Inst *instance){
     hb_motion_flush_render(instance);
 }
 static int hb_motion_local_drain(Inst *instance,uint8_t output[][3],int lengths[],int capacity){
+    hb_ot_target(&instance->motion_local.transpose,instance->role<2?g_global_operation_transpose:0);
     int emitted=0;while(emitted<capacity&&hb_mo_pop(&instance->motion_local,output[emitted])){hb_trail_heard(instance,instance->motion_local.trail_out);lengths[emitted++]=3;}return emitted;
 }
 static int process_with_actions(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int capacity){
@@ -5445,7 +5468,9 @@ static int process_key_base(void *value,const uint8_t *input,int length,uint8_t 
         if(length>=3&&instance->role<2&&hb_source_channel_matches(instance,input[0]&15)){
             int row=instance->movy_pad_pending==(input[1]&127)+1&&hb_approach_pad_enabled(instance)?
                 (instance->approach_rows.pending_row<0?3:instance->approach_rows.pending_row):-1;
-            if(hb_ap_input(instance,input,length,row)){instance->key_input_consumed=1;return 0;}
+            int consumed=hb_ap_input(instance,input,length,row);
+            hb_key_operations_sync();
+            if(consumed){instance->key_input_consumed=1;return 0;}
         }
         hb_gesture_target_input(instance,input,length);
         if(hb_ar_input(instance,input,length)){instance->key_input_consumed=1;hb_gesture_finish_use(instance);return 0;}
@@ -5462,12 +5487,28 @@ static int process_key_base(void *value,const uint8_t *input,int length,uint8_t 
    reconcile their own gestures; MIDI and parameter entry keep immediate sync.
    Standalone hosts without the barrier retain the full original traversal. */
 static void hb_key_operations_sync_instance(Inst *instance){
-    if(!instance->used||instance->role>=2)return;
+    if(!instance->used)return;
+    if(instance->role>=2){
+        int changed=0;for(int lane=0;lane<16;lane++)changed|=instance->global_operation_values[lane];
+        if(changed){memset(instance->global_operation_values,0,sizeof(instance->global_operation_values));hb_global_operation_resolve();}
+        return;
+    }
+    unsigned manual=0;int changed=0;
     int index=(int)(instance-g_pool);
     int parallel=0,override_scope=0;
     unsigned long long active=0;
     for(int lane=0;lane<HB_MOTION_USER_LANES;lane++){
         int operation=instance->motion.lanes[lane].operation;
+        int shift=0;double amount=0;
+        if(operation==HB_MO_GLOBAL_TRANSPOSE){
+            if((instance->motion.held|instance->motion.sequence_held|instance->motion.pressure_active)&(1ULL<<lane))manual|=1u<<lane;
+            if(hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&amount)){
+                shift=hb_mo_clamp(hb_mo_round(amount),-24,24);
+                if((instance->motion.pressure_active&(1ULL<<lane))&&amount!=0&&fabs(amount-instance->global_operation_values[lane])<.65)
+                    shift=instance->global_operation_values[lane];
+            }
+        }
+        if(shift!=instance->global_operation_values[lane]){instance->global_operation_values[lane]=shift;changed=1;}
         /* Reuse this existing scan: an inactive override adds no
            second all-track/all-lane walk to every MIDI event. */
         if(instance->role==1&&!instance->motion.bypass&&((instance->motion.held|instance->motion.sequence_held)&(1ULL<<lane))){
@@ -5487,6 +5528,8 @@ static void hb_key_operations_sync_instance(Inst *instance){
         }
         if(operation==HB_MO_PARALLEL_SCALE)parallel=1;
     }
+    if(manual!=instance->global_operation_manual){instance->global_operation_manual=manual;changed=1;}
+    if(changed)hb_global_operation_resolve();
     instance->key_lane_active=active;
     hb_override_set_scope(instance,override_scope);
     if(parallel!=g_sc_lane[index]){
@@ -5922,7 +5965,7 @@ if(hb_mo_set(&instance->motion,key,parameter)){
     instance->next_touch_mask&=(instance->motion.held|instance->motion.gesture_down|instance->motion.gesture_latched|hb_mo_pending_lanes(&instance->motion))&~instance->motion.gesture_persistent;
     if(!strncmp(key,"motion_",7)&&strncmp(key,"motion_gesture_",15)&&strncmp(key,"motion_hold_",12)&&
        strcmp(key,"motion_host")&&strcmp(key,"motion_release")&&strcmp(key,"motion_sequence_mask"))hb_motion_publish_settings(instance);
-    if(!strcmp(key,"motion_sequence_mask")||(next_lane>=0&&instance->motion.lanes[next_lane].operation>=HB_MO_RELATIVE_KEY))hb_key_operations_sync();
+    hb_key_operations_sync();
     hb_mo_repeat_cancel(&instance->motion_local,&instance->motion,0);
     hb_mo_repeat_cancel(&instance->motion_render,&instance->motion,0);hb_motion_flush_render(instance);return;
 }

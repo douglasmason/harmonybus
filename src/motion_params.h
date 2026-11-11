@@ -21,7 +21,7 @@ static const char *MO_TRIGGER_TOUCH[]={"Hold","Arm","Tap/Hold"};
 static const char *const *hb_mo_touch_options(hb_motion_config *config){
     int operation=config->lanes[config->selected].operation;
     const hb_ro_definition *definition=hb_ro_motion(operation);
-    if(hb_mo_note_repeat_operation(operation))return MO_TOUCH;
+    if(operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_note_repeat_operation(operation))return MO_TOUCH;
     if(definition&&definition->preferred_token)return MO_TOUCH;
     return ((operation>=HB_MO_BELOW&&operation<=HB_MO_ENCLOSE_BA)||(operation>=HB_MO_SECONDARY_II&&operation!=HB_MO_WEAVE))?MO_TRIGGER_TOUCH:MO_TOUCH;
 }
@@ -94,6 +94,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         if(operation==HB_MO_DRUM_FILL)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,0,127);
         if(hb_mo_note_repeat_operation(operation))config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,1,16);
         if(operation==HB_MO_WEAVE)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,1,16);
+        if(operation==HB_MO_GLOBAL_TRANSPOSE)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,-24,24);
         if(operation==HB_MO_RELATIVE_KEY)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,-12,12);
         config->revision[control]++;return 1;
     }
@@ -106,7 +107,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     if(!strcmp(key,"performance_gesture_below"))gesture=HB_MOTION_LANES+1;
     if(gesture>=0){
         if(!strcmp(value,"LatchOn")||!strcmp(value,"LatchOff")){
-            if(gesture<HB_MOTION_LANES&&config->lanes[gesture].operation>=HB_MO_RELATIVE_KEY)return 1;
+            if(gesture<HB_MOTION_LANES&&config->lanes[gesture].operation>=HB_MO_RELATIVE_KEY&&config->lanes[gesture].operation!=HB_MO_GLOBAL_TRANSPOSE)return 1;
             if(gesture<HB_MOTION_LANES)hb_mo_latch_set(config,gesture,!strcmp(value,"LatchOn"));return 1;
         }
         int knob_down=!strncmp(value,"Knob,",5);
@@ -212,12 +213,13 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         if(index==0&&config->selected>=HB_MOTION_USER_LANES)return 1;
         if(index==0&&parsed!=*field){
             static const int amounts[]={0,25,50,1,1,50,100,100,1,1,1,1,1,1,1,2,1,4,3,3,1,1,1,1,1,1,1,1,1,1,1};
-            config->lanes[config->selected].amount=hb_mo_note_repeat_operation(parsed)?16:parsed==HB_MO_DRUM_FILL?38:parsed==HB_MO_MOTIF?0:parsed>30?1:amounts[parsed];
+            config->lanes[config->selected].amount=parsed==HB_MO_GLOBAL_TRANSPOSE?12:hb_mo_note_repeat_operation(parsed)?16:parsed==HB_MO_DRUM_FILL?38:parsed==HB_MO_MOTIF?0:parsed>30?1:amounts[parsed];
             config->lanes[config->selected].offset=parsed==HB_MO_ECHO?25:0;
             if(parsed>=HB_MO_AUTO_CHORD_REPEAT||(parsed>=HB_MO_ENCLOSE_AB&&parsed<=HB_MO_SPEED))config->lanes[config->selected].enabled=0;
         }
         if(index==4&&(config->lanes[config->selected].operation==HB_MO_DRUM_FILL||(config->lanes[config->selected].operation>=HB_MO_RECORD_KEY&&config->lanes[config->selected].operation<=HB_MO_KEY_RETURN)||hb_mo_enclosure_mask(config->lanes[config->selected].operation)||
             (hb_mo_clip_operation(config->lanes[config->selected].operation)&&config->host_capabilities<2)))parsed=0;
+        if(index==2&&config->lanes[config->selected].operation==HB_MO_GLOBAL_TRANSPOSE)parsed=hb_mo_clamp(parsed,-24,24);
         if(index==2&&config->lanes[config->selected].operation==HB_MO_DRUM_FILL)parsed=hb_mo_clamp(parsed,0,127);
         if(index==2&&hb_mo_note_repeat_operation(config->lanes[config->selected].operation))parsed=hb_mo_clamp(parsed,1,16);
         if(index==2&&config->lanes[config->selected].operation==HB_MO_WEAVE)parsed=hb_mo_clamp(parsed,1,16);
@@ -300,7 +302,9 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":%d,\"step\":1,\"default\":0}]",selected==HB_MO_RELATIVE_KEY?"Return After (0 = off)":selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_RELATIVE_KEY||selected==HB_MO_ECHO?0:-100,selected==HB_MO_RELATIVE_KEY?64:100);
         if(used<0||used>=length)return -1;
         used--;
-        if(hb_mo_note_repeat_operation(selected)){
+        if(selected==HB_MO_GLOBAL_TRANSPOSE){
+            used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Global Shift (semitones)\",\"type\":\"int\",\"min\":-24,\"max\":24,\"default\":12}");
+        }else if(hb_mo_note_repeat_operation(selected)){
             used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Max Repeats / Beat\",\"type\":\"int\",\"min\":1,\"max\":16,\"default\":16}");
         }else if(selected==HB_MO_DRUM_FILL){
             used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Drum Note\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":38}");

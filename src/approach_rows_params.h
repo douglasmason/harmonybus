@@ -164,6 +164,8 @@ static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
             if(lane<0||!state->pressure_mode[row])return snprintf(buffer,(size_t)length,"Off");
             if(!hb_mo_pressure_supported(instance->motion.lanes[lane].operation))return snprintf(buffer,(size_t)length,"Choose amount op");
             if(!state->pressure[row].active)return snprintf(buffer,(size_t)length,"Ready");
+            if(instance->motion.lanes[lane].operation==HB_MO_GLOBAL_TRANSPOSE)
+                return snprintf(buffer,(size_t)length,"Global %+d st",g_global_operation_transpose);
             if(hb_mo_note_repeat_operation(instance->motion.lanes[lane].operation)){
                 int rate=instance->motion.pressure_rate[lane];
                 if(rate&&instance->motion.lanes[lane].operation==HB_MO_REPEAT_DIVISIONS)

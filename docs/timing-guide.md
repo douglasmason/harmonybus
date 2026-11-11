@@ -1,4 +1,4 @@
-HarmonyBus 0.2.316 adds LFO-modulatable sequence position inputs for Movy. See [Sequence position inputs](sequence-position-inputs.md).
+HarmonyBus 0.2.317 adds a shared Global Transpose performance operation. See [Global Transpose](global-transpose-operation.md).
 
 HarmonyBus 0.2.315 adds pressure-controlled Note Repeat and Repeat Divisions for Movy hbclean.338. See [Pressure repeat](pressure-repeat.md).
 
