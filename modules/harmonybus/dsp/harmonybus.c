@@ -2028,7 +2028,7 @@ static void hb_global_operation_resolve(void){
             if(explicit_owner<manual)continue;
             if(explicit_owner>manual){selected=0;manual=1;}
             int value=g_pool[owner].global_operation_values[lane];
-            if(abs(value)>abs(selected))selected=value;
+            if((value<0?-value:value)>(selected<0?-selected:selected))selected=value;
         }
         total+=selected;
     }
