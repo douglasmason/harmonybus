@@ -662,6 +662,11 @@
       "id": 71,
       "symbol": "HB_MO_GLOBAL_TRANSPOSE",
       "name": "Global Transpose"
+    },
+    {
+      "id": 72,
+      "symbol": "HB_MO_CHORD_SPREAD",
+      "name": "Chord Spread"
     }
   ],
   "selectors": [

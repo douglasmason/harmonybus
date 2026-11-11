@@ -1,3 +1,5 @@
+HarmonyBus 0.2.318 adds pressure-controlled Chord Spread with an anchored bass and live held-voice retuning. See [Chord Spread](chord-spread.md).
+
 HarmonyBus 0.2.317 adds a shared Global Transpose performance operation. See [Global Transpose](global-transpose-operation.md).
 
 HarmonyBus 0.2.315 adds pressure-controlled Note Repeat and Repeat Divisions for Movy hbclean.338. See [Pressure repeat](pressure-repeat.md).
