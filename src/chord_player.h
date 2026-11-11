@@ -51,6 +51,7 @@ typedef struct {
     uint8_t sounding[16][128], retrigger[16][128];
     int sounding_channels[16];
     int sounding_count, flushing, render_channel, running, arp_note, arp_channel, arp_velocity;
+    int preserve_revoice; /* Scoped harmonic refresh, never a fresh strike. */
     unsigned sequence;
 
     unsigned anchor_harmony_mask;int anchor_harmony_root,anchor_harmony_valid;
@@ -430,7 +431,7 @@ static int hb_cp_on_origin(hb_chord_player *player,int source,int channel,int ve
         for(int voice=0;voice<key->count;voice++)player->retrigger[key->channel][key->notes[voice]]=1;
         if(hb_cp_settings(player)->phase!=1){player->running=0;player->order_state.step=0;}
     }
-    if(key->used&&!player->rhythm.pattern&&hb_cp_playback(player)!=1)for(int voice=0;voice<key->count;voice++){
+    if(key->used&&!player->preserve_revoice&&!player->rhythm.pattern&&hb_cp_playback(player)!=1)for(int voice=0;voice<key->count;voice++){
         int pitch=key->notes[voice],shared=0;
         for(int other=0;other<HB_CP_KEYS;other++)if(other!=slot&&player->keys[other].used&&player->keys[other].channel==channel)
             for(int tone=0;tone<player->keys[other].count;tone++)if(player->keys[other].notes[tone]==pitch)shared=1;
@@ -444,7 +445,7 @@ static int hb_cp_on_origin(hb_chord_player *player,int source,int channel,int ve
     memset(key,0,sizeof(*key));
     key->rhythm_count=retained_count;key->rhythm_velocity=retained_velocity;key->rhythm_serial=player->rhythm_serial;
     memcpy(key->rhythm_notes,retained_notes,(size_t)retained_count*sizeof(int));
-    key->used=key->held=key->fresh=1;key->source=source;key->channel=channel;key->playback_origin=origin;
+    key->used=key->held=1;key->fresh=!player->preserve_revoice;key->source=source;key->channel=channel;key->playback_origin=origin;
     key->played_pitch=source;key->root_pc=hb_cp_mod(source);key->velocity=velocity;key->count=count;key->sequence=++player->sequence;
     for(int index=0;index<count;index++)key->notes[index]=notes[index];
     return 1;
