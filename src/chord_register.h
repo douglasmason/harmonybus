@@ -29,10 +29,10 @@ static void hb_register_retarget(hb_chord_player *player,hb_cp_key *key,const hb
         for(int hit=0;hit<key->rhythm_count;hit++)if(before->rhythm_notes[hit]==before->notes[voice])key->rhythm_notes[hit]=replacement;
     }
 }
-static void hb_register_refresh(void){
+static void hb_register_refresh_for(Inst *only,int force){
     /* Publish the conductor's new range before resolving follower defaults. */
     for(int index=0;index<HB_MAX_INSTANCES;index++){
-        Inst *instance=&g_pool[index];if(!instance->used)continue;
+        Inst *instance=&g_pool[index];if(!instance->used||(only&&instance!=only))continue;
         int arp_note=instance->player.arp_note,arp_changed=0;
         for(int slot=0;slot<HB_CP_KEYS;slot++){
             hb_cp_key *key=&instance->player.keys[slot];if(!key->used||!key->selection)continue;
@@ -43,7 +43,8 @@ static void hb_register_refresh(void){
             if(instance->render_channel>=0){
                 key->count=hb_cp_voice_semantic(config,key->selection_pitch+g_bus.global_transpose,harmony.root_pc,harmony.pitch_mask,harmony.intent_scale,key->notes,0);
                 for(int voice=0;voice<key->count;voice++)key->notes[voice]=hb_key_pitch(instance,key->notes[voice]);
-        if(config.top_note)key->count=hb_cp_range_top(key->notes,key->count,config.top_note-1,mod12(hb_key_pitch(instance,60+harmony.root_pc)),config.voicing);
+                if(config.top_note)key->count=hb_cp_range_top(key->notes,key->count,config.top_note-1,mod12(hb_key_pitch(instance,60+harmony.root_pc)),config.voicing);
+                hb_chord_spread(key->notes,key->count,instance->chord_spread_steps);
             }
             key->onset_config=config;
             hb_register_retarget(&instance->player,key,&before,arp_note,&arp_changed);
@@ -51,9 +52,9 @@ static void hb_register_refresh(void){
     }
     hb_harmony_t current=hb_live_current();if(current.valid)hb_effective_write(current);
     for(int index=0;index<HB_MAX_INSTANCES;index++){
-        Inst *instance=&g_pool[index];if(!instance->used||(instance->role!=0&&instance->role!=1)||hb_cp_mode(&instance->player)<=0)continue;
+        Inst *instance=&g_pool[index];if(!instance->used||(only&&instance!=only)||(instance->role!=0&&instance->role!=1)||hb_cp_mode(&instance->player)<=0)continue;
         hb_chord_player *player=&instance->player;
-        hb_harmony_t harmony=hb_render_harmony(instance);int target=hb_chord_register_for(instance,harmony),changed=0;
+        hb_harmony_t harmony=hb_render_harmony(instance);int target=hb_chord_register_for(instance,harmony),changed=force;
         for(int slot=0;slot<HB_CP_KEYS;slot++){
             hb_cp_key *key=&player->keys[slot];
             if(key->used&&!key->selection&&key->onset_config.mode&&
@@ -70,6 +71,7 @@ static void hb_register_refresh(void){
         for(int slot=0;slot<HB_CP_KEYS;slot++)hb_register_retarget(player,&player->keys[slot],&before[slot],arp_note,&arp_changed);
     }
 }
+static void hb_register_refresh(void){hb_register_refresh_for(0,0);}
 static int hb_register_matches(unsigned long long word,int note,unsigned long long candidate,int pitch){
     return (hb_selection_base_word(word)&~HB_SELECTION_REGISTER)==(hb_selection_base_word(candidate)&~HB_SELECTION_REGISTER)&&mod12(note)==mod12(pitch);
 }

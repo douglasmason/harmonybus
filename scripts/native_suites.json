@@ -1,5 +1,12 @@
 [
   {
+    "name": "chord_spread_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/chord_spread_test.c src/harmony_core.c -lm -o /tmp/chord_spread_test",
+      "/tmp/chord_spread_test"
+    ]
+  },
+  {
     "name": "global_transpose_test",
     "commands": [
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/global_transpose_test.c src/harmony_core.c -lm -o /tmp/global_transpose_test",

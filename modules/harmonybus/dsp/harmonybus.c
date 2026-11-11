@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.317"
+#define HB_VERSION "0.2.318"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -50,6 +50,7 @@ extern int close(int);
 #include "../../../src/follower_timing.h"
 #include "../../../src/movy_loop.h"
 #include "../../../src/chord_player.h"
+#include "../../../core/include/chord_spread.h"
 #include "../../../src/role_policy.h"
 #include "../../../src/render_rhythm.h"
 #include "../../../src/motion.h"
@@ -294,6 +295,7 @@ typedef struct {
     unsigned long long discovery_word;unsigned discovery_epoch,discovery_parent;
     int discovery_track,discovery_note,discovery_parent_root,discovery_transpose;
     int field_managed;
+int chord_spread_steps,chord_spread_applied,chord_spread_values[16];
 int global_operation_values[16];unsigned global_operation_manual;
 int chord_register,chord_queue_depth,chord_queue_loop; int selection_bank[21][9],selection_bank_valid; double selection_until; unsigned selection_serial; unsigned long long selection_pending; int selection_note; hb_harmony_t opening_selection; int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_tonic,key_scale,key_input_consumed; int key_action,key_shift,key_return_after,key_pending_action; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[2][16][128]; int chord_pair_owner[2][16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; int motif_load[7],motif_load_last; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 hb_follower_voice follower_voices[HB_FOLLOWER_VOICES];
@@ -373,6 +375,7 @@ static void hb_motion_output(Inst *instance,hb_motion_route *route,const uint8_t
 static int g_global_operation_transpose;
 static void hb_global_operation_resolve(void);
 static void hb_key_operations_sync(void);
+static void hb_register_refresh_for(Inst *only,int force);
 static void hb_motion_flush_render(Inst *instance);
 static double hb_motion_position(Inst *instance);
 static double hb_motion_condition_position(void);
@@ -3503,6 +3506,7 @@ static void hb_player_note_on_config(Inst *instance,int source_note,int channel,
         if(instance->role==0)root=mod12(hb_key_map(voice_context,60+root));
         voice_count=hb_cp_root_below(pitches,voice_count,root);
     }
+    if(config.mode&&!pair_input)hb_chord_spread(pitches,voice_count,instance->chord_spread_steps);
     if(!hb_cp_on_origin(player,source_note,channel,velocity,pitches,voice_count,instance->movy_playback!=0))return;
     for(int index=0;index<HB_CP_KEYS;index++){
         hb_cp_key *key=&player->keys[index];
@@ -4474,6 +4478,8 @@ static int hb_emit_role_change_flush(Inst *instance,uint8_t output[][3],int leng
 static void hb_ap_clear(Inst *instance);
 static void hb_clear_instance_note_state(Inst *instance){
     if(!instance)return;
+    instance->chord_spread_steps=instance->chord_spread_applied=0;
+    memset(instance->chord_spread_values,0,sizeof(instance->chord_spread_values));
     instance->selection_pending=0;
     hb_ap_clear(instance);
     instance->approach_rows.down=instance->approach_rows.knob_down=instance->approach_rows.step_down=0;instance->approach_rows.performance=instance->approach_rows.latch=instance->approach_rows.motif_latch=0;instance->approach_rows.bank_armed=-1;memset(instance->approach_rows.swallow,0,sizeof(instance->approach_rows.swallow));
@@ -5182,6 +5188,10 @@ static void hb_prepare_conductors(int frames,int sample_rate){
 }
 
 static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int max_output){
+    if(instance->chord_spread_steps!=instance->chord_spread_applied){
+        instance->chord_spread_applied=instance->chord_spread_steps;
+        hb_register_refresh_for(instance,1);
+    }
     hb_chord_player *player=&instance->player;
     hb_harmony_t anchor_harmony=hb_render_harmony(instance);
     unsigned anchor_mask=hb_harmony_chord_mask(anchor_harmony);
@@ -5490,17 +5500,24 @@ static int process_key_base(void *value,const uint8_t *input,int length,uint8_t 
 static void hb_key_operations_sync_instance(Inst *instance){
     if(!instance->used)return;
     if(instance->role>=2){
+        instance->chord_spread_steps=0;memset(instance->chord_spread_values,0,sizeof(instance->chord_spread_values));
         int changed=0;for(int lane=0;lane<16;lane++)changed|=instance->global_operation_values[lane];
         if(changed){memset(instance->global_operation_values,0,sizeof(instance->global_operation_values));hb_global_operation_resolve();}
         return;
     }
-    unsigned manual=0;int changed=0;
+    unsigned manual=0;int changed=0,spread=0;
     int index=(int)(instance-g_pool);
     int parallel=0,override_scope=0;
     unsigned long long active=0;
     for(int lane=0;lane<HB_MOTION_USER_LANES;lane++){
         int operation=instance->motion.lanes[lane].operation;
-        int shift=0;double amount=0;
+        int shift=0,spread_value=0;double amount=0;
+        if(operation==HB_MO_CHORD_SPREAD&&hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&amount)){
+            spread_value=hb_mo_clamp(hb_mo_round(amount),0,12);
+            if((instance->motion.pressure_active&(1ULL<<lane))&&amount>0&&fabs(amount-instance->chord_spread_values[lane])<.65)
+                spread_value=instance->chord_spread_values[lane];
+        }
+        instance->chord_spread_values[lane]=spread_value;spread+=spread_value;
         if(operation==HB_MO_GLOBAL_TRANSPOSE){
             if((instance->motion.held|instance->motion.sequence_held|instance->motion.pressure_active)&(1ULL<<lane))manual|=1u<<lane;
             if(hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&amount)){
@@ -5529,6 +5546,7 @@ static void hb_key_operations_sync_instance(Inst *instance){
         }
         if(operation==HB_MO_PARALLEL_SCALE)parallel=1;
     }
+    instance->chord_spread_steps=hb_mo_clamp(spread,0,12);
     if(manual!=instance->global_operation_manual){instance->global_operation_manual=manual;changed=1;}
     if(changed)hb_global_operation_resolve();
     instance->key_lane_active=active;
