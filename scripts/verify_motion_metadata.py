@@ -18,7 +18,11 @@ def main() -> None:
     assert manifest.stat().st_size < 65536, 'Schwung chain loader requires module.json below 64 KiB'
     map_module: dict = json.loads(manifest.read_text())
     map_canonical: dict = {parameter['key']: parameter for parameter in map_module['capabilities']['chain_params']}
+    # Stock modulation metadata is capped at 256 entries. Two read-only
+    # diagnostics move beyond the cap so new inputs don't evict old controls.
+    assert {'sequence_input_1','sequence_input_2','conductor_default_chromatic_quality','conductor_default_gap_scale'} <= set(list(map_canonical)[:256])
     for map_metadata in maps:
+        assert {'sequence_input_1','sequence_input_2','motif_close','motif_lane'} <= set(list(map_metadata)[:256])
         assert len(map_metadata['motion_lane']['options']) == 51
         assert map_metadata['motion_lane']['options'][32] == 'Harmony Play 1: Next Harmony'
         assert set(map_metadata) == set(map_canonical)
@@ -27,9 +31,9 @@ def main() -> None:
                 assert map_metadata[key] == parameter, key
     map_operation: dict = map_module['capabilities']['ui_hierarchy']['levels']['motion_operation']
     assert len(map_operation['knobs']) == 8
-    assert not map_operation['params']  # Knob-only panel, like other leaf panels.
+    assert not map_operation.get('params', [])  # Knob-only panel, like other leaf panels.
     for level_name, map_level in map_module['capabilities']['ui_hierarchy']['levels'].items():
-        parameter_keys: set[str] = {parameter['key'] for parameter in map_level['params'] if 'key' in parameter}
+        parameter_keys: set[str] = {parameter['key'] for parameter in map_level.get('params', []) if 'key' in parameter}
         assert (not parameter_keys and all(k in map_canonical for k in map_level['knobs'])) or parameter_keys == set(map_level['knobs']), f'{level_name}: unassigned parameters create overflow panels'
     assert maps[0]['motion_touch_mode']['options'] == ['Hold','Latch','Tap/Hold']
     assert maps[0]['motion_from']['options'] == [str(cycle) for cycle in range(1,17)]

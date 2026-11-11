@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.315"
+#define HB_VERSION "0.2.316"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -287,6 +287,7 @@ typedef struct {
 typedef struct { int count; hb_surface_sample samples[108]; } hb_surface_frame_cache;
 typedef struct {
     hb_stock_field_route field_mod[2];
+    double sequence_input[2];
     hb_selection_preview_cache selection_preview[21];
     char discovery_text[512];int discovery_notes[HB_CP_VOICES],discovery_count;
     char discovery_context_text[640];hb_harmony_t discovery_anchor;hb_key_context discovery_key;
@@ -4304,7 +4305,7 @@ static int infer_reference_root(Inst *instance){static const int major[7]={0,2,4
 static int reference_root(Inst *instance){if(g_bus.global_root_policy==0)return mod12(g_bus.global_explicit_root);if(g_bus.global_root_policy==1)return mod12(g_bus.global_input_root);instance->resolved_root=infer_reference_root(instance);return mod12(instance->resolved_root);}
 static int hb_player_tick(Inst *instance,uint8_t output[][3],int lengths[],int max_output);
 static int hb_mt_tick(Inst *instance,uint8_t output[][3],int lengths[],int capacity);
-static void hb_init_instance(Inst *instance){memset(instance,0,sizeof(*instance));instance->chord_queue_depth=2;instance->chord_queue_loop=1;instance->chord_register=99;instance->key_owner=hb_override_index(instance);hb_mt_init(&instance->motif);instance->motif_load[0]=1;instance->motif_load[1]=instance->motif_load_last=60;instance->motif_load[3]=12;hb_ar_init(&instance->approach_rows);instance->dominant_color_family=3;instance->target_scale_policy[2]=2;instance->chord_edit_lane=-1;instance->used=1;instance->render_velocity_gain=10000;instance->next_predict=1;instance->next_anti_buffer_ms=25;instance->boundary_buffer_ms=-3;hb_cp_defaults(&instance->player.config);instance->player.config.order=5;instance->player.config.chromatic_quality=3;hb_mo_defaults(&instance->motion);if(g_motion_settings_ready)hb_motion_copy_settings(&instance->motion,&g_motion_settings);hb_mo_route_init(&instance->motion_local);hb_mo_route_init(&instance->motion_render);instance->motion_local.strict_ownership=instance->motion_render.strict_ownership=1;instance->player.render_channel=-1;instance->movy_track=-1;instance->role=2;instance->mode=0;instance->content_map=1;instance->travel_map=7;instance->chromatic_map=1;memcpy(instance->touch_lanes,g_touch_lanes,sizeof(g_touch_lanes));instance->follower_split_map=0;instance->quant_timing=0;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=1;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}hb_role_sync(instance);}
+static void hb_init_instance(Inst *instance){memset(instance,0,sizeof(*instance));instance->sequence_input[0]=instance->sequence_input[1]=0.5;instance->chord_queue_depth=2;instance->chord_queue_loop=1;instance->chord_register=99;instance->key_owner=hb_override_index(instance);hb_mt_init(&instance->motif);instance->motif_load[0]=1;instance->motif_load[1]=instance->motif_load_last=60;instance->motif_load[3]=12;hb_ar_init(&instance->approach_rows);instance->dominant_color_family=3;instance->target_scale_policy[2]=2;instance->chord_edit_lane=-1;instance->used=1;instance->render_velocity_gain=10000;instance->next_predict=1;instance->next_anti_buffer_ms=25;instance->boundary_buffer_ms=-3;hb_cp_defaults(&instance->player.config);instance->player.config.order=5;instance->player.config.chromatic_quality=3;hb_mo_defaults(&instance->motion);if(g_motion_settings_ready)hb_motion_copy_settings(&instance->motion,&g_motion_settings);hb_mo_route_init(&instance->motion_local);hb_mo_route_init(&instance->motion_render);instance->motion_local.strict_ownership=instance->motion_render.strict_ownership=1;instance->player.render_channel=-1;instance->movy_track=-1;instance->role=2;instance->mode=0;instance->content_map=1;instance->travel_map=7;instance->chromatic_map=1;memcpy(instance->touch_lanes,g_touch_lanes,sizeof(g_touch_lanes));instance->follower_split_map=0;instance->quant_timing=0;instance->approach_control=HB_APPROACH_OFF;instance->approach_mode=0;instance->map_target=0;instance->window_ms=25;instance->last_note=-1;instance->last_status=-1;instance->last_velocity=-1;instance->raw_last_note=-1;instance->raw_last_status=-1;instance->raw_last_velocity=-1;instance->raw_last_channel=-1;instance->raw_last_cable=-1;instance->render_channel=-1;instance->source_channel=-1;instance->resolved_source_channel=-1;instance->render_last_note=-1;instance->retrigger_held=1;instance->follow_lookahead_ms=0;instance->approach_pad_armed=HB_APPROACH_OFF;instance->approach_below_held=0;instance->approach_above_held=0;instance->follower_queue_count=0;for(int note=0;note<128;note++){instance->mapped[note]=-1;instance->follower_role_interval[note]=255;}hb_role_sync(instance);}
 #include "stock_field_mod.h"
 static void *create_inst(const char *module_dir,const char *config_json){(void)module_dir;(void)config_json;ensure_init();for(int index=0;index<HB_MAX_INSTANCES;index++)if(!g_pool[index].used){Inst *instance=&g_pool[index];g_conductor_block_ready=0;memset(&g_movy_clips[index],0,sizeof(g_movy_clips[index]));hb_init_instance(instance);
 const host_api_v1_t *host=g_field_init_host;
@@ -6900,7 +6901,18 @@ static hb_harmony_t hb_opening_harmony(void){
     return result;
 }
 #include "../../../src/shared_context_runtime.h"
-static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+/* Stock LFOs read their destinations on 512 KiB render-worker stacks.
+   Keep these scalar reads outside the general reader's large snapshot frame. */
+static __attribute__((noinline)) int get_param_full(void *value,const char *key,char *buffer,int length);
+static int get_param(void *value,const char *key,char *buffer,int length){
+    Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+    if(!strcmp(key,"sequence_input_1")||!strcmp(key,"sequence_input_2"))return snprintf(buffer,length,"%.9f",instance->sequence_input[key[15]-'1']);
+/* Read the effective values without the chain's plain-key/base interception.
+   This observation never advances an oscillator, field, or sequence. */
+if(!strcmp(key,"sequence_inputs"))return snprintf(buffer,length,"sp1,%.9f,%.9f",instance->sequence_input[0],instance->sequence_input[1]);
+    return get_param_full(value,key,buffer,length);
+}
+static __attribute__((noinline)) int get_param_full(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
 if(!strcmp(key,"hb_chord_queue_take"))return hb_cq_take(instance,buffer,length);
 if(!strcmp(key,"hb_chord_range_mask"))return snprintf(buffer,(size_t)length,"%u",hb_register_mask(instance));
 if(!strcmp(key,"hb_chord_range_top"))return snprintf(buffer,(size_t)length,"%d",hb_register_top(instance));
@@ -6921,6 +6933,7 @@ if(!strcmp(key,"hb_chord_active"))return snprintf(buffer,(size_t)length,"%d",hb_
 if(!strcmp(key,"hb_chord_note"))return snprintf(buffer,(size_t)length,"%d",instance->selection_pending?instance->selection_note:-1);
 if(!strcmp(key,"hb_chord_prepared"))return snprintf(buffer,(size_t)length,"%d",hb_selection_word(instance->selection_pending));
 int field_result=hb_stock_field_get(instance,key,buffer,length);if(field_result>=0)return field_result;
+
 /* On-demand routing diagnostics for Remote UI/emulation. Read the production
    resolver; never create a second state or poll from the audio tick. */
 if(!strcmp(key,"harmony_source_snapshot")){
@@ -7268,6 +7281,7 @@ for(int index=0;index<5;index++)if(!strcmp(key,PAD_KEYS[index]))return snprintf(
 if(!strcmp(key,"state")){
     int used=get_param(value,"pad_state_base",buffer,length);
     if(used>=0&&used<length)used=hb_stock_field_save(instance,buffer,length,used);
+    if(used>=0&&used<length)used+=snprintf(buffer+used,length-used,";si1,%.9f,%.9f",instance->sequence_input[0],instance->sequence_input[1]);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";pd1,%d,%d,%d,%d,%d",g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4]);
     if(used<0||used>=length)return used;
@@ -7884,6 +7898,11 @@ static void hb_reset_track_defaults(Inst *instance,int track){
 static void set_param(void *value,const char *key,const char *parameter){
     Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
     if(hb_stock_field_set(instance,key,parameter))return;
+    if(!strcmp(key,"sequence_input_1")||!strcmp(key,"sequence_input_2")){
+        char *end=0;double position=strtod(parameter,&end);
+        if(end!=parameter&&!*end&&position>=0&&position<=1)instance->sequence_input[key[15]-'1']=position;
+        return;
+    }
     if(!strcmp(key,"state")||!strcmp(key,"performance_reset"))hb_stock_field_clear(instance);
     if(!strcmp(key,"performance_reset"))for(int i=0;i<2;i++)instance->field_mod[i].enabled=0;
     if(!strncmp(key,"field_",6)&&hb_field_set(key,parameter))return;
@@ -7992,6 +8011,9 @@ static void set_param(void *value,const char *key,const char *parameter){
     if(!hb_ml_set(instance,key,parameter)&&!hb_ar_set(instance,key,parameter)&&!hb_cs_set(instance,key,parameter)&&!hb_rg_set(instance,key,parameter)&&!hb_rr_set(instance,key,parameter)&&!hb_mt_set(instance,key,parameter)&&!hb_policy_set(instance,key,parameter))set_param_base(value,key,parameter);
     if(!strcmp(key,"state")){
         hb_stock_field_restore(instance,parameter);
+        instance->sequence_input[0]=instance->sequence_input[1]=0.5;
+        const char *sequence_suffix=strstr(parameter,";si1,");double sequence_first,sequence_second;
+        if(sequence_suffix&&sscanf(sequence_suffix,";si1,%lf,%lf",&sequence_first,&sequence_second)==2&&sequence_first>=0&&sequence_first<=1&&sequence_second>=0&&sequence_second<=1){instance->sequence_input[0]=sequence_first;instance->sequence_input[1]=sequence_second;}
         memset(instance->physical_velocity,0,sizeof(instance->physical_velocity));instance->physical_target=instance->target_attack_owner=0;instance->advance_pending=instance->advance_phase=0;
         instance->key_tonic=instance->key_scale=0;
         const char *entry_suffix=strstr(parameter,";ke1,");int tonic,entry_scale;
