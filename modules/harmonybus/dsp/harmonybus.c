@@ -5468,8 +5468,9 @@ static int process_key_base(void *value,const uint8_t *input,int length,uint8_t 
         if(length>=3&&instance->role<2&&hb_source_channel_matches(instance,input[0]&15)){
             int row=instance->movy_pad_pending==(input[1]&127)+1&&hb_approach_pad_enabled(instance)?
                 (instance->approach_rows.pending_row<0?3:instance->approach_rows.pending_row):-1;
+            unsigned long long pressure_before=instance->motion.pressure_active;
             int consumed=hb_ap_input(instance,input,length,row);
-            hb_key_operations_sync();
+            if(consumed||pressure_before||instance->motion.pressure_active)hb_key_operations_sync();
             if(consumed){instance->key_input_consumed=1;return 0;}
         }
         hb_gesture_target_input(instance,input,length);
