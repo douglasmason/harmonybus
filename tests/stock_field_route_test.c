@@ -35,6 +35,30 @@ int main(int argc,char **argv){
     api->set_param(a,"midi_fx1:module","harmonybus");api->set_param(b,"midi_fx1:module","harmonybus");
     tick(api,a);tick(api,b);
     chain_instance_t *ca=a,*cb=b;assert(ca->midi_fx_instances[0]&&cb->midi_fx_instances[0]);
+    /* A normal stock LFO drives position, with no second oscillator. Snapshot
+       reads expose effective input; saving still captures the user's base. */
+    near(get(api,a,"midi_fx1:sequence_input_1"),.5f);
+    api->set_param(a,"midi_fx1:sequence_input_1","0.25");
+    api->set_param(a,"midi_fx1:sequence_input_2","0.75");
+    api->set_param(a,"lfo1:target","midi_fx1");api->set_param(a,"lfo1:target_param","sequence_input_1");
+    api->set_param(a,"lfo1:shape","3");api->set_param(a,"lfo1:sync","0");api->set_param(a,"lfo1:rate_hz","0.1");
+    api->set_param(a,"lfo1:depth","0.5");api->set_param(a,"lfo1:polarity","1");api->set_param(a,"lfo1:enabled","1");tick(api,a);
+    near(get(api,a,"midi_fx1:sequence_input_1"),.25f);
+    near(get(api,a,"midi_fx1:sequence_input_1:effective"),.5f);
+    char position_snapshot[96],position_again[96];double first,second,phase=ca->lfos[0].phase;
+    assert(api->get_param(a,"midi_fx1:sequence_inputs",position_snapshot,sizeof(position_snapshot))>0);
+    assert(sscanf(position_snapshot,"sp1,%lf,%lf",&first,&second)==2);near(first,.5f);near(second,.75f);
+    assert(api->get_param(a,"midi_fx1:sequence_inputs",position_again,sizeof(position_again))>0);
+    assert(!strcmp(position_snapshot,position_again)&&ca->lfos[0].phase==phase);
+    char sequence_state[131072];assert(api->get_param(a,"midi_fx1:state",sequence_state,sizeof(sequence_state))>0);
+    assert(strstr(sequence_state,";si1,0.250000000,0.750000000"));
+    near(get(api,a,"midi_fx1:sequence_input_1:effective"),.5f);
+    api->set_param(a,"lfo1:enabled","0");tick(api,a);
+    near(get(api,a,"midi_fx1:sequence_input_1:effective"),.25f);
+    api->set_param(a,"midi_fx1:sequence_input_1","nan");near(get(api,a,"midi_fx1:sequence_input_1"),.25f);
+    api->set_param(a,"midi_fx1:sequence_input_1","0.9");api->set_param(a,"midi_fx1:state",sequence_state);
+    near(get(api,a,"midi_fx1:sequence_input_1"),.25f);near(get(api,b,"midi_fx1:sequence_input_1"),.5f);
+    puts("PASS: stock LFO sequence input, read-only snapshot, base persistence and instance ownership");
     api->set_param(a,"synth:gain","0.2");api->set_param(b,"synth:gain","0.3");
     api->set_param(a,"midi_fx1:field_glide","0");
     api->set_param(a,"midi_fx1:field_outputs","fo1,10000,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1");

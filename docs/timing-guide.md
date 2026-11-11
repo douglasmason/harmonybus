@@ -1,3 +1,5 @@
+HarmonyBus 0.2.316 adds LFO-modulatable sequence position inputs for Movy. See [Sequence position inputs](sequence-position-inputs.md).
+
 HarmonyBus 0.2.315 adds pressure-controlled Note Repeat and Repeat Divisions for Movy hbclean.338. See [Pressure repeat](pressure-repeat.md).
 
 HarmonyBus 0.2.314 adds opt-in approach row pressure modes for Movy hbclean.337. See [Approach pressure](approach-pressure.md).

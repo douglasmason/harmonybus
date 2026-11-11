@@ -64,7 +64,7 @@ jobs:
           for key in ('scale_context','conductor_default_scale_context','follower_default_scale_context'):
               assert canonical[key]['options'][:3]==['Current Harm','Current + Next','Full Loop']
           for level in levels.values():
-              level['params']=[{**item,**canonical[item['key']]} if 'key' in item else item for item in level['params']]
+              level['params']=[{**item,**canonical[item['key']]} if 'key' in item else item for item in level.get('params',[])]
               # Compact metadata inherits knob definitions from chain_params.
               present={item.get('key') for item in level['params']}
               level['params'] += [canonical[key] for key in level.get('knobs',[]) if key not in present]

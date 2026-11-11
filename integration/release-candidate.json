@@ -1,11 +1,11 @@
 {
-  "version": "0.2.315",
-  "previous_version": "0.2.314",
+  "version": "0.2.316",
+  "previous_version": "0.2.315",
   "workflow": "release.yml",
-  "title": "HarmonyBus 0.2.315 — Pressure-controlled held-note repeat",
-  "notes": "docs/pressure-repeat.md",
+  "title": "HarmonyBus 0.2.316 \u2014 Shared sequence position inputs",
+  "notes": "docs/sequence-position-inputs.md",
   "assets": [
-    "dist/harmonybus-v0.2.315-module.tar.gz",
+    "dist/harmonybus-v0.2.316-module.tar.gz",
     "dist/HarmonyBus-Timing-Guide.pdf",
     "dist/SHA256SUMS"
   ]
