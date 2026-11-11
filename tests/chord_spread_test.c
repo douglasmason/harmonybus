@@ -173,9 +173,11 @@ static void downward_pressure(void){
     assert(instance->motion.lanes[0].amount==-4&&!instance->chord_spread_steps&&!instance->motion.pressure_active);
     API.destroy_instance(instance);
 }
+#ifndef HB_SPREAD_TEST_HELPERS
 int main(void){
     core_spread();for(int selection=0;selection<2;selection++)for(int arp=0;arp<2;arp++)for(int direction=-1;direction<=1;direction+=2)held_spread(selection,arp,direction);
     composition_and_bounds();pressure_lifecycle();
     downward_pressure();
     puts("Chord Spread: anchored outer voices, both MIDI bounds, generated/selected held chords, arp clock, one-message drain, signed pressure/latch/reverse, cancellation, track scope and persistence pass");
 }
+#endif

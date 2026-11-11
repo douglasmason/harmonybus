@@ -257,7 +257,7 @@ static int hb_selection_input(Inst *instance,const uint8_t *input,int length){
             harmony.pitch_mask,harmony.intent_scale,key->notes,0);
         for(int voice=0;voice<key->count;voice++)key->notes[voice]=hb_key_pitch(instance,key->notes[voice]);
         if(config.top_note)key->count=hb_cp_range_top(key->notes,key->count,config.top_note-1,mod12(hb_key_pitch(instance,60+harmony.root_pc)),config.voicing);
-        hb_chord_spread(key->notes,key->count,instance->chord_spread_steps);
+        hb_player_voice_operations(instance,key->notes,key->count);
         key->velocity=input[2];key->fresh=1;key->played_pitch=note;
         instance->player.render_channel=instance->render_channel;
     }

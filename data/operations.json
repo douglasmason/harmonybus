@@ -667,6 +667,11 @@
       "id": 72,
       "symbol": "HB_MO_CHORD_SPREAD",
       "name": "Chord Spread"
+    },
+    {
+      "id": 73,
+      "symbol": "HB_MO_VOICING_ROTATE",
+      "name": "Voicing Rotate"
     }
   ],
   "selectors": [
