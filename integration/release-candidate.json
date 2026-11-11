@@ -1,11 +1,11 @@
 {
-  "version": "0.2.318",
-  "previous_version": "0.2.317",
+  "version": "0.2.319",
+  "previous_version": "0.2.318",
   "workflow": "release.yml",
-  "title": "HarmonyBus 0.2.318 — pressure-controlled Chord Spread",
+  "title": "HarmonyBus 0.2.319 — bidirectional Chord Spread",
   "notes": "docs/chord-spread.md",
   "assets": [
-    "dist/harmonybus-v0.2.318-module.tar.gz",
+    "dist/harmonybus-v0.2.319-module.tar.gz",
     "dist/HarmonyBus-Timing-Guide.pdf",
     "dist/SHA256SUMS"
   ]

@@ -16,6 +16,18 @@ static void core_spread(void){
     int ceiling[]={108,112,115};hb_chord_spread(ceiling,3,12);
     const int bounded[]={108,124,127};expect_notes(ceiling,bounded,3);
     int singleton=60;hb_chord_spread(&singleton,1,12);assert(singleton==60);
+    const int downward[5][3]={{60,64,67},{48,64,67},{48,52,67},{36,52,67},{36,40,67}};
+    for(int steps=0;steps<5;steps++){
+        int notes[]={60,64,67};hb_chord_spread(notes,3,-steps);expect_notes(notes,downward[steps],3);
+    }
+    for(int bass=0;bass<121;bass++)for(int steps=-12;steps<=0;steps++){
+        int notes[]={bass,bass+4,bass+7};hb_chord_spread(notes,3,steps);
+        assert(notes[0]>=0&&notes[0]<notes[1]&&notes[1]<notes[2]);
+        assert(notes[0]%12==bass%12&&notes[1]%12==(bass+4)%12&&notes[2]==bass+7);
+    }
+    int floor[]={12,16,19};hb_chord_spread(floor,3,-12);
+    const int bottom[]={0,4,19};expect_notes(floor,bottom,3);
+    hb_chord_spread(&singleton,1,-12);assert(singleton==60);
 }
 static void choose_spread(Inst *instance){
     API.set_param(instance,"motion_operation_1","Chord Spread");
@@ -33,29 +45,31 @@ static void expect_pool(Inst *instance,const int *base,int steps){
     expect_notes(key->notes,expected,key->count);
 }
 static void drain_spread(Inst *instance){for(int tick=0;tick<32;tick++)advance(instance,0,1);}
-static void held_spread(int selection,int arp){
+static void held_spread(int selection,int arp,int direction){
     Inst *instance=fixture();
     API.set_param(instance,"chord_mode",selection?"Off":"Conductor Chord");
     if(selection){API.set_param(instance,"role","Conductor");API.set_param(instance,"render_channel","3");}
     API.set_param(instance,"chord_form","Triad");API.set_param(instance,"chord_inversion","Root");
     API.set_param(instance,"arp_playback",arp?"Repeat Arp":"Together");
-    API.set_param(instance,"arp_order","Down"); /* Spread must retune the currently sounding top. */
+    API.set_param(instance,"arp_order",direction>0?"Down":"Up"); /* Retune the active moving voice. */
     API.set_param(instance,"chord_register","0");choose_spread(instance);
+    API.set_param(instance,"motion_control_1",direction>0?"2":"-2");
     if(selection)API.set_param(instance,"hb_movy_input_chord","0,1,2,1,0,1,12");
     midi(instance,1,60);advance(instance,0,64);
     hb_cp_key *key=source_key(instance);assert(key->count==3);
     int base[HB_CP_VOICES];memcpy(base,key->notes,sizeof(base));
+    int moving=direction>0?2:0,anchor=direction>0?0:2;
     int first=render_count,actions=instance->action_count,recorded_before=recorded_count;
     double boundary=instance->player.next_beat,gate=instance->player.gate_beat;
     int step=instance->player.order_state.step;
     for(int trial=0;trial<3;trial++){
         API.set_param(instance,"motion_hold_1","On");drain_spread(instance);
-        assert(instance->chord_spread_steps==2);expect_pool(instance,base,2);
-        assert(instance->player.sounding[0][base[2]+12]);assert(!instance->player.sounding[0][base[2]]);
-        if(!arp)assert(instance->player.sounding[0][base[0]]);
+        assert(instance->chord_spread_steps==2*direction);expect_pool(instance,base,2*direction);
+        assert(instance->player.sounding[0][base[moving]+12*direction]);assert(!instance->player.sounding[0][base[moving]]);
+        if(!arp)assert(instance->player.sounding[0][base[anchor]]);
         assert(instance->player.sounding_count==(arp?1:3));
         API.set_param(instance,"motion_hold_1","Off");drain_spread(instance);expect_pool(instance,base,0);
-        assert(instance->player.sounding[0][base[2]]&&!instance->player.sounding[0][base[2]+12]);
+        assert(instance->player.sounding[0][base[moving]]&&!instance->player.sounding[0][base[moving]+12*direction]);
     }
     assert(render_count>first&&instance->action_count==actions&&recorded_count==recorded_before);
     if(arp){assert(instance->player.next_beat==boundary&&instance->player.gate_beat==gate);assert(instance->player.order_state.step==step);}
@@ -78,7 +92,11 @@ static void composition_and_bounds(void){
     API.set_param(instance,"motion_operation_2","Global Transpose");API.set_param(instance,"motion_control_2","5");
     API.set_param(instance,"motion_hold_2","On");drain_spread(instance);expect_pool(instance,base,2);
     assert(instance->motion_local.transpose.heard[0][65]&&instance->motion_local.transpose.heard[0][81]&&instance->motion_local.transpose.heard[0][84]);
-    API.set_param(instance,"motion_hold_2","Off");midi(instance,0,60);drain_spread(instance);
+    API.set_param(instance,"motion_hold_2","Off");
+    API.set_param(instance,"motion_operation_2","Chord Spread");API.set_param(instance,"motion_control_2","-2");
+    API.set_param(instance,"motion_hold_2","On");drain_spread(instance);expect_pool(instance,base,0);
+    API.set_param(instance,"motion_hold_2","Off");drain_spread(instance);expect_pool(instance,base,2);
+    midi(instance,0,60);drain_spread(instance);
     API.set_param(instance,"motion_operation_2","Chord/Arp State");API.set_param(instance,"motion_lane","2");
     API.set_param(instance,"motion_amount","Current Harmony Burst");API.set_param(instance,"chord_edit_target","Lane 2");
     API.set_param(instance,"chord_input","Root/Bass + Top");API.set_param(instance,"arp_playback","Together");
@@ -113,13 +131,14 @@ static void pressure_lifecycle(void){
     press_row(instance);squeeze(instance,64);midi(instance,0,96);drain_spread(instance);expect_pool(instance,base,2);
     unsigned long long actions[HB_MOTION_LANES+1];hb_mo_capture(&instance->motion,0,0,60,actions);assert(!(actions[0]&HB_MO_RECORDED));
     char metadata[196608];API.set_param(instance,"motion_lane","1");API.get_param(instance,"chain_params",metadata,sizeof(metadata));
-    assert(strstr(metadata,"Chord Spread")&&strstr(metadata,"Max Spread Steps"));
+    assert(strstr(metadata,"Chord Spread")&&strstr(metadata,"Spread Steps"));
+    assert(strstr(metadata,"\"key\":\"motion_control_1\",\"name\":\"Spread Steps\",\"type\":\"int\",\"min\":-12,\"max\":12"));
     char saved[32768];API.get_param(instance,"state",saved,sizeof(saved));API.set_param(instance,"state",saved);drain_spread(instance);
     assert(!instance->chord_spread_steps&&!instance->motion.pressure_active&&instance->motion.lanes[0].amount==4);
     API.set_param(instance,"motion_gesture_1","LatchOn");assert(instance->chord_spread_steps==4);
     API.set_param(instance,"motion_gesture_1","LatchOff");assert(!instance->chord_spread_steps);
     API.set_param(instance,"motion_control_1","999");assert(instance->motion.lanes[0].amount==12);
-    API.set_param(instance,"motion_amount","-99");assert(instance->motion.lanes[0].amount==0);
+    API.set_param(instance,"motion_amount","-99");assert(instance->motion.lanes[0].amount==-12);
     API.set_param(instance,"motion_control_1","4");API.set_param(instance,"motion_hold_1","On");
     API.set_param(instance,"motion_operation_1","Off");assert(!instance->chord_spread_steps);
     choose_spread(instance);press_row(instance);squeeze(instance,127);midi(instance,0,96);
@@ -127,8 +146,36 @@ static void pressure_lifecycle(void){
     position=0;transport=2;API.set_param(instance,"motion_hold_1","On");API.set_param(instance,"role","Off");assert(!instance->chord_spread_steps);
     API.destroy_instance(peer);API.destroy_instance(instance);
 }
+static void downward_pressure(void){
+    Inst *instance=fixture();instance->approach_layout=1;instance->preview_count=32;
+    API.set_param(instance,"approach_pressure_row","3");API.set_param(instance,"approach_pressure_lane","1");
+    API.set_param(instance,"approach_pressure_mode","1");choose_spread(instance);
+    API.set_param(instance,"motion_control_1","-4");
+    API.set_param(instance,"chord_mode","Conductor Chord");API.set_param(instance,"chord_form","Triad");
+    API.set_param(instance,"chord_inversion","Root");API.set_param(instance,"arp_playback","Together");
+    midi(instance,1,60);advance(instance,0,64);int base[HB_CP_VOICES];memcpy(base,source_key(instance)->notes,sizeof(base));
+    press_row(instance);squeeze(instance,127);drain_spread(instance);expect_pool(instance,base,-4);
+    squeeze(instance,64);drain_spread(instance);expect_pool(instance,base,-2);
+    squeeze(instance,80);assert(instance->chord_spread_steps==-2);
+    squeeze(instance,86);assert(instance->chord_spread_steps==-3);
+    midi(instance,0,96);drain_spread(instance);expect_pool(instance,base,0);
+    API.set_param(instance,"approach_pressure_mode","3");API.set_param(instance,"approach_pressure_reverse","1");
+    press_row(instance);assert(instance->chord_spread_steps==-4);
+    squeeze(instance,80);midi(instance,0,96);drain_spread(instance);expect_pool(instance,base,-1);
+    press_row(instance);midi(instance,0,96);drain_spread(instance);expect_pool(instance,base,0);
+    API.set_param(instance,"approach_pressure_reverse","0");
+    press_row(instance);squeeze(instance,127);midi(instance,0,96);drain_spread(instance);expect_pool(instance,base,-4);
+    press_row(instance);squeeze(instance,64);midi(instance,0,96);drain_spread(instance);expect_pool(instance,base,-2);
+    /* Changing direction recomputes from the same base, never from lowered notes. */
+    API.set_param(instance,"motion_control_1","4");drain_spread(instance);expect_pool(instance,base,2);
+    API.set_param(instance,"motion_control_1","-4");drain_spread(instance);expect_pool(instance,base,-2);
+    char saved[32768];API.get_param(instance,"state",saved,sizeof(saved));API.set_param(instance,"state",saved);drain_spread(instance);
+    assert(instance->motion.lanes[0].amount==-4&&!instance->chord_spread_steps&&!instance->motion.pressure_active);
+    API.destroy_instance(instance);
+}
 int main(void){
-    core_spread();for(int selection=0;selection<2;selection++)for(int arp=0;arp<2;arp++)held_spread(selection,arp);
+    core_spread();for(int selection=0;selection<2;selection++)for(int arp=0;arp<2;arp++)for(int direction=-1;direction<=1;direction+=2)held_spread(selection,arp,direction);
     composition_and_bounds();pressure_lifecycle();
-    puts("Chord Spread: anchored bass, MIDI ceiling, generated/selected held chords, arp clock, one-message drain, pressure/latch/reverse, track scope and persistence pass");
+    downward_pressure();
+    puts("Chord Spread: anchored outer voices, both MIDI bounds, generated/selected held chords, arp clock, one-message drain, signed pressure/latch/reverse, cancellation, track scope and persistence pass");
 }
