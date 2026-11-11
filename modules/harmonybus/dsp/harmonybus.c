@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.318"
+#define HB_VERSION "0.2.319"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -5513,8 +5513,8 @@ static void hb_key_operations_sync_instance(Inst *instance){
         int operation=instance->motion.lanes[lane].operation;
         int shift=0,spread_value=0;double amount=0;
         if(operation==HB_MO_CHORD_SPREAD&&hb_mo_value_at(&instance->motion,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&amount)){
-            spread_value=hb_mo_clamp(hb_mo_round(amount),0,12);
-            if((instance->motion.pressure_active&(1ULL<<lane))&&amount>0&&fabs(amount-instance->chord_spread_values[lane])<.65)
+            spread_value=hb_mo_clamp(hb_mo_round(amount),-12,12);
+            if((instance->motion.pressure_active&(1ULL<<lane))&&amount!=0&&fabs(amount-instance->chord_spread_values[lane])<.65)
                 spread_value=instance->chord_spread_values[lane];
         }
         instance->chord_spread_values[lane]=spread_value;spread+=spread_value;
@@ -5546,7 +5546,7 @@ static void hb_key_operations_sync_instance(Inst *instance){
         }
         if(operation==HB_MO_PARALLEL_SCALE)parallel=1;
     }
-    instance->chord_spread_steps=hb_mo_clamp(spread,0,12);
+    instance->chord_spread_steps=hb_mo_clamp(spread,-12,12);
     if(manual!=instance->global_operation_manual){instance->global_operation_manual=manual;changed=1;}
     if(changed)hb_global_operation_resolve();
     instance->key_lane_active=active;

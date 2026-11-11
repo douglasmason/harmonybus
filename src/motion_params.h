@@ -94,7 +94,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         if(operation==HB_MO_DRUM_FILL)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,0,127);
         if(hb_mo_note_repeat_operation(operation))config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,1,16);
         if(operation==HB_MO_WEAVE)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,1,16);
-        if(operation==HB_MO_CHORD_SPREAD)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,0,12);
+        if(operation==HB_MO_CHORD_SPREAD)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,-12,12);
         if(operation==HB_MO_GLOBAL_TRANSPOSE)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,-24,24);
         if(operation==HB_MO_RELATIVE_KEY)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,-12,12);
         config->revision[control]++;return 1;
@@ -220,7 +220,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         }
         if(index==4&&(config->lanes[config->selected].operation==HB_MO_DRUM_FILL||(config->lanes[config->selected].operation>=HB_MO_RECORD_KEY&&config->lanes[config->selected].operation<=HB_MO_KEY_RETURN)||hb_mo_enclosure_mask(config->lanes[config->selected].operation)||
             (hb_mo_clip_operation(config->lanes[config->selected].operation)&&config->host_capabilities<2)))parsed=0;
-        if(index==2&&config->lanes[config->selected].operation==HB_MO_CHORD_SPREAD)parsed=hb_mo_clamp(parsed,0,12);
+        if(index==2&&config->lanes[config->selected].operation==HB_MO_CHORD_SPREAD)parsed=hb_mo_clamp(parsed,-12,12);
         if(index==2&&config->lanes[config->selected].operation==HB_MO_GLOBAL_TRANSPOSE)parsed=hb_mo_clamp(parsed,-24,24);
         if(index==2&&config->lanes[config->selected].operation==HB_MO_DRUM_FILL)parsed=hb_mo_clamp(parsed,0,127);
         if(index==2&&hb_mo_note_repeat_operation(config->lanes[config->selected].operation))parsed=hb_mo_clamp(parsed,1,16);
@@ -305,7 +305,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         if(used<0||used>=length)return -1;
         used--;
         if(selected==HB_MO_CHORD_SPREAD){
-            used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Max Spread Steps\",\"type\":\"int\",\"min\":0,\"max\":12,\"default\":4}");
+            used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Spread Steps\",\"type\":\"int\",\"min\":-12,\"max\":12,\"default\":4}");
         }else if(selected==HB_MO_GLOBAL_TRANSPOSE){
             used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Global Shift (semitones)\",\"type\":\"int\",\"min\":-24,\"max\":24,\"default\":12}");
         }else if(hb_mo_note_repeat_operation(selected)){
@@ -363,7 +363,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
             if(used<0||used>=length)return -1;
             const hb_motion_lane *settings=&config->lanes[lane];
             if(settings->operation==HB_MO_CHORD_SPREAD){
-                used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_control_%d\",\"name\":\"Max Spread Steps\",\"type\":\"int\",\"min\":0,\"max\":12,\"step\":1}",lane+1);
+                used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_control_%d\",\"name\":\"Spread Steps\",\"type\":\"int\",\"min\":-12,\"max\":12,\"step\":1}",lane+1);
                 continue;
             }
             if(hb_mo_note_repeat_operation(settings->operation)){
