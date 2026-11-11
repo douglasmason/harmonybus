@@ -1,11 +1,11 @@
 {
-  "version": "0.2.319",
-  "previous_version": "0.2.318",
+  "version": "0.2.320",
+  "previous_version": "0.2.319",
   "workflow": "release.yml",
-  "title": "HarmonyBus 0.2.319 — bidirectional Chord Spread",
-  "notes": "docs/chord-spread.md",
+  "title": "HarmonyBus 0.2.320 — sustained common-tone continuity",
+  "notes": "docs/common-tone-continuity.md",
   "assets": [
-    "dist/harmonybus-v0.2.319-module.tar.gz",
+    "dist/harmonybus-v0.2.320-module.tar.gz",
     "dist/HarmonyBus-Timing-Guide.pdf",
     "dist/SHA256SUMS"
   ]
