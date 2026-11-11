@@ -8,4 +8,6 @@ The compact read-only `sequence_inputs` response is `sp1,input1,input2`. It retu
 
 The inputs appear early in canonical/runtime parameter metadata so the stock host's bounded 256-entry modulation cache can resolve them. Empty optional leaf-panel `params` arrays are omitted to keep the manifest below the stock loader's 64 KiB limit. Knob assignments and panel contents are unchanged.
 
-Validation includes actual HB loaded inside the unmodified pinned Schwung chain: LFO modulation, effective/base separation, neutral repeated reads, state round-trip, instance isolation, and existing Field route lifecycle/stress checks. No Schwung host modification is required. This release does not add pitch glide or MPE output.
+Validation includes actual HB loaded inside the unmodified pinned Schwung chain: LFO modulation on a 512 KiB render-worker stack, effective/base separation, neutral repeated reads, state round-trip, instance isolation, and existing Field route lifecycle/stress checks. No Schwung host modification is required. This release does not add pitch glide or MPE output.
+
+Scalar position reads use a small entry point before the general snapshot reader. This prevents stock LFO destination reads from reserving the general reader’s large stack frame inside Movy render workers.

@@ -6901,7 +6901,18 @@ static hb_harmony_t hb_opening_harmony(void){
     return result;
 }
 #include "../../../src/shared_context_runtime.h"
-static int get_param(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+/* Stock LFOs read their destinations on 512 KiB render-worker stacks.
+   Keep these scalar reads outside the general reader's large snapshot frame. */
+static __attribute__((noinline)) int get_param_full(void *value,const char *key,char *buffer,int length);
+static int get_param(void *value,const char *key,char *buffer,int length){
+    Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+    if(!strcmp(key,"sequence_input_1")||!strcmp(key,"sequence_input_2"))return snprintf(buffer,length,"%.9f",instance->sequence_input[key[15]-'1']);
+/* Read the effective values without the chain's plain-key/base interception.
+   This observation never advances an oscillator, field, or sequence. */
+if(!strcmp(key,"sequence_inputs"))return snprintf(buffer,length,"sp1,%.9f,%.9f",instance->sequence_input[0],instance->sequence_input[1]);
+    return get_param_full(value,key,buffer,length);
+}
+static __attribute__((noinline)) int get_param_full(void *value,const char *key,char *buffer,int length){Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
 if(!strcmp(key,"hb_chord_queue_take"))return hb_cq_take(instance,buffer,length);
 if(!strcmp(key,"hb_chord_range_mask"))return snprintf(buffer,(size_t)length,"%u",hb_register_mask(instance));
 if(!strcmp(key,"hb_chord_range_top"))return snprintf(buffer,(size_t)length,"%d",hb_register_top(instance));
@@ -6922,10 +6933,7 @@ if(!strcmp(key,"hb_chord_active"))return snprintf(buffer,(size_t)length,"%d",hb_
 if(!strcmp(key,"hb_chord_note"))return snprintf(buffer,(size_t)length,"%d",instance->selection_pending?instance->selection_note:-1);
 if(!strcmp(key,"hb_chord_prepared"))return snprintf(buffer,(size_t)length,"%d",hb_selection_word(instance->selection_pending));
 int field_result=hb_stock_field_get(instance,key,buffer,length);if(field_result>=0)return field_result;
-if(!strcmp(key,"sequence_input_1")||!strcmp(key,"sequence_input_2"))return snprintf(buffer,length,"%.9f",instance->sequence_input[key[15]-'1']);
-/* Read the effective values without the chain's plain-key/base interception.
-   This observation never advances an oscillator, field, or sequence. */
-if(!strcmp(key,"sequence_inputs"))return snprintf(buffer,length,"sp1,%.9f,%.9f",instance->sequence_input[0],instance->sequence_input[1]);
+
 /* On-demand routing diagnostics for Remote UI/emulation. Read the production
    resolver; never create a second state or poll from the audio tick. */
 if(!strcmp(key,"harmony_source_snapshot")){

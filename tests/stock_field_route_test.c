@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <dlfcn.h>
 #include <math.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "modules/chain/dsp/chain_internal.h"
@@ -14,6 +15,18 @@ static void tick(plugin_api_v2_t *api,void *instance){static unsigned long long 
     char message[96];snprintf(message,sizeof(message),"%llu,128,44100,%d",++block,(int)get(api,instance,"midi_fx1:bypassed"));
     api->set_param(instance,"midi_fx1:hb_movy_block",message);api->render_block(instance,pcm,128);
 }}
+typedef struct {plugin_api_v2_t *api;void *instance;} position_worker_context;
+static void *position_worker(void *context){
+    position_worker_context *worker=context;tick(worker->api,worker->instance);
+    char snapshot[96];assert(worker->api->get_param(worker->instance,"midi_fx1:sequence_inputs",snapshot,sizeof(snapshot))>0);
+    assert(!strncmp(snapshot,"sp1,",4));return NULL;
+}
+static void worker_tick(plugin_api_v2_t *api,void *instance){
+    pthread_attr_t attributes;pthread_t thread;position_worker_context context={api,instance};
+    assert(!pthread_attr_init(&attributes));assert(!pthread_attr_setstacksize(&attributes,512*1024));
+    assert(!pthread_create(&thread,&attributes,position_worker,&context));assert(!pthread_join(thread,NULL));
+    pthread_attr_destroy(&attributes);
+}
 static void route(plugin_api_v2_t *api,void *instance,const char *value){
     if(!strcmp(value,"off")){api->set_param(instance,"midi_fx1:field_lfo1:enabled","0");return;}
     int channel,depth,bipolar;char target[32],param[64],v[32];
@@ -42,7 +55,7 @@ int main(int argc,char **argv){
     api->set_param(a,"midi_fx1:sequence_input_2","0.75");
     api->set_param(a,"lfo1:target","midi_fx1");api->set_param(a,"lfo1:target_param","sequence_input_1");
     api->set_param(a,"lfo1:shape","3");api->set_param(a,"lfo1:sync","0");api->set_param(a,"lfo1:rate_hz","0.1");
-    api->set_param(a,"lfo1:depth","0.5");api->set_param(a,"lfo1:polarity","1");api->set_param(a,"lfo1:enabled","1");tick(api,a);
+    api->set_param(a,"lfo1:depth","0.5");api->set_param(a,"lfo1:polarity","1");api->set_param(a,"lfo1:enabled","1");worker_tick(api,a);
     near(get(api,a,"midi_fx1:sequence_input_1"),.25f);
     near(get(api,a,"midi_fx1:sequence_input_1:effective"),.5f);
     char position_snapshot[96],position_again[96];double first,second,phase=ca->lfos[0].phase;
@@ -58,7 +71,7 @@ int main(int argc,char **argv){
     api->set_param(a,"midi_fx1:sequence_input_1","nan");near(get(api,a,"midi_fx1:sequence_input_1"),.25f);
     api->set_param(a,"midi_fx1:sequence_input_1","0.9");api->set_param(a,"midi_fx1:state",sequence_state);
     near(get(api,a,"midi_fx1:sequence_input_1"),.25f);near(get(api,b,"midi_fx1:sequence_input_1"),.5f);
-    puts("PASS: stock LFO sequence input, read-only snapshot, base persistence and instance ownership");
+    puts("PASS: stock LFO on 512 KiB worker, sequence input, read-only snapshot, base persistence and instance ownership");
     api->set_param(a,"synth:gain","0.2");api->set_param(b,"synth:gain","0.3");
     api->set_param(a,"midi_fx1:field_glide","0");
     api->set_param(a,"midi_fx1:field_outputs","fo1,10000,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1");
