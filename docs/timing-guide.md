@@ -1,3 +1,5 @@
+HarmonyBus 0.2.320 adds pressure-controlled Voicing Rotate for live chord inversions. See [Voicing Rotate](voicing-rotate.md).
+
 HarmonyBus 0.2.319 adds downward Chord Spread with an anchored top voice, alongside upward expansion with an anchored bass. See [Chord Spread](chord-spread.md).
 
 HarmonyBus 0.2.318 adds pressure-controlled Chord Spread with an anchored bass and live held-voice retuning. See [Chord Spread](chord-spread.md).

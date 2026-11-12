@@ -44,7 +44,7 @@ static void hb_register_refresh_for(Inst *only,int force){
                 key->count=hb_cp_voice_semantic(config,key->selection_pitch+g_bus.global_transpose,harmony.root_pc,harmony.pitch_mask,harmony.intent_scale,key->notes,0);
                 for(int voice=0;voice<key->count;voice++)key->notes[voice]=hb_key_pitch(instance,key->notes[voice]);
                 if(config.top_note)key->count=hb_cp_range_top(key->notes,key->count,config.top_note-1,mod12(hb_key_pitch(instance,60+harmony.root_pc)),config.voicing);
-                hb_chord_spread(key->notes,key->count,instance->chord_spread_steps);
+                hb_player_voice_operations(instance,key->notes,key->count);
             }
             key->onset_config=config;
             hb_register_retarget(&instance->player,key,&before,arp_note,&arp_changed);
