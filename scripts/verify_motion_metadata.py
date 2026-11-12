@@ -48,7 +48,7 @@ def main() -> None:
     assert maps[3]['motion_operation']['options'][-25:] == ['Leading Tone', 'Upper Dim', 'Live Key Center', 'Parallel Scale', 'Live Harmony Override', 'Override Harmony (Live + Recorded)', 'Secondary Fifth', 'Secondary II (Dom)', 'Secondary IV (Dom)', 'Secondary VI (Dom)', 'Recordable Key Center', 'Relative Key Center', 'Key Step Back', 'Key Return to Start', 'Smart Below', 'Smart Above', 'Note Repeat', 'Repeat Divisions', 'Global Transpose', 'Chord Spread', 'Voicing Rotate', 'Note Blend', 'Field Rate', 'Field Zoom', 'Field Output']
     assert 'II-V-Target' not in maps[3]['motion_operation']['options']
     assert not any(option.startswith('Clip ') for option in maps[0]['motion_operation']['options'])
-    assert maps[1]['motion_operation']['options'] == map_canonical['motion_operation']['options']
+    assert maps[1]['motion_operation']['options'] == [option for option in map_canonical['motion_operation']['options'] if option != 'Cloud Hold']
     assert [option for option in maps[2]['motion_operation']['options'] if option.startswith('Clip ')] == ['Clip Reverse']
     assert maps[2]['motion_enabled']['readOnly']
     assert not maps[5]['motion_enabled']['readOnly']

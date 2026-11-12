@@ -5459,7 +5459,7 @@ static void hb_gesture_finish_use(Inst *instance){
     hb_operation_note_finish(instance);
     unsigned long long once=(instance->motion.gesture_once|instance->motion.gesture_down)&~instance->motion.gesture_persistent;
     unsigned long long target_lanes=0;
-    for(int lane=0;lane<HB_MOTION_LANES;lane++)if((instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT||hb_mo_note_input(instance->motion.lanes[lane].operation)))target_lanes|=1ULL<<lane;
+    for(int lane=0;lane<HB_MOTION_LANES;lane++)if((instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT||hb_mo_input_kind(instance->motion.lanes[lane].operation)))target_lanes|=1ULL<<lane;
     unsigned long long mask=once&target_lanes&instance->motion.gesture_target_released;
     if(instance->player.release_ms!=0)for(int lane=0;lane<HB_MOTION_LANES;lane++)if(mask&(1ULL<<lane)){
         int owner=instance->motion.gesture_target_owner[lane]-1,waiting=0;
@@ -5982,6 +5982,7 @@ if(!strcmp(key,"render_velocity_gain")){
     return;
 }
 
+if(!strcmp(key,"motion_cloud_input")){hb_operation_cloud_input(&instance->motion,parameter);return;}
 int touch_slot=hb_mo_slot_key(key,"follow_touch_");if(touch_slot>=0&&touch_slot<9){int lanes[9];memcpy(lanes,g_touch_lanes,sizeof(lanes));lanes[touch_slot]=hb_cp_clamp(parse_i(parameter,lanes[touch_slot]),1,16);hb_touch_publish(lanes);return;}
 hb_next_touch_clear_expired(instance);
 int next_lane=hb_mo_slot_key(key,"motion_gesture_");if(next_lane<0)next_lane=hb_mo_slot_key(key,"motion_hold_");
@@ -7008,6 +7009,7 @@ static hb_harmony_t hb_opening_harmony(void){
 static __attribute__((noinline)) int get_param_full(void *value,const char *key,char *buffer,int length);
 static int get_param(void *value,const char *key,char *buffer,int length){
     Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+    if(!strcmp(key,"motion_cloud_hold"))return snprintf(buffer,length,"%u",!instance->field_mod[0].bypassed?hb_operation_cloud_hold(&instance->motion):0);
     if(!strcmp(key,"note_blend"))return snprintf(buffer,length,"%s",HB_NOTE_BLEND_NAMES[instance->note_blend_base]);
     if(!strcmp(key,"sequence_input_1")||!strcmp(key,"sequence_input_2"))return snprintf(buffer,length,"%.9f",instance->sequence_input[key[15]-'1']);
 /* Read the effective values without the chain's plain-key/base interception.

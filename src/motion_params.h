@@ -21,7 +21,7 @@ static const char *MO_TRIGGER_TOUCH[]={"Hold","Arm","Tap/Hold"};
 static const char *const *hb_mo_touch_options(hb_motion_config *config){
     int operation=config->lanes[config->selected].operation;
     const hb_ro_definition *definition=hb_ro_motion(operation);
-    if(hb_mo_note_input(operation)||hb_mo_voicing_operation(operation)||operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_note_repeat_operation(operation))return MO_TOUCH;
+    if(hb_mo_input_kind(operation)||hb_mo_voicing_operation(operation)||operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_note_repeat_operation(operation))return MO_TOUCH;
     if(definition&&definition->preferred_token)return MO_TOUCH;
     return ((operation>=HB_MO_BELOW&&operation<=HB_MO_ENCLOSE_BA)||(operation>=HB_MO_SECONDARY_II&&operation!=HB_MO_WEAVE))?MO_TRIGGER_TOUCH:MO_TOUCH;
 }
@@ -129,7 +129,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         int saved=gesture<HB_MOTION_LANES?config->lanes[gesture].touch_mode:2;if(gesture<HB_MOTION_LANES&&!strcmp(value,"Touch"))config->lanes[gesture].touch_mode=2;
         hb_mo_gesture(config,gesture,!strcmp(value,"Down")||!strcmp(value,"Touch"),elapsed);if(gesture<HB_MOTION_LANES)config->lanes[gesture].touch_mode=saved;return 1;
     }
-    if(!strcmp(key,"motion_host")){config->host_capabilities=!strcmp(value,"movy-clip-v3")?3:!strcmp(value,"movy-clip-v2")?2:!strcmp(value,"movy-clip-v1");return 1;}
+    if(!strcmp(key,"motion_host")){config->host_capabilities=!strcmp(value,"movy-clip-v4")?4:!strcmp(value,"movy-clip-v3")?3:!strcmp(value,"movy-clip-v2")?2:!strcmp(value,"movy-clip-v1");return 1;}
     if(!strcmp(key,"performance_reset")){
         config->held=0;config->pitch_held=0;config->enclosure=0;hb_mo_input_reset(config);hb_mo_gesture_reset(config);
         for(int lane=0;lane<HB_MOTION_LANES;lane++)config->revision[lane]++;return 1;
@@ -221,7 +221,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
             config->lanes[config->selected].offset=parsed==HB_MO_ECHO?25:0;
             if(parsed>=HB_MO_AUTO_CHORD_REPEAT||(parsed>=HB_MO_ENCLOSE_AB&&parsed<=HB_MO_SPEED))config->lanes[config->selected].enabled=0;
         }
-        if(index==4&&(config->lanes[config->selected].operation==HB_MO_DRUM_FILL||(config->lanes[config->selected].operation>=HB_MO_RECORD_KEY&&config->lanes[config->selected].operation<=HB_MO_KEY_RETURN)||hb_mo_enclosure_mask(config->lanes[config->selected].operation)||
+        if(index==4&&(hb_mo_cloud_input(config->lanes[config->selected].operation)||config->lanes[config->selected].operation==HB_MO_DRUM_FILL||(config->lanes[config->selected].operation>=HB_MO_RECORD_KEY&&config->lanes[config->selected].operation<=HB_MO_KEY_RETURN)||hb_mo_enclosure_mask(config->lanes[config->selected].operation)||
             (hb_mo_clip_operation(config->lanes[config->selected].operation)&&config->host_capabilities<2)))parsed=0;
         if(index==2&&config->lanes[config->selected].operation==HB_MO_FIELD_ZOOM)parsed=hb_mo_clamp(parsed,25,400);
         if(index==2&&config->lanes[config->selected].operation==HB_MO_FIELD_OUTPUT)parsed=hb_mo_clamp(parsed,0,100);
@@ -302,6 +302,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
         for(int operation=0;operation<HB_MO_OPERATION_COUNT;operation++){
+            if(hb_mo_cloud_input(operation)&&config->host_capabilities<4&&operation!=selected)continue;
             if(operation==HB_MO_DRUM_FILL&&config->host_capabilities<3&&operation!=selected)continue;
             if(operation==HB_MO_ABOVE)continue; /* Legacy serialized ID, consolidated picker. */
             if(hb_mo_mixed(operation)||operation==HB_MO_CADENCE_II_V||operation==HB_MO_CADENCE_BACKDOOR||operation==HB_MO_CADENCE_TRITONE)continue;
@@ -310,7 +311,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
             used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",count++?",":"",MO_OPERATIONS[operation]);
         }
         if(used<0||used>=length)return -1;
-        used+=snprintf(buffer+used,(size_t)(length-used),"],\"readOnly\":%s},{\"key\":\"motion_enabled\",\"name\":\"Auto\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Off\",\"On\"],\"readOnly\":%s}]",config->selected>=16?"true":"false",(selected==HB_MO_DRUM_FILL||(selected>=HB_MO_RECORD_KEY&&selected<=HB_MO_KEY_RETURN)||selected==HB_MO_HARMONY_OVERRIDE||selected==HB_MO_LIVE_HARMONY_OVERRIDE||hb_mo_enclosure_mask(selected)||(hb_mo_clip_operation(selected)&&config->host_capabilities<2))?"true":"false");
+        used+=snprintf(buffer+used,(size_t)(length-used),"],\"readOnly\":%s},{\"key\":\"motion_enabled\",\"name\":\"Auto\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Off\",\"On\"],\"readOnly\":%s}]",config->selected>=16?"true":"false",(hb_mo_cloud_input(selected)||selected==HB_MO_DRUM_FILL||(selected>=HB_MO_RECORD_KEY&&selected<=HB_MO_KEY_RETURN)||selected==HB_MO_HARMONY_OVERRIDE||selected==HB_MO_LIVE_HARMONY_OVERRIDE||hb_mo_enclosure_mask(selected)||(hb_mo_clip_operation(selected)&&config->host_capabilities<2))?"true":"false");
         if(used<0||used>=length)return -1;
         used--;
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_touch_mode\",\"name\":\"Touch Mode\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[\"Hold\",\"%s\",\"Tap/Hold\"]}]",hb_mo_touch_options(config)[1]);
@@ -498,6 +499,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     control=hb_mo_slot_key(key,"motion_status_");
     if(control>=0)return snprintf(buffer,(size_t)length,"%s",hb_mo_lane_status(config,control));
     if(!strcmp(key,"motion_bypass"))return snprintf(buffer,(size_t)length,"%s",MO_SWITCH[config->bypass]);
+    if(!strcmp(key,"motion_punch")&&hb_mo_cloud_input(config->lanes[config->selected].operation)&&config->host_capabilities<4)return snprintf(buffer,(size_t)length,"Update Movy");
     if(!strcmp(key,"motion_punch")&&hb_mo_clip_operation(config->lanes[config->selected].operation)&&!config->host_capabilities)return snprintf(buffer,(size_t)length,"Requires Movy");
     if(!strcmp(key,"motion_punch"))return snprintf(buffer,(size_t)length,"%s",hb_mo_lane_status(config,config->selected));
     int slot=hb_mo_slot_key(key,"motion_hold_");

@@ -1,11 +1,11 @@
 {
-  "version": "0.2.325",
-  "previous_version": "0.2.324",
+  "version": "0.2.326",
+  "previous_version": "0.2.325",
   "workflow": "release.yml",
-  "title": "HarmonyBus 0.2.325 — Field performance operations",
-  "notes": "docs/field-operations.md",
+  "title": "HarmonyBus 0.2.326 \u2014 shared Cloud Hold operation",
+  "notes": "docs/cloud-hold-operation.md",
   "assets": [
-    "dist/harmonybus-v0.2.325-module.tar.gz",
+    "dist/harmonybus-v0.2.326-module.tar.gz",
     "dist/HarmonyBus-Timing-Guide.pdf",
     "dist/SHA256SUMS"
   ]
