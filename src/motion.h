@@ -20,14 +20,14 @@ static int hb_mo_note_repeat_operation(int operation){return operation==HB_MO_NO
 static int hb_mo_voicing_operation(int operation){return operation==HB_MO_CHORD_SPREAD||operation==HB_MO_VOICING_ROTATE;}
 static int hb_mo_pressure_supported(int operation){
     return operation==HB_MO_VELOCITY||operation==HB_MO_GATE||operation==HB_MO_PAN||
-        operation==HB_MO_TRANSPOSE||operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_voicing_operation(operation)||operation==HB_MO_RATCHET||operation==HB_MO_ECHO||hb_mo_note_repeat_operation(operation);
+        operation==HB_MO_ROTATE||operation==HB_MO_TRANSPOSE||operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_voicing_operation(operation)||operation==HB_MO_RATCHET||operation==HB_MO_ECHO||hb_mo_note_repeat_operation(operation);
 }
 /* Low three choices resolve on release; high three on press. Scope and
    resolution are independent even though the compact knob lists both. */
 static int hb_mo_chord_arp_choice(int amount){return amount>=0&&amount<6?amount:1;}
 typedef struct { int operation,pattern,amount,offset,enabled,grid,cycle,phase,probability,group,evolve,advance,every,from,through,touch_mode,auto_off; int motif_playback,motif_arrival,motif_target,motif_late,motif_grid,motif_completion; hb_cp_config chord_state;int chord_state_valid,chord_input; int field_target,field_low,field_high,field_x,field_y,field_z; } hb_motion_lane;
 typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host_capabilities,enclosure_lane; unsigned serial,held_serial[HB_MOTION_LANES]; unsigned long long held,sequence_held;
-    unsigned long long pressure_active;double pressure_value[16];int pressure_rate[16];
+    unsigned long long pressure_active;double pressure_value[16];int pressure_rate[16],pressure_rotate[16];
     unsigned revision[HB_MOTION_LANES]; unsigned long long render_flags;
     unsigned long long events[HB_MOTION_LANES+1]; /* final slot snapshots the source-gesture approach */
     const unsigned long long *event_override;
@@ -575,6 +575,12 @@ static int hb_mo_condition(const hb_motion_config *config,int index,double beat)
     int cycle=hb_mo_condition_cycle(lane,beat);
     return cycle>=lane->from&&cycle<=lane->through;
 }
+static double hb_mo_pressure_amount(const hb_motion_lane *lane,double pressure){
+    double low=lane->field_target==2?lane->field_low:
+        lane->operation==HB_MO_GATE?100:lane->operation==HB_MO_RATCHET?1:0;
+    double high=lane->field_target==2?lane->field_high:lane->amount;
+    return low+(high-low)*pressure;
+}
 /* Return false means do not perform this operation; it never means skip a note. */
 static int hb_mo_value_at(const hb_motion_config *config,int index,double beat,double condition_beat,int voice,double *value){
     unsigned long long word=hb_mo_recorded_word(config,index);
@@ -586,10 +592,8 @@ static int hb_mo_value_at(const hb_motion_config *config,int index,double beat,d
         if(!hb_mo_pressure_supported(pressure_lane->operation))return 0;
         double pressure=config->pressure_value[index];if(pressure<=0)return 0;
         if(hb_mo_note_repeat_operation(pressure_lane->operation)){*value=config->pressure_rate[index];return *value>0;}
-        double low=pressure_lane->field_target==2?pressure_lane->field_low:
-            pressure_lane->operation==HB_MO_GATE?100:pressure_lane->operation==HB_MO_RATCHET?1:0;
-        double high=pressure_lane->field_target==2?pressure_lane->field_high:pressure_lane->amount;
-        *value=low+(high-low)*pressure;return 1;
+        if(pressure_lane->operation==HB_MO_ROTATE){*value=config->pressure_rotate[index];return 1;}
+        *value=hb_mo_pressure_amount(pressure_lane,pressure);return 1;
     }
     /* Recorded overrides returned above; the live lane can be read directly. */
     const hb_motion_lane *lane=&config->lanes[index];

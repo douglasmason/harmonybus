@@ -164,6 +164,8 @@ static int hb_ar_get(Inst *instance,const char *key,char *buffer,int length){
             if(lane<0||!state->pressure_mode[row])return snprintf(buffer,(size_t)length,"Off");
             if(!hb_mo_pressure_supported(instance->motion.lanes[lane].operation))return snprintf(buffer,(size_t)length,"Choose amount op");
             if(!state->pressure[row].active)return snprintf(buffer,(size_t)length,"Ready");
+            if(instance->motion.lanes[lane].operation==HB_MO_ROTATE)
+                return snprintf(buffer,(size_t)length,"Rotate %+d steps",instance->motion.pressure_rotate[lane]);
             if(instance->motion.lanes[lane].operation==HB_MO_VOICING_ROTATE)
                 return snprintf(buffer,(size_t)length,"Rotate %d",instance->chord_rotation_steps);
             if(instance->motion.lanes[lane].operation==HB_MO_CHORD_SPREAD)
