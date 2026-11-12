@@ -1,5 +1,12 @@
 [
   {
+    "name": "field_operation_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/field_operation_test.c src/harmony_core.c -lm -o /tmp/field_operation_test",
+      "/tmp/field_operation_test"
+    ]
+  },
+  {
     "name": "note_blend_operation_test",
     "commands": [
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/note_blend_operation_test.c src/harmony_core.c -lm -o /tmp/note_blend_operation_test",

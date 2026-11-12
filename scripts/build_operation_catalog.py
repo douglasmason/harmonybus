@@ -13,7 +13,7 @@ def render_catalog(map_catalog: dict[str, Any]) -> tuple[str, str]:
     selectors: list[dict[str, Any]] = map_catalog['selectors']
     assert [operation['id'] for operation in operations] == list(range(len(operations)))
     assert len({operation['symbol'] for operation in operations}) == len(operations)
-    assert all(operation.get('input') in (None, 'overlapping_notes') for operation in operations)
+    assert all(operation.get('input') in (None, 'held_notes', 'overlapping_notes') for operation in operations)
     assert all(operation.get('activation') in (None, 'immediate') for operation in operations)
     map_symbol_to_operation: dict[str, dict[str, Any]] = {
         operation['symbol']: operation for operation in operations
@@ -48,7 +48,7 @@ def render_catalog(map_catalog: dict[str, Any]) -> tuple[str, str]:
         '    HB_MO_MIXED_LAST = HB_MO_MIXED_13', '};',
         f'#define HB_MO_OPERATION_COUNT {len(operations)}',
         'static const char *MO_OPERATIONS[] = {' + ','.join(json.dumps(item['name']) for item in operations) + '};',
-        'static const unsigned char HB_MO_OVERLAP_INPUT[] = {' + ','.join('1' if item.get('input') == 'overlapping_notes' else '0' for item in operations) + '};',
+        'static const unsigned char HB_MO_NOTE_INPUT[] = {' + ','.join('2' if item.get('input') == 'overlapping_notes' else '1' if item.get('input') == 'held_notes' else '0' for item in operations) + '};',
         'static const unsigned char HB_MO_IMMEDIATE_ACTION[] = {' + ','.join('1' if item.get('activation') == 'immediate' else '0' for item in operations) + '};',
         f'#define HB_AR_CHOICE_COUNT {choice_count}',
         'static const char *HB_AR_NAMES[] = {' + ','.join(json.dumps(map_choice_to_name[index]) for index in range(choice_count)) + '};',

@@ -681,6 +681,24 @@
       "symbol": "HB_MO_NOTE_BLEND",
       "name": "Note Blend",
       "input": "overlapping_notes"
+    },
+    {
+      "id": 75,
+      "symbol": "HB_MO_FIELD_RATE",
+      "name": "Field Rate",
+      "input": "held_notes"
+    },
+    {
+      "id": 76,
+      "symbol": "HB_MO_FIELD_ZOOM",
+      "name": "Field Zoom",
+      "input": "held_notes"
+    },
+    {
+      "id": 77,
+      "symbol": "HB_MO_FIELD_OUTPUT",
+      "name": "Field Output",
+      "input": "held_notes"
     }
   ],
   "selectors": [
