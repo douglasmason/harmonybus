@@ -1,11 +1,11 @@
 {
-  "version": "0.2.323",
-  "previous_version": "0.2.322",
+  "version": "0.2.324",
+  "previous_version": "0.2.323",
   "workflow": "release.yml",
-  "title": "HarmonyBus 0.2.323 — pressure-weighted note blend",
-  "notes": "docs/note-blend.md",
+  "title": "HarmonyBus 0.2.324 — Note Blend joins shared operations",
+  "notes": "docs/note-blend-operation.md",
   "assets": [
-    "dist/harmonybus-v0.2.323-module.tar.gz",
+    "dist/harmonybus-v0.2.324-module.tar.gz",
     "dist/HarmonyBus-Timing-Guide.pdf",
     "dist/SHA256SUMS"
   ]

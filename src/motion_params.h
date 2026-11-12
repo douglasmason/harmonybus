@@ -21,7 +21,7 @@ static const char *MO_TRIGGER_TOUCH[]={"Hold","Arm","Tap/Hold"};
 static const char *const *hb_mo_touch_options(hb_motion_config *config){
     int operation=config->lanes[config->selected].operation;
     const hb_ro_definition *definition=hb_ro_motion(operation);
-    if(hb_mo_voicing_operation(operation)||operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_note_repeat_operation(operation))return MO_TOUCH;
+    if(hb_mo_overlap_input(operation)||hb_mo_voicing_operation(operation)||operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_note_repeat_operation(operation))return MO_TOUCH;
     if(definition&&definition->preferred_token)return MO_TOUCH;
     return ((operation>=HB_MO_BELOW&&operation<=HB_MO_ENCLOSE_BA)||(operation>=HB_MO_SECONDARY_II&&operation!=HB_MO_WEAVE))?MO_TRIGGER_TOUCH:MO_TOUCH;
 }
@@ -88,7 +88,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     int control=hb_mo_slot_key(key,"motion_control_");
     if(control>=0){
         int operation=config->lanes[control].operation;
-        config->lanes[control].amount=operation==HB_MO_AUTO_CHORD_REPEAT?(!strcmp(value,"Chord Only")?0:!strcmp(value,"Both")?1:!strcmp(value,"Arp Only")?2:enum_index(value,MO_CHORD_ARP,6,config->lanes[control].amount)):operation==HB_MO_HARMONY?(!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,config->lanes[control].amount),0,100)):operation==HB_MO_MOTIF?enum_index(value,MO_MOTIFS,44,config->lanes[control].amount):hb_mo_has_scale_mode(operation)?1+enum_index(value,MO_SCALE_MODES,3,hb_mo_clamp(config->lanes[control].amount-1,0,2)):operation==HB_MO_CHORD_FORM?
+        config->lanes[control].amount=operation==HB_MO_NOTE_BLEND?1+enum_index(value,HB_NOTE_BLEND_NAMES+1,5,hb_mo_clamp(config->lanes[control].amount-1,0,4)):operation==HB_MO_AUTO_CHORD_REPEAT?(!strcmp(value,"Chord Only")?0:!strcmp(value,"Both")?1:!strcmp(value,"Arp Only")?2:enum_index(value,MO_CHORD_ARP,6,config->lanes[control].amount)):operation==HB_MO_HARMONY?(!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,config->lanes[control].amount),0,100)):operation==HB_MO_MOTIF?enum_index(value,MO_MOTIFS,44,config->lanes[control].amount):hb_mo_has_scale_mode(operation)?1+enum_index(value,MO_SCALE_MODES,3,hb_mo_clamp(config->lanes[control].amount-1,0,2)):operation==HB_MO_CHORD_FORM?
             enum_index(value,CP_CHORD_FORM,HB_CP_FORMS,config->lanes[control].amount):
             hb_mo_clamp(parse_i(value,config->lanes[control].amount),-400,400);
         if(operation==HB_MO_DRUM_FILL)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,0,127);
@@ -108,7 +108,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     if(!strcmp(key,"performance_gesture_below"))gesture=HB_MOTION_LANES+1;
     if(gesture>=0){
         if(!strcmp(value,"LatchOn")||!strcmp(value,"LatchOff")){
-            if(gesture<HB_MOTION_LANES&&config->lanes[gesture].operation>=HB_MO_RELATIVE_KEY&&config->lanes[gesture].operation!=HB_MO_GLOBAL_TRANSPOSE&&!hb_mo_voicing_operation(config->lanes[gesture].operation))return 1;
+            if(gesture<HB_MOTION_LANES&&hb_mo_immediate_action(config->lanes[gesture].operation))return 1;
             if(gesture<HB_MOTION_LANES)hb_mo_latch_set(config,gesture,!strcmp(value,"LatchOn"));return 1;
         }
         int knob_down=!strncmp(value,"Knob,",5);
@@ -205,7 +205,8 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         int *field=hb_mo_field(&config->lanes[config->selected],index);
         if(index==0){if(!strcmp(value,"Key Center"))value="Live Key Center";value=hb_ro_canonical_name(value);}
         int parsed;
-        if(index==2&&config->lanes[config->selected].operation==HB_MO_HARMONY)parsed=!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,*field),0,100);
+        if(index==2&&config->lanes[config->selected].operation==HB_MO_NOTE_BLEND)parsed=1+enum_index(value,HB_NOTE_BLEND_NAMES+1,5,hb_mo_clamp(*field-1,0,4));
+        else if(index==2&&config->lanes[config->selected].operation==HB_MO_HARMONY)parsed=!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,*field),0,100);
         else if(index==2&&config->lanes[config->selected].operation==HB_MO_MOTIF)parsed=enum_index(value,MO_MOTIFS,44,hb_mo_clamp(*field,0,43));
         else if(index==2&&config->lanes[config->selected].operation==HB_MO_CHORD_FORM)
             parsed=enum_index(value,CP_CHORD_FORM,HB_CP_FORMS,*field);
@@ -235,7 +236,14 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
     }
     return 0;
 }
+static int hb_mo_note_blend_metadata(char *buffer,int length,const char *key){
+    int used=snprintf(buffer,(size_t)length,",{\"key\":\"%s\",\"name\":\"Note Blend\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",key);
+    for(int mode=1;mode<=5&&used>=0&&used<length;mode++)used+=snprintf(buffer+used,(size_t)(length-used),"%s\"%s\"",mode>1?",":"",HB_NOTE_BLEND_NAMES[mode]);
+    if(used>=0&&used<length)used+=snprintf(buffer+used,(size_t)(length-used),"]}");
+    return used;
+}
 static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int length){
+    if(!strcmp(key,"motion_amount")&&config->lanes[config->selected].operation==HB_MO_NOTE_BLEND)return snprintf(buffer,(size_t)length,"%s",HB_NOTE_BLEND_NAMES[hb_mo_clamp(config->lanes[config->selected].amount,1,5)]);
     if(!strcmp(key,"motion_field_preset")){
         const hb_motion_lane *lane=&config->lanes[config->selected];const char *preset="Custom";
         if(lane->field_target==2&&lane->pattern==0&&lane->offset==0&&lane->enabled&&lane->evolve&&lane->probability==100){
@@ -304,7 +312,9 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":%d,\"step\":1,\"default\":0}]",selected==HB_MO_RELATIVE_KEY?"Return After (0 = off)":selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_RELATIVE_KEY||selected==HB_MO_ECHO?0:-100,selected==HB_MO_RELATIVE_KEY?64:100);
         if(used<0||used>=length)return -1;
         used--;
-        if(hb_mo_voicing_operation(selected)){
+        if(selected==HB_MO_NOTE_BLEND){
+            used+=hb_mo_note_blend_metadata(buffer+used,length-used,"motion_amount");
+        }else if(hb_mo_voicing_operation(selected)){
             used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"%s\",\"type\":\"int\",\"min\":-12,\"max\":12,\"default\":%d}",selected==HB_MO_CHORD_SPREAD?"Spread Steps":"Rotation Steps",selected==HB_MO_CHORD_SPREAD?4:3);
         }else if(selected==HB_MO_ROTATE){
             used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_amount\",\"name\":\"Collection Steps\",\"type\":\"int\",\"min\":-24,\"max\":24,\"default\":1}");
@@ -364,6 +374,10 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         for(int lane=0;lane<HB_MOTION_LANES;lane++){
             if(used<0||used>=length)return -1;
             const hb_motion_lane *settings=&config->lanes[lane];
+            if(settings->operation==HB_MO_NOTE_BLEND){
+                char key[32];snprintf(key,sizeof(key),"motion_control_%d",lane+1);
+                used+=hb_mo_note_blend_metadata(buffer+used,length-used,key);continue;
+            }
             if(settings->operation==HB_MO_ROTATE){
                 used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_control_%d\",\"name\":\"Collection Steps\",\"type\":\"int\",\"min\":-24,\"max\":24,\"step\":1}",lane+1);
                 continue;
@@ -457,6 +471,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     if(!strcmp(key,"motion_advance"))return snprintf(buffer,(size_t)length,"%s",MO_ADVANCE[config->lanes[config->selected].advance]);
     if(!strcmp(key,"motion_lane"))return hb_mo_edit_label(config,config->selected,buffer,length);
     int control=hb_mo_slot_key(key,"motion_control_");
+    if(control>=0&&config->lanes[control].operation==HB_MO_NOTE_BLEND)return snprintf(buffer,(size_t)length,"%s",HB_NOTE_BLEND_NAMES[hb_mo_clamp(config->lanes[control].amount,1,5)]);
     if(control>=0&&config->lanes[control].operation==HB_MO_AUTO_CHORD_REPEAT)return snprintf(buffer,(size_t)length,"%s",MO_CHORD_ARP[hb_mo_chord_arp_choice(config->lanes[control].amount)]);
     if(control>=0&&config->lanes[control].operation==HB_MO_HARMONY)return snprintf(buffer,(size_t)length,"%s",config->lanes[control].amount>=50?"Next":"Current");
     if(control>=0&&config->lanes[control].operation==HB_MO_CHORD_STATE)return snprintf(buffer,(size_t)length,"%s",MO_STATE_PRESETS[hb_mo_clamp(config->lanes[control].amount,0,2)]);
