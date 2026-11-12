@@ -3,6 +3,7 @@
 #include "../core/include/noise_field.h"
 #include "render_rhythm.h"
 #include "../core/include/output_transpose.h"
+#include "../core/include/note_blend.h"
 #include "chord_player.h"
 /* Sixteen shared lane assignments with per-instance voice ownership. Pure evaluation uses transport position, never a
    mutable random stream, so local and MIDI-render routes make identical choices. */
@@ -50,6 +51,7 @@ typedef struct {
 } hb_motion_burst;
 typedef struct {
     hb_output_transpose transpose;
+    hb_note_blend blend;
     hb_rr_route rhythm; double rhythm_now,rhythm_delay; int rhythm_enabled;
     hb_motion_owner owners[HB_MOTION_OWNERS];
     hb_motion_burst bursts[HB_MOTION_BURSTS];
@@ -85,7 +87,7 @@ static void hb_mo_defaults(hb_motion_config *config){memset(config,0,sizeof(*con
     config->lanes[32].amount=100;config->lanes[32].auto_off=1;
 
 }
-static void hb_mo_route_init(hb_motion_route *route){memset(route,0,sizeof(*route));for(int channel=0;channel<16;channel++)route->base_pan[channel]=64;}
+static void hb_mo_route_init(hb_motion_route *route){memset(route,0,sizeof(*route));hb_nb_init(&route->blend);for(int channel=0;channel<16;channel++)route->base_pan[channel]=64;}
 /* ra1 event words store an operation outcome, never an output MIDI pitch.
    Bit 63 distinguishes snapshots from ordinary advancing event counters. */
 #define HB_MO_RECORDED (1ULL<<63)
@@ -661,7 +663,7 @@ static int hb_mo_push_owned(hb_motion_route *route,int status,int pitch,int velo
     route->queue[index][0]=(uint8_t)status;route->queue[index][1]=(uint8_t)pitch;route->queue[index][2]=(uint8_t)velocity;route->count++;return 1;
 }
 static int hb_mo_push(hb_motion_route *route,int status,int pitch,int velocity){return hb_mo_push_owned(route,status,pitch,velocity,0);}
-static int hb_mo_pop(hb_motion_route *route,uint8_t message[3]){
+static int hb_mo_pop_transposed(hb_motion_route *route,uint8_t message[3]){
     route->trail_out=0;
     if(hb_ot_pending(&route->transpose,message))return 1;
     for(;;){
@@ -673,6 +675,14 @@ static int hb_mo_pop(hb_motion_route *route,uint8_t message[3]){
             route->head=(route->head+1)%HB_MOTION_QUEUE;route->count--;
         }
         if(hb_ot_message(&route->transpose,message))return 1;
+    }
+}
+static int hb_mo_pop(hb_motion_route *route,uint8_t message[3]){
+    for(;;){
+        route->trail_out=0;
+        if(hb_nb_pop(&route->blend,message))return 1;
+        if(!hb_mo_pop_transposed(route,message))return 0;
+        if(hb_nb_message(&route->blend,message))return 1;
     }
 }
 /* Releasing one source must not silence a different source mapped to that pitch. */
@@ -692,6 +702,7 @@ static void hb_mo_due(hb_motion_route *route,double beat){
 }
 static void hb_mo_panic(hb_motion_route *route){
     hb_ot_panic(&route->transpose);
+    hb_nb_panic(&route->blend);
     memset(route->bursts,0,sizeof(route->bursts));
     route->note_repeat_pending=0;
     for(int index=0;index<HB_MOTION_OWNERS;index++){

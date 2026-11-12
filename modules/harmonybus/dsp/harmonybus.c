@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.322"
+#define HB_VERSION "0.2.323"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -298,7 +298,7 @@ typedef struct {
     int field_managed;
 int chord_spread_steps,chord_spread_applied,chord_rotation_steps,chord_rotation_applied,chord_voicing_values[16];
 int global_operation_values[16];unsigned global_operation_manual;
-int chord_register,chord_queue_depth,chord_queue_loop; int selection_bank[21][9],selection_bank_valid; double selection_until; unsigned selection_serial; unsigned long long selection_pending; int selection_note; hb_harmony_t opening_selection; int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_tonic,key_scale,key_input_consumed; int key_action,key_shift,key_return_after,key_pending_action; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[2][16][128]; int chord_pair_owner[2][16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; int motif_load[7],motif_load_last; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
+int chord_register,chord_queue_depth,chord_queue_loop; int selection_bank[21][9],selection_bank_valid; double selection_until; unsigned selection_serial; unsigned long long selection_pending; int selection_note; hb_harmony_t opening_selection; int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_tonic,key_scale,key_input_consumed; int key_action,key_shift,key_return_after,key_pending_action; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[2][16][128]; int chord_pair_owner[2][16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; int motif_load[7],motif_load_last; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; int receiver_bend_source,receiver_bend_reset; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
 hb_follower_voice follower_voices[HB_FOLLOWER_VOICES];
 hb_input_intent follower_queue_input[64];
 uint8_t follower_input_held[2][128];
@@ -1964,6 +1964,8 @@ static void hb_trail_boundary(Inst *instance){
 /* Internal subscribers augment the existing stock-track MIDI broadcast.
    Hosted HB instances share this module, like the existing harmony bus. */
 static void hb_receiver_reset(Inst *receiver){
+    if(receiver->receiver_bend_source)receiver->receiver_bend_reset=1;
+    receiver->receiver_bend_source=0;
     for(int pitch=0;pitch<128;pitch++)if(receiver->receiver_sounding[pitch])receiver->role_flush_pending[pitch]=1;
     receiver->role_flush_cursor=0;receiver->receiver_count=0;
     memset(receiver->receiver_refs,0,sizeof(receiver->receiver_refs));
@@ -1974,6 +1976,7 @@ static void hb_receiver_remove_source(Inst *source){
     if(id<0||id>=HB_MAX_INSTANCES)return;
     for(int i=0;i<HB_MAX_INSTANCES;i++){
         Inst *r=&g_pool[i];if(!r->used||r->role!=3)continue;
+        if(r->receiver_bend_source==id+1){r->receiver_bend_source=0;r->receiver_bend_reset=1;}
         int write=0;
         for(int q=0;q<r->receiver_count;q++)if(r->receiver_queue[q].source!=id)r->receiver_queue[write++]=r->receiver_queue[q];
         r->receiver_count=write;
@@ -2001,12 +2004,12 @@ static int hb_send_render_raw(Inst *source,const uint8_t input_packet[4],int sup
     int id=(int)(source-g_pool),channel=packet[1]&15;
     int message_type=packet[1]&0xf0;
     if(source->role!=3&&id>=0&&id<HB_MAX_INSTANCES&&
-       (message_type==0x80||message_type==0x90||message_type==0xa0||message_type==0xb0)){
+       (message_type==0x80||message_type==0x90||message_type==0xa0||message_type==0xb0||message_type==0xe0)){
         for(int i=0;i<HB_MAX_INSTANCES;i++){
             Inst *r=&g_pool[i];
             if(!r->used||r->role!=3||r->source_channel!=channel)continue;
             if(r->receiver_count>=256){hb_receiver_reset(r);continue;} // fail closed, no hanging voices
-            r->receiver_queue[r->receiver_count++]=(hb_rx_event){(uint8_t)id,packet[2],packet[3],(uint8_t)(message_type==0xb0?2:message_type==0xa0?3:(message_type==0x90&&packet[3]>0))};
+            r->receiver_queue[r->receiver_count++]=(hb_rx_event){(uint8_t)id,packet[2],packet[3],(uint8_t)(message_type==0xe0?4:message_type==0xb0?2:message_type==0xa0?3:(message_type==0x90&&packet[3]>0))};
         }
     }
     if(suppress_external)return 0; // preserve stock-channel self-echo guard
@@ -2050,7 +2053,7 @@ static void hb_motion_flush_render(Inst *instance){
 }
 static int hb_send_render(Inst *source,const uint8_t packet[4],int suppress_external){
     if(source->movy_track>=0)suppress_external=0;
-    if(!g_global_operation_transpose&&!source->motion_render.transpose.current&&!source->motion_render.transpose.stage&&!source->motion_render.strict_ownership&&!source->motion_event_owner&&hb_rr_pattern(source)<2&&!hb_rr_active(&source->motion_render.rhythm)&&!hb_mo_enabled(&source->motion)&&!source->motion_render.owned&&!source->motion_render.count)
+    if(!source->motion_render.blend.mode&&!source->motion_render.blend.dirty&&!g_global_operation_transpose&&!source->motion_render.transpose.current&&!source->motion_render.transpose.stage&&!source->motion_render.strict_ownership&&!source->motion_event_owner&&hb_rr_pattern(source)<2&&!hb_rr_active(&source->motion_render.rhythm)&&!hb_mo_enabled(&source->motion)&&!source->motion_render.owned&&!source->motion_render.count)
         return hb_send_render_raw(source,packet,suppress_external);
     source->motion_render_suppress[packet[1]&15]=suppress_external;
     hb_motion_output(source,&source->motion_render,packet+1);
@@ -2061,6 +2064,7 @@ static int hb_receiver_tick(Inst *r,uint8_t output[][3],int lengths[],int capaci
     int consumed=0,emitted=0;
     while(consumed<r->receiver_count&&emitted<capacity){
         hb_rx_event e=r->receiver_queue[consumed++];
+        if(e.on==4){r->receiver_bend_source=((e.velocity<<7)|e.pitch)==8192?0:e.source+1;output[emitted][0]=0xe0;output[emitted][1]=e.pitch;output[emitted][2]=e.velocity;lengths[emitted++]=3;continue;}
         if(e.on==2){output[emitted][0]=0xb0;output[emitted][1]=e.pitch;output[emitted][2]=e.velocity;lengths[emitted++]=3;continue;}
         uint8_t *refs=&r->receiver_refs[e.source][e.pitch];
         if(e.on==3){
@@ -4482,6 +4486,9 @@ static int hb_emit_role_change_flush(Inst *instance,uint8_t output[][3],int leng
         lengths[emitted]=3;
         emitted++;
     }
+    if(instance->receiver_bend_reset&&emitted<max_output){
+        output[emitted][0]=0xe0;output[emitted][1]=0;output[emitted][2]=64;lengths[emitted++]=3;instance->receiver_bend_reset=0;
+    }
     /* Leave an exhausted queue at its end. Every producer resets the cursor
        when adding releases; an idle audio tick need not rescan 128 zeros. */
     return emitted;
@@ -5675,11 +5682,12 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
     else for(int index=0;index<HB_MAX_INSTANCES;index++)if(g_pool[index].used)hb_auto_chord_repeat_sync(&g_pool[index]);
     hb_ap_refresh(instance);
     if(frames>0&&sample_rate>0){double bpm=hb_host_bpm();instance->motion_beat+=(double)frames*bpm/(60.0*sample_rate);instance->approach_rows.pressure_clock+=(double)frames*1000.0/sample_rate;}
+    if(frames>0&&sample_rate>0){hb_nb_tick(&instance->motion_local.blend,(double)frames/sample_rate);hb_nb_tick(&instance->motion_render.blend,(double)frames/sample_rate);}
     hb_motion_tick_routes(instance);
     /* Receiver already owns shared rendered gates. Only drain this route while
        a previous Conductor/Follower role still has pending output. */
     if(instance->role>=2&&!instance->player.sounding_count&&!instance->motion_local.owned&&
-       !instance->motion_local.count&&!hb_rr_active(&instance->motion_local.rhythm))
+       !instance->motion_local.count&&!instance->motion_local.blend.dirty&&!hb_rr_active(&instance->motion_local.rhythm))
         return tick_core(value,frames,sample_rate,output,lengths,capacity);
     uint8_t pending[128][3];int sizes[128];
     int room=(HB_MOTION_QUEUE-instance->motion_local.count)/2;if(room>128)room=128;
@@ -6631,6 +6639,10 @@ static void hb_restore_state(Inst *instance,const char *state){
     const char *extension_suffix=strstr(state,";ce1,");int extension_treatment=0;
     if(extension_suffix&&sscanf(extension_suffix,";ce1,%d",&extension_treatment)==1&&
        extension_treatment>=0&&extension_treatment<=1)config.extension_treatment=extension_treatment;
+    const char *blend_suffix=strstr(state,";nb1,");int blend_mode=0;
+    if(blend_suffix&&sscanf(blend_suffix,";nb1,%d",&blend_mode)!=1)blend_mode=0;
+    if(blend_mode<0||blend_mode>5)blend_mode=0;
+    hb_nb_mode(&instance->motion_local.blend,blend_mode);hb_nb_mode(&instance->motion_render.blend,blend_mode);
     const char *register_suffix=strstr(state,";cr1,");int register_value=99;
     if(register_suffix)sscanf(register_suffix,";cr1,%d",&register_value);
     instance->chord_register=register_value==99||(register_value>=1000&&register_value<=1127)?register_value:hb_cp_clamp(register_value,-3,3);
@@ -6987,8 +6999,10 @@ static hb_harmony_t hb_opening_harmony(void){
 /* Stock LFOs read their destinations on 512 KiB render-worker stacks.
    Keep these scalar reads outside the general reader's large snapshot frame. */
 static __attribute__((noinline)) int get_param_full(void *value,const char *key,char *buffer,int length);
+static const char *HB_NOTE_BLEND_NAMES[]={"Off","Steps","Bend 2","Bend 12","Bend 24","Bend 48"};
 static int get_param(void *value,const char *key,char *buffer,int length){
     Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+    if(!strcmp(key,"note_blend"))return snprintf(buffer,length,"%s",HB_NOTE_BLEND_NAMES[instance->motion_local.blend.mode]);
     if(!strcmp(key,"sequence_input_1")||!strcmp(key,"sequence_input_2"))return snprintf(buffer,length,"%.9f",instance->sequence_input[key[15]-'1']);
 /* Read the effective values without the chain's plain-key/base interception.
    This observation never advances an oscillator, field, or sequence. */
@@ -7369,6 +7383,8 @@ if(!strcmp(key,"state")){
     used+=snprintf(buffer+used,(size_t)(length-used),";pd1,%d,%d,%d,%d,%d",g_pad_settings[0],g_pad_settings[1],g_pad_settings[2],g_pad_settings[3],g_pad_settings[4]);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";ce1,%d;cqd1,%d,%d;cr1,%d",instance->player.config.extension_treatment,instance->chord_queue_depth,instance->chord_queue_loop,instance->chord_register);
+    if(used<0||used>=length)return used;
+    used+=snprintf(buffer+used,(size_t)(length-used),";nb1,%d",instance->motion_local.blend.mode);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";dc1,%d",instance->dominant_color_family);
     if(used<0||used>=length)return used;
@@ -7980,6 +7996,12 @@ static void hb_reset_track_defaults(Inst *instance,int track){
 }
 static void set_param(void *value,const char *key,const char *parameter){
     Inst *instance=(Inst*)value;if(!instance||!key||!parameter)return;
+    if(!strcmp(key,"note_blend")){
+        int mode=-1;for(int index=0;index<6;index++)if(!strcmp(parameter,HB_NOTE_BLEND_NAMES[index]))mode=index;
+        if(strlen(parameter)==1&&parameter[0]>='0'&&parameter[0]<='5')mode=parameter[0]-'0';
+        if(mode>=0){hb_nb_mode(&instance->motion_local.blend,mode);hb_nb_mode(&instance->motion_render.blend,mode);hb_motion_flush_render(instance);}
+        return;
+    }
     if(hb_stock_field_set(instance,key,parameter))return;
     if(!strcmp(key,"sequence_input_1")||!strcmp(key,"sequence_input_2")){
         char *end=0;double position=strtod(parameter,&end);
