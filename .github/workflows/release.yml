@@ -40,6 +40,7 @@ jobs:
         if: steps.plan.outputs.mode == 'full'
         run: |
           VERSION=$(python3 -c 'import json; print(json.load(open("modules/harmonybus/module.json"))["version"])')
+          test "$VERSION" = "$SOURCE_VERSION" # Candidate and source must name the same package.
           # Fail fast on a forgotten guide version before compiling the native suite.
           grep -Fq "HarmonyBus $VERSION" docs/timing-guide.md
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"

@@ -1,3 +1,7 @@
+## HarmonyBus 0.2.326
+
+Cloud Hold uses shared momentary, one-shot and latch controls with cloud-contact completion and independent manual capture ownership. See [Cloud Hold](cloud-hold-operation.md).
+
 ## HarmonyBus 0.2.325
 
 Field Rate, Field Zoom and Field Output use shared momentary, one-shot and latch controls, pressure mapping, and live-note phrase completion. See [Field operations](field-operations.md).
