@@ -5,6 +5,7 @@ extern double exp(double),fabs(double);
 #else
 #include <math.h>
 #endif
+static const char *HB_NOTE_BLEND_NAMES[]={"Off","Steps","Bend 2","Bend 12","Bend 24","Bend 48"};
 /* A final-output monophonic pressure centroid. Input gates remain independent
    from the one heard voice. Reconcile OFF, bend, then ON, one message per pop;
    mode edits and tiny host buffers cannot discard a release. */

@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.323"
+#define HB_VERSION "0.2.324"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -296,6 +296,7 @@ typedef struct {
     unsigned long long discovery_word;unsigned discovery_epoch,discovery_parent;
     int discovery_track,discovery_note,discovery_parent_root,discovery_transpose;
     int field_managed;
+int note_blend_base;
 int chord_spread_steps,chord_spread_applied,chord_rotation_steps,chord_rotation_applied,chord_voicing_values[16];
 int global_operation_values[16];unsigned global_operation_manual;
 int chord_register,chord_queue_depth,chord_queue_loop; int selection_bank[21][9],selection_bank_valid; double selection_until; unsigned selection_serial; unsigned long long selection_pending; int selection_note; hb_harmony_t opening_selection; int dominant_color_family,dominant_color_held,dominant_color_latched; unsigned long long timeline_lane_revision,timeline_lane_hash;int timeline_lane_cached; int target_scale_policy[4]; double trail_at[128],trail_previous_at[128]; unsigned trail_previous_chord[128]; uint8_t trail_previous_valid[128]; unsigned trail_chord_at[128],trail_chord,trail_signature; uint8_t trail_valid[128]; unsigned trail_input[256],trail_queued[256],trail_serial,trail_event_serial,trail_queue_serial[64]; unsigned short trail_outputs[128]; int trail_enabled,preview_target; int sc_landing_pitch,sc_anchor_valid,sc_anchor_pitch; hb_key_context sc_anchor_context; hb_key_harmony_cache key_cache[4]; unsigned key_cache_cursor; hb_key_context key_onset,key_queue[64],key_pending_context; double key_pending_at; int key_tonic,key_scale,key_input_consumed; int key_action,key_shift,key_return_after,key_pending_action; int key_scope,key_schedule_arm,key_pending,key_owner; int key_reference[HB_CP_KEYS][HB_CP_VOICES]; unsigned long long key_lane_active; int defaults_editor; hb_ar_state approach_rows; char opening_preview[12288]; unsigned long long opening_hash; uint8_t opening_pitches[128]; unsigned opening_quality; int opening_root; int chord_pair_input,chord_pair_render,chord_pair_top; uint8_t chord_pair_held[2][16][128]; int chord_pair_owner[2][16]; int chord_edit_lane; int rhythm_mode,rhythm_pattern,rhythm_window,rhythm_host; uint8_t rhythm_output_prewarped[128]; hb_mt_runtime motif; int motif_load[7],motif_load_last; unsigned policy_overrides;int policy_values[HB_POLICY_FIELDS],policy_last[6],policy_initialized;int render_velocity_gain; unsigned long long recorded_actions[128][HB_MOTION_LANES+1]; uint8_t recorded_action_valid[128]; unsigned long long action_queue[64][HB_MOTION_LANES+1]; uint8_t action_pitch[64]; int action_head,action_count; int next_predict,next_lookahead,next_anti_buffer_ms,boundary_buffer_ms,lookahead_restored; double motion_beat; hb_motion_config motion; hb_motion_route motion_local,motion_render; unsigned motion_harmony_signature; int motion_render_suppress[16]; int receiver_bend_source,receiver_bend_reset; hb_rx_event receiver_queue[256]; int receiver_count; uint8_t receiver_refs[16][128]; uint8_t receiver_sounding[128]; hb_chord_player player; hb_fp_config play; unsigned play_revision, play_applied;
@@ -5421,6 +5422,7 @@ static int process_with_actions(void *value,const uint8_t *input,int length,uint
 }
 /* Chord + Arp one-shots belong to the first physical target after arming.
    Generated notes, clip playback and spatial approaches cannot consume them. */
+#include "../../../src/operation_input.h"
 static void hb_gesture_target_input(Inst *instance,const uint8_t *input,int length){
     if(length<3||instance->role>=2||instance->movy_playback||instance->synthetic_advance)return;
     int type=input[0]&0xf0,source=input[1]&127,channel=input[0]&15;
@@ -5453,9 +5455,10 @@ static void hb_gesture_target_input(Inst *instance,const uint8_t *input,int leng
 }
 static void hb_gesture_finish_use(Inst *instance){
     if(instance->synthetic_advance)return;
+    hb_operation_overlap_finish(instance);
     unsigned long long once=(instance->motion.gesture_once|instance->motion.gesture_down)&~instance->motion.gesture_persistent;
     unsigned long long target_lanes=0;
-    for(int lane=0;lane<HB_MOTION_LANES;lane++)if(instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT)target_lanes|=1ULL<<lane;
+    for(int lane=0;lane<HB_MOTION_LANES;lane++)if((instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT||hb_mo_overlap_input(instance->motion.lanes[lane].operation)))target_lanes|=1ULL<<lane;
     unsigned long long mask=once&target_lanes&instance->motion.gesture_target_released;
     if(instance->player.release_ms!=0)for(int lane=0;lane<HB_MOTION_LANES;lane++)if(mask&(1ULL<<lane)){
         int owner=instance->motion.gesture_target_owner[lane]-1,waiting=0;
@@ -5523,6 +5526,7 @@ static int process_key_base(void *value,const uint8_t *input,int length,uint8_t 
    Standalone hosts without the barrier retain the full original traversal. */
 static void hb_key_operations_sync_instance(Inst *instance){
     if(!instance->used)return;
+    hb_note_blend_sync(instance);
     if(instance->role>=2){
         instance->chord_spread_steps=instance->chord_rotation_steps=0;memset(instance->chord_voicing_values,0,sizeof(instance->chord_voicing_values));
         int changed=0;for(int lane=0;lane<16;lane++)changed|=instance->global_operation_values[lane];
@@ -5609,6 +5613,7 @@ static int process(void *value,const uint8_t *input,int length,uint8_t output[][
             instance->physical_velocity[channel][note]=input[2];instance->physical_target=(unsigned short)(channel*128+note+1);
         }
     }
+    hb_operation_overlap_input(instance,input,length);
     hb_key_operations_sync();
     int on=input&&length>=3&&(input[0]&0xf0)==0x90&&input[2];
     if(on){int owner=(input[1]&127)+(instance->movy_playback?128:0);instance->trail_input[owner]=++instance->trail_serial;}
@@ -6642,6 +6647,7 @@ static void hb_restore_state(Inst *instance,const char *state){
     const char *blend_suffix=strstr(state,";nb1,");int blend_mode=0;
     if(blend_suffix&&sscanf(blend_suffix,";nb1,%d",&blend_mode)!=1)blend_mode=0;
     if(blend_mode<0||blend_mode>5)blend_mode=0;
+    instance->note_blend_base=blend_mode;
     hb_nb_mode(&instance->motion_local.blend,blend_mode);hb_nb_mode(&instance->motion_render.blend,blend_mode);
     const char *register_suffix=strstr(state,";cr1,");int register_value=99;
     if(register_suffix)sscanf(register_suffix,";cr1,%d",&register_value);
@@ -6999,10 +7005,9 @@ static hb_harmony_t hb_opening_harmony(void){
 /* Stock LFOs read their destinations on 512 KiB render-worker stacks.
    Keep these scalar reads outside the general reader's large snapshot frame. */
 static __attribute__((noinline)) int get_param_full(void *value,const char *key,char *buffer,int length);
-static const char *HB_NOTE_BLEND_NAMES[]={"Off","Steps","Bend 2","Bend 12","Bend 24","Bend 48"};
 static int get_param(void *value,const char *key,char *buffer,int length){
     Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
-    if(!strcmp(key,"note_blend"))return snprintf(buffer,length,"%s",HB_NOTE_BLEND_NAMES[instance->motion_local.blend.mode]);
+    if(!strcmp(key,"note_blend"))return snprintf(buffer,length,"%s",HB_NOTE_BLEND_NAMES[instance->note_blend_base]);
     if(!strcmp(key,"sequence_input_1")||!strcmp(key,"sequence_input_2"))return snprintf(buffer,length,"%.9f",instance->sequence_input[key[15]-'1']);
 /* Read the effective values without the chain's plain-key/base interception.
    This observation never advances an oscillator, field, or sequence. */
@@ -7384,7 +7389,7 @@ if(!strcmp(key,"state")){
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";ce1,%d;cqd1,%d,%d;cr1,%d",instance->player.config.extension_treatment,instance->chord_queue_depth,instance->chord_queue_loop,instance->chord_register);
     if(used<0||used>=length)return used;
-    used+=snprintf(buffer+used,(size_t)(length-used),";nb1,%d",instance->motion_local.blend.mode);
+    used+=snprintf(buffer+used,(size_t)(length-used),";nb1,%d",instance->note_blend_base);
     if(used<0||used>=length)return used;
     used+=snprintf(buffer+used,(size_t)(length-used),";dc1,%d",instance->dominant_color_family);
     if(used<0||used>=length)return used;
@@ -7999,7 +8004,7 @@ static void set_param(void *value,const char *key,const char *parameter){
     if(!strcmp(key,"note_blend")){
         int mode=-1;for(int index=0;index<6;index++)if(!strcmp(parameter,HB_NOTE_BLEND_NAMES[index]))mode=index;
         if(strlen(parameter)==1&&parameter[0]>='0'&&parameter[0]<='5')mode=parameter[0]-'0';
-        if(mode>=0){hb_nb_mode(&instance->motion_local.blend,mode);hb_nb_mode(&instance->motion_render.blend,mode);hb_motion_flush_render(instance);}
+        if(mode>=0){instance->note_blend_base=mode;hb_note_blend_sync(instance);hb_motion_flush_render(instance);}
         return;
     }
     if(hb_stock_field_set(instance,key,parameter))return;

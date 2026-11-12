@@ -96,7 +96,9 @@ static void receiver_bend(void){
     hb_receiver_remove_source(source);production_drain(receiver);assert(!sounding[0][60]&&bends[0]==8192);
     API.destroy_instance(source);API.destroy_instance(receiver);
 }
+#ifndef HB_NOTE_BLEND_TEST_HELPERS
 int main(void){
     centroid_and_lifecycle();modes_and_steps();production_and_state();receiver_bend();
     puts("note blend: weighted pitch, zero pressure, steps, smoothing, rebase, mode edits, transpose, one-message buffers, restore, stop and receiver cleanup passed");return 0;
 }
+#endif

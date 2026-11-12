@@ -616,17 +616,20 @@
     {
       "id": 62,
       "symbol": "HB_MO_RELATIVE_KEY",
-      "name": "Relative Key Center"
+      "name": "Relative Key Center",
+      "activation": "immediate"
     },
     {
       "id": 63,
       "symbol": "HB_MO_KEY_BACK",
-      "name": "Key Step Back"
+      "name": "Key Step Back",
+      "activation": "immediate"
     },
     {
       "id": 64,
       "symbol": "HB_MO_KEY_RETURN",
-      "name": "Key Return to Start"
+      "name": "Key Return to Start",
+      "activation": "immediate"
     },
     {
       "id": 65,
@@ -672,6 +675,12 @@
       "id": 73,
       "symbol": "HB_MO_VOICING_ROTATE",
       "name": "Voicing Rotate"
+    },
+    {
+      "id": 74,
+      "symbol": "HB_MO_NOTE_BLEND",
+      "name": "Note Blend",
+      "input": "overlapping_notes"
     }
   ],
   "selectors": [

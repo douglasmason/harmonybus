@@ -14,6 +14,8 @@
 #define HB_MOTION_QUEUE 2048
 #define HB_MOTION_BURSTS 128
 #include "relative_operations.h"
+static int hb_mo_overlap_input(int operation){return operation>=0&&operation<HB_MO_OPERATION_COUNT&&HB_MO_OVERLAP_INPUT[operation];}
+static int hb_mo_immediate_action(int operation){return operation>=0&&operation<HB_MO_OPERATION_COUNT&&HB_MO_IMMEDIATE_ACTION[operation];}
 static int hb_mo_clip_operation(int operation){return (operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED)||operation==HB_MO_WEAVE;}
 #include "cadences.h"
 static int hb_mo_mixed(int operation){return operation>=HB_MO_MIXED_FIRST&&operation<=HB_MO_MIXED_LAST;}
@@ -37,7 +39,7 @@ typedef struct { hb_motion_lane lanes[HB_MOTION_LANES]; int selected,bypass,host
     unsigned long long gesture_down,gesture_used,gesture_was_latched,gesture_latched;
     /* Timestamped host gestures share one detector across knobs and steps. */
     unsigned long long gesture_persistent,gesture_once,gesture_once_used,gesture_was_persistent,gesture_double,gesture_suppressed;
-    unsigned long long gesture_target_released; unsigned short gesture_target_owner[HB_MOTION_LANES];
+    unsigned long long gesture_input_started,gesture_target_released; unsigned short gesture_target_owner[HB_MOTION_LANES];
     int gesture_last_lane,gesture_last_valid,gesture_last_off;double gesture_last_up;
     unsigned gesture_serial[HB_MOTION_GESTURES]; int gesture_operation[HB_MOTION_GESTURES],gesture_mode[HB_MOTION_GESTURES],gesture_threshold[HB_MOTION_GESTURES];
     unsigned tap_mask,tap_serial[19]; int tap_owner[19],tap_policy[19],enclosure_auto_off; int tap_first,tap_started,enclosure_step,cadence_program;
@@ -218,6 +220,7 @@ static unsigned long long hb_mo_pending_lanes(const hb_motion_config *config){
     return mask;
 }
 static void hb_mo_end_lanes(hb_motion_config *config,unsigned long long mask){
+    config->gesture_input_started&=~mask;
     config->gesture_target_released&=~mask;
     for(int lane=0;lane<HB_MOTION_LANES;lane++)if(mask&(1ULL<<lane))config->gesture_target_owner[lane]=0;
     config->held&=~mask;config->gesture_latched&=~mask;
@@ -240,6 +243,7 @@ static void hb_mo_gesture_reset(hb_motion_config *config){
     config->held&=~(config->gesture_down|config->gesture_latched);
     config->gesture_down=config->gesture_used=config->gesture_was_latched=config->gesture_latched=0;
     config->gesture_persistent=config->gesture_once=config->gesture_once_used=0;
+    config->gesture_input_started=0;
     config->gesture_target_released=0;memset(config->gesture_target_owner,0,sizeof(config->gesture_target_owner));
     config->gesture_was_persistent=config->gesture_double=config->gesture_suppressed=0;config->gesture_last_valid=0;
     config->tap_mask=0;config->tap_started=0;config->enclosure_step=0;config->events[HB_MOTION_LANES]=0;
@@ -249,7 +253,7 @@ static void hb_mo_gesture(hb_motion_config *config,int id,int down,int elapsed){
     if(down){
         if(config->gesture_down&bit)return;
         int operation=id<HB_MOTION_LANES?config->lanes[id].operation:id==HB_MOTION_LANES?HB_MO_ABOVE:HB_MO_BELOW;
-        int mode=operation>=HB_MO_RELATIVE_KEY&&operation!=HB_MO_GLOBAL_TRANSPOSE&&!hb_mo_voicing_operation(operation)?0:id<HB_MOTION_LANES?config->lanes[id].touch_mode:2;
+        int mode=hb_mo_immediate_action(operation)?0:id<HB_MOTION_LANES?config->lanes[id].touch_mode:2;
         config->gesture_down|=bit;config->gesture_used&=~bit;
         config->gesture_operation[id]=operation;config->gesture_mode[id]=mode;config->gesture_threshold[id]=g_hb_hold_ms;
         config->gesture_serial[id]=++config->serial;
@@ -503,6 +507,7 @@ static const char *hb_mo_lane_status(const hb_motion_config *config,int lane){
     unsigned long long bit=1ULL<<lane;int operation=config->lanes[lane].operation;
     if(config->gesture_down&bit)return "Held";
     if(config->gesture_persistent&bit)return "Persistent";
+    if(config->gesture_input_started&bit)return "Playing";
     if(config->gesture_once&bit)return "Armed";
     if(config->gesture_latched&bit)return "Latched";
     if((config->held|config->sequence_held)&bit)return "Held";
@@ -635,7 +640,7 @@ static void hb_mo_capture(hb_motion_config *config,double beat,double condition,
         int active=hb_mo_value_at(config,lane,beat,condition,voice,&value);
         if(((config->held|config->sequence_held)&(1ULL<<lane))&&(settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE||settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V))active=0;
         /* Explicitly evolving automatic lanes remain live on replay. */
-        if(hb_mo_voicing_operation(settings.operation)||settings.operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_note_repeat_operation(settings.operation)||settings.operation==HB_MO_WEAVE||settings.operation==HB_MO_LIVE_HARMONY_OVERRIDE||settings.operation==HB_MO_HARMONY_OVERRIDE||(settings.operation>=HB_MO_RECORD_KEY&&settings.operation<=HB_MO_KEY_RETURN)||settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!((config->held|config->sequence_held)&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
+        if(hb_mo_overlap_input(settings.operation)||hb_mo_voicing_operation(settings.operation)||settings.operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_note_repeat_operation(settings.operation)||settings.operation==HB_MO_WEAVE||settings.operation==HB_MO_LIVE_HARMONY_OVERRIDE||settings.operation==HB_MO_HARMONY_OVERRIDE||(settings.operation>=HB_MO_RECORD_KEY&&settings.operation<=HB_MO_KEY_RETURN)||settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!((config->held|config->sequence_held)&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
         /* Smart lane identities are live-only. The contextual capture layer
            writes the selected existing operation before publishing a note. */
         const hb_ro_definition *definition=hb_ro_motion(settings.operation);

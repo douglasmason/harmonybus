@@ -1,3 +1,5 @@
+HarmonyBus 0.2.324 makes Note Blend an assignable operation with shared one-shot, latch and momentary gestures plus overlapping-note phrase input. See [note-blend-operation.md](note-blend-operation.md).
+
 HarmonyBus 0.2.323 adds optional pressure-weighted Note Blend: Steps or continuous channel pitch bend, shared Move/Remote UI controls and Render To receiver support. See [note-blend.md](note-blend.md).
 
 HarmonyBus 0.2.322 routes pad pressure to mapped sounding voices, including transposition, Together chords and internal Receiver tracks. See [Mapped note pressure](note-pressure.md).
