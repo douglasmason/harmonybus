@@ -38,6 +38,8 @@ static int hb_ot_message(hb_output_transpose *state,unsigned char message[3]){
     }
     if(type!=0x80&&type!=0x90&&type!=0xA0)return 1;
     int pitch=source+state->current;
+    /* Late pressure cannot address a released, skipped or out-of-range voice. */
+    if(type==0xA0&&!state->logical[channel][source])return 0;
     if(type!=0xA0)state->logical[channel][source]=type==0x90?message[2]:0;
     if(pitch<0||pitch>127)return 0;
     message[1]=(unsigned char)pitch;
