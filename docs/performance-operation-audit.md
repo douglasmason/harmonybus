@@ -17,10 +17,12 @@ ID-range condition that accidentally restricted newer operations' gestures.
    `field_release`, output-finish and latch handling. Expose rate/zoom/output
    overrides through operation activation, retaining input leases for device
    disconnect safety. A timed input lease and an intentional musical latch are
-   different responsibilities.
+   different responsibilities. Filter sweeps and similar parameter gestures
+   should reuse existing modulation destinations and base-value handling.
 2. **Cloud performance.** Movy's cloud surface and generator have separate
-   emit/contact and capture/hold commands. Operations could invoke those actions
-   from any surface. Preserve the distinction between capturing a cloud's contents
+   emit/contact and capture/hold commands, plus precise movement of held clouds.
+   Operations could invoke those actions from any surface. Preserve the
+   distinction between capturing a cloud's contents
    and latching an operation's activation. Keep 14-bit X/Y and contact ownership
    in the existing input/engine paths.
 3. **Playhead manipulation.** Clip Speed, Reverse and Time Shift already exist.
@@ -32,8 +34,10 @@ ID-range condition that accidentally restricted newer operations' gestures.
    restore the current base on completion. Filling or baking a pattern into a
    clip is an edit command with undo, not a reversible held override.
 5. **Chord state coverage.** Chord Form, Chord/Arp State, Chord Spread and Voicing
-   Rotate already are operations. Extend the existing state operation for missing
-   range/strum settings instead of adding another collection of special toggles.
+   Rotate already are operations. Strum spread, arp rate/gate/order and note-hold
+   policy already belong to Chord/Arp State (`src/chord_state_params.h`). Reuse
+   that coverage and extend only gaps such as register/range controls instead of
+   adding another collection of special toggles.
 
 ## Common contract
 
@@ -48,6 +52,8 @@ Pressure curves, direction/range mapping and contact geometry belong to shared
 input mapping. LFOs and Perlin noise are signal sources. Routing, bend sensitivity,
 scale choices and interpolation defaults remain configuration. Destructive edits
 retain explicit command/undo semantics. Not every setting needs a new operation.
+An arp's retained note pool and a cloud's captured points remain engine state;
+sharing activation does not make those retention policies interchangeable.
 
 The safe migration is one adapter at a time around the existing engines, backed
 by cross-surface tests. Replacing those engines with a general-purpose framework
