@@ -530,7 +530,9 @@ static void hb_mo_input(hb_motion_config *config,int pitch,double beat,double gr
     int chord=!config->input_valid||elapsed<0||elapsed>grouping||config->input_notes[pitch];
     if(chord){config->input_valid=1;config->input_beat=beat;memset(config->input_notes,0,sizeof(config->input_notes));}
     config->input_notes[pitch]=1;
-    for(int lane=0;lane<HB_MOTION_LANES;lane++)if(!hb_mo_cloud_input(config->lanes[lane].operation))config->gesture_used|=config->gesture_down&(1ULL<<lane);
+    unsigned long long note_gestures=config->gesture_down;
+    for(int lane=0;lane<HB_MOTION_LANES;lane++)if(hb_mo_cloud_input(config->lanes[lane].operation))note_gestures&=~(1ULL<<lane);
+    config->gesture_used|=note_gestures;
     int held=hb_mo_held_modifier(config)||hb_mo_held_secondary(config); /* mark touches used before buffering */
     if(chord){
         int modifier=0,secondary=0;unsigned long long flags=0;

@@ -3,6 +3,9 @@
 static unsigned cloud_hold(Inst *instance){char value[16];assert(API.get_param(instance,"motion_cloud_hold",value,sizeof(value))>0);return (unsigned)strtoul(value,0,10);}
 static void cloud_gesture(Inst *instance,const char *gesture){API.set_param(instance,"motion_gesture_1",gesture);}
 int main(void){
+    hb_motion_config config;hb_mo_defaults(&config);config.lanes[0].operation=HB_MO_CLOUD_HOLD;
+    config.gesture_down=1ULL|(1ULL<<HB_MOTION_LANES);hb_mo_input(&config,60,0,.05);
+    assert(!(config.gesture_used&1)&&config.gesture_used&(1ULL<<HB_MOTION_LANES));
     Inst *instance=setup();API.set_param(instance,"motion_host","movy-clip-v4");
     API.set_param(instance,"motion_operation_1","Cloud Hold");
     cloud_gesture(instance,"Knob,1000");assert(cloud_hold(instance)==1);
