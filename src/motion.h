@@ -14,7 +14,9 @@
 #define HB_MOTION_QUEUE 2048
 #define HB_MOTION_BURSTS 128
 #include "relative_operations.h"
-static int hb_mo_overlap_input(int operation){return operation>=0&&operation<HB_MO_OPERATION_COUNT&&HB_MO_OVERLAP_INPUT[operation];}
+static int hb_mo_note_input(int operation){return operation>=0&&operation<HB_MO_OPERATION_COUNT?HB_MO_NOTE_INPUT[operation]:0;}
+static int hb_mo_overlap_input(int operation){return hb_mo_note_input(operation)==2;}
+static int hb_mo_field_operation(int operation){return operation==HB_MO_FIELD_RATE||operation==HB_MO_FIELD_ZOOM||operation==HB_MO_FIELD_OUTPUT;}
 static int hb_mo_immediate_action(int operation){return operation>=0&&operation<HB_MO_OPERATION_COUNT&&HB_MO_IMMEDIATE_ACTION[operation];}
 static int hb_mo_clip_operation(int operation){return (operation>=HB_MO_REPEAT&&operation<=HB_MO_SPEED)||operation==HB_MO_WEAVE;}
 #include "cadences.h"
@@ -22,7 +24,7 @@ static int hb_mo_mixed(int operation){return operation>=HB_MO_MIXED_FIRST&&opera
 static int hb_mo_note_repeat_operation(int operation){return operation==HB_MO_NOTE_REPEAT||operation==HB_MO_REPEAT_DIVISIONS;}
 static int hb_mo_voicing_operation(int operation){return operation==HB_MO_CHORD_SPREAD||operation==HB_MO_VOICING_ROTATE;}
 static int hb_mo_pressure_supported(int operation){
-    return operation==HB_MO_VELOCITY||operation==HB_MO_GATE||operation==HB_MO_PAN||
+    return hb_mo_field_operation(operation)||operation==HB_MO_VELOCITY||operation==HB_MO_GATE||operation==HB_MO_PAN||
         operation==HB_MO_ROTATE||operation==HB_MO_TRANSPOSE||operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_voicing_operation(operation)||operation==HB_MO_RATCHET||operation==HB_MO_ECHO||hb_mo_note_repeat_operation(operation);
 }
 /* Low three choices resolve on release; high three on press. Scope and
@@ -584,7 +586,7 @@ static int hb_mo_condition(const hb_motion_config *config,int index,double beat)
 }
 static double hb_mo_pressure_amount(const hb_motion_lane *lane,double pressure){
     double low=lane->field_target==2?lane->field_low:
-        lane->operation==HB_MO_GATE?100:lane->operation==HB_MO_RATCHET?1:0;
+        (lane->operation==HB_MO_GATE||lane->operation==HB_MO_FIELD_RATE||lane->operation==HB_MO_FIELD_ZOOM)?100:lane->operation==HB_MO_RATCHET?1:0;
     double high=lane->field_target==2?lane->field_high:lane->amount;
     return low+(high-low)*pressure;
 }
@@ -640,7 +642,7 @@ static void hb_mo_capture(hb_motion_config *config,double beat,double condition,
         int active=hb_mo_value_at(config,lane,beat,condition,voice,&value);
         if(((config->held|config->sequence_held)&(1ULL<<lane))&&(settings.operation==HB_MO_BELOW||settings.operation==HB_MO_ABOVE||settings.operation==HB_MO_CHROM_ABOVE||settings.operation==HB_MO_TRITONE_V))active=0;
         /* Explicitly evolving automatic lanes remain live on replay. */
-        if(hb_mo_overlap_input(settings.operation)||hb_mo_voicing_operation(settings.operation)||settings.operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_note_repeat_operation(settings.operation)||settings.operation==HB_MO_WEAVE||settings.operation==HB_MO_LIVE_HARMONY_OVERRIDE||settings.operation==HB_MO_HARMONY_OVERRIDE||(settings.operation>=HB_MO_RECORD_KEY&&settings.operation<=HB_MO_KEY_RETURN)||settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!((config->held|config->sequence_held)&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
+        if(hb_mo_note_input(settings.operation)||hb_mo_voicing_operation(settings.operation)||settings.operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_note_repeat_operation(settings.operation)||settings.operation==HB_MO_WEAVE||settings.operation==HB_MO_LIVE_HARMONY_OVERRIDE||settings.operation==HB_MO_HARMONY_OVERRIDE||(settings.operation>=HB_MO_RECORD_KEY&&settings.operation<=HB_MO_KEY_RETURN)||settings.operation==HB_MO_KEY_CENTER||settings.operation==HB_MO_PARALLEL_SCALE||settings.operation==HB_MO_AUTO_CHORD_REPEAT||(settings.evolve&&!((config->held|config->sequence_held)&(1ULL<<lane)))){result[lane]=config->events[lane];continue;}
         /* Smart lane identities are live-only. The contextual capture layer
            writes the selected existing operation before publishing a note. */
         const hb_ro_definition *definition=hb_ro_motion(settings.operation);

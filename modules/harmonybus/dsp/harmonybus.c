@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.324"
+#define HB_VERSION "0.2.325"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -5423,6 +5423,7 @@ static int process_with_actions(void *value,const uint8_t *input,int length,uint
 /* Chord + Arp one-shots belong to the first physical target after arming.
    Generated notes, clip playback and spatial approaches cannot consume them. */
 #include "../../../src/operation_input.h"
+#include "../../../src/field_operations.h"
 static void hb_gesture_target_input(Inst *instance,const uint8_t *input,int length){
     if(length<3||instance->role>=2||instance->movy_playback||instance->synthetic_advance)return;
     int type=input[0]&0xf0,source=input[1]&127,channel=input[0]&15;
@@ -5455,10 +5456,10 @@ static void hb_gesture_target_input(Inst *instance,const uint8_t *input,int leng
 }
 static void hb_gesture_finish_use(Inst *instance){
     if(instance->synthetic_advance)return;
-    hb_operation_overlap_finish(instance);
+    hb_operation_note_finish(instance);
     unsigned long long once=(instance->motion.gesture_once|instance->motion.gesture_down)&~instance->motion.gesture_persistent;
     unsigned long long target_lanes=0;
-    for(int lane=0;lane<HB_MOTION_LANES;lane++)if((instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT||hb_mo_overlap_input(instance->motion.lanes[lane].operation)))target_lanes|=1ULL<<lane;
+    for(int lane=0;lane<HB_MOTION_LANES;lane++)if((instance->motion.lanes[lane].operation==HB_MO_AUTO_CHORD_REPEAT||hb_mo_note_input(instance->motion.lanes[lane].operation)))target_lanes|=1ULL<<lane;
     unsigned long long mask=once&target_lanes&instance->motion.gesture_target_released;
     if(instance->player.release_ms!=0)for(int lane=0;lane<HB_MOTION_LANES;lane++)if(mask&(1ULL<<lane)){
         int owner=instance->motion.gesture_target_owner[lane]-1,waiting=0;
@@ -5613,7 +5614,7 @@ static int process(void *value,const uint8_t *input,int length,uint8_t output[][
             instance->physical_velocity[channel][note]=input[2];instance->physical_target=(unsigned short)(channel*128+note+1);
         }
     }
-    hb_operation_overlap_input(instance,input,length);
+    hb_operation_note_input(instance,input,length);
     hb_key_operations_sync();
     int on=input&&length>=3&&(input[0]&0xf0)==0x90&&input[2];
     if(on){int owner=(input[1]&127)+(instance->movy_playback?128:0);instance->trail_input[owner]=++instance->trail_serial;}
@@ -5679,7 +5680,7 @@ static int tick_base(void *value,int frames,int sample_rate,uint8_t output[][3],
     int field_owner=0;while(field_owner<HB_MAX_INSTANCES&&!g_pool[field_owner].used)field_owner++;
     if(!g_field_managed_clock&&field_owner<HB_MAX_INSTANCES&&instance==&g_pool[field_owner]&&frames>0&&sample_rate>0){
         double bpm=hb_host_bpm();
-        hb_nf_advance((double)frames/sample_rate,bpm);
+        hb_field_operations_sync();hb_nf_advance((double)frames/sample_rate,bpm);
     }
     hb_mt_choice_advance(instance,frames>0&&sample_rate>0?(double)frames/sample_rate:0);
     hb_gesture_finish_use(instance);
@@ -6162,11 +6163,11 @@ if(hb_cp_enabled(&instance->player)&&(!strcmp(key,"render_channel")||!strcmp(key
 if(!strcmp(key,"hb_movy_block")){
     unsigned long long block=0;int frames=0,rate=0,bypassed=0;
     int fields=sscanf(parameter,"%llu,%d,%d,%d",&block,&frames,&rate,&bypassed);
-    if(fields==4&&frames>0&&rate>0){instance->field_managed=1;g_field_managed_clock=1;}
+    if(fields==4&&frames>0&&rate>0){instance->field_managed=1;instance->field_mod[0].bypassed=bypassed!=0;g_field_managed_clock=1;}
     if(sscanf(parameter,"%llu,%d,%d",&block,&frames,&rate)==3&&frames>0&&rate>0&&
        (!g_conductor_block_ready||block!=g_conductor_block_id)){
         hb_movy_refresh();
-        if(g_field_managed_clock){double bpm=hb_host_bpm();hb_nf_advance((double)frames/rate,bpm);}
+        if(g_field_managed_clock){double bpm=hb_host_bpm();hb_field_operations_sync();hb_nf_advance((double)frames/rate,bpm);}
         g_conductor_block_id=block;g_conductor_block_ready=1;
         hb_prepare_conductors(frames,rate);
         if(HB_SCOPED_TICK_SYNC){

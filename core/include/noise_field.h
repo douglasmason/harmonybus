@@ -37,6 +37,10 @@ static unsigned g_hb_field_input_order;
 static int g_hb_field_latch_mode;
 static unsigned g_hb_field_latched;
 static double g_hb_field_latch_values[16];
+/* Shared operation contributions: recomputed at each clock boundary. */
+static double g_hb_field_operation_rate=1,g_hb_field_operation_zoom=1;
+static unsigned g_hb_field_operation_outputs;
+static double g_hb_field_operation_values[16];
 /* A clear suppresses stale held frames until their source explicitly releases. */
 static void hb_nf_clear_outputs(int lane){
     for(int index=0;index<16;index++)if(lane==16||index==lane){
@@ -89,7 +93,7 @@ static double hb_nf_output(int index,double raw){
     if(index<0||index>=16)return raw;
     return hb_nf_mix(raw,g_hb_field_outputs[index].value,g_hb_field_outputs[index].weight);
 }
-static void hb_nf_reset(void){hb_noise_field fresh={16,0,0,3,50,100,1,100,1,{0,0,0},1,1,1,1,0,0};g_hb_field=fresh;g_hb_field_restored=0;memset(g_hb_field_outputs,0,sizeof(g_hb_field_outputs));memset(g_hb_field_inputs,0,sizeof(g_hb_field_inputs));g_hb_field_input_order=0;g_hb_field_latch_mode=0;g_hb_field_latched=0;memset(g_hb_field_latch_values,0,sizeof(g_hb_field_latch_values));g_hb_field_view=g_hb_field_orientation=g_hb_field_bank=0;g_hb_field_distribution=0;g_hb_field_spread=g_hb_field_randomness=100;g_hb_field_placement_seed=1;hb_nf_place();}
+static void hb_nf_reset(void){g_hb_field_operation_rate=g_hb_field_operation_zoom=1;g_hb_field_operation_outputs=0;memset(g_hb_field_operation_values,0,sizeof(g_hb_field_operation_values));hb_noise_field fresh={16,0,0,3,50,100,1,100,1,{0,0,0},1,1,1,1,0,0};g_hb_field=fresh;g_hb_field_restored=0;memset(g_hb_field_outputs,0,sizeof(g_hb_field_outputs));memset(g_hb_field_inputs,0,sizeof(g_hb_field_inputs));g_hb_field_input_order=0;g_hb_field_latch_mode=0;g_hb_field_latched=0;memset(g_hb_field_latch_values,0,sizeof(g_hb_field_latch_values));g_hb_field_view=g_hb_field_orientation=g_hb_field_bank=0;g_hb_field_distribution=0;g_hb_field_spread=g_hb_field_randomness=100;g_hb_field_placement_seed=1;hb_nf_place();}
 static double hb_nf_sample(double x,double y,double z){
     const hb_noise_field *field=&g_hb_field;
     double scale=hb_nf_bound(field->scale*.01*field->zoom,.01,100),sum=0,weight=1,total=0;
@@ -122,10 +126,12 @@ static void hb_nf_advance(double seconds,double bpm){
         if(selected){output->target=selected->target;if(output->weight==0)output->value=output->target;}
         int latched=(g_hb_field_latched&(1u<<index))!=0;
         if(!selected&&latched){output->target=g_hb_field_latch_values[index];if(output->weight==0)output->value=output->target;}
-        output->weight=hb_nf_mix(output->weight,selected||latched?1:0,blend);
+        int operation=(g_hb_field_operation_outputs&(1u<<index))!=0;
+        if(!selected&&!latched&&operation){output->target=g_hb_field_operation_values[index];if(output->weight==0)output->value=output->target;}
+        output->weight=hb_nf_mix(output->weight,selected||latched||operation?1:0,blend);
         output->value=hb_nf_mix(output->value,output->target,blend);
     }
-    field->rate=hb_nf_mix(field->rate,field->target_rate,blend);field->zoom=hb_nf_mix(field->zoom,field->target_zoom,blend);
+    field->rate=hb_nf_mix(field->rate,hb_nf_bound(field->target_rate*g_hb_field_operation_rate,-4,4),blend);field->zoom=hb_nf_mix(field->zoom,hb_nf_bound(field->target_zoom*g_hb_field_operation_zoom,.25,4),blend);
     static const double directions[8][2]={{1,0},{.707106781,.707106781},{0,1},{-.707106781,.707106781},{-1,0},{-.707106781,-.707106781},{0,-1},{.707106781,-.707106781}};
     double advance=seconds*bpm/(60*4*field->speed)*field->rate;
     field->position[0]+=advance*directions[field->direction][0];field->position[1]+=advance*directions[field->direction][1];field->position[2]+=advance*field->depth*.01;

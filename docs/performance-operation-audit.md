@@ -13,6 +13,11 @@ ID-range condition that accidentally restricted newer operations' gestures.
 
 ## Candidates, in priority order
 
+The first Field adapter is available in 0.2.325: assignable Rate, Zoom and
+Output operations with shared gestures and live-note phrase completion. Existing
+Field views retain their compatible direct-input protocol. See
+[Field operations](field-operations.md) for scope and priority rules.
+
 1. **Field overrides.** `src/field_params.h` has separate `field_gesture`,
    `field_release`, output-finish and latch handling. Expose rate/zoom/output
    overrides through operation activation, retaining input leases for device
