@@ -11,6 +11,10 @@ declared in the operation catalog; normal one-shot/latch/hold handling is shared
 Immediate-action permissions also come from explicit declarations, replacing an
 ID-range condition that accidentally restricted newer operations' gestures.
 
+Cloud Hold is available in 0.2.326 with shared contact-based completion and
+independent manual capture ownership. See [Cloud Hold](cloud-hold-operation.md).
+Other cloud transformations remain candidates below.
+
 ## Candidates, in priority order
 
 The first Field adapter is available in 0.2.325: assignable Rate, Zoom and

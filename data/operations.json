@@ -699,6 +699,12 @@
       "symbol": "HB_MO_FIELD_OUTPUT",
       "name": "Field Output",
       "input": "held_notes"
+    },
+    {
+      "id": 78,
+      "symbol": "HB_MO_CLOUD_HOLD",
+      "name": "Cloud Hold",
+      "input": "cloud_contacts"
     }
   ],
   "selectors": [
