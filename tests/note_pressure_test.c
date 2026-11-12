@@ -119,8 +119,22 @@ static void delayed_pressure(void){
     assert(!hb_mo_pop(route,output));
     API.destroy_instance(instance);
 }
+static void paired_chord_pressure(void){
+    Inst *instance=setup();instance->travel_map=7;instance->content_map=2;
+    API.set_param(instance,"motion_operation_2","Chord/Arp State");API.set_param(instance,"motion_lane","2");
+    API.set_param(instance,"motion_amount","Current Harmony Burst");API.set_param(instance,"chord_edit_target","Lane 2");
+    API.set_param(instance,"chord_input","Root/Bass + Top");API.set_param(instance,"arp_playback","Together");
+    API.set_param(instance,"motion_hold_2","On");event(instance,0x90,60,100);event(instance,0x90,76,100);
+    assert(instance->chord_pair_input&&instance->player.sounding_count>1);
+    int voices=instance->player.sounding_count;
+    event(instance,0xa0,76,74);assert(message_count==voices);
+    for(int index=0;index<message_count;index++)assert(messages[index][0]==0xa0&&messages[index][2]==74);
+    event(instance,0xa0,60,26);assert(message_count==voices);
+    event(instance,0x80,76,0);event(instance,0xa0,76,74);assert(message_count==0);
+    API.destroy_instance(instance);
+}
 int main(void){
-    mapped_owners();harmony_and_bounds();render_and_receiver(0);render_and_receiver(1);filtered_and_skipped();delayed_pressure();
+    mapped_owners();harmony_and_bounds();render_and_receiver(0);render_and_receiver(1);filtered_and_skipped();delayed_pressure();paired_chord_pressure();
     puts("note pressure: onset/clip owners, mapping, transpose, zero, bounds, chord fan-out, Render To, receiver and cleanup passed");
     return 0;
 }

@@ -29,6 +29,9 @@ static void hb_note_pressure_route(Inst *instance,hb_motion_route *route,int cha
 }
 static void hb_note_pressure(Inst *instance,const uint8_t input[3]){
     int channel=input[0]&15,source=input[1]&127,value=input[2]&127;
+    int origin=instance->movy_playback!=0;
+    if(instance->chord_pair_input&&instance->chord_pair_held[origin][channel][source]&&instance->chord_pair_owner[origin][channel])
+        source=instance->chord_pair_owner[origin][channel]-1;
     hb_note_pressure_route(instance,&instance->motion_local,channel,source,value,0);
     hb_note_pressure_route(instance,&instance->motion_render,channel,source,value,1);
     hb_motion_flush_render(instance);
