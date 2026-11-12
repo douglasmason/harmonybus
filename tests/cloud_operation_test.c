@@ -15,7 +15,8 @@ int main(void){
     production_event(instance,0x80,60,0);assert(cloud_hold(instance)==1&&instance->motion.gesture_input_started==1);
     API.set_param(instance,"motion_cloud_input","Up");assert(!cloud_hold(instance)&&!instance->motion.gesture_once);
     cloud_gesture(instance,"LatchOn");assert(cloud_hold(instance)==1);
-    API.set_param(instance,"role","Off");assert(cloud_hold(instance)==1);API.set_param(instance,"role","Follower");
+    API.set_param(instance,"role","Off");assert(!cloud_hold(instance));cloud_gesture(instance,"LatchOn");assert(cloud_hold(instance)==1);
+    API.set_param(instance,"role","Follower");assert(!cloud_hold(instance));cloud_gesture(instance,"LatchOn");
     API.set_param(instance,"motion_cloud_input","Down");API.set_param(instance,"motion_cloud_input","Up");assert(cloud_hold(instance)==1);
     API.set_param(instance,"motion_cloud_input","Cancel");assert(!cloud_hold(instance));
     cloud_gesture(instance,"Knob,2000");API.set_param(instance,"motion_cloud_input","Down");API.set_param(instance,"motion_cloud_input","Up");assert(cloud_hold(instance)==1);
