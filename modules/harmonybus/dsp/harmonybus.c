@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.321"
+#define HB_VERSION "0.2.322"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -1999,12 +1999,14 @@ static int hb_send_render_raw(Inst *source,const uint8_t input_packet[4],int sup
         scaled_packet[3]=(uint8_t)(velocity<1?1:velocity>127?127:velocity);
     }
     int id=(int)(source-g_pool),channel=packet[1]&15;
-    if(source->role!=3&&id>=0&&id<HB_MAX_INSTANCES){
+    int message_type=packet[1]&0xf0;
+    if(source->role!=3&&id>=0&&id<HB_MAX_INSTANCES&&
+       (message_type==0x80||message_type==0x90||message_type==0xa0||message_type==0xb0)){
         for(int i=0;i<HB_MAX_INSTANCES;i++){
             Inst *r=&g_pool[i];
             if(!r->used||r->role!=3||r->source_channel!=channel)continue;
             if(r->receiver_count>=256){hb_receiver_reset(r);continue;} // fail closed, no hanging voices
-            r->receiver_queue[r->receiver_count++]=(hb_rx_event){(uint8_t)id,packet[2],packet[3],(uint8_t)((packet[1]&0xf0)==0xb0?2:((packet[1]&0xf0)==0x90&&packet[3]>0))};
+            r->receiver_queue[r->receiver_count++]=(hb_rx_event){(uint8_t)id,packet[2],packet[3],(uint8_t)(message_type==0xb0?2:message_type==0xa0?3:(message_type==0x90&&packet[3]>0))};
         }
     }
     if(suppress_external)return 0; // preserve stock-channel self-echo guard
@@ -2061,6 +2063,10 @@ static int hb_receiver_tick(Inst *r,uint8_t output[][3],int lengths[],int capaci
         hb_rx_event e=r->receiver_queue[consumed++];
         if(e.on==2){output[emitted][0]=0xb0;output[emitted][1]=e.pitch;output[emitted][2]=e.velocity;lengths[emitted++]=3;continue;}
         uint8_t *refs=&r->receiver_refs[e.source][e.pitch];
+        if(e.on==3){
+            if(*refs){output[emitted][0]=0xa0;output[emitted][1]=e.pitch;output[emitted][2]=e.velocity;lengths[emitted++]=3;}
+            continue;
+        }
         if(e.on){
             if(*refs==255){hb_receiver_reset(r);return emitted;}
             ++*refs;r->receiver_sounding[e.pitch]=1;
@@ -4694,6 +4700,8 @@ static void hb_capture_input_intent(Inst *instance,int note,unsigned long long *
             ((unsigned long long)(destination_scale<0?31:destination_scale)<<36);
     }
 }
+#include "../../../src/note_pressure.h"
+
 static int process_core(void *value,const uint8_t *input,int length,uint8_t output[][3],int lengths[],int max_output){Inst *instance=(Inst*)value;if(!instance||!input||length<1)return 0;hb_auto_chord_repeat_sync(instance);hb_movy_refresh();hb_next_touch_clear_expired(instance);g_bus.global_process_count++;g_bus.global_last_status=input[0];g_bus.global_last_instance=hb_instance_index(instance);
 if(input[0]==0xFC){
     hb_stop_instance_note_state(instance);
@@ -4732,6 +4740,9 @@ if(status==0xA0&&length>=3&&instance->role<2&&(hb_cp_playback(&instance->player)
         if(key->used&&key->held&&key->source==source&&key->channel==channel&&key->playback_origin==(instance->movy_playback!=0))key->velocity=velocity;
     }
     return 0;
+}
+if(status==0xA0&&length>=3&&instance->role<2&&hb_source_channel_matches(instance,input[0]&15)){
+    hb_note_pressure(instance,input);return 0;
 }
 if(is_on&&!instance->movy_playback&&instance->movy_pad_pending==(input[1]&127)+1&&!hb_approach_pad_enabled(instance)){
     instance->movy_pad_pending=0;return 0;
