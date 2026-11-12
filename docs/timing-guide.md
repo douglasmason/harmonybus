@@ -1,3 +1,5 @@
+HarmonyBus 0.2.321 adds pressure control to existing Rotate with signed Collection Steps, hysteresis, shared Remote UI/Launchpad input and unchanged onset/release ownership. See [Pressure Rotate](pressure-rotate.md).
+
 HarmonyBus 0.2.320 adds pressure-controlled Voicing Rotate for live chord inversions. See [Voicing Rotate](voicing-rotate.md).
 
 HarmonyBus 0.2.319 adds downward Chord Spread with an anchored top voice, alongside upward expansion with an anchored bass. See [Chord Spread](chord-spread.md).

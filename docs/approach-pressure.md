@@ -14,7 +14,9 @@ Reverse inverts active pressure, so Reverse Peak retains the minimum output.
 Pressure zero does not release a held pad. Stop and state reload clear runtime
 pressure without erasing its settings.
 
-Velocity, Gate, Pan, Transpose, Ratchet and Echo support pressure amounts. This
+Velocity, Gate, Pan, Transpose, Rotate, Ratchet and Echo support pressure amounts.
+Rotate uses whole collection steps with hysteresis; see [Pressure Rotate](pressure-rotate.md).
+Global Transpose, Chord Spread and Voicing Rotate also support the shared pressure modes. This
 reuses lane evaluation and existing Field Amount bounds. Discrete operations stay
 discrete, and existing scheduling determines when new amounts take effect; this
 is not continuous audio-parameter modulation. Notes retain their normal route.

@@ -1,5 +1,12 @@
 [
   {
+    "name": "pressure_rotate_test",
+    "commands": [
+      "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/pressure_rotate_test.c src/harmony_core.c -lm -o /tmp/pressure_rotate_test",
+      "/tmp/pressure_rotate_test"
+    ]
+  },
+  {
     "name": "voicing_rotate_test",
     "commands": [
       "\"$HB_TEST_CC\" -std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -fsanitize=undefined -fno-sanitize-recover=all tests/voicing_rotate_test.c src/harmony_core.c -lm -o /tmp/voicing_rotate_test",

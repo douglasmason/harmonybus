@@ -1,11 +1,11 @@
 {
-  "version": "0.2.320",
-  "previous_version": "0.2.319",
+  "version": "0.2.321",
+  "previous_version": "0.2.320",
   "workflow": "release.yml",
-  "title": "HarmonyBus 0.2.320 — pressure-controlled Voicing Rotate",
-  "notes": "docs/voicing-rotate.md",
+  "title": "HarmonyBus 0.2.321 — pressure-controlled collection rotation",
+  "notes": "docs/pressure-rotate.md",
   "assets": [
-    "dist/harmonybus-v0.2.320-module.tar.gz",
+    "dist/harmonybus-v0.2.321-module.tar.gz",
     "dist/HarmonyBus-Timing-Guide.pdf",
     "dist/SHA256SUMS"
   ]
