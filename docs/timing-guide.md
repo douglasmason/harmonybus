@@ -1,3 +1,5 @@
+HarmonyBus 0.2.323 adds optional pressure-weighted Note Blend: Steps or continuous channel pitch bend, shared Move/Remote UI controls and Render To receiver support. See [note-blend.md](note-blend.md).
+
 HarmonyBus 0.2.322 routes pad pressure to mapped sounding voices, including transposition, Together chords and internal Receiver tracks. See [Mapped note pressure](note-pressure.md).
 
 HarmonyBus 0.2.321 adds pressure control to existing Rotate with signed Collection Steps, hysteresis, shared Remote UI/Launchpad input and unchanged onset/release ownership. See [Pressure Rotate](pressure-rotate.md).
