@@ -1,3 +1,7 @@
+## HarmonyBus 0.2.327
+
+Cloud Shift X/Y add reversible, pressure-driven position offsets through shared operation controls. See [Cloud Shift](cloud-shift-operations.md).
+
 ## HarmonyBus 0.2.326
 
 Cloud Hold uses shared momentary, one-shot and latch controls with cloud-contact completion and independent manual capture ownership. See [Cloud Hold](cloud-hold-operation.md).

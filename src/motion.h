@@ -17,6 +17,8 @@
 static int hb_mo_input_kind(int operation){return operation>=0&&operation<HB_MO_OPERATION_COUNT?HB_MO_NOTE_INPUT[operation]:0;}
 static int hb_mo_note_input(int operation){int kind=hb_mo_input_kind(operation);return kind<3?kind:0;}
 static int hb_mo_cloud_input(int operation){return hb_mo_input_kind(operation)==3;}
+static int hb_mo_cloud_shift(int operation){return operation==HB_MO_CLOUD_SHIFT_X||operation==HB_MO_CLOUD_SHIFT_Y;}
+static int hb_mo_cloud_capability(int operation){return hb_mo_cloud_shift(operation)?5:4;}
 static int hb_mo_overlap_input(int operation){return hb_mo_note_input(operation)==2;}
 static int hb_mo_field_operation(int operation){return operation==HB_MO_FIELD_RATE||operation==HB_MO_FIELD_ZOOM||operation==HB_MO_FIELD_OUTPUT;}
 static int hb_mo_immediate_action(int operation){return operation>=0&&operation<HB_MO_OPERATION_COUNT&&HB_MO_IMMEDIATE_ACTION[operation];}
@@ -26,7 +28,7 @@ static int hb_mo_mixed(int operation){return operation>=HB_MO_MIXED_FIRST&&opera
 static int hb_mo_note_repeat_operation(int operation){return operation==HB_MO_NOTE_REPEAT||operation==HB_MO_REPEAT_DIVISIONS;}
 static int hb_mo_voicing_operation(int operation){return operation==HB_MO_CHORD_SPREAD||operation==HB_MO_VOICING_ROTATE;}
 static int hb_mo_pressure_supported(int operation){
-    return hb_mo_field_operation(operation)||operation==HB_MO_VELOCITY||operation==HB_MO_GATE||operation==HB_MO_PAN||
+    return hb_mo_cloud_shift(operation)||hb_mo_field_operation(operation)||operation==HB_MO_VELOCITY||operation==HB_MO_GATE||operation==HB_MO_PAN||
         operation==HB_MO_ROTATE||operation==HB_MO_TRANSPOSE||operation==HB_MO_GLOBAL_TRANSPOSE||hb_mo_voicing_operation(operation)||operation==HB_MO_RATCHET||operation==HB_MO_ECHO||hb_mo_note_repeat_operation(operation);
 }
 /* Low three choices resolve on release; high three on press. Scope and
@@ -134,7 +136,7 @@ static int hb_mo_lane_active(const hb_motion_config *config,int index){
     unsigned long long word=hb_mo_recorded_word(config,index);
     if(word)return hb_mo_word_operation(word)!=0;
     int operation=config->lanes[index].operation;
-    if(hb_mo_cloud_input(operation)&&config->host_capabilities<4)return 0;
+    if(hb_mo_cloud_input(operation)&&config->host_capabilities<hb_mo_cloud_capability(operation))return 0;
     if(operation==HB_MO_DRUM_FILL)return 0; /* Host-owned one-shot; never process pitched input. */
     if(hb_mo_clip_operation(operation)&&
         (!config->host_capabilities||(config->host_capabilities<2&&!((config->held|config->sequence_held)&(1ULL<<index)))))return 0;

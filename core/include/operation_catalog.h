@@ -81,12 +81,14 @@ enum {
     HB_MO_FIELD_ZOOM = 76,
     HB_MO_FIELD_OUTPUT = 77,
     HB_MO_CLOUD_HOLD = 78,
+    HB_MO_CLOUD_SHIFT_X = 79,
+    HB_MO_CLOUD_SHIFT_Y = 80,
     HB_MO_MIXED_LAST = HB_MO_MIXED_13
 };
-#define HB_MO_OPERATION_COUNT 79
-static const char *MO_OPERATIONS[] = {"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V (Dom)","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim","Live Key Center","Parallel Scale","Live Harmony Override","Override Harmony (Live + Recorded)","Secondary Fifth","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)","Recordable Key Center","Relative Key Center","Key Step Back","Key Return to Start","Clip Weave","Drum Fill","Smart Below","Smart Above","Note Repeat","Repeat Divisions","Global Transpose","Chord Spread","Voicing Rotate","Note Blend","Field Rate","Field Zoom","Field Output","Cloud Hold"};
-static const unsigned char HB_MO_NOTE_INPUT[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1,1,1,3};
-static const unsigned char HB_MO_IMMEDIATE_ACTION[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+#define HB_MO_OPERATION_COUNT 81
+static const char *MO_OPERATIONS[] = {"Off","Velocity","Pan","Octave","Rotate","Gate","Skip","Harmony","Connector Below","Scale Above","Enclose Above Below","Enclose Below Above","Clip Repeat","Clip Reverse","Clip Time Shift","Clip Speed","Transpose","Ratchet","MIDI Echo","Chord Form","Auto Chord Repeat","Secondary II","Secondary V (Dom)","Secondary VI","Backdoor II","Backdoor V","Connector Above","Tritone II","II-V-Target","Backdoor II-V-Target","Tritone II-V-Target","Tritone Sub","Secondary III","Secondary IV","Secondary VII","bVI-bVII-I","bVI-V-I","bIII-IV-I","vi-V-I","iii-vi-ii-V-I","IV-iv-I","ii halfdim-V-i","I-VI7-ii-V-I","V/V-V-I","ii/V-V/V-V-I","V/ii-ii-V-I","V/vi-vi-ii-V-I","vii dim/V-V-I","III7-VI7-II7-V7-I","Play Motif","Chord/Arp State","Leading Tone","Upper Dim","Live Key Center","Parallel Scale","Live Harmony Override","Override Harmony (Live + Recorded)","Secondary Fifth","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)","Recordable Key Center","Relative Key Center","Key Step Back","Key Return to Start","Clip Weave","Drum Fill","Smart Below","Smart Above","Note Repeat","Repeat Divisions","Global Transpose","Chord Spread","Voicing Rotate","Note Blend","Field Rate","Field Zoom","Field Output","Cloud Hold","Cloud Shift X","Cloud Shift Y"};
+static const unsigned char HB_MO_NOTE_INPUT[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1,1,1,3,3,3};
+static const unsigned char HB_MO_IMMEDIATE_ACTION[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 #define HB_AR_CHOICE_COUNT 37
 static const char *HB_AR_NAMES[] = {"Connector Below","Connector Above","Scale Above","Secondary II","Secondary V (Dom)","Secondary VI","Backdoor II","Backdoor V","Tritone II","Tritone Sub","Secondary III","Secondary IV","Secondary VII","Motif 1","Motif 2","Motif 3","Motif 4","Motif 5","Motif 6","Motif 7","Motif 8","Motif 9","Motif 10","Motif 11","Motif 12","Motif 13","Motif 14","Motif 15","Motif 16","Leading Tone","Upper Dim","Secondary Fifth","Secondary II (Dom)","Secondary IV (Dom)","Secondary VI (Dom)","Smart Below","Smart Above"};
 typedef struct {
@@ -117,7 +119,7 @@ static const hb_ro_definition HB_RELATIVE_OPERATIONS[HB_AR_CHOICE_COUNT] = {
     [35] = {67,4096,0,0,0,-1,9,0,-1,14,60,"Smart Below","S Below"},
     [36] = {68,4097,0,0,0,-1,9,0,-1,60,14,"Smart Above","S Above"},
 };
-static const unsigned char HB_RO_BY_MOTION[79] = {0,0,0,0,0,0,0,0,1,3,0,0,0,0,0,0,0,0,0,0,0,4,5,6,7,8,2,9,0,0,0,10,11,12,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,30,31,0,0,0,0,32,33,34,35,0,0,0,0,0,0,36,37,0,0,0,0,0,0,0,0,0,0};
+static const unsigned char HB_RO_BY_MOTION[81] = {0,0,0,0,0,0,0,0,1,3,0,0,0,0,0,0,0,0,0,0,0,4,5,6,7,8,2,9,0,0,0,10,11,12,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,30,31,0,0,0,0,32,33,34,35,0,0,0,0,0,0,36,37,0,0,0,0,0,0,0,0,0,0,0,0};
 static const unsigned char HB_RO_BY_ROLE[18] = {0,4,5,0,6,7,8,9,11,12,13,0,30,31,32,33,34,35};
 static const unsigned char HB_RO_BY_TOKEN[64] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,30,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,35,31,32,33,34};
 static const unsigned char HB_RO_BY_TRIGGER[19] = {1,3,4,5,6,7,8,2,9,10,11,12,13,30,31,32,33,34,35};

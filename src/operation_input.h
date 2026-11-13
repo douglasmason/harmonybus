@@ -70,9 +70,24 @@ static unsigned hb_operation_cloud_hold(const hb_motion_config *config){
     unsigned mask=0;
     for(int lane=0;lane<HB_MOTION_USER_LANES;lane++){
         unsigned long long bit=1ULL<<lane;
-        if(!hb_mo_cloud_input(config->lanes[lane].operation)||!hb_mo_lane_active(config,lane))continue;
+        if(config->lanes[lane].operation!=HB_MO_CLOUD_HOLD||!hb_mo_lane_active(config,lane))continue;
         if((config->gesture_once&bit)&&!(config->gesture_down&bit)&&!(config->gesture_input_started&bit))continue;
         mask|=(unsigned)bit;
     }
     return mask;
+}
+
+/* Positions are additive transient offsets, not edits to the captured shape.
+   Summing before bounding makes opposing slots independent of lane order. */
+static int hb_operation_cloud_transform(Inst *instance,char *buffer,int length){
+    hb_motion_config *config=&instance->motion;double shifts[2]={0,0};
+    if(!instance->field_mod[0].bypassed)for(int lane=0;lane<HB_MOTION_USER_LANES;lane++){
+        int operation=config->lanes[lane].operation;if(!hb_mo_cloud_shift(operation))continue;
+        unsigned long long bit=1ULL<<lane;
+        if((config->gesture_once&bit)&&!(config->gesture_down&bit)&&!(config->gesture_input_started&bit))continue;
+        double value;if(hb_mo_value_at(config,lane,hb_motion_position(instance),hb_motion_condition_position(),0,&value))shifts[operation==HB_MO_CLOUD_SHIFT_Y]+=value;
+    }
+    int horizontal=hb_mo_round(hb_nf_bound(shifts[0],-100,100)*163.83);
+    int vertical=hb_mo_round(hb_nf_bound(shifts[1],-100,100)*163.83);
+    return snprintf(buffer,(size_t)length,"co1,%u,%d,%d",instance->field_mod[0].bypassed?0:hb_operation_cloud_hold(config),horizontal,vertical);
 }

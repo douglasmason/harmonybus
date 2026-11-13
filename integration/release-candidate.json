@@ -1,11 +1,11 @@
 {
-  "version": "0.2.326",
-  "previous_version": "0.2.325",
+  "version": "0.2.327",
+  "previous_version": "0.2.326",
   "workflow": "release.yml",
-  "title": "HarmonyBus 0.2.326 \u2014 shared Cloud Hold operation",
-  "notes": "docs/cloud-hold-operation.md",
+  "title": "HarmonyBus 0.2.327 \u2014 shared Cloud Shift X/Y operations",
+  "notes": "docs/cloud-shift-operations.md",
   "assets": [
-    "dist/harmonybus-v0.2.326-module.tar.gz",
+    "dist/harmonybus-v0.2.327-module.tar.gz",
     "dist/HarmonyBus-Timing-Guide.pdf",
     "dist/SHA256SUMS"
   ]

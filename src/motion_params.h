@@ -91,6 +91,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         config->lanes[control].amount=operation==HB_MO_NOTE_BLEND?1+enum_index(value,HB_NOTE_BLEND_NAMES+1,5,hb_mo_clamp(config->lanes[control].amount-1,0,4)):operation==HB_MO_AUTO_CHORD_REPEAT?(!strcmp(value,"Chord Only")?0:!strcmp(value,"Both")?1:!strcmp(value,"Arp Only")?2:enum_index(value,MO_CHORD_ARP,6,config->lanes[control].amount)):operation==HB_MO_HARMONY?(!strcmp(value,"Current")?0:!strcmp(value,"Next")?100:hb_mo_clamp(parse_i(value,config->lanes[control].amount),0,100)):operation==HB_MO_MOTIF?enum_index(value,MO_MOTIFS,44,config->lanes[control].amount):hb_mo_has_scale_mode(operation)?1+enum_index(value,MO_SCALE_MODES,3,hb_mo_clamp(config->lanes[control].amount-1,0,2)):operation==HB_MO_CHORD_FORM?
             enum_index(value,CP_CHORD_FORM,HB_CP_FORMS,config->lanes[control].amount):
             hb_mo_clamp(parse_i(value,config->lanes[control].amount),-400,400);
+        if(hb_mo_cloud_shift(operation))config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,-100,100);
         if(operation==HB_MO_FIELD_ZOOM)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,25,400);
         if(operation==HB_MO_FIELD_OUTPUT)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,0,100);
         if(operation==HB_MO_DRUM_FILL)config->lanes[control].amount=hb_mo_clamp(config->lanes[control].amount,0,127);
@@ -129,7 +130,7 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         int saved=gesture<HB_MOTION_LANES?config->lanes[gesture].touch_mode:2;if(gesture<HB_MOTION_LANES&&!strcmp(value,"Touch"))config->lanes[gesture].touch_mode=2;
         hb_mo_gesture(config,gesture,!strcmp(value,"Down")||!strcmp(value,"Touch"),elapsed);if(gesture<HB_MOTION_LANES)config->lanes[gesture].touch_mode=saved;return 1;
     }
-    if(!strcmp(key,"motion_host")){config->host_capabilities=!strcmp(value,"movy-clip-v4")?4:!strcmp(value,"movy-clip-v3")?3:!strcmp(value,"movy-clip-v2")?2:!strcmp(value,"movy-clip-v1");return 1;}
+    if(!strcmp(key,"motion_host")){config->host_capabilities=!strcmp(value,"movy-clip-v5")?5:!strcmp(value,"movy-clip-v4")?4:!strcmp(value,"movy-clip-v3")?3:!strcmp(value,"movy-clip-v2")?2:!strcmp(value,"movy-clip-v1");return 1;}
     if(!strcmp(key,"performance_reset")){
         config->held=0;config->pitch_held=0;config->enclosure=0;hb_mo_input_reset(config);hb_mo_gesture_reset(config);
         for(int lane=0;lane<HB_MOTION_LANES;lane++)config->revision[lane]++;return 1;
@@ -217,12 +218,13 @@ static int hb_mo_set(hb_motion_config *config,const char *key,const char *value)
         if(index==0&&config->selected>=HB_MOTION_USER_LANES)return 1;
         if(index==0&&parsed!=*field){
             static const int amounts[]={0,25,50,1,1,50,100,100,1,1,1,1,1,1,1,2,1,4,3,3,1,1,1,1,1,1,1,1,1,1,1};
-            config->lanes[config->selected].amount=hb_mo_field_operation(parsed)?(parsed==HB_MO_FIELD_OUTPUT?100:200):parsed==HB_MO_VOICING_ROTATE?3:parsed==HB_MO_CHORD_SPREAD?4:parsed==HB_MO_GLOBAL_TRANSPOSE?12:hb_mo_note_repeat_operation(parsed)?16:parsed==HB_MO_DRUM_FILL?38:parsed==HB_MO_MOTIF?0:parsed>30?1:amounts[parsed];
+            config->lanes[config->selected].amount=hb_mo_cloud_shift(parsed)?25:hb_mo_field_operation(parsed)?(parsed==HB_MO_FIELD_OUTPUT?100:200):parsed==HB_MO_VOICING_ROTATE?3:parsed==HB_MO_CHORD_SPREAD?4:parsed==HB_MO_GLOBAL_TRANSPOSE?12:hb_mo_note_repeat_operation(parsed)?16:parsed==HB_MO_DRUM_FILL?38:parsed==HB_MO_MOTIF?0:parsed>30?1:amounts[parsed];
             config->lanes[config->selected].offset=parsed==HB_MO_ECHO?25:0;
             if(parsed>=HB_MO_AUTO_CHORD_REPEAT||(parsed>=HB_MO_ENCLOSE_AB&&parsed<=HB_MO_SPEED))config->lanes[config->selected].enabled=0;
         }
         if(index==4&&(hb_mo_cloud_input(config->lanes[config->selected].operation)||config->lanes[config->selected].operation==HB_MO_DRUM_FILL||(config->lanes[config->selected].operation>=HB_MO_RECORD_KEY&&config->lanes[config->selected].operation<=HB_MO_KEY_RETURN)||hb_mo_enclosure_mask(config->lanes[config->selected].operation)||
             (hb_mo_clip_operation(config->lanes[config->selected].operation)&&config->host_capabilities<2)))parsed=0;
+        if(index==2&&hb_mo_cloud_shift(config->lanes[config->selected].operation))parsed=hb_mo_clamp(parsed,-100,100);
         if(index==2&&config->lanes[config->selected].operation==HB_MO_FIELD_ZOOM)parsed=hb_mo_clamp(parsed,25,400);
         if(index==2&&config->lanes[config->selected].operation==HB_MO_FIELD_OUTPUT)parsed=hb_mo_clamp(parsed,0,100);
         if(index==2&&hb_mo_voicing_operation(config->lanes[config->selected].operation))parsed=hb_mo_clamp(parsed,-12,12);
@@ -244,7 +246,7 @@ static int hb_mo_field_metadata(char *buffer,int length,const char *key,int oper
     char name[48];
     if(operation==HB_MO_FIELD_OUTPUT)snprintf(name,sizeof(name),"Field Output %d %%",lane+1);
     else snprintf(name,sizeof(name),"%s %%",hb_mo_operation_name(operation));
-    return snprintf(buffer,(size_t)length,",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":%d,\"step\":1,\"default\":%d}",key,name,operation==HB_MO_FIELD_OUTPUT?0:operation==HB_MO_FIELD_ZOOM?25:-400,operation==HB_MO_FIELD_OUTPUT?100:400,operation==HB_MO_FIELD_OUTPUT?100:200);
+    return snprintf(buffer,(size_t)length,",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":%d,\"step\":1,\"default\":%d}",key,name,operation==HB_MO_FIELD_OUTPUT?0:operation==HB_MO_FIELD_ZOOM?25:hb_mo_cloud_shift(operation)?-100:-400,(operation==HB_MO_FIELD_OUTPUT||hb_mo_cloud_shift(operation))?100:400,hb_mo_cloud_shift(operation)?25:operation==HB_MO_FIELD_OUTPUT?100:200);
 }
 static int hb_mo_note_blend_metadata(char *buffer,int length,const char *key){
     int used=snprintf(buffer,(size_t)length,",{\"key\":\"%s\",\"name\":\"Note Blend\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",key);
@@ -302,7 +304,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         int used=snprintf(buffer,(size_t)length,"%s{\"key\":\"motion_operation\",\"name\":\"Operation\",\"type\":\"enum\",\"options_as_string\":true,\"options\":[",HB_CHAIN_PARAMS_PREFIX);
         int count=0,selected=config->lanes[config->selected].operation;
         for(int operation=0;operation<HB_MO_OPERATION_COUNT;operation++){
-            if(hb_mo_cloud_input(operation)&&config->host_capabilities<4&&operation!=selected)continue;
+            if(hb_mo_cloud_input(operation)&&config->host_capabilities<hb_mo_cloud_capability(operation)&&operation!=selected)continue;
             if(operation==HB_MO_DRUM_FILL&&config->host_capabilities<3&&operation!=selected)continue;
             if(operation==HB_MO_ABOVE)continue; /* Legacy serialized ID, consolidated picker. */
             if(hb_mo_mixed(operation)||operation==HB_MO_CADENCE_II_V||operation==HB_MO_CADENCE_BACKDOOR||operation==HB_MO_CADENCE_TRITONE)continue;
@@ -323,7 +325,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         used+=snprintf(buffer+used,(size_t)(length-used),",{\"key\":\"motion_offset\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":%d,\"step\":1,\"default\":0}]",selected==HB_MO_RELATIVE_KEY?"Return After (0 = off)":selected==HB_MO_ECHO?"Decay %":"Offset",selected==HB_MO_RELATIVE_KEY||selected==HB_MO_ECHO?0:-100,selected==HB_MO_RELATIVE_KEY?64:100);
         if(used<0||used>=length)return -1;
         used--;
-        if(hb_mo_field_operation(selected)){
+        if(hb_mo_field_operation(selected)||hb_mo_cloud_shift(selected)){
             used+=hb_mo_field_metadata(buffer+used,length-used,"motion_amount",selected,config->selected);
         }else if(selected==HB_MO_NOTE_BLEND){
             used+=hb_mo_note_blend_metadata(buffer+used,length-used,"motion_amount");
@@ -387,7 +389,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
         for(int lane=0;lane<HB_MOTION_LANES;lane++){
             if(used<0||used>=length)return -1;
             const hb_motion_lane *settings=&config->lanes[lane];
-            if(hb_mo_field_operation(settings->operation)){
+            if(hb_mo_field_operation(settings->operation)||hb_mo_cloud_shift(settings->operation)){
                 char key[32];snprintf(key,sizeof(key),"motion_control_%d",lane+1);
                 used+=hb_mo_field_metadata(buffer+used,length-used,key,settings->operation,lane);continue;
             }
@@ -499,7 +501,7 @@ static int hb_mo_get(hb_motion_config *config,const char *key,char *buffer,int l
     control=hb_mo_slot_key(key,"motion_status_");
     if(control>=0)return snprintf(buffer,(size_t)length,"%s",hb_mo_lane_status(config,control));
     if(!strcmp(key,"motion_bypass"))return snprintf(buffer,(size_t)length,"%s",MO_SWITCH[config->bypass]);
-    if(!strcmp(key,"motion_punch")&&hb_mo_cloud_input(config->lanes[config->selected].operation)&&config->host_capabilities<4)return snprintf(buffer,(size_t)length,"Update Movy");
+    if(!strcmp(key,"motion_punch")&&hb_mo_cloud_input(config->lanes[config->selected].operation)&&config->host_capabilities<hb_mo_cloud_capability(config->lanes[config->selected].operation))return snprintf(buffer,(size_t)length,"Update Movy");
     if(!strcmp(key,"motion_punch")&&hb_mo_clip_operation(config->lanes[config->selected].operation)&&!config->host_capabilities)return snprintf(buffer,(size_t)length,"Requires Movy");
     if(!strcmp(key,"motion_punch"))return snprintf(buffer,(size_t)length,"%s",hb_mo_lane_status(config,config->selected));
     int slot=hb_mo_slot_key(key,"motion_hold_");

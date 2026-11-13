@@ -1,5 +1,5 @@
 /* Harmony Bus v0.2.136 — Schwung MIDI FX. */
-#define HB_VERSION "0.2.326"
+#define HB_VERSION "0.2.327"
 #define HB_PARENT_KEY_WITHOUT_CONDUCTOR 1
 #ifdef HB_FREESTANDING
 typedef __SIZE_TYPE__ size_t;
@@ -7009,6 +7009,7 @@ static hb_harmony_t hb_opening_harmony(void){
 static __attribute__((noinline)) int get_param_full(void *value,const char *key,char *buffer,int length);
 static int get_param(void *value,const char *key,char *buffer,int length){
     Inst *instance=(Inst*)value;if(!instance||!key||!buffer||length<2)return -1;
+    if(!strcmp(key,"motion_cloud_transform"))return hb_operation_cloud_transform(instance,buffer,length);
     if(!strcmp(key,"motion_cloud_hold"))return snprintf(buffer,length,"%u",!instance->field_mod[0].bypassed?hb_operation_cloud_hold(&instance->motion):0);
     if(!strcmp(key,"note_blend"))return snprintf(buffer,length,"%s",HB_NOTE_BLEND_NAMES[instance->note_blend_base]);
     if(!strcmp(key,"sequence_input_1")||!strcmp(key,"sequence_input_2"))return snprintf(buffer,length,"%.9f",instance->sequence_input[key[15]-'1']);

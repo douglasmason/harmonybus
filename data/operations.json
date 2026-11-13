@@ -705,6 +705,18 @@
       "symbol": "HB_MO_CLOUD_HOLD",
       "name": "Cloud Hold",
       "input": "cloud_contacts"
+    },
+    {
+      "id": 79,
+      "symbol": "HB_MO_CLOUD_SHIFT_X",
+      "name": "Cloud Shift X",
+      "input": "cloud_contacts"
+    },
+    {
+      "id": 80,
+      "symbol": "HB_MO_CLOUD_SHIFT_Y",
+      "name": "Cloud Shift Y",
+      "input": "cloud_contacts"
     }
   ],
   "selectors": [
