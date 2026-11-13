@@ -13,7 +13,7 @@ ID-range condition that accidentally restricted newer operations' gestures.
 
 Cloud Hold is available in 0.2.326 with shared contact-based completion and
 independent manual capture ownership. See [Cloud Hold](cloud-hold-operation.md).
-Other cloud transformations remain candidates below.
+Cloud Shift X/Y follow in 0.2.327, preserving manual position and capture with additive transient offsets. See [Cloud Shift](cloud-shift-operations.md).
 
 ## Candidates, in priority order
 
