@@ -10,6 +10,104 @@ const listen=(target,event,callback)=>{target.addEventListener(event,callback);l
 const container=root.getElementById('outputs'),orientation=root.getElementById('orientation'),bank=root.getElementById('bank'),count=root.getElementById('count'),status=root.getElementById('status'),override=root.getElementById('override');
 let values=Array.from({length:16},()=>({raw:.5,value:.5,target:0})),holds=new Map(),vertical=false,bankIndex=0,dirty=false,lastSend=0,busy=false,latchMode=false;
 const bound=value=>Math.max(0,Math.min(1,value));
+
+/* One shared XY gesture writes two existing Field output overrides. The DSP
+ * remains the sole owner of latch, lease, interpolation and musical timing.
+ * A second finger controls Y independently; first finger remains X.
+ * Nothing creates MIDI events when the pointer moves. */
+const xyPad=root.getElementById('field-xy-pad');
+const xyX=root.getElementById('field-xy-x-channel'),xyY=root.getElementById('field-xy-y-channel');
+const xyReadout=root.getElementById('field-xy-readout');
+const xyCrossX=root.getElementById('field-xy-guide-x'),xyCrossY=root.getElementById('field-xy-guide-y');
+const xyCursor=root.getElementById('field-xy-point'),xyTrace=root.getElementById('field-xy-trace');
+const xyContacts=new Map(),xyOwned=new Set();
+let xyHeld=false,xyTrail=[];
+const xyChannels=()=>[Number(xyX?.value??0),Number(xyY?.value??1)];
+function paintXY(){
+ if(!xyPad)return;
+ const [laneX,laneY]=xyChannels();
+ const x=holds.get(laneX)??values[laneX]?.value??.5;
+ const y=holds.get(laneY)??values[laneY]?.value??.5;
+ if(xyCrossX)xyCrossX.style.left=x*100+'%';
+ if(xyCrossY)xyCrossY.style.bottom=y*100+'%';
+ if(xyCursor){xyCursor.style.left=x*100+'%';xyCursor.style.bottom=y*100+'%';}
+ if(xyTrace)xyTrace.setAttribute('points',xyTrail.map(point=>(point.x*100).toFixed(2)+','+((1-point.y)*100).toFixed(2)).join(' '));
+ if(xyReadout)xyReadout.textContent='X Field '+(laneX+1)+' '+(x*100).toFixed(1)+'% · Y Field '+(laneY+1)+' '+(y*100).toFixed(1)+'%'+(xyHeld?' · touch':'');
+}
+function cancelXY(commit=false){
+ if(!xyHeld)return;
+ const lanes=[...xyOwned],levels=lanes.map(lane=>holds.get(lane));
+ xyHeld=false;xyContacts.clear();xyOwned.clear();xyPad?.classList.toggle('xy-held',false);
+ if(commit&&active&&!disposed)lanes.forEach((lane,index)=>{
+  if(levels[index]!==undefined)write(prefix+'field_output_finish','1,'+lane+','+Math.round(levels[index]*10000));
+ });
+ for(const lane of lanes)holds.delete(lane);
+ send();paintXY();
+}
+function xyCoords(event){
+ const rect=xyPad.getBoundingClientRect();
+ if(!(rect.width>0&&rect.height>0))return null;
+ return {x:bound((event.clientX-rect.left)/rect.width),y:bound(1-(event.clientY-rect.top)/rect.height)};
+}
+function xyTracePoint(x,y){
+ const last=xyTrail[xyTrail.length-1];
+ if(!last||Math.abs(last.x-x)+Math.abs(last.y-y)>.008){
+  xyTrail.push({x,y});if(xyTrail.length>24)xyTrail.shift();
+ }
+}
+function xyApply(){
+ if(!xyContacts.size||!xyHeld)return;
+ const [laneX,laneY]=xyChannels(),points=[...xyContacts.values()];
+ const x=points[0].x,y=(points[1]??points[0]).y;
+ holds.set(laneX,x);holds.set(laneY,y);
+ xyTracePoint(x,y);dirty=true;paintXY();
+}
+if(xyPad){
+ xyPad.onpointerdown=event=>{
+  if(!active||disposed||document.hidden||event.button!==0||xyContacts.size>=2)return;
+  const channels=xyChannels(),point=xyCoords(event);
+  if(!point||channels.some(lane=>!Number.isInteger(lane)||lane<0||lane>=16)||channels[0]===channels[1])return;
+  if(!xyHeld&&channels.some(lane=>holds.has(lane))){
+   if(xyReadout)xyReadout.textContent='Release the matching Field slider first';
+   return;
+  }
+  event.preventDefault?.();
+  if(!xyHeld){xyHeld=true;xyOwned.add(channels[0]);xyOwned.add(channels[1]);xyTrail=[];xyPad.classList.toggle('xy-held',true);}
+  xyContacts.set(event.pointerId,point);
+  xyPad.setPointerCapture(event.pointerId);xyApply();send();
+ };
+ xyPad.onpointermove=event=>{
+  if(!xyContacts.has(event.pointerId))return;
+  const point=xyCoords(event);if(point){xyContacts.set(event.pointerId,point);xyApply();}
+ };
+ const xyFinish=(event,commit)=>{
+  if(!xyContacts.has(event.pointerId))return;
+  const point=xyCoords(event);if(point){xyContacts.set(event.pointerId,point);xyApply();}
+  xyContacts.delete(event.pointerId);
+  if(!xyContacts.size)cancelXY(commit);else xyApply();
+ };
+ xyPad.onpointerup=event=>xyFinish(event,true);
+ xyPad.onpointercancel=event=>xyFinish(event,false);
+ xyPad.onlostpointercapture=event=>xyFinish(event,false);
+ xyPad.onkeydown=event=>{
+  if(event.key==='Escape'){event.preventDefault();cancelXY(false);return;}
+  const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowDown:[0,-1],ArrowUp:[0,1]}[event.key];
+  if(!delta||!active||disposed||xyContacts.size)return;
+  const channels=xyChannels();
+  if(channels[0]===channels[1]||!xyHeld&&channels.some(lane=>holds.has(lane)))return;
+  event.preventDefault();
+  if(!xyHeld){xyHeld=true;xyOwned.add(channels[0]);xyOwned.add(channels[1]);xyTrail=[];xyPad.classList.toggle('xy-held',true);}
+  const step=event.shiftKey?0.001:0.01;
+  holds.set(channels[0],bound((holds.get(channels[0])??values[channels[0]].value)+delta[0]*step));
+  holds.set(channels[1],bound((holds.get(channels[1])??values[channels[1]].value)+delta[1]*step));
+  xyTracePoint(holds.get(channels[0]),holds.get(channels[1]));
+  dirty=true;paintXY();send();
+ };
+ xyPad.onkeyup=event=>{if(event.key.startsWith('Arrow')&&xyHeld&&!xyContacts.size)cancelXY(true);};
+ xyPad.onblur=()=>cancelXY(false);
+ for(const selector of [xyX,xyY])selector.onchange=()=>{cancelXY(false);paintXY();};
+}
+
 const placementKeys=['field_distribution','field_spread','field_randomness','field_placement_seed'];
 const placementControls=placementKeys.map(key=>root.getElementById(key));
 placementControls.forEach((control,index)=>{control.onchange=()=>{write(prefix+placementKeys[index],control.value);};});
