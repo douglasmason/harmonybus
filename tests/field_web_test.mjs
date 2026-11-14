@@ -59,7 +59,7 @@ xy.onpointerup(pointer(21,75,75));
 assert.deepEqual(frame().slice(0,2),[-1,-1]);
 const committed=recentFinish().slice(startingFinishes).map(([,value])=>value);
 assert.deepEqual(committed,['1,0,7500','1,1,2500']);
-assert.equal(elements['field-xy-trace'].points.includes('75.00,25.00'),true);
+assert.equal(elements['field-xy-trace'].points.includes('75.00,75.00'),true,'SVG y-coordinate is inverted for vertical touch');
 assert(xyOutput.textContent.includes('X Field 1'));
 const beforeCancel=recentFinish().length;
 xy.onpointerdown(pointer(30,60,40));
