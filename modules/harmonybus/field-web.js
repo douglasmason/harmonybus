@@ -87,8 +87,11 @@ if(xyPad){
   if(!xyContacts.size)cancelXY(commit);else xyApply();
  };
  xyPad.onpointerup=event=>xyFinish(event,true);
- xyPad.onpointercancel=event=>xyFinish(event,false);
- xyPad.onlostpointercapture=event=>xyFinish(event,false);
+ // Any canceled member invalidates the whole multi-touch gesture.
+ // A normal pointer-up is removed first, so its subsequent lost-capture
+ // notification cannot cancel another finger that remains actively held.
+ xyPad.onpointercancel=event=>{if(xyContacts.has(event.pointerId))cancelXY(false);};
+ xyPad.onlostpointercapture=event=>{if(xyContacts.has(event.pointerId))cancelXY(false);};
  xyPad.onkeydown=event=>{
   if(event.key==='Escape'){event.preventDefault();cancelXY(false);return;}
   const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowDown:[0,-1],ArrowUp:[0,1]}[event.key];
