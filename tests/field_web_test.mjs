@@ -12,7 +12,7 @@ class Element {
  getBoundingClientRect(){return {left:0,top:0,width:100,height:100};}
  setPointerCapture(id){this.capture.add(id);}hasPointerCapture(id){return this.capture.has(id);}
 }
-const elements=Object.fromEntries(['outputs','orientation','bank','count','status','release','override','field_distribution','field_spread','field_randomness','field_placement_seed'].map(key=>[key,new Element()]));elements.count.value='8';elements.orientation.value=elements.bank.value='0';
+const elements=Object.fromEntries(['outputs','orientation','bank','count','status','release','override','field_distribution','field_spread','field_randomness','field_placement_seed','field-xy-pad','field-xy-x-channel','field-xy-y-channel','field-xy-readout','field-xy-guide-x','field-xy-guide-y','field-xy-point','field-xy-trace'].map(key=>[key,new Element()]));elements.count.value='8';elements.orientation.value=elements.bank.value=elements['field-xy-x-channel'].value='0';elements['field-xy-y-channel'].value='1';
 const writes=[],timers=[],events={};
 const api={component:'midi_fx1',setParam:(key,value)=>writes.push([key,value]),getParam:async(key)=> key.endsWith('field_output_labels')?'fl1;V10%|Velocity amount 10%'+(';--|Unmapped').repeat(15):key.endsWith('field_placement_view')?'nfp1,2,250,75,9':'fo2,1,0,0,'+Array.from({length:16},()=>[5000,3500,1]).flat().join(',')+',1,1,0,0'};
 const context={window:{schwungRemote:api,addEventListener:(event,handler)=>events[event]=handler},document:{getElementById:key=>elements[key],createElement:()=>new Element(),hidden:false,addEventListener:(event,handler)=>events[event]=handler},setInterval:handler=>timers.push(handler),Date,Math,Number,String,Map,Array,Error};
@@ -35,3 +35,65 @@ assert.equal(elements.field_distribution.value,'2');assert.equal(elements.field_
 elements.field_randomness.value='42';elements.field_randomness.onchange();assert.deepEqual(writes.at(-1),['midi_fx1:field_randomness','42']);
 
 assert.equal(sliders[0]['aria-valuetext'],'Velocity amount 10%');assert.equal(sliders[0].parentElement.querySelector('.readout').textContent,'V10%');
+
+
+// The same Field output bridge now owns a full 2D touch surface. Independent
+// fingers share the X and Y channels without creating a second musical engine.
+const xy=elements['field-xy-pad'],xyOutput=elements['field-xy-readout'];
+const pointer=(id,x,y)=>({button:0,pointerId:id,clientX:x,clientY:y,preventDefault(){}});
+const recentFinish=()=>writes.filter(([key])=>key==='midi_fx1:field_output_finish');
+const startingFinishes=recentFinish().length;
+xy.onpointerdown(pointer(21,25,75));
+assert.equal(frame()[0],2500);assert.equal(frame()[1],2500);
+assert(xyOutput.textContent.includes('X Field 1 25.0%'));
+assert.equal(elements['field-xy-point'].style.left,'25%');
+xy.onpointerdown(pointer(22,95,10));
+assert.equal(frame()[0],2500,'first finger independently owns X');
+assert.equal(frame()[1],9000,'second finger independently owns Y');
+xy.onpointermove(pointer(21,75,75));
+xy.onpointermove(pointer(22,20,20));
+xy.onpointerup(pointer(22,20,20));
+// Leaving the second finger switches back to the first finger's Y. The
+// final release commits both coordinates once, never midway through a hold.
+xy.onpointerup(pointer(21,75,75));
+assert.deepEqual(frame().slice(0,2),[-1,-1]);
+const committed=recentFinish().slice(startingFinishes).map(([,value])=>value);
+assert.deepEqual(committed,['1,0,7500','1,1,2500']);
+assert.equal(elements['field-xy-trace'].points.includes('75.00,75.00'),true,'SVG y-coordinate is inverted for vertical touch');
+assert(xyOutput.textContent.includes('X Field 1'));
+const beforeCancel=recentFinish().length;
+xy.onpointerdown(pointer(30,60,40));
+xy.onpointercancel(pointer(30,60,40));
+assert.equal(recentFinish().length,beforeCancel,'a canceled XY contact never latches');
+assert(frame().every(value=>value===-1));
+xy.onpointerdown(pointer(35,25,80));
+xy.onpointerdown(pointer(36,75,20));
+xy.onpointercancel(pointer(36,75,20));
+xy.onpointerup(pointer(35,25,80));
+assert.equal(recentFinish().length,beforeCancel,'canceling one finger cancels the entire dual-touch latch');
+assert(frame().every(value=>value===-1));
+xy.onpointerdown(pointer(31,40,50));
+events.pagehide();
+assert.equal(recentFinish().length,beforeCancel,'pagehide cancels without committing');
+assert(frame().every(value=>value===-1));
+xy.onpointermove(pointer(31,90,0));
+assert(frame().every(value=>value===-1),'stale movement cannot restart a released touch');
+// Keyboard XY editing reuses the same two-lane owner and Release behavior.
+const keyboard={key:'ArrowRight',shiftKey:false,preventDefault(){}};
+xy.onkeydown(keyboard);
+assert.equal(frame()[0],3600);
+assert.equal(frame()[1],3500);
+xy.onkeyup(keyboard);
+assert.equal(recentFinish().length,beforeCancel+2,'keyboard release commits both lanes');
+xy.onpointerdown(pointer(33,0,0));
+elements.release.onclick();
+assert(frame().every(value=>value===-1),'Release all cancels both XY lanes');
+const beforeStale=writes.length;
+xy.onpointermove(pointer(33,100,100));
+assert.equal(writes.length,beforeStale,'cleared XY pointer cannot recreate a hold');
+elements['field-xy-y-channel'].value='0';
+xy.onpointerdown(pointer(34,80,80));
+assert(frame().every(value=>value===-1),'same-lane axis assignment is rejected');
+elements['field-xy-y-channel'].value='1';
+elements['field-xy-y-channel'].onchange();
+console.log('XY head surface: two-finger X/Y ownership, normalized output, keyboard, latch finish, cancellation and same-lane guards pass');

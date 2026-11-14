@@ -1,4 +1,4 @@
-## HarmonyBus 0.2.327
+## HarmonyBus 0.2.328
 
 Cloud Shift X/Y add reversible, pressure-driven position offsets through shared operation controls. See [Cloud Shift](cloud-shift-operations.md).
 
