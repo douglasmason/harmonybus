@@ -23,8 +23,8 @@ async function pollPlacement(){
 }
 const send=()=>{write(prefix+'field_outputs_remote','fo1,'+values.map((_,lane)=>holds.has(lane)?Math.round(holds.get(lane)*10000):-1).join(','));lastSend=Date.now();dirty=false;};
 // Cancellation (blur/disconnect/layout) never creates a latch.
-const release=()=>{if(holds.size){holds.clear();send();}dirty=false;};
-const clear=lane=>{if(lane===16)holds.clear();else holds.delete(lane);write(prefix+'field_output_clear',String(lane));send();};
+const release=()=>{cancelXY(false);if(holds.size){holds.clear();send();}dirty=false;};
+const clear=lane=>{if(xyHeld&&(lane===16||xyOwned.has(lane)))cancelXY(false);if(lane===16)holds.clear();else holds.delete(lane);write(prefix+'field_output_clear',String(lane));send();};
 function render(){
  container.classList.toggle('vertical',vertical);
  container.style.gridTemplateColumns=vertical?`repeat(${count.value},minmax(50px,1fr))`:'';
@@ -36,7 +36,7 @@ function render(){
   for(let position=0;position<8;position++){const cell=document.createElement('span');cell.className='cell';slider.append(cell);}
   const marker=document.createElement('span');marker.className='marker';slider.append(marker);
   const move=event=>{const rect=slider.getBoundingClientRect();holds.set(lane,bound(vertical?1-(event.clientY-rect.top)/rect.height:(event.clientX-rect.left)/rect.width));dirty=true;};
-  slider.onpointerdown=event=>{if(!active||event.button!==0)return;slider.setPointerCapture(event.pointerId);move(event);send();};
+  slider.onpointerdown=event=>{if(!active||event.button!==0)return;if(xyOwned.has(lane))cancelXY(false);slider.setPointerCapture(event.pointerId);move(event);send();};
   slider.onpointermove=event=>{if(slider.hasPointerCapture(event.pointerId)&&holds.has(lane))move(event);};
   const end=(commit=false)=>{
    if(commit&&holds.has(lane))write(prefix+'field_output_finish',`1,${lane},${Math.round(holds.get(lane)*10000)}`);
@@ -59,6 +59,7 @@ function paint(){
   const marker=slider.querySelector('.marker');marker.style.opacity=Math.abs(output.raw-output.value)>.005?'.6':'0';
   marker.style.left=vertical?'3px':`${output.raw*100}%`;marker.style.bottom=vertical?`${output.raw*100}%`:'3px';
  }
+ paintXY();
 }
 orientation.onchange=()=>{release();vertical=orientation.value==='1';write(prefix+'field_orientation',orientation.value);render();};
 bank.onchange=()=>{release();bankIndex=Number(bank.value);write(prefix+'field_bank',bank.value);render();};count.onchange=()=>{release();render();};root.getElementById('release').onclick=()=>clear(16);
@@ -71,7 +72,7 @@ async function poll(){
  if(snapshot[0]!=='fo2'||snapshot.length!==56)throw Error('Waiting for a compatible HarmonyBus instance');
  const numbers=snapshot.slice(1).map(Number);if(!numbers.every(Number.isFinite))throw Error('Invalid field snapshot');
  latchMode=numbers[51]===1;override.value=String(Number(latchMode));
- const blocked=numbers[54];let canceled=false;for(const lane of holds.keys())if(blocked&(1<<lane)){holds.delete(lane);canceled=true;}if(canceled)send();
+ const blocked=numbers[54];if(xyHeld&&[...xyOwned].some(lane=>blocked&(1<<lane)))cancelXY(false);let canceled=false;for(const lane of holds.keys())if(blocked&(1<<lane)){holds.delete(lane);canceled=true;}if(canceled)send();
  const nextVertical=numbers[1]===1,nextBank=numbers[2];const rebuild=nextVertical!==vertical||nextBank!==bankIndex;
  if(rebuild){release();vertical=nextVertical;bankIndex=nextBank;orientation.value=String(Number(vertical));bank.value=String(bankIndex);}
  const labelRows=String(await api.getParam(prefix+'field_output_labels')).split(';');if(!active||ticket!==generation)return;
