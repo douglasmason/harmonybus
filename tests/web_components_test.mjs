@@ -19,8 +19,8 @@ const context={window:{...target},document:{...target,hidden:false,createElement
 const tick=async()=>{for(const fn of [...timers.values()])fn();await new Promise(resolve=>setImmediate(resolve));};
 for(const file of ['field','choice'])vm.runInNewContext(readFileSync(new URL(`../modules/harmonybus/${file}-web.js`,import.meta.url),'utf8'),context);
 function mount(kind){
- const ids=kind==='Field'?['outputs','orientation','bank','count','status','release','override','field_distribution','field_spread','field_randomness','field_placement_seed']:['choices','choice-rows','choice-status','choice-use','choice-clear'];
- const elements=Object.fromEntries(ids.map(id=>[id,new Element()]));if(kind==='Field'){elements.count.value='8';elements.orientation.value=elements.bank.value='0';}
+ const ids=kind==='Field'?['outputs','orientation','bank','count','status','release','override','field_distribution','field_spread','field_randomness','field_placement_seed','field-xy-pad','field-xy-x-channel','field-xy-y-channel','field-xy-readout','field-xy-guide-x','field-xy-guide-y','field-xy-point','field-xy-trace']:['choices','choice-rows','choice-status','choice-use','choice-clear'];
+ const elements=Object.fromEntries(ids.map(id=>[id,new Element()]));if(kind==='Field'){elements.count.value='8';elements.orientation.value=elements.bank.value=elements['field-xy-x-channel'].value='0';elements['field-xy-y-channel'].value='1';}
  const writes=[];let reads=0,pending=null;
  const api={component:'midi_fx1',setParam:(...args)=>writes.push(args),getParam:async key=>{
   reads++;if(pending)return pending;
@@ -35,8 +35,8 @@ function mount(kind){
 }
 for(const kind of ['Field','Choices']){
  const a=mount(kind),b=mount(kind);await tick();
- const slider=kind==='Field'?a.elements.outputs.querySelector('.slider'):a.elements['choice-rows'].children[0].children[1];
- if(kind==='Field')slider.onpointerdown({button:0,pointerId:1,clientX:25,clientY:0});else{slider.value='2500';slider.oninput();}
+ const slider=kind==='Field'?a.elements['field-xy-pad']:a.elements['choice-rows'].children[0].children[1];
+ if(kind==='Field')slider.onpointerdown({button:0,pointerId:1,clientX:25,clientY:75,preventDefault(){}});else{slider.value='2500';slider.oninput();}
  assert(a.component.isHeld());assert(!b.component.isHeld());assert.equal(b.writes.length,0,'independent mounts do not send each other edits');
  a.component.suspend();assert(!a.component.isHeld());const cancelled=a.writes.at(-1);
  assert(kind==='Field'?cancelled[1].split(',').slice(1).every(value=>value==='-1'):cancelled[1]==='0,0','suspension cancels without latching');
